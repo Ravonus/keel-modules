@@ -178,6 +178,50 @@ whether that is the forge serving a different tree for the same commit or a
 registration claiming something the source does not build to. Neither is
 allowed to silently become the new truth during an index run.
 
+## Shipping a new version
+
+A registration pins one commit, so a new version needs the registration to
+follow. Do not hand-edit the sha: the file is full of digests that describe the
+old commit, and editing one field would leave it claiming things no rebuild
+produced.
+
+```bash
+keel module bump modules/your-handle/render/your-module --commit <new-sha> --version 2.0.0
+```
+
+That re-fetches, rebuilds, and rewrites every digest from what the new rebuild
+produced, then tells you which ones moved. If the new commit does not build,
+nothing is written and your registration is left exactly as it was.
+
+A bump cannot change which repository is registered. Moving a registration to a
+different owner, repo, or entry point is not a new version of the same module,
+it is a different module wearing its name, so that needs a fresh registration
+and a fresh review.
+
+## When somebody else's repository disappears
+
+It happens: repositories get deleted, turned private, or force-pushed, and
+nothing in this repository would notice on its own. So a scheduled job watches:
+
+```bash
+pnpm check:origins
+```
+
+It fetches every registered archive and compares its sha256 to the one the
+registration recorded, and CI runs it daily. Three outcomes:
+
+- **OK** the archive is byte-identical to the one that was verified. The recipe
+  pins the toolchain, so identical bytes rebuild identically.
+- **UNREACHABLE** it could not be fetched. Deleted, private, or the commit is
+  gone. The recorded digests are still true about bytes nobody can get any more.
+- **CHANGED** the archive hashed differently.
+
+CHANGED is deliberately not reported as tampering. Forges regenerate archives,
+and GitHub has altered tarball compression before, which moved checksums for
+every repository at once without anybody's source changing. So it says what is
+actually known, which is that the bytes differ, and points at
+`keel module verify --all` to rebuild and settle whether the SOURCE differs.
+
 ## Verified is not deployed
 
 Your module is VERIFIED the moment its readable source is proven to rebuild into

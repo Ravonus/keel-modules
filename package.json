@@ -9,6 +9,7 @@
     "typecheck": "for config in modules/*/*/*/tsconfig.json template/tsconfig.json; do echo \"== tsc -p $config\"; ./node_modules/.bin/tsc -p \"$config\" || exit 1; done",
     "vectors": "node scripts/run-vectors.mjs",
     "check:catalog": "node scripts/check-catalog.mjs",
+    "check:origins": "node scripts/check-origins.mjs",
     "repos": "node scripts/repos.mjs",
     "mirror": "node scripts/mirror.mjs"
   },

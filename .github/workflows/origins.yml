@@ -1,0 +1,29 @@
+name: origins
+
+# Registered modules live in other people's repositories. Those can be deleted,
+# made private, or force-pushed at any time, and nothing in this repository
+# would notice on its own. So the watchdog runs on a timer rather than only on
+# pull requests, which are exactly the moments when nothing has changed here.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "modules/**/keel.registration.json"
+      - "scripts/check-origins.mjs"
+
+jobs:
+  origins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Needs nothing but Node: it fetches each registered archive and hashes
+      # it. It cannot prove a rebuild still reproduces, only that the bytes it
+      # was verified against are still being served. `keel module verify --all`
+      # is the deeper check, and the failure output says so.
+      - name: Check every registered origin is reachable and unchanged
+        run: node scripts/check-origins.mjs

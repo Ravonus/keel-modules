@@ -35,7 +35,9 @@ modules/<publisher>/<category>/<id>/
   deployments/<chainId>.json   published revisions, if any (keel.jsmodule-deployment@1)
 template/             starter for new modules
 catalog/catalog.json  generated keel-module-catalog@3: publishers plus every module
-scripts/run-vectors.mjs  runs every module's vectors against its readable source
+scripts/run-vectors.mjs   runs every module's vectors against its readable source
+scripts/check-catalog.mjs runs the offline catalog gate (digests, owners, categories)
+scripts/check-origins.mjs checks every registered foreign origin is still served
 eslint.config.js     one strict, type-aware lint config for every module
 tsconfig.base.json    the one strict compiler config every module extends
 ```

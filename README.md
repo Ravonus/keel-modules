@@ -21,6 +21,10 @@ This repository is the open, auditable half of every published KEEL module: the 
 
 ```
 modules/<publisher>/publisher.json   a person or an org, its people and groups (keel.publisher@1)
+modules/<publisher>/<category>/<id>/keel.registration.json
+                      a module whose source lives in ANOTHER repository: the
+                      origin, the commit, and the digests a verification found.
+                      Nothing is vendored (keel.registration@1)
 modules/<publisher>/<category>/<id>/
   src/index.ts        the verified readable source, strict TypeScript
   keel.module.json    manifest (keel.jsmodule@2): id, entry, license, summary,

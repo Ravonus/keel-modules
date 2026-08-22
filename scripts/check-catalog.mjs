@@ -17,7 +17,10 @@
  *   - every owner path resolves to a real publisher, group, and member;
  *   - category matches the directory the module is filed in;
  *   - `verified` is only ever set by a byte-proof disposition;
- *   - a deployment record names the module it sits under and pins an address.
+ *   - a deployment record names the module it sits under and pins an address;
+ *   - an origin registration pins a full commit and agrees with its catalog
+ *     entry (its digests cannot be recomputed here, because its source is not
+ *     here: `keel module verify --all` is the check that re-derives them).
  */
 import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
@@ -41,7 +44,15 @@ async function discoverModules(directory) {
         manifest: JSON.parse(await readFile(path.join(child, "keel.module.json"), "utf8")),
       });
     } catch {
-      found.push(...(await discoverModules(child)));
+      try {
+        // An origin registration is a leaf too: nothing is vendored, so there
+        // are no local source files to hash. What can be checked offline is
+        // that it is internally coherent and pinned to a real commit.
+        const registration = JSON.parse(await readFile(path.join(child, "keel.registration.json"), "utf8"));
+        found.push({ directory: child, workspacePath: path.relative(ROOT, child).split(path.sep).join("/"), manifest: registration, registered: true });
+      } catch {
+        found.push(...(await discoverModules(child)));
+      }
     }
   }
   return found.sort((left, right) => (left.manifest.id < right.manifest.id ? -1 : 1));
@@ -63,6 +74,21 @@ for (const module of modules) {
   const entry = catalogued.get(id);
   if (entry === undefined) {
     fail(`${id}: in the tree but not in the catalog. Run "keel module build --all" then "keel module index".`);
+    continue;
+  }
+
+  if (module.registered) {
+    // Its source is in another repository, so nothing here can be recomputed
+    // offline. `keel module verify --all` is the check that re-derives these
+    // over the network; what is enforceable here is coherence.
+    const origin = module.manifest.origin ?? {};
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(String(origin.commit))) {
+      fail(`${id}: origin.commit must be a full commit hash, not "${String(origin.commit)}"`);
+    }
+    if (entry.provenance !== "origin") fail(`${id}: registered by origin but the catalog says provenance "${String(entry.provenance)}"`);
+    if (entry.origin?.commit !== origin.commit) fail(`${id}: catalog origin commit disagrees with the registration`);
+    if (entry.outputDigest !== module.manifest.expect?.outputDigest) fail(`${id}: catalog outputDigest disagrees with the registration`);
+    if (entry.receiptDigest !== module.manifest.expect?.receiptDigest) fail(`${id}: catalog receiptDigest disagrees with the registration`);
     continue;
   }
 

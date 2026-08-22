@@ -14,7 +14,7 @@ export type SeededRandom = () => number;
  * @returns Four unsigned 32-bit words.
  */
 export function seedWords(hexSeed: string): [number, number, number, number] {
-  const clean = String(hexSeed).replace(/^0x/u, "").padEnd(64, "0").slice(0, 64);
+  const clean = hexSeed.replace(/^0x/u, "").padEnd(64, "0").slice(0, 64);
   const word = (index: number): number => {
     const high = Number.parseInt(clean.slice(index * 8, index * 8 + 8), 16) >>> 0;
     const low = Number.parseInt(clean.slice((index + 4) * 8, (index + 5) * 8), 16) >>> 0;

@@ -12,7 +12,7 @@ export type ColorChannels = readonly number[];
  */
 export function parseHexColor(value: string): number[] {
   const match = /^#([0-9a-f]{6})([0-9a-f]{2})?$/iu.exec(value);
-  if (match === null || match[1] === undefined) throw new TypeError(`Invalid color ${value}.`);
+  if (match?.[1] === undefined) throw new TypeError(`Invalid color ${value}.`);
   const hex = match[1];
   const alpha = match[2];
   return [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).concat(alpha === undefined ? 255 : Number.parseInt(alpha, 16));
@@ -21,11 +21,11 @@ export function parseHexColor(value: string): number[] {
 /**
  * Formats channel values as a CSS rgba() string.
  *
- * @param color [red, green, blue, alpha] channels; a missing alpha is treated as 255.
+ * @param color [red, green, blue, alpha] channels; missing channels are treated as 255.
  * @returns The rgba() string with alpha scaled to 0 to 1.
  */
 export function rgba(color: ColorChannels): string {
-  return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${Math.round(color[3] ?? 255) / 255})`;
+  return `rgba(${color[0] ?? 255}, ${color[1] ?? 255}, ${color[2] ?? 255}, ${Math.round(color[3] ?? 255) / 255})`;
 }
 
 /**
@@ -37,8 +37,13 @@ export function rgba(color: ColorChannels): string {
  * @returns A four-channel color of rounded values.
  */
 export function mixColors(left: ColorChannels, right: ColorChannels, amount: number): number[] {
-  const t = Math.min(Math.max(Number(amount), 0), 1);
+  const t = Math.min(Math.max(amount, 0), 1);
   return Array.from({ length: 4 }, (_, index) => Math.round((left[index] ?? 255) + ((right[index] ?? 255) - (left[index] ?? 255)) * t));
+}
+
+/** Throws unless the value is a non-empty array; guards untyped JS callers. */
+function assertNonEmptyPalette(palette: unknown): void {
+  if (!Array.isArray(palette) || palette.length === 0) throw new RangeError("Palette cannot be empty.");
 }
 
 /**
@@ -51,7 +56,7 @@ export function mixColors(left: ColorChannels, right: ColorChannels, amount: num
  * @throws TypeError when the selected entry is not a valid hex color.
  */
 export function paletteColor(palette: readonly string[], index: number): number[] {
-  if (!Array.isArray(palette) || palette.length === 0) throw new RangeError("Palette cannot be empty.");
+  assertNonEmptyPalette(palette);
   const entry = palette[((index % palette.length) + palette.length) % palette.length];
   if (entry === undefined) throw new RangeError("Palette cannot be empty.");
   return parseHexColor(entry);

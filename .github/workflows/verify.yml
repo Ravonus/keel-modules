@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  typecheck:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,17 +18,21 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Lint every module and the template
+        run: pnpm lint
       - name: Typecheck every module and the template
-        run: |
-          status=0
-          for config in modules/*/tsconfig.json template/tsconfig.json; do
-            echo "== tsc -p $config"
-            ./node_modules/.bin/tsc -p "$config" || status=1
-          done
-          exit "$status"
+        run: pnpm typecheck
+      - name: Run every module's test vectors against the readable source
+        run: pnpm vectors
 
       # TODO: enable once the keel CLI is published. For every changed module,
       # run `keel module build` and fail unless the rebuilt minified output and
-      # build recipe digests match the committed keel-source-receipt@1.
+      # build recipe digests match the committed keel-source-receipt@1, then
+      # run `keel module test` so the vectors also pass against the minified
+      # bytes, and `keel module index` to refresh the catalog snapshots.
       # - name: Reproduce module builds
       #   run: keel module build --check modules/*
+      # - name: Vectors against minified builds
+      #   run: keel module test modules/*
+      # - name: Refresh resolver catalog
+      #   run: keel module index --check

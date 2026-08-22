@@ -42,7 +42,7 @@ export function createUniformWriter(gl: UniformContext, program: WebGLProgram): 
   }
   return function setUniform(name: string, value: UniformValue): void {
     const entry = entries.get(name);
-    if (entry === undefined || entry.location === null) throw new Error(`Unknown uniform ${name}.`);
+    if (entry?.location === undefined || entry.location === null) throw new Error(`Unknown uniform ${name}.`);
     const { type } = entry.info;
     if (type === gl.FLOAT) gl.uniform1f(entry.location, Number(value));
     else if (type === gl.FLOAT_VEC2) gl.uniform2fv(entry.location, asFloatList(name, value));

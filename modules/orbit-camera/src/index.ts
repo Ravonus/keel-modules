@@ -23,7 +23,7 @@ export interface OrbitOptions {
  */
 export function orbitPosition({ target = [0, 0, 0], yaw = 0, pitch = 0, distance = 5 }: OrbitOptions): [number, number, number] {
   const safePitch = Math.min(Math.max(pitch, -Math.PI / 2 + 0.001), Math.PI / 2 - 0.001);
-  const radius = Math.max(Number(distance), 0.001);
+  const radius = Math.max(distance, 0.001);
   const horizontal = Math.cos(safePitch) * radius;
   return [
     target[0] + Math.sin(yaw) * horizontal,

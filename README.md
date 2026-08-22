@@ -13,6 +13,10 @@ On-chain bytes are expensive, so what a KEEL artwork actually stores is minified
 
 So trust flows one way: you audit the pretty source, the receipt and the reproducible build guarantee the ugly bytes are that same program.
 
+## Open source
+
+This repository is the open, auditable half of every published KEEL module: the verified readable sources live here, and they are exactly what the on-chain hash receipts bind to. Anyone can read this code, reproduce the deterministic build, and confirm that the minified bytes stored on chain are the same program. Everything here is MIT licensed (see LICENSE); each module's `keel.module.json` restates the license per module.
+
 ## Layout
 
 ```
@@ -21,8 +25,11 @@ modules/<id>/
   keel.module.json    manifest (keel.jsmodule@1): id, entry, license, summary
   README.md           what it does, injected dependencies, usage
   tsconfig.json       extends the shared strict base
+  test/vectors.mjs    deterministic test vectors run against readable and minified builds
 template/             starter for new modules; copy it to modules/<id>/
 catalog/              generated keel-module-resolver-catalog@1 snapshots
+scripts/run-vectors.mjs  runs every module's vectors against its readable source
+eslint.config.js     one strict, type-aware lint config for every module
 tsconfig.base.json    the one strict compiler config every module extends
 ```
 
@@ -32,8 +39,9 @@ tsconfig.base.json    the one strict compiler config every module extends
 
 1. Copy `template/` to `modules/<your-id>/` and follow its README.
 2. Keep the dependency-injection style: modules take their environment (audio contexts, event targets, GL contexts, resolvers) as parameters and never touch globals directly.
-3. Typecheck locally: `npx tsc -p modules/<your-id>/tsconfig.json`.
-4. Run `keel module build` to minify and emit the hash receipt, then open a pull request. CI typechecks every module and reproduces your build before merge.
+3. Check locally: `pnpm lint`, `pnpm typecheck`, and `pnpm vectors` must all pass.
+4. Add `test/vectors.mjs`: a default-exported array of `{ name, run(moduleExports), expect }` cases. They are dependency-free ESM, run deterministically in plain Node, and `keel module test` executes them against both the readable and the minified build.
+5. Run `keel module build` to minify and emit the hash receipt, then open a pull request. CI lints, typechecks, and runs every module's vectors, and reproduces your build before merge.
 
 ## The eleven starter modules
 

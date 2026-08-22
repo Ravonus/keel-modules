@@ -4,7 +4,14 @@
   "type": "module",
   "description": "Verified readable sources for on-chain KEEL JavaScript modules.",
   "license": "MIT",
+  "scripts": {
+    "lint": "eslint \"modules/*/src/**/*.ts\" \"template/src/**/*.ts\"",
+    "typecheck": "for config in modules/*/tsconfig.json template/tsconfig.json; do echo \"== tsc -p $config\"; ./node_modules/.bin/tsc -p \"$config\" || exit 1; done",
+    "vectors": "node scripts/run-vectors.mjs"
+  },
   "devDependencies": {
-    "typescript": "^5.5.0"
+    "eslint": "^10.9.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.67.0"
   }
 }

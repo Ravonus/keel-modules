@@ -27,16 +27,13 @@ jobs:
       - name: Check the committed catalog against the committed sources
         run: pnpm check:catalog
 
-      # The catalog check above proves the committed digests still describe the
-      # committed sources, which is the failure a pull request actually tends
-      # to introduce. It cannot prove a build REPRODUCES; only the keel CLI
-      # can, and it is not published to npm yet. Until it is, reproduction is
-      # enforced from the keel-sdk side by
-      # tests/keel-modules-reproduction.test.mjs, which fetches this repository
-      # from GitHub at its current commit and rebuilds every module.
+      # This repository runs the checks that need no toolchain. The checks that
+      # need one, because they rebuild, run in keel-sdk's `modules-verify`
+      # workflow: it reproduces every module, runs the vectors against the
+      # minified bytes, proves the committed catalog is byte reproducible, and
+      # re-verifies every registered origin, daily and on every push.
       #
-      # TODO: once `@keel/builder` is on npm, add here:
-      #   keel module build --all && keel module test --all
-      #   keel module index && git diff --exit-code catalog/catalog.json
-      # The last line is the real gate: indexing is deterministic and reads
-      # only committed files, so a clean tree must produce a clean diff.
+      # It lives there because that is where the builder is, and because this
+      # repository's own CI is deliberately toolchain-free: every check here
+      # runs with nothing but Node, so a contributor can run all of them
+      # locally without installing the SDK.

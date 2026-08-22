@@ -88,7 +88,7 @@ if (!CREATE) {
 }
 
 for (const manifest of missing) {
-  const topics = ["keel", "keel-module", manifest.category, manifest.owner.group].filter(Boolean);
+  const topics = ["keel", "keel-module", manifest.category, manifest.owner?.group].filter(Boolean);
   execFileSync("gh", [
     "repo", "create", `${ORG}/${manifest.id}`,
     "--public",

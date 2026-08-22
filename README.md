@@ -20,17 +20,17 @@ This repository is the open, auditable half of every published KEEL module: the 
 ## Layout
 
 ```
-modules/<org>/org.json               the organisation: its people and its groups (keel.org@1)
-modules/<org>/<category>/<id>/
+modules/<publisher>/publisher.json   a person or an org, its people and groups (keel.publisher@1)
+modules/<publisher>/<category>/<id>/
   src/index.ts        the verified readable source, strict TypeScript
   keel.module.json    manifest (keel.jsmodule@2): id, entry, license, summary,
-                      category, owner (org/group/member), repository
+                      category, owner (a user, or an org/group/member), repository
   README.md           what it does, injected dependencies, usage
   tsconfig.json       extends the shared strict base
   test/vectors.mjs    deterministic test vectors run against readable and minified builds
   deployments/<chainId>.json   published revisions, if any (keel.jsmodule-deployment@1)
 template/             starter for new modules
-catalog/catalog.json  generated keel-module-catalog@2: organisations plus every module
+catalog/catalog.json  generated keel-module-catalog@3: publishers plus every module
 scripts/run-vectors.mjs  runs every module's vectors against its readable source
 eslint.config.js     one strict, type-aware lint config for every module
 tsconfig.base.json    the one strict compiler config every module extends
@@ -42,11 +42,14 @@ tsconfig.base.json    the one strict compiler config every module extends
 `audio`, `generative`, `input`, `render`, `timing`, `viewer`. Filing a module
 somewhere else is a `git mv` plus one manifest field.
 
-`owner` is who is responsible for it, and it is a path into the org manifest:
-an org, optionally a group inside it, optionally a person inside that group.
-So a listing can be `org > modules`, `org > group > modules`, or
-`org > group > member > modules`, and a graphics team can own a module filed
-under `viewer` without either fact being bent to fit the other.
+`owner` is who is responsible for it, and it is a path into a publisher
+manifest. A publisher is a **person** or an **organisation**: nobody has to
+invent an org to publish a module, so `{ "user": "handle" }` owns its modules
+directly and has no groups. An org additionally supports
+`org > group > modules` and `org > group > member > modules`.
+
+A graphics team can own a module filed under `viewer` without either fact being
+bent to fit the other.
 
 ### Verified is not deployed
 
@@ -89,11 +92,16 @@ clock or a file mtime, so re-running `keel module index` on a clean checkout is
 a no-op diff and anyone can check the published catalog by regenerating it and
 running `diff`.
 
-`catalog/` is generated output, not hand-edited: `keel module index` writes a `keel-module-catalog@2` document there so hosts, viewers, and the site can map module ids to their organisations, receipts, and on-chain locations without walking the tree.
+`catalog/` is generated output, not hand-edited: `keel module index` writes a `keel-module-catalog@3` document there so hosts, viewers, and the site can map module ids to their publishers, receipts, and on-chain locations without walking the tree.
+
+The rules above are house rules for THIS repository. They are not imposed on
+anyone registering a module that lives in their own repository: see
+[CONTRIBUTING.md](CONTRIBUTING.md), which spells out the very short list of
+things a verification can honestly demand of somebody else's code.
 
 ## Adding a module
 
-1. Copy `template/` to `modules/<org>/<category>/<your-id>/` and follow its README.
+1. Copy `template/` to `modules/<publisher>/<category>/<your-id>/` and follow its README.
 2. Keep the dependency-injection style: modules take their environment (audio contexts, event targets, GL contexts, resolvers) as parameters and never touch globals directly.
 3. Check locally: `pnpm lint`, `pnpm typecheck`, and `pnpm vectors` must all pass.
 4. Add `test/vectors.mjs`: a default-exported array of `{ name, run(moduleExports), expect }` cases. They are dependency-free ESM, run deterministically in plain Node, and `keel module test` executes them against both the readable and the minified build.

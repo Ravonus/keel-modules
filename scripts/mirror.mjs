@@ -88,6 +88,9 @@ async function standaloneTsconfig() {
   return `${JSON.stringify({ compilerOptions: base.compilerOptions, include: ["src"] }, null, 2)}\n`;
 }
 
+/** The publisher directory a module lives under: a user handle or an org id. */
+const publisherOf = (manifest) => manifest.owner?.user ?? manifest.owner?.org ?? "unaffiliated";
+
 function mirrorReadme(manifest, outputDigest, monorepoCommit) {
   return `# ${manifest.id}
 
@@ -119,7 +122,7 @@ both the readable source and the minified bytes.
 ## Where this comes from
 
 This repository is a mirror. The source of truth is
-[\`${manifest.owner.org}/${manifest.category}/${manifest.id}\`](https://github.com/Ravonus/keel-modules/tree/master/modules/${manifest.owner.org}/${manifest.category}/${manifest.id})
+[\`${publisherOf(manifest)}/${manifest.category}/${manifest.id}\`](https://github.com/Ravonus/keel-modules/tree/master/modules/${publisherOf(manifest)}/${manifest.category}/${manifest.id})
 in the keel-modules monorepo, at commit \`${monorepoCommit}\`. Both trees build
 to the same digest above; the mirror exists so this module can be depended on,
 starred, and forked on its own.

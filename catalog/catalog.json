@@ -1,12 +1,13 @@
 {
-  "schema": "keel-module-catalog@2",
-  "organizations": [
+  "schema": "keel-module-catalog@3",
+  "publishers": [
     {
       "id": "keel-web3",
+      "kind": "org",
       "title": "Keel",
       "summary": "First-party Keel modules: the reference library every KEEL artwork can build on.",
       "url": "https://github.com/keel-web3",
-      "organizationId": null,
+      "identityId": null,
       "members": [
         {
           "id": "ravonus",
@@ -58,10 +59,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Deterministic oscillator and ADSR envelope primitives for Web Audio authoring.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "audio",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "sound",
         "member": null
       },
@@ -86,10 +88,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Fixed-timestep animation clock with explicit FPS and bounded catch-up.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "timing",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "runtime",
         "member": null
       },
@@ -114,10 +117,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Scoped, removable keyboard-command map for artwork documents.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "input",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "runtime",
         "member": null
       },
@@ -142,10 +146,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Seeded 2D value noise with smooth interpolation and fractal octaves.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "generative",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "generative",
         "member": null
       },
@@ -170,10 +175,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Framework-free orbit-camera position and perspective matrix helpers.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "render",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "graphics",
         "member": null
       },
@@ -198,10 +204,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Hex palette parsing, interpolation, and deterministic selection.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "render",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "graphics",
         "member": null
       },
@@ -226,10 +233,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Deterministic xoshiro128** random helpers for replayable browser art.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "generative",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "generative",
         "member": null
       },
@@ -254,10 +262,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "WebGL uniform discovery and strict typed uniform updates.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "render",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "graphics",
         "member": null
       },
@@ -282,10 +291,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Equal-cell and JSON-atlas sprite sheet helpers with crisp pixel drawing.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "render",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "graphics",
         "member": null
       },
@@ -310,10 +320,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Capture markers for exact Keel poster and motion thumbnails.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "viewer",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "runtime",
         "member": null
       },
@@ -338,10 +349,11 @@
       "version": "0.1.0",
       "license": "MIT",
       "summary": "Cached byte, text, JSON, and image views over a host-injected verified resolver.",
-      "org": "keel-web3",
+      "publisher": "keel-web3",
       "category": "viewer",
       "owner": {
-        "org": "keel-web3",
+        "publisher": "keel-web3",
+        "kind": "org",
         "group": "runtime",
         "member": null
       },

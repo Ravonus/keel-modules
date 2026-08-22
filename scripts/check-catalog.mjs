@@ -14,7 +14,7 @@
  *
  *   - every sourceFiles digest is the sha256 of the file at that path;
  *   - every module in the tree is in the catalog and the reverse;
- *   - every owner path resolves to a real org, group, and member;
+ *   - every owner path resolves to a real publisher, group, and member;
  *   - category matches the directory the module is filed in;
  *   - `verified` is only ever set by a byte-proof disposition;
  *   - a deployment record names the module it sits under and pins an address.
@@ -48,10 +48,10 @@ async function discoverModules(directory) {
 }
 
 const catalog = JSON.parse(await readFile(path.join(ROOT, "catalog/catalog.json"), "utf8"));
-if (catalog.schema !== "keel-module-catalog@2") fail(`catalog schema is ${String(catalog.schema)}, expected keel-module-catalog@2`);
+if (catalog.schema !== "keel-module-catalog@3") fail(`catalog schema is ${String(catalog.schema)}, expected keel-module-catalog@3`);
 
 const modules = await discoverModules(path.join(ROOT, "modules"));
-const orgs = new Map(catalog.organizations.map((org) => [org.id, org]));
+const publishers = new Map(catalog.publishers.map((publisher) => [publisher.id, publisher]));
 const catalogued = new Map(catalog.modules.map((entry) => [entry.id, entry]));
 
 for (const id of catalogued.keys()) {
@@ -86,16 +86,25 @@ for (const module of modules) {
   }
   if (entry.category !== module.manifest.category) fail(`${id}: catalog category disagrees with the manifest`);
 
-  const owner = module.manifest.owner;
-  const org = orgs.get(owner?.org);
-  if (org === undefined) {
-    fail(`${id}: owner.org "${String(owner?.org)}" is not an organisation in the catalog`);
+  // An owner is either a person or an org. A person owns modules directly and
+  // has no groups; nobody should have to invent an org to publish something.
+  const owner = module.manifest.owner ?? {};
+  const declared = owner.user ?? owner.org;
+  const publisher = publishers.get(declared);
+  if (owner.user !== undefined && owner.org !== undefined) {
+    fail(`${id}: owner names both a user and an org`);
+  } else if (publisher === undefined) {
+    fail(`${id}: owner "${String(declared)}" is not a publisher in the catalog`);
+  } else if (publisher.kind !== (owner.user === undefined ? "org" : "user")) {
+    fail(`${id}: owner treats ${publisher.id} as a ${owner.user === undefined ? "org" : "user"}, but it is declared as a ${publisher.kind}`);
+  } else if (owner.user !== undefined) {
+    if (owner.group !== undefined || owner.member !== undefined) fail(`${id}: a user owns a module directly and has no groups`);
   } else {
-    if (owner.group !== undefined && !org.groups.some((group) => group.id === owner.group)) {
-      fail(`${id}: owner.group "${owner.group}" is not a group of ${org.id}`);
+    if (owner.group !== undefined && !publisher.groups.some((group) => group.id === owner.group)) {
+      fail(`${id}: owner.group "${owner.group}" is not a group of ${publisher.id}`);
     }
-    if (owner.member !== undefined && !org.members.some((member) => member.id === owner.member)) {
-      fail(`${id}: owner.member "${owner.member}" is not a member of ${org.id}`);
+    if (owner.member !== undefined && !publisher.members.some((member) => member.id === owner.member)) {
+      fail(`${id}: owner.member "${owner.member}" is not a member of ${publisher.id}`);
     }
     if (owner.member !== undefined && owner.group === undefined) {
       fail(`${id}: owner.member without owner.group; a member is reached through a group`);
@@ -117,17 +126,18 @@ for (const module of modules) {
 }
 
 // Group membership that leads nowhere renders as a dead name on the site.
-for (const org of catalog.organizations) {
-  const known = new Set(org.members.map((member) => member.id));
-  for (const group of org.groups) {
+for (const publisher of catalog.publishers) {
+  if (publisher.kind === "user" && publisher.groups.length > 0) fail(`${publisher.id}: a user publisher has no groups`);
+  const known = new Set(publisher.members.map((member) => member.id));
+  for (const group of publisher.groups) {
     for (const member of group.members) {
-      if (!known.has(member)) fail(`${org.id}: group "${group.id}" names unknown member "${member}"`);
+      if (!known.has(member)) fail(`${publisher.id}: group "${group.id}" names unknown member "${member}"`);
     }
   }
 }
 
 if (problems.length === 0) {
-  console.log(`catalog check: ${modules.length} module(s), ${catalog.organizations.length} organisation(s), no problems.`);
+  console.log(`catalog check: ${modules.length} module(s), ${catalog.publishers.length} publisher(s), no problems.`);
   process.exit(0);
 }
 console.error(`catalog check: ${problems.length} problem(s)\n`);

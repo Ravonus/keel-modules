@@ -24,15 +24,19 @@ jobs:
         run: pnpm typecheck
       - name: Run every module's test vectors against the readable source
         run: pnpm vectors
+      - name: Check the committed catalog against the committed sources
+        run: pnpm check:catalog
 
-      # TODO: enable once the keel CLI is published. For every changed module,
-      # run `keel module build` and fail unless the rebuilt minified output and
-      # build recipe digests match the committed keel-source-receipt@1, then
-      # run `keel module test` so the vectors also pass against the minified
-      # bytes, and `keel module index` to refresh the catalog snapshots.
-      # - name: Reproduce module builds
-      #   run: keel module build --check modules/*
-      # - name: Vectors against minified builds
-      #   run: keel module test modules/*
-      # - name: Refresh resolver catalog
-      #   run: keel module index --check
+      # The catalog check above proves the committed digests still describe the
+      # committed sources, which is the failure a pull request actually tends
+      # to introduce. It cannot prove a build REPRODUCES; only the keel CLI
+      # can, and it is not published to npm yet. Until it is, reproduction is
+      # enforced from the keel-sdk side by
+      # tests/keel-modules-reproduction.test.mjs, which fetches this repository
+      # from GitHub at its current commit and rebuilds every module.
+      #
+      # TODO: once `@keel/builder` is on npm, add here:
+      #   keel module build --all && keel module test --all
+      #   keel module index && git diff --exit-code catalog/catalog.json
+      # The last line is the real gate: indexing is deterministic and reads
+      # only committed files, so a clean tree must produce a clean diff.

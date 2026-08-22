@@ -1,0 +1,7 @@
+{
+  "schema": "keel.jsmodule@1",
+  "id": "noise2d",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Seeded 2D value noise with smooth interpolation and fractal octaves."
+}

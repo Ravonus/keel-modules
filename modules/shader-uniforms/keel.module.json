@@ -1,0 +1,7 @@
+{
+  "schema": "keel.jsmodule@1",
+  "id": "shader-uniforms",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "WebGL uniform discovery and strict typed uniform updates."
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "keel.jsmodule@1",
+  "id": "verified-assets",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Cached byte, text, JSON, and image views over a host-injected verified resolver."
+}

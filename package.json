@@ -1,0 +1,10 @@
+{
+  "name": "keel-modules",
+  "private": true,
+  "type": "module",
+  "description": "Verified readable sources for on-chain KEEL JavaScript modules.",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

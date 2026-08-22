@@ -1,0 +1,7 @@
+{
+  "schema": "keel.jsmodule@1",
+  "id": "<module-id>",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "<one line describing the module>"
+}

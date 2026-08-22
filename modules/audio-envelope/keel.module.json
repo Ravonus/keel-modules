@@ -1,0 +1,7 @@
+{
+  "schema": "keel.jsmodule@1",
+  "id": "audio-envelope",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Deterministic oscillator and ADSR envelope primitives for Web Audio authoring."
+}

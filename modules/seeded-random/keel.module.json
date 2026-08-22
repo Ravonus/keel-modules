@@ -1,0 +1,7 @@
+{
+  "schema": "keel.jsmodule@1",
+  "id": "seeded-random",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Deterministic xoshiro128** random helpers for replayable browser art."
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "keel.jsmodule@1",
+  "id": "frame-clock",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Fixed-timestep animation clock with explicit FPS and bounded catch-up."
+}

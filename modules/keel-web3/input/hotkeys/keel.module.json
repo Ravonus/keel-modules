@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "hotkeys",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Scoped, removable keyboard-command map for artwork documents.",
+  "category": "input",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime"
+  },
+  "repository": "https://github.com/keel-web3/hotkeys"
+}

@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "verified-assets",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Cached byte, text, JSON, and image views over a host-injected verified resolver.",
+  "category": "viewer",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime"
+  },
+  "repository": "https://github.com/keel-web3/verified-assets"
+}

@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "palette",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Hex palette parsing, interpolation, and deterministic selection.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
+  "repository": "https://github.com/keel-web3/palette"
+}

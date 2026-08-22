@@ -20,24 +20,80 @@ This repository is the open, auditable half of every published KEEL module: the 
 ## Layout
 
 ```
-modules/<id>/
+modules/<org>/org.json               the organisation: its people and its groups (keel.org@1)
+modules/<org>/<category>/<id>/
   src/index.ts        the verified readable source, strict TypeScript
-  keel.module.json    manifest (keel.jsmodule@1): id, entry, license, summary
+  keel.module.json    manifest (keel.jsmodule@2): id, entry, license, summary,
+                      category, owner (org/group/member), repository
   README.md           what it does, injected dependencies, usage
   tsconfig.json       extends the shared strict base
   test/vectors.mjs    deterministic test vectors run against readable and minified builds
-template/             starter for new modules; copy it to modules/<id>/
-catalog/              generated keel-module-resolver-catalog@1 snapshots
+  deployments/<chainId>.json   published revisions, if any (keel.jsmodule-deployment@1)
+template/             starter for new modules
+catalog/catalog.json  generated keel-module-catalog@2: organisations plus every module
 scripts/run-vectors.mjs  runs every module's vectors against its readable source
 eslint.config.js     one strict, type-aware lint config for every module
 tsconfig.base.json    the one strict compiler config every module extends
 ```
 
-`catalog/` is generated output, not hand-edited: the resolver tooling writes `keel-module-resolver-catalog@1` snapshots there so hosts and viewers can map module ids to their receipts and on-chain locations without walking the tree.
+### Two axes, deliberately separate
+
+`category` is what a module IS, and it is the directory the module lives in:
+`audio`, `generative`, `input`, `render`, `timing`, `viewer`. Filing a module
+somewhere else is a `git mv` plus one manifest field.
+
+`owner` is who is responsible for it, and it is a path into the org manifest:
+an org, optionally a group inside it, optionally a person inside that group.
+So a listing can be `org > modules`, `org > group > modules`, or
+`org > group > member > modules`, and a graphics team can own a module filed
+under `viewer` without either fact being bent to fit the other.
+
+### Verified is not deployed
+
+A module is VERIFIED the moment its readable source is proven to rebuild into
+its exact minified bytes. That happens on a laptop, before any chain is
+involved, and it stays true whether the module is ever published or not.
+
+Deployment is a separate fact with a separate record. `deployments/<chainId>.json`
+lists every published revision, each pinning the KeelHold instance and the
+object id it lives in, plus the `outputDigest` that ties the revision back to
+the bytes a receipt verified:
+
+```json
+{
+  "schema": "keel.jsmodule-deployment@1",
+  "module": "noise2d",
+  "chainId": 11155111,
+  "revisions": [
+    {
+      "version": "0.1.0",
+      "outputDigest": "0x...",
+      "receiptDigest": "0x...",
+      "hold": { "address": "0x...", "objectId": "0x..." },
+      "block": "1234",
+      "txHash": "0x...",
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "status": "current"
+    }
+  ]
+}
+```
+
+No `deployments/` directory means the module has not been published yet, which
+is a normal state for a fully verified module and is exactly how every module
+here starts. Nothing infers one axis from the other, in this repo or on the
+site.
+
+The catalog is generated from committed files only, with nothing read from a
+clock or a file mtime, so re-running `keel module index` on a clean checkout is
+a no-op diff and anyone can check the published catalog by regenerating it and
+running `diff`.
+
+`catalog/` is generated output, not hand-edited: `keel module index` writes a `keel-module-catalog@2` document there so hosts, viewers, and the site can map module ids to their organisations, receipts, and on-chain locations without walking the tree.
 
 ## Adding a module
 
-1. Copy `template/` to `modules/<your-id>/` and follow its README.
+1. Copy `template/` to `modules/<org>/<category>/<your-id>/` and follow its README.
 2. Keep the dependency-injection style: modules take their environment (audio contexts, event targets, GL contexts, resolvers) as parameters and never touch globals directly.
 3. Check locally: `pnpm lint`, `pnpm typecheck`, and `pnpm vectors` must all pass.
 4. Add `test/vectors.mjs`: a default-exported array of `{ name, run(moduleExports), expect }` cases. They are dependency-free ESM, run deterministically in plain Node, and `keel module test` executes them against both the readable and the minified build.

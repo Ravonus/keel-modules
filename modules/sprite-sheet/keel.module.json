@@ -1,7 +1,0 @@
-{
-  "schema": "keel.jsmodule@1",
-  "id": "sprite-sheet",
-  "entry": "src/index.ts",
-  "license": "MIT",
-  "summary": "Equal-cell and JSON-atlas sprite sheet helpers with crisp pixel drawing."
-}

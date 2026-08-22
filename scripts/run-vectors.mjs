@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Runs every modules/<id>/test/vectors.mjs against the module's readable
+// Runs every modules/<org>/<category>/<id>/test/vectors.mjs against the readable
 // TypeScript source. The source is transpiled in memory with the workspace's
 // TypeScript compiler and imported as a data: URL, so the runner needs no
 // build step and no dependencies beyond the repo's own devDependencies.
@@ -30,13 +30,21 @@ async function importModuleSource(moduleDir) {
 
 let totalCases = 0;
 let failedCases = 0;
-const moduleIds = (await readdir(modulesDir, { withFileTypes: true }))
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
-  .sort();
+/** Every module directory under modules/<org>/<category>/<id>, sorted by id. */
+async function discoverModules(directory, depth = 0) {
+  const found = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const child = path.join(directory, entry.name);
+    if (depth === 2) found.push({ id: entry.name, directory: child });
+    else found.push(...(await discoverModules(child, depth + 1)));
+  }
+  return found.sort((left, right) => (left.id < right.id ? -1 : 1));
+}
 
-for (const id of moduleIds) {
-  const moduleDir = path.join(modulesDir, id);
+const discovered = await discoverModules(modulesDir);
+
+for (const { id, directory: moduleDir } of discovered) {
   const vectorsPath = path.join(moduleDir, "test", "vectors.mjs");
   let vectors;
   try {
@@ -64,5 +72,5 @@ for (const id of moduleIds) {
   }
 }
 
-console.log(`\n${totalCases - failedCases}/${totalCases} vector cases passed across ${moduleIds.length} modules.`);
+console.log(`\n${totalCases - failedCases}/${totalCases} vector cases passed across ${discovered.length} modules.`);
 if (failedCases > 0) process.exit(1);

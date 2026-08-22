@@ -1,7 +1,0 @@
-{
-  "schema": "keel.jsmodule@1",
-  "id": "palette",
-  "entry": "src/index.ts",
-  "license": "MIT",
-  "summary": "Hex palette parsing, interpolation, and deterministic selection."
-}

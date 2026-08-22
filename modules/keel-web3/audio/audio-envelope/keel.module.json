@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "audio-envelope",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Deterministic oscillator and ADSR envelope primitives for Web Audio authoring.",
+  "category": "audio",
+  "owner": {
+    "org": "keel-web3",
+    "group": "sound"
+  },
+  "repository": "https://github.com/keel-web3/audio-envelope"
+}

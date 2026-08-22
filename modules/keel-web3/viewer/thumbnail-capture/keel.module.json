@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "thumbnail-capture",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Capture markers for exact Keel poster and motion thumbnails.",
+  "category": "viewer",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime"
+  },
+  "repository": "https://github.com/keel-web3/thumbnail-capture"
+}

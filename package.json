@@ -5,8 +5,8 @@
   "description": "Verified readable sources for on-chain KEEL JavaScript modules.",
   "license": "MIT",
   "scripts": {
-    "lint": "eslint \"modules/*/src/**/*.ts\" \"template/src/**/*.ts\"",
-    "typecheck": "for config in modules/*/tsconfig.json template/tsconfig.json; do echo \"== tsc -p $config\"; ./node_modules/.bin/tsc -p \"$config\" || exit 1; done",
+    "lint": "eslint \"modules/*/*/*/src/**/*.ts\" \"template/src/**/*.ts\"",
+    "typecheck": "for config in modules/*/*/*/tsconfig.json template/tsconfig.json; do echo \"== tsc -p $config\"; ./node_modules/.bin/tsc -p \"$config\" || exit 1; done",
     "vectors": "node scripts/run-vectors.mjs"
   },
   "devDependencies": {

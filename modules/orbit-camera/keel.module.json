@@ -1,7 +1,0 @@
-{
-  "schema": "keel.jsmodule@1",
-  "id": "orbit-camera",
-  "entry": "src/index.ts",
-  "license": "MIT",
-  "summary": "Framework-free orbit-camera position and perspective matrix helpers."
-}

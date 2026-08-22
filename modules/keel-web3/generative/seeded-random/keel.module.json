@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "seeded-random",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Deterministic xoshiro128** random helpers for replayable browser art.",
+  "category": "generative",
+  "owner": {
+    "org": "keel-web3",
+    "group": "generative"
+  },
+  "repository": "https://github.com/keel-web3/seeded-random"
+}

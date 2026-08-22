@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "frame-clock",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Fixed-timestep animation clock with explicit FPS and bounded catch-up.",
+  "category": "timing",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime"
+  },
+  "repository": "https://github.com/keel-web3/frame-clock"
+}

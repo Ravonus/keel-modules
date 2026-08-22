@@ -5,10 +5,10 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     // Only the readable sources are linted; everything else is tooling or output.
-    ignores: ["**/node_modules/**", "catalog/**", "scripts/**", "modules/*/test/**", "eslint.config.js"],
+    ignores: ["**/node_modules/**", "catalog/**", "scripts/**", "modules/*/*/*/test/**", "eslint.config.js"],
   },
   {
-    files: ["modules/*/src/**/*.ts", "template/src/**/*.ts"],
+    files: ["modules/*/*/*/src/**/*.ts", "template/src/**/*.ts"],
     extends: [
       ...tseslint.configs.strictTypeChecked,
       ...tseslint.configs.stylisticTypeChecked,

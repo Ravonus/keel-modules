@@ -1,0 +1,43 @@
+{
+  "schema": "keel.org@1",
+  "id": "keel-web3",
+  "title": "Keel",
+  "summary": "First-party Keel modules: the reference library every KEEL artwork can build on.",
+  "url": "https://github.com/keel-web3",
+  "organizationId": null,
+  "members": [
+    {
+      "id": "ravonus",
+      "name": "Ravonus",
+      "role": "owner",
+      "github": "Ravonus",
+      "address": null
+    }
+  ],
+  "groups": [
+    {
+      "id": "generative",
+      "title": "Generative",
+      "summary": "Deterministic generators: the seed-driven core a replayable artwork is built from.",
+      "members": ["ravonus"]
+    },
+    {
+      "id": "graphics",
+      "title": "Graphics",
+      "summary": "Drawing, colour, camera, and shader plumbing.",
+      "members": ["ravonus"]
+    },
+    {
+      "id": "runtime",
+      "title": "Runtime",
+      "summary": "Host integration: timing, input, capture markers, and verified asset access.",
+      "members": ["ravonus"]
+    },
+    {
+      "id": "sound",
+      "title": "Sound",
+      "summary": "Web Audio primitives.",
+      "members": ["ravonus"]
+    }
+  ]
+}

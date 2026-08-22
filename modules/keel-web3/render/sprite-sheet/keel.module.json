@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "sprite-sheet",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Equal-cell and JSON-atlas sprite sheet helpers with crisp pixel drawing.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
+  "repository": "https://github.com/keel-web3/sprite-sheet"
+}

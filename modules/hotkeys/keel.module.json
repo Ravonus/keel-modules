@@ -1,7 +1,0 @@
-{
-  "schema": "keel.jsmodule@1",
-  "id": "hotkeys",
-  "entry": "src/index.ts",
-  "license": "MIT",
-  "summary": "Scoped, removable keyboard-command map for artwork documents."
-}

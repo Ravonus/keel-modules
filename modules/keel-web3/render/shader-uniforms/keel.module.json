@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "shader-uniforms",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "WebGL uniform discovery and strict typed uniform updates.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
+  "repository": "https://github.com/keel-web3/shader-uniforms"
+}

@@ -1,7 +1,0 @@
-{
-  "schema": "keel.jsmodule@1",
-  "id": "thumbnail-capture",
-  "entry": "src/index.ts",
-  "license": "MIT",
-  "summary": "Capture markers for exact Keel poster and motion thumbnails."
-}

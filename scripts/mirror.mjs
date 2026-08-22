@@ -105,7 +105,7 @@ async function standaloneTsconfig() {
 /** The publisher directory a module lives under: a user handle or an org id. */
 const publisherOf = (manifest) => manifest.owner?.user ?? manifest.owner?.org ?? "unaffiliated";
 
-function mirrorReadme(manifest, outputDigest, monorepoCommit) {
+function mirrorReadme(manifest, outputDigest) {
   return `# ${manifest.id}
 
 ${manifest.summary}
@@ -143,9 +143,14 @@ both the readable source and the minified bytes.
 
 The source of truth is
 [\`${publisherOf(manifest)}/${manifest.category}/${manifest.id}\`](https://github.com/Ravonus/keel-modules/tree/master/modules/${publisherOf(manifest)}/${manifest.category}/${manifest.id})
-in the keel-modules monorepo, at commit \`${monorepoCommit}\`. Both trees build
-to the same digest above; the mirror exists so this module can be depended on,
-starred, and forked on its own.
+in the keel-modules monorepo. Both trees build to the same digest above; the
+mirror exists so this module can be depended on, starred, and forked on its
+own.
+
+The exact monorepo commit each mirror commit came from is recorded in that
+commit's \`Keel-Mirror-Of\` trailer, so provenance lives in the history rather
+than in this file: naming a commit here would make every mirror change on every
+monorepo commit, whether or not this module did.
 
 ## Licence
 
@@ -154,7 +159,7 @@ ${manifest.license}. See LICENSE.
 }
 
 /** Build one mirror tree in `destination` and return its expected output digest. */
-async function buildMirror(module, destination, monorepoCommit) {
+async function buildMirror(module, destination) {
   await mkdir(destination, { recursive: true });
   for (const name of ["src", "test", "README.md"]) {
     try {
@@ -169,7 +174,7 @@ async function buildMirror(module, destination, monorepoCommit) {
 
   const distributed = path.join(module.directory, "dist", `${module.manifest.id}.min.js`);
   const outputDigest = `0x${createHash("sha256").update(await readFile(distributed)).digest("hex")}`;
-  await writeFile(path.join(destination, "README.md"), mirrorReadme(module.manifest, outputDigest, monorepoCommit));
+  await writeFile(path.join(destination, "README.md"), mirrorReadme(module.manifest, outputDigest));
   return outputDigest;
 }
 
@@ -229,7 +234,7 @@ for (const module of modules) {
     if (entry.name === ".git") continue;
     await rm(path.join(checkout, entry.name), { recursive: true, force: true });
   }
-  const outputDigest = await buildMirror(module, checkout, monorepoCommit);
+  const outputDigest = await buildMirror(module, checkout);
 
   // The mirror must rebuild to the same bytes on its own, with no monorepo in
   // sight. That is the claim its README makes to every reader, so it is proven

@@ -55,6 +55,37 @@
   ],
   "modules": [
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xb0bc98afdb3d0356b35684ce5cc2ccca4eee2867c48d7a04c2d8160a6a73e0d0",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 794,
+          "digest": "0xda78abe62e662b9ff63ebc3c014f88744a98847dfefb5b1c039af95db4557b89"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0xd66c4af5d5e3d524681757f0bf80e7f6ce74482fd8dc506c837e28f7bbc100fc",
+              "byteLength": 3715
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Small deterministic oscillator/envelope primitives for Web Audio authoring. MIT. */\n/** Optional ADSR shape for {@link scheduleEnvelope}. All values are seconds. */\nexport interface EnvelopeOptions {\n    /** Ramp time from silence to the peak value. */\n    readonly attack?: number;\n    /** Ramp time from the peak down to the sustain level. */\n    readonly decay?: number;\n    /** Sustain level as a fraction of the peak value. */\n    readonly sustain?: number;\n    /** Ramp time from the sustain level back to silence. */\n    readonly release?: number;\n    /** Minimum time the note is held before the release ramp starts. */\n    readonly duration?: number;\n}\n/** Options for {@link oscillatorVoice}. */\nexport interface OscillatorVoiceOptions {\n    /** Oscillator waveform. Defaults to \"sine\". */\n    readonly type?: OscillatorType;\n    /** Oscillator frequency in hertz. Defaults to 440. */\n    readonly frequency?: number;\n}\n/** An oscillator connected through a gain node to a destination. */\nexport interface OscillatorVoice {\n    readonly oscillator: OscillatorNode;\n    readonly gain: GainNode;\n}\n/**\n * Converts a MIDI note number to a frequency in hertz.\n *\n * @param note MIDI note number, where 69 is the tuning reference pitch.\n * @param tuning Reference frequency for note 69 in hertz. Defaults to 440.\n * @returns The frequency in hertz.\n * @throws RangeError when the note is not finite or the tuning is not a finite positive number.\n */\nexport declare function noteFrequency(note: number, tuning?: number): number;\n/**\n * Schedules a linear ADSR envelope on an audio parameter.\n *\n * @param parameter The audio parameter to automate, typically a gain value.\n * @param startTime Context time in seconds when the envelope begins.\n * @param peak Value reached at the end of the attack ramp.\n * @param options ADSR timing and level overrides.\n * @returns The context time in seconds when the envelope reaches silence.\n * @throws RangeError when any envelope value is negative or not finite.\n */\nexport declare function scheduleEnvelope(parameter: AudioParam, startTime: number, peak: number, { attack, decay, sustain, release, duration }?: EnvelopeOptions): number;\n/**\n * Creates an oscillator wired through a silent gain node into a destination.\n *\n * @param context The injected audio context that owns the new nodes.\n * @param destination The injected node the voice connects to.\n * @param options Waveform and frequency overrides.\n * @returns The oscillator and its gain node; the gain starts at 0.\n */\nexport declare function oscillatorVoice(context: BaseAudioContext, destination: AudioNode, options?: OscillatorVoiceOptions): OscillatorVoice;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xb7836e91649c017b3181d0e2ce35a45e1a734efe75eb429a02026bc4d9f758ae",
+          "byteLength": 2747
+        }
+      },
       "id": "audio-envelope",
       "version": "0.1.0",
       "license": "MIT",
@@ -86,6 +117,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0x295aebccea66ece990267b6b4ec8f1606803af46f2e4d1edda95fa0d03d2854e",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 578,
+          "digest": "0x49f70f6268dc3fd3ff09fa532b8308c005833f94d1bb88b1f9b56198b6fb1a9e"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x04002faabc35aed4894307516fc0ee7a3a9a648420ac8d670bebbfdfe5e273dc",
+              "byteLength": 2976
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Fixed-timestep animation clock with explicit FPS and bounded catch-up. MIT. */\n/** Information passed to the frame callback for every simulated frame. */\nexport interface FrameInfo {\n    /** Zero-based frame index. */\n    readonly frame: number;\n    /** Simulated time in milliseconds, always frame * step. */\n    readonly time: number;\n    /** Fixed step length in milliseconds. */\n    readonly delta: number;\n}\n/** Options for {@link createFrameClock}. */\nexport interface FrameClockOptions {\n    /** Frames per second; must be greater than 0 and at most 240. Defaults to 12. */\n    readonly fps?: number;\n    /** Maximum simulated frames per animation tick; must be a safe integer of at least 1. Defaults to 4. */\n    readonly maxCatchUpFrames?: number;\n    /** Called once per simulated frame. */\n    readonly onFrame: (info: FrameInfo) => void;\n}\n/** Handle returned by {@link createFrameClock}. */\nexport interface FrameClock {\n    /** Starts the clock. Calling it while running does nothing. */\n    start(): void;\n    /** Stops the clock and resets the accumulated real time. The frame counter is kept. */\n    stop(): void;\n    /** Jumps the frame counter to the given non-negative safe integer. */\n    seek(nextFrame: number): void;\n    /** The next frame index that will be simulated. */\n    readonly frame: number;\n}\n/**\n * Creates a fixed-timestep clock driven by requestAnimationFrame.\n *\n * The clock accumulates real elapsed time, clamped to at most\n * maxCatchUpFrames steps per tick, and calls onFrame once per whole step.\n *\n * @param options FPS, catch-up bound, and the per-frame callback.\n * @returns A start/stop/seek handle exposing the current frame index.\n * @throws RangeError when fps or maxCatchUpFrames is out of range.\n */\nexport declare function createFrameClock({ fps, maxCatchUpFrames, onFrame }: FrameClockOptions): FrameClock;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x12be32297500a58fb26400982c6bbad436c10e6a74b4c1f426010b00d72ddf05",
+          "byteLength": 1927
+        }
+      },
       "id": "frame-clock",
       "version": "0.1.0",
       "license": "MIT",
@@ -117,6 +179,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0x8167cfff073ca3d5e0c2abb44ea228fe191f8c2395808e08d01cdda18a55864c",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 549,
+          "digest": "0xe42ae24c7685ae08bef74e6d4b63b9ebcd5fd8b6a26c86783dd9dd1db2c18804"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0xccec5b6284a62f2a7dc7645f47446579185e2d4ebc24cbcbe7a905815198cb6b",
+              "byteLength": 2526
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Scoped, removable keyboard-command map for opaque artwork documents. MIT. */\n/** A handler invoked when its bound chord matches a keydown event. */\nexport type HotkeyHandler = (event: KeyboardEvent) => void;\n/** Chord-to-handler bindings, for example { \"mod+s\": save, \"escape\": close }. */\nexport type HotkeyBindings = Readonly<Record<string, HotkeyHandler>>;\n/** The injected event target; window and any DOM element both satisfy it. */\nexport interface HotkeyTarget {\n    addEventListener(type: \"keydown\", listener: (event: KeyboardEvent) => void): void;\n    removeEventListener(type: \"keydown\", listener: (event: KeyboardEvent) => void): void;\n}\n/** Options for {@link createHotkeys}. */\nexport interface HotkeyOptions {\n    /** Where the keydown listener is attached. Defaults to window. */\n    readonly target?: HotkeyTarget;\n    /** When true, events originating inside form fields or editable content are ignored. Defaults to true. */\n    readonly ignoreInputs?: boolean;\n}\n/** Handle returned by {@link createHotkeys}. */\nexport interface Hotkeys {\n    /** Removes the keydown listener from the target. */\n    destroy(): void;\n}\n/**\n * Attaches a keydown listener that dispatches to chord-mapped handlers.\n *\n * Chords are lowercase and combine \"mod\" (meta or ctrl), \"alt\", \"shift\",\n * and the event key joined by \"+\". A binding on the bare key alone also\n * matches. Matched events are preventDefault-ed before the handler runs.\n *\n * @param bindings Map from chord string to handler.\n * @param options Target and input-field filtering overrides.\n * @returns A handle whose destroy method removes the listener.\n */\nexport declare function createHotkeys(bindings: HotkeyBindings, { target, ignoreInputs }?: HotkeyOptions): Hotkeys;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x7726369506f6269bffe28829106798ff3e9806d5f100ee5dd376b9be2f6d49b5",
+          "byteLength": 1815
+        }
+      },
       "id": "hotkeys",
       "version": "0.1.0",
       "license": "MIT",
@@ -148,6 +241,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xe033294fbbce2680667efe1d3c22948e5f466155c0479e37800aed7cbb1c1171",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 572,
+          "digest": "0x5cc34df154b618c502deb2e3b3809b1ab83b79a45508bcc37c62d7c05d388bc9"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0xd27646ecab7182aa9f66e25259062ced3004ce896bc726c3cf4b161ffa08a93f",
+              "byteLength": 2430
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Tiny seeded value-noise field with smooth interpolation. MIT. */\n/** Options for {@link fractalNoise2d}. */\nexport interface FractalNoiseOptions {\n    /** Base integer seed; each octave offsets it by its index. Defaults to 0. */\n    readonly seed?: number;\n    /** Number of noise layers to sum. Defaults to 4. */\n    readonly octaves?: number;\n    /** Amplitude multiplier applied per octave. Defaults to 0.5. */\n    readonly persistence?: number;\n    /** Frequency multiplier applied per octave. Defaults to 2. */\n    readonly lacunarity?: number;\n}\n/**\n * Samples deterministic 2D value noise at a point.\n *\n * @param x Sample x coordinate; integer steps land on lattice points.\n * @param y Sample y coordinate.\n * @param seed Integer seed selecting the noise field. Defaults to 0.\n * @returns A smoothly interpolated value in [0, 1).\n */\nexport declare function noise2d(x: number, y: number, seed?: number): number;\n/**\n * Sums several octaves of {@link noise2d} into fractal noise.\n *\n * @param x Sample x coordinate.\n * @param y Sample y coordinate.\n * @param options Seed, octave count, persistence, and lacunarity.\n * @returns The amplitude-normalized sum, or 0 when the total amplitude is 0.\n */\nexport declare function fractalNoise2d(x: number, y: number, { seed, octaves, persistence, lacunarity }?: FractalNoiseOptions): number;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xbb04043ed75972619687bb02f129869682c450bee1301e9f1bcb0b593c7e7245",
+          "byteLength": 1396
+        }
+      },
       "id": "noise2d",
       "version": "0.1.0",
       "license": "MIT",
@@ -179,6 +303,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xb0d49f0e832dc91eea48d07e7acc23fe6394b6cc2d54422fbf3f2e8955c574b1",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 496,
+          "digest": "0xd0feb4cf4356f59e95a9c168b2ecfa5063f6c1cc5ed3ced2305b1f04207885fc"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x2a09cde58389374c2594c9bd39a78d0ad58170c6774c31cb33881356a70647b9",
+              "byteLength": 2265
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Framework-free orbit-camera matrices for lightweight 3D artwork. MIT. */\n/** An [x, y, z] position in world space. */\nexport type Vec3 = readonly [number, number, number];\n/** Options for {@link orbitPosition}. */\nexport interface OrbitOptions {\n    /** Point the camera orbits. Defaults to [0, 0, 0]. */\n    readonly target?: Vec3;\n    /** Rotation around the vertical axis in radians. Defaults to 0. */\n    readonly yaw?: number;\n    /** Elevation angle in radians, clamped just inside plus or minus pi/2. Defaults to 0. */\n    readonly pitch?: number;\n    /** Distance from the target, clamped to at least 0.001. Defaults to 5. */\n    readonly distance?: number;\n}\n/**\n * Computes the camera eye position for an orbit around a target point.\n *\n * @param options Target, yaw, pitch, and distance.\n * @returns The [x, y, z] eye position.\n */\nexport declare function orbitPosition({ target, yaw, pitch, distance }: OrbitOptions): [number, number, number];\n/**\n * Builds a column-major 4x4 perspective projection matrix.\n *\n * @param fieldOfView Vertical field of view in radians, strictly between 0 and pi.\n * @param aspect Viewport width divided by height; must be positive.\n * @param near Near clip distance; must be positive. Defaults to 0.1.\n * @param far Far clip distance; must exceed near. Defaults to 1000.\n * @returns A 16-element Float32Array in WebGL column-major order.\n * @throws RangeError when any parameter is out of range.\n */\nexport declare function perspectiveMatrix(fieldOfView: number, aspect: number, near?: number, far?: number): Float32Array;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xee08722ec6db7f9b1828e556cb9e671484e2ed38255bf67cf7b3ab7057237eaf",
+          "byteLength": 1624
+        }
+      },
       "id": "orbit-camera",
       "version": "0.1.0",
       "license": "MIT",
@@ -210,6 +365,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xc519b5f8194ce699428b4cf1b74a71b08047c8cbd42f977ead68457713a85d14",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 785,
+          "digest": "0x785ac9e4d8641662862703d3d3d7b97c6085528e03714ee331979619db2108da"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0xb01bdb3e676a3954d969d6fff5e07da5f6e2248ab5fd5eaf2a986c201b378d8e",
+              "byteLength": 2837
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Compact palette parsing, interpolation, and deterministic selection. MIT. */\n/** Color channels as [red, green, blue, alpha], each 0 to 255. Alpha may be omitted. */\nexport type ColorChannels = readonly number[];\n/**\n * Parses a #rrggbb or #rrggbbaa hex color into channel values.\n *\n * @param value Hex color string; case-insensitive.\n * @returns [red, green, blue, alpha], each 0 to 255; alpha defaults to 255.\n * @throws TypeError when the string is not a valid hex color.\n */\nexport declare function parseHexColor(value: string): number[];\n/**\n * Formats channel values as a CSS rgba() string.\n *\n * @param color [red, green, blue, alpha] channels; missing channels are treated as 255.\n * @returns The rgba() string with alpha scaled to 0 to 1.\n */\nexport declare function rgba(color: ColorChannels): string;\n/**\n * Linearly interpolates two colors channel by channel.\n *\n * @param left Start color; missing channels are treated as 255.\n * @param right End color; missing channels are treated as 255.\n * @param amount Interpolation factor, clamped to [0, 1].\n * @returns A four-channel color of rounded values.\n */\nexport declare function mixColors(left: ColorChannels, right: ColorChannels, amount: number): number[];\n/**\n * Selects a palette entry by index, wrapping negative and overflow indexes.\n *\n * @param palette Non-empty array of hex color strings.\n * @param index Any integer; it wraps modulo the palette length.\n * @returns The parsed [red, green, blue, alpha] channels of the entry.\n * @throws RangeError when the palette is empty or not an array.\n * @throws TypeError when the selected entry is not a valid hex color.\n */\nexport declare function paletteColor(palette: readonly string[], index: number): number[];\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xe7e5e89ebe864788729dc21b45496955f0cee12ce895c6f54820892eea2cf603",
+          "byteLength": 1793
+        }
+      },
       "id": "palette",
       "version": "0.1.0",
       "license": "MIT",
@@ -241,6 +427,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xd4bdba23c032d0dff900b6db8e34cf018799f96b0dba89521cc2adb3e027847f",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 655,
+          "digest": "0x9f515ca67dc8b40705107024287016b3aeaf6a9b48519c7d90a0a44191391cc6"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x8db873d5e92c511d534a9f6717d630306982649444e04a038ca4c88613eb5184",
+              "byteLength": 2563
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Deterministic xoshiro128** helpers for replayable browser art. MIT. */\n/** A deterministic generator returning values in [0, 1). */\nexport type SeededRandom = () => number;\n/**\n * Folds a hex seed string into four unsigned 32-bit state words.\n *\n * The seed is stripped of an optional 0x prefix, padded with \"0\" to 64 hex\n * characters, and truncated to 64. Each word xors an early 8-character\n * slice with a late one.\n *\n * @param hexSeed Hex string, with or without a 0x prefix.\n * @returns Four unsigned 32-bit words.\n */\nexport declare function seedWords(hexSeed: string): [number, number, number, number];\n/**\n * Creates a xoshiro128** generator seeded from a hex string.\n *\n * An all-zero seed is nudged to a nonzero state so the stream never\n * degenerates. The same seed always produces the same sequence.\n *\n * @param hexSeed Hex string, with or without a 0x prefix.\n * @returns A function producing deterministic values in [0, 1).\n */\nexport declare function createSeededRandom(hexSeed: string): SeededRandom;\n/**\n * Draws a uniform integer from an inclusive range.\n *\n * @param random The injected generator, typically from {@link createSeededRandom}.\n * @param minimum Inclusive lower bound; must be a safe integer.\n * @param maximum Inclusive upper bound; must be a safe integer of at least minimum.\n * @returns An integer between minimum and maximum inclusive.\n * @throws RangeError when the bounds are not a valid safe-integer range.\n */\nexport declare function randomInt(random: SeededRandom, minimum: number, maximum: number): number;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x28ca2663ebbd426e527a67dcea2cf16336748d0764e56846dedb1d96932a843c",
+          "byteLength": 1614
+        }
+      },
       "id": "seeded-random",
       "version": "0.1.0",
       "license": "MIT",
@@ -272,6 +489,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0x72a7416546652e0aa62ec7ada11b62fb0f773d75f869484e97f35412d18d8f8b",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 970,
+          "digest": "0x57aaa53a83f5005519c087059a52f8cc1af9734cfe5f8cf8af647b420e0fcf98"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x3bc7ba817fadd8ceff20694fe09cfe6258487ead689bd3a1f065374e1e335e87",
+              "byteLength": 2926
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** WebGL uniform discovery and strict typed updates without eval or hidden globals. MIT. */\n/** Either WebGL context flavor works; discovery uses only WebGL1-level calls. */\nexport type UniformContext = WebGLRenderingContext | WebGL2RenderingContext;\n/** Values accepted by {@link UniformWriter}; the required shape depends on the uniform's GLSL type. */\nexport type UniformValue = number | boolean | Float32Array | number[];\n/** Writes one named uniform on the program the writer was created for. */\nexport type UniformWriter = (name: string, value: UniformValue) => void;\n/**\n * Discovers every active uniform on a linked program and returns a writer.\n *\n * Array uniforms are registered under their base name without the trailing\n * \"[0]\". The writer dispatches on the uniform's reflected GLSL type:\n * float scalars take numbers, vec2/vec3/vec4 and mat4 take number arrays or\n * Float32Arrays, and int/bool/sampler2D take values coerced with Number.\n *\n * @param gl The injected WebGL context that owns the program.\n * @param program A linked program to reflect uniforms from.\n * @returns A writer function; it throws on unknown names and unsupported types.\n */\nexport declare function createUniformWriter(gl: UniformContext, program: WebGLProgram): UniformWriter;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xd35a54ea2445c59a2fc62386fedc842c526f05b97ebce3f3c636677c38064ce9",
+          "byteLength": 1313
+        }
+      },
       "id": "shader-uniforms",
       "version": "0.1.0",
       "license": "MIT",
@@ -303,6 +551,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0x27dc1f8c806bf2d4558e58b46bab712acf10d67b6d0c5e52f6c5357afe554ba4",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 1065,
+          "digest": "0xff354364eddaaa27628c03d8c80c77ed9e0c6f3c0f1d66b2023a3a920b62e624"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x79fec3c557ab51efbc89e130c8de07d73ac2cdca774b6d515256f0acad2b5424",
+              "byteLength": 4273
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Equal-cell and JSON-atlas sprite sheet helpers using ImageBitmap source rectangles. MIT. */\n/** A source rectangle in sheet pixels. */\nexport interface SpriteRect {\n    readonly x: number;\n    readonly y: number;\n    readonly width: number;\n    readonly height: number;\n}\n/** A named atlas frame with its source rectangle. */\nexport interface AtlasFrame extends SpriteRect {\n    readonly name: string;\n}\n/** Grid shape for {@link equalCells}. */\nexport interface GridOptions {\n    /** Number of columns; a positive integer that divides the image width. */\n    readonly columns: number;\n    /** Number of rows; a positive integer that divides the image height. Defaults to 1. */\n    readonly rows?: number;\n}\n/** The injected 2D drawing surface; canvas and offscreen contexts both satisfy it. */\nexport interface DrawTarget {\n    imageSmoothingEnabled: boolean;\n    drawImage(image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void;\n}\n/**\n * Splits an image of equal cells into row-major source rectangles.\n *\n * @param imageWidth Sheet width in pixels; must divide evenly by columns.\n * @param imageHeight Sheet height in pixels; must divide evenly by rows.\n * @param options Grid columns and rows.\n * @returns One rectangle per cell, left to right then top to bottom.\n * @throws RangeError when the geometry is not positive integers or does not divide evenly.\n */\nexport declare function equalCells(imageWidth: number, imageHeight: number, { columns, rows }: GridOptions): SpriteRect[];\n/**\n * Reads named frames from a JSON atlas with a frames object map.\n *\n * Each entry may be the rectangle itself or nest it under a frame key, and\n * may use w/h or width/height names. Array-style frames lists are rejected.\n *\n * @param atlas Parsed atlas JSON.\n * @returns One named frame per entry with non-negative integer geometry.\n * @throws TypeError when the atlas shape or any frame is invalid.\n */\nexport declare function atlasFrames(atlas: unknown): AtlasFrame[];\n/**\n * Draws one frame with image smoothing disabled for crisp pixels.\n *\n * @param context The injected 2D context to draw into.\n * @param image The sheet image, for example an ImageBitmap.\n * @param frame Source rectangle in sheet pixels.\n * @param destination Destination rectangle in context pixels.\n */\nexport declare function drawFrame(context: DrawTarget, image: CanvasImageSource, frame: SpriteRect, destination: SpriteRect): void;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x1c11f27ee38743fa771c18957cf92b3acf6b9b91dfeaa0bdaf12105b6e387487",
+          "byteLength": 2555
+        }
+      },
       "id": "sprite-sheet",
       "version": "0.1.0",
       "license": "MIT",
@@ -396,6 +675,37 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0x0e5a6e4aa5b43de0a019fc835fca6bc6e1781cffe6ae5bf82d168dd9c83eb1f4",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 524,
+          "digest": "0x24bfbcbc7159518b6cd9a673e3b0736000f31dc0880e54d6e16fd590666b9d25"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0xa6470c0ce35e7ef9217e880b886c8ade678e4d35db7ca1be117104d6db093ae1",
+              "byteLength": 2532
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Dependency-injected asset loader. The host resolver supplies already verified bytes. MIT. */\n/** Byte sources the resolver may return, directly or wrapped in a promise. */\nexport type ResolvedBytes = ArrayBuffer | ArrayLike<number>;\n/** The injected host resolver. It maps an asset id to already verified bytes. */\nexport type ResolveResource = (id: string) => ResolvedBytes | PromiseLike<ResolvedBytes>;\n/** Cached asset views over the injected resolver. */\nexport interface VerifiedAssets {\n    /** Resolves the raw bytes for an id, caching the promise per id. */\n    bytes(id: string): Promise<Uint8Array>;\n    /** Decodes the bytes as strict UTF-8 text; invalid sequences reject. */\n    text(id: string): Promise<string>;\n    /** Parses the UTF-8 text as JSON. */\n    json(id: string): Promise<unknown>;\n    /** Decodes the bytes as an image. The media type defaults to \"image/webp\". */\n    image(id: string, mediaType?: string): Promise<ImageBitmap>;\n    /** Drops one cached id, or the whole cache when no id is given. */\n    clear(id?: string): void;\n}\n/**\n * Creates a caching asset loader over an injected verified-byte resolver.\n *\n * Every accessor funnels through one per-id promise cache, so each asset is\n * resolved at most once until it is cleared.\n *\n * @param resolveResource The host resolver supplying verified bytes per id.\n * @returns Byte, text, JSON, and image views over the resolver.\n * @throws TypeError when the resolver is not a function.\n */\nexport declare function createVerifiedAssets(resolveResource: ResolveResource): VerifiedAssets;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xdba3ec3c59117ec9a0ee2f86f44eef31af89630648bd18181d57de3dabb89263",
+          "byteLength": 1624
+        }
+      },
       "id": "verified-assets",
       "version": "0.1.0",
       "license": "MIT",

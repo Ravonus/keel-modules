@@ -1,12 +1,12 @@
 /**
  * AI-friendly helpers for exact Keel poster and motion capture markers.
- * The viewer injects __OCA_THUMBNAIL__; importing this file is optional.
+ * The viewer injects __KEEL_THUMBNAIL__; importing this file is optional.
  * MIT.
  */
 
 /** The capture API a thumbnail-aware Keel viewer injects on globalThis. */
 export interface ThumbnailRuntime {
-  readonly protocol: "oca-thumbnail-capture@1";
+  readonly protocol: "keel-thumbnail-capture@1";
   init(label: string): void;
   ready(label: string): void;
   stop(label: string): void;
@@ -22,8 +22,8 @@ export interface ThumbnailAfterInitOptions {
 }
 
 function runtime(): ThumbnailRuntime {
-  const api = (globalThis as { __OCA_THUMBNAIL__?: ThumbnailRuntime }).__OCA_THUMBNAIL__;
-  if (api?.protocol !== "oca-thumbnail-capture@1") {
+  const api = (globalThis as { __KEEL_THUMBNAIL__?: ThumbnailRuntime }).__KEEL_THUMBNAIL__;
+  if (api?.protocol !== "keel-thumbnail-capture@1") {
     throw new Error("This artwork is not running in a thumbnail-aware Keel viewer.");
   }
   return api;
@@ -84,3 +84,15 @@ export async function thumbnailAfterInit<T>(initializer: () => T | PromiseLike<T
   thumbnailAfter(options.delayMs ?? 0, options.label);
   return value;
 }
+
+/** Typed capture helpers. Import this object to use thumbnail.snapshot(). */
+export const thumbnail = Object.freeze({
+  init: thumbnailInit,
+  snapshot: thumbnailReady,
+  ready: thumbnailReady,
+  stop: thumbnailStop,
+  after: thumbnailAfter,
+  afterInit: thumbnailAfterInit,
+});
+
+export default thumbnail;

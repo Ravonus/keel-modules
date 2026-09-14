@@ -3,9 +3,9 @@
 /** Installs a recording viewer runtime, runs work, and always restores the global. */
 async function withRuntime(work) {
   const calls = [];
-  const previous = globalThis.__OCA_THUMBNAIL__;
-  globalThis.__OCA_THUMBNAIL__ = {
-    protocol: "oca-thumbnail-capture@1",
+  const previous = globalThis.__KEEL_THUMBNAIL__;
+  globalThis.__KEEL_THUMBNAIL__ = {
+    protocol: "keel-thumbnail-capture@1",
     init: (label) => calls.push(["init", label]),
     ready: (label) => calls.push(["ready", label]),
     stop: (label) => calls.push(["stop", label]),
@@ -14,12 +14,22 @@ async function withRuntime(work) {
   try {
     return await work(calls);
   } finally {
-    if (previous === undefined) delete globalThis.__OCA_THUMBNAIL__;
-    else globalThis.__OCA_THUMBNAIL__ = previous;
+    if (previous === undefined) delete globalThis.__KEEL_THUMBNAIL__;
+    else globalThis.__KEEL_THUMBNAIL__ = previous;
   }
 }
 
 export default [
+  {
+    name: "typed thumbnail namespace snapshots without exposing the runtime global",
+    run: ({ thumbnail, default: defaultApi }) => withRuntime((calls) => {
+      if (thumbnail !== defaultApi || !Object.isFrozen(thumbnail)) throw new Error("Invalid thumbnail namespace");
+      thumbnail.snapshot();
+      thumbnail.snapshot("detail");
+      return calls;
+    }),
+    expect: [["ready", "hero"], ["ready", "detail"]],
+  },
   {
     name: "markers forward to the injected runtime with the default label",
     run: ({ thumbnailInit, thumbnailReady, thumbnailStop, thumbnailAfter }) => withRuntime((calls) => {
@@ -53,16 +63,16 @@ export default [
   {
     name: "a wrong protocol is rejected",
     run: ({ thumbnailInit }) => {
-      const previous = globalThis.__OCA_THUMBNAIL__;
-      globalThis.__OCA_THUMBNAIL__ = { protocol: "other@9" };
+      const previous = globalThis.__KEEL_THUMBNAIL__;
+      globalThis.__KEEL_THUMBNAIL__ = { protocol: "other@9" };
       try {
         thumbnailInit();
         return "no throw";
       } catch (error) {
         return error.constructor.name;
       } finally {
-        if (previous === undefined) delete globalThis.__OCA_THUMBNAIL__;
-        else globalThis.__OCA_THUMBNAIL__ = previous;
+        if (previous === undefined) delete globalThis.__KEEL_THUMBNAIL__;
+        else globalThis.__KEEL_THUMBNAIL__ = previous;
       }
     },
     expect: "Error",

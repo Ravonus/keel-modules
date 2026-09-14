@@ -334,8 +334,39 @@
       "origin": null
     },
     {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xd1f9e830257717abb9a8d58725cfdb699a97b55d46285726f88f51ee766fe502",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 624,
+          "digest": "0x8f48f68b345b05f28bec0efc0a94103b97d1249ac35a286f8aa3f7b5125cee18"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x987c3fa136b78182c58db9e4478f5ca31620b7debdaa264f50f3cb6234c6ab5d",
+              "byteLength": 3070
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/**\n * AI-friendly helpers for exact Keel poster and motion capture markers.\n * The viewer injects __KEEL_THUMBNAIL__; importing this file is optional.\n * MIT.\n */\n/** The capture API a thumbnail-aware Keel viewer injects on globalThis. */\nexport interface ThumbnailRuntime {\n    readonly protocol: \"keel-thumbnail-capture@1\";\n    init(label: string): void;\n    ready(label: string): void;\n    stop(label: string): void;\n    after(delayMs: number, label: string): void;\n}\n/** Options for {@link thumbnailAfterInit}. */\nexport interface ThumbnailAfterInitOptions {\n    /** Capture label. Defaults to \"hero\". */\n    readonly label?: string;\n    /** Delay in milliseconds after initialization before capture. Defaults to 0. */\n    readonly delayMs?: number;\n}\n/**\n * Marks the labeled capture as initializing.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailInit(label?: string): void;\n/**\n * Marks the labeled capture as ready to shoot now.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailReady(label?: string): void;\n/**\n * Stops the labeled capture.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailStop(label?: string): void;\n/**\n * Schedules the labeled capture after a delay.\n *\n * @param delayMs Delay in milliseconds before the capture fires.\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailAfter(delayMs: number, label?: string): void;\n/**\n * Runs an initializer between init and a delayed capture marker.\n *\n * @param initializer Awaited setup work; its resolved value is returned.\n * @param options Capture label and post-initialization delay.\n * @returns The initializer's resolved value.\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailAfterInit<T>(initializer: () => T | PromiseLike<T>, options?: ThumbnailAfterInitOptions): Promise<T>;\n/** Typed capture helpers. Import this object to use thumbnail.snapshot(). */\nexport declare const thumbnail: Readonly<{\n    init: typeof thumbnailInit;\n    snapshot: typeof thumbnailReady;\n    ready: typeof thumbnailReady;\n    stop: typeof thumbnailStop;\n    after: typeof thumbnailAfter;\n    afterInit: typeof thumbnailAfterInit;\n}>;\nexport default thumbnail;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xe15789bf8ce2410f124d2c8186c9d244f6536adf581e7f5000586d1c08e9e621",
+          "byteLength": 2708
+        }
+      },
       "id": "thumbnail-capture",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "MIT",
       "summary": "Capture markers for exact Keel poster and motion thumbnails.",
       "publisher": "keel-web3",
@@ -352,11 +383,11 @@
       "sourceFiles": [
         {
           "path": "modules/keel-web3/viewer/thumbnail-capture/src/index.ts",
-          "sha256": "0x76e941b60f491356db1db2f5c613001ecdb247c3b37b15d0ce5394fb360f38c5"
+          "sha256": "0x987c3fa136b78182c58db9e4478f5ca31620b7debdaa264f50f3cb6234c6ab5d"
         }
       ],
-      "outputDigest": "0x4ff5fa94a12d806995c0f424822b6c532b2152657dd55b1a3fc2c46fda7b046e",
-      "receiptDigest": "0x0dc97fbe41f63e72dac80b1436750925f4fa6a62eca68169dddb53fec4dbb28a",
+      "outputDigest": "0x8f48f68b345b05f28bec0efc0a94103b97d1249ac35a286f8aa3f7b5125cee18",
+      "receiptDigest": "0x412587f4c8ab59ec5b3b887883c58bd6ddcdea321264852cb8b1aa14e5bd43bb",
       "disposition": "reproducible-build",
       "verified": true,
       "deployments": [],

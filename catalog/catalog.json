@@ -197,6 +197,191 @@
           "name": "typescript",
           "version": "5.9.3"
         },
+        "recipeDigest": "0x83690c9e93c3f2e749a62cd4f2c6fa42a369a9a7903e599adada280f4093bdd3",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 1611,
+          "digest": "0x313c302c2c704608b80537b1bc2d0c457a194ca5289d22895d29f47bdbf68883"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x8c4e19e2d67731c45aa4ba9b20f67ceb1278f6d4966985f495698594bf74c33c",
+              "byteLength": 4723
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Animated glow rings for backgrounds, styled by injected settings. MIT. */\n/** The look of a glow field. Every member has a safe default. */\nexport interface GlowSettings {\n    /** Main light, #rrggbb. */\n    readonly color: string;\n    /** Fill behind the rings, #rrggbb. */\n    readonly background: string;\n    /** Ring count, 1 to 24. */\n    readonly rings: number;\n    /** Animation speed multiplier, 0 to 3. */\n    readonly speed: number;\n    readonly mood: \"calm\" | \"lively\";\n    readonly pulse: boolean;\n    /** Colors mixed into alternating rings, #rrggbb. */\n    readonly accents: readonly string[];\n    /** YYYY-MM-DD; before this day only a dim glow shows. */\n    readonly revealOn: string | null;\n}\nexport declare const DEFAULT_GLOW_SETTINGS: GlowSettings;\n/**\n * Normalizes untrusted settings into a complete GlowSettings. Pass the values a\n * host chose for this module, usually `KEEL_INPUTS[\"glow-field\"]`; anything\n * missing or malformed falls back to its default.\n *\n * @param input Plain settings object, or undefined for all defaults.\n */\nexport declare function glowSettings(input?: unknown): GlowSettings;\n/**\n * Whether the field is fully revealed on a given day.\n *\n * @param settings Normalized settings.\n * @param today Local day as YYYY-MM-DD, injected by the caller.\n */\nexport declare function glowRevealed(settings: GlowSettings, today: string): boolean;\n/**\n * Draws one frame. Pure with respect to its inputs: the same settings, size,\n * time and day always draw the same frame.\n *\n * @param context 2D context to draw into.\n * @param width Drawing width in pixels.\n * @param height Drawing height in pixels.\n * @param seconds Elapsed time in seconds.\n * @param settings Normalized settings from glowSettings().\n * @param today Local day as YYYY-MM-DD, for the reveal date.\n */\nexport declare function drawGlow(context: CanvasRenderingContext2D, width: number, height: number, seconds: number, settings?: GlowSettings, today?: string): void;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x7497358d0f947e45fef95523a41269d1ef1bcabce71da9729717466df10eae56",
+          "byteLength": 2050
+        }
+      },
+      "inputs": {
+        "protocol": "keel-module-inputs@1",
+        "fields": [
+          {
+            "key": "color",
+            "label": "Glow color",
+            "required": false,
+            "help": "The main light. Any bright, saturated color works.",
+            "type": "color",
+            "clamp": {
+              "saturation": [
+                35,
+                100
+              ],
+              "lightness": [
+                35,
+                75
+              ]
+            },
+            "swatches": [
+              "#7c83ff",
+              "#ff7a59",
+              "#ffd166",
+              "#3ee6c1"
+            ],
+            "default": "#7c83ff"
+          },
+          {
+            "key": "background",
+            "label": "Background",
+            "required": false,
+            "type": "color",
+            "swatches": [
+              "#0c0d10",
+              "#101828",
+              "#1b1033",
+              "#f4f1ea"
+            ],
+            "allowCustom": false,
+            "default": "#0c0d10"
+          },
+          {
+            "key": "rings",
+            "label": "Rings",
+            "required": false,
+            "type": "number",
+            "min": 1,
+            "max": 24,
+            "step": 1,
+            "control": "slider",
+            "default": 8
+          },
+          {
+            "key": "speed",
+            "label": "Speed",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 3,
+            "step": 0.1,
+            "control": "slider",
+            "unit": "x",
+            "default": 1
+          },
+          {
+            "key": "mood",
+            "label": "Motion",
+            "required": false,
+            "placement": "advanced",
+            "type": "select",
+            "options": [
+              {
+                "value": "calm",
+                "label": "Calm"
+              },
+              {
+                "value": "lively",
+                "label": "Lively"
+              }
+            ],
+            "default": "calm"
+          },
+          {
+            "key": "pulse",
+            "label": "Pulse",
+            "required": false,
+            "help": "Gently breathe the brightness.",
+            "placement": "advanced",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "key": "accents",
+            "label": "Accent colors",
+            "required": false,
+            "help": "Optional colors mixed into alternating rings.",
+            "placement": "advanced",
+            "type": "palette",
+            "minItems": 0,
+            "maxItems": 4,
+            "clamp": {
+              "lightness": [
+                40,
+                85
+              ]
+            }
+          },
+          {
+            "key": "revealOn",
+            "label": "Reveal on",
+            "required": false,
+            "help": "Before this day (viewer's clock), only a dim glow shows.",
+            "placement": "advanced",
+            "type": "date"
+          }
+        ]
+      },
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIGU9e2NvbG9yOiIjN2M4M2ZmIixiYWNrZ3JvdW5kOiIjMGMwZDEwIixyaW5nczo4LHNwZWVkOjEsbW9vZDoiY2FsbSIscHVsc2U6ITAsYWNjZW50czpbXSxyZXZlYWxPbjpudWxsfSx0PS9eI1swLTlhLWZdezZ9JC9pdSxsPS9eXGR7NH0tXGR7Mn0tXGR7Mn0kL3U7ZnVuY3Rpb24gbihlLGwpe3JldHVybiJzdHJpbmciPT10eXBlb2YgZSYmdC50ZXN0KGUpP2UudG9Mb3dlckNhc2UoKTpsfWZ1bmN0aW9uIG8oZSx0LGwsbil7cmV0dXJuIm51bWJlciI9PXR5cGVvZiBlJiZOdW1iZXIuaXNGaW5pdGUoZSk/TWF0aC5taW4obCxNYXRoLm1heCh0LGUpKTpufWZ1bmN0aW9uIHIocil7aWYobnVsbD09PXJ8fCJvYmplY3QiIT10eXBlb2YgcilyZXR1cm4gZTtsZXQgYT1yLHM9QXJyYXkuaXNBcnJheShhLmFjY2VudHMpP2EuYWNjZW50cy5maWx0ZXIoZT0+InN0cmluZyI9PXR5cGVvZiBlJiZ0LnRlc3QoZSkpLnNsaWNlKDAsNCk6W107cmV0dXJue2NvbG9yOm4oYS5jb2xvcixlLmNvbG9yKSxiYWNrZ3JvdW5kOm4oYS5iYWNrZ3JvdW5kLGUuYmFja2dyb3VuZCkscmluZ3M6TWF0aC5yb3VuZChvKGEucmluZ3MsMSwyNCxlLnJpbmdzKSksc3BlZWQ6byhhLnNwZWVkLDAsMyxlLnNwZWVkKSxtb29kOiJsaXZlbHkiPT09YS5tb29kPyJsaXZlbHkiOiJjYWxtIixwdWxzZToiYm9vbGVhbiI9PXR5cGVvZiBhLnB1bHNlP2EucHVsc2U6ZS5wdWxzZSxhY2NlbnRzOnMscmV2ZWFsT246InN0cmluZyI9PXR5cGVvZiBhLnJldmVhbE9uJiZsLnRlc3QoYS5yZXZlYWxPbik/YS5yZXZlYWxPbjpudWxsfX1mdW5jdGlvbiBhKGUsdCl7cmV0dXJuIG51bGw9PT1lLnJldmVhbE9ufHx0Pj1lLnJldmVhbE9ufWZ1bmN0aW9uIHModCxsLG4sbyxyPWUscz0iOTk5OS0xMi0zMSIpe2xldCBjPWEocixzKSxpPW8qci5zcGVlZCooImxpdmVseSI9PT1yLm1vb2Q/MS44Oi43KSxkPXIucHVsc2U/Ljc4Ky4yMipNYXRoLnNpbigxLjMqaSk6MSx1PWwvMixmPW4vMixwPU1hdGguaHlwb3QobCxuKS8yO3QuZmlsbFN0eWxlPXIuYmFja2dyb3VuZCx0LmZpbGxSZWN0KDAsMCxsLG4pO2xldCBnPXQuY3JlYXRlUmFkaWFsR3JhZGllbnQodSxmLDAsdSxmLC45KnApO2lmKGcuYWRkQ29sb3JTdG9wKDAsYCR7ci5jb2xvcn0ke2M/IjY2IjoiMjIifWApLGcuYWRkQ29sb3JTdG9wKDEsYCR7ci5jb2xvcn0wMGApLHQuZmlsbFN0eWxlPWcsdC5maWxsUmVjdCgwLDAsbCxuKSxjKXt0LmxpbmVXaWR0aD1NYXRoLm1heCgxLE1hdGgubWluKGwsbikvMjYwKTtmb3IobGV0IGU9MDtlPHIucmluZ3M7ZSs9MSl7bGV0IGw9KGUvci5yaW5ncysuMDgqaSklMSxuPWwqcCxvPXIuYWNjZW50cy5sZW5ndGg+MCYmZSUyPT0xP3IuYWNjZW50c1soZT4+MSklci5hY2NlbnRzLmxlbmd0aF06dm9pZCAwLGE9TWF0aC5yb3VuZCgyNTUqZCooMS1sKSouODUpLnRvU3RyaW5nKDE2KS5wYWRTdGFydCgyLCIwIik7dC5zdHJva2VTdHlsZT1gJHtvPz9yLmNvbG9yfSR7YX1gLHQuYmVnaW5QYXRoKCksdC5hcmModSxmLG4sMCwyKk1hdGguUEkpLHQuc3Ryb2tlKCl9fX1leHBvcnR7ZSBhcyBERUZBVUxUX0dMT1dfU0VUVElOR1MscyBhcyBkcmF3R2xvdyxhIGFzIGdsb3dSZXZlYWxlZCxyIGFzIGdsb3dTZXR0aW5nc307",
+        "format": "esm",
+        "entry": "src/index.ts"
+      },
+      "id": "glow-field",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "Animated glow rings for backgrounds, styled by settings the artist chooses when including it.",
+      "publisher": "keel-web3",
+      "category": "render",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "graphics",
+        "member": null
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": null,
+      "githubPath": "modules/keel-web3/render/glow-field/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/render/glow-field/src/index.ts",
+          "sha256": "0x8c4e19e2d67731c45aa4ba9b20f67ceb1278f6d4966985f495698594bf74c33c"
+        }
+      ],
+      "outputDigest": "0x313c302c2c704608b80537b1bc2d0c457a194ca5289d22895d29f47bdbf68883",
+      "receiptDigest": "0x5f2872a4af4de302410a38d8d8d16ffd5736b9b0fc60a9624dbd245871c76bdc",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
         "recipeDigest": "0x8167cfff073ca3d5e0c2abb44ea228fe191f8c2395808e08d01cdda18a55864c",
         "output": {
           "algorithm": "sha256",

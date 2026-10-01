@@ -1,0 +1,20 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "glow-field",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Animated glow rings for backgrounds, styled by settings the artist chooses when including it.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "color", "label": "Glow color", "type": "color", "required": false, "help": "The main light. Any bright, saturated color works.", "swatches": ["#7c83ff", "#ff7a59", "#ffd166", "#3ee6c1"], "clamp": { "saturation": [35, 100], "lightness": [35, 75] }, "default": "#7c83ff" },
+    { "key": "background", "label": "Background", "type": "color", "required": false, "swatches": ["#0c0d10", "#101828", "#1b1033", "#f4f1ea"], "allowCustom": false, "default": "#0c0d10" },
+    { "key": "rings", "label": "Rings", "type": "number", "required": false, "min": 1, "max": 24, "step": 1, "control": "slider", "default": 8 },
+    { "key": "speed", "label": "Speed", "type": "number", "required": false, "min": 0, "max": 3, "step": 0.1, "unit": "x", "control": "slider", "default": 1 },
+    { "key": "mood", "label": "Motion", "type": "select", "required": false, "placement": "advanced", "options": [{ "value": "calm", "label": "Calm" }, { "value": "lively", "label": "Lively" }], "default": "calm" },
+    { "key": "pulse", "label": "Pulse", "type": "boolean", "required": false, "placement": "advanced", "help": "Gently breathe the brightness.", "default": true },
+    { "key": "accents", "label": "Accent colors", "type": "palette", "required": false, "placement": "advanced", "help": "Optional colors mixed into alternating rings.", "minItems": 0, "maxItems": 4, "clamp": { "lightness": [40, 85] } },
+    { "key": "revealOn", "label": "Reveal on", "type": "date", "required": false, "placement": "advanced", "help": "Before this day (viewer's clock), only a dim glow shows." }
+  ]
+}

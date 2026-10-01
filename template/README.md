@@ -6,6 +6,7 @@ Copy this directory to `modules/<your-module-id>/` and replace the placeholders.
 
 1. Write pretty, strict TypeScript in `src/index.ts`. This is the VERIFIED readable portion: precise types, no `any`, dependency-injected environment, TSDoc on every export. Readers audit this file, not the on-chain bytes.
 2. Fill in `keel.module.json` with your module id and a one-line summary, and describe the module in `README.md`: what it does, which dependencies are injected, one usage snippet.
+   Optional: add an `inputs` list to `keel.module.json` for settings people can change when they include your module (colors limited to a palette, sliders, dates, choices; basic or advanced). Hosts pass the chosen values as `KEEL_INPUTS["<module-id>"]`; take them as a parameter rather than reading the global inside the module. See `modules/keel-web3/render/glow-field` and the SDK's `docs/MODULE_SETTINGS.md`.
 3. Run `keel module build`. It minifies your source into the exact bytes that go on chain and emits a `keel-source-receipt@1` that hash-links your readable source, the minified output, and the deterministic build recipe.
 4. Open a pull request. CI typechecks your module with the shared strict `tsconfig.base.json` and reproduces your build, so the receipt's digests must match a clean rebuild before merge.
 

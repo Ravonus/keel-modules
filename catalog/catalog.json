@@ -116,10 +116,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gZShlLG49NDQwKXtpZighTnVtYmVyLmlzRmluaXRlKGUpfHwhTnVtYmVyLmlzRmluaXRlKG4pfHxuPD0wKXRocm93IG5ldyBSYW5nZUVycm9yKCJJbnZhbGlkIG5vdGUgb3IgdHVuaW5nLiIpO3JldHVybiBuKjIqKigoZS02OSkvMTIpfWZ1bmN0aW9uIG4oZSxuLHQse2F0dGFjazphPS4wMSxkZWNheTppPS4wOCxzdXN0YWluOnI9LjYscmVsZWFzZTpvPS4xOCxkdXJhdGlvbjpsPS40fT17fSl7Zm9yKGxldCBlIG9mW24sdCxhLGkscixvLGxdKWlmKCFOdW1iZXIuaXNGaW5pdGUoZSl8fGU8MCl0aHJvdyBuZXcgUmFuZ2VFcnJvcigiSW52YWxpZCBlbnZlbG9wZSB2YWx1ZS4iKTtsZXQgdT1uK01hdGgubWF4KGwsYStpKTtyZXR1cm4gZS5jYW5jZWxTY2hlZHVsZWRWYWx1ZXMobiksZS5zZXRWYWx1ZUF0VGltZSgwLG4pLGUubGluZWFyUmFtcFRvVmFsdWVBdFRpbWUodCxuK2EpLGUubGluZWFyUmFtcFRvVmFsdWVBdFRpbWUodCpyLG4rYStpKSxlLnNldFZhbHVlQXRUaW1lKHQqcix1KSxlLmxpbmVhclJhbXBUb1ZhbHVlQXRUaW1lKDAsdStvKSx1K299ZnVuY3Rpb24gdChlLG4sdD17fSl7bGV0IGE9bmV3IE9zY2lsbGF0b3JOb2RlKGUse3R5cGU6dC50eXBlPz8ic2luZSIsZnJlcXVlbmN5OnQuZnJlcXVlbmN5Pz80NDB9KSxpPW5ldyBHYWluTm9kZShlLHtnYWluOjB9KTtyZXR1cm4gYS5jb25uZWN0KGkpLmNvbm5lY3Qobikse29zY2lsbGF0b3I6YSxnYWluOml9fWV4cG9ydHtlIGFzIG5vdGVGcmVxdWVuY3ksdCBhcyBvc2NpbGxhdG9yVm9pY2UsbiBhcyBzY2hlZHVsZUVudmVsb3BlfTs=",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "Il\u003c!.l4[gq7.Argp+rFM:K-;d^:l3-W4!=abG=U@|A;ibnZ9c{fCiQN\u0026KO$f2|t)w9Xd2ON]640$L'h)ZIps}GM{VpDQa\u003cS|/?F28{QQlQ*b9\u003e@`B[([vO2?ubC_}v|CAG`~M5\u003eBiPI^FZ?|]\u003eizsl5KInSrf!tQbx|0=I94-z25~'Z@U]7.O`!n]/CH6iI2xI!'tli?/8X?/~{nI12\u003e9DQ;!pT^L7F0Kx}?rpyp_p(\u0026@Ocng~\u0026uQ1S/{$ACc?Tv~RfX;6.i,(b+sR:!yM{DPve]FKzYc:y'2)I\u003et!Y4,kDt2[J{.(yPcGb'CYsA$ov\u003ebYKcg)r!UK;;RpcqNmCKlS:M[:g15Rzme=(WQtKmRR@^.I_-;dW@l!Wui+khc~VN=0'46oVkVsDN:'MRQv[L!nOrwSWRiwKkhVgaJr[05|.wUJ,slda$kc_)yTdS-1/*tC$9/D`9l/FdgO4B(9k)KjVEhpxzE3YxD^1EJQ'tz^wifgO{kN~;|):Y+IO_fZ[Or,",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xda78abe62e662b9ff63ebc3c014f88744a98847dfefb5b1c039af95db4557b89",
+          "byteLength": 794
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xb985b2c2e171a1ca05cb4feedbf5f04b4369ecfac549ffef6a0bbf9eca335138",
+          "byteLength": 417
+        }
       }
     },
     {
@@ -146,7 +160,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/** Deterministic Flash edition traits backed by Keel's seeded-random module. MIT. */\nexport type SeededRandom = () => number;\n/** The exact API supplied by the reusable `seeded-random` module. */\nexport interface SeededRandomModule {\n    readonly createSeededRandom: (hexSeed: string) => SeededRandom;\n    readonly randomInt: (random: SeededRandom, minimum: number, maximum: number) => number;\n}\nexport interface FlashEditionTraits {\n    /** Canonical 32-byte hexadecimal seed for the artwork runtime. */\n    readonly seedHex: `0x${string}`;\n    /** Palette index in the shared Ghost Circuit palette. */\n    readonly paletteIndex: number;\n    /** Motion rate in radians per frame. */\n    readonly motion: number;\n    /** Endpoint pull toward the pointer. */\n    readonly attraction: number;\n    /** Signed gravity bias applied to the arm midpoint. */\n    readonly gravity: number;\n    /** Arm length in stage pixels. */\n    readonly length: number;\n    /** Arm bend amplitude in stage pixels. */\n    readonly bend: number;\n}\n/**\n * Derive a preview token seed from a collection root seed.\n *\n * Production viewers should prefer `context.derivedTokenSeed` from\n * KeelSeedRegistry. This fallback exists for the local playground, where a\n * persisted random root seed is expanded with the same global module.\n */\nexport declare function deriveTokenSeed(rootSeedHex: string, tokenId: number, randomModule: SeededRandomModule): `0x${string}`;\n/**\n * Derive a replayable Flash trait set from a canonical token seed.\n *\n * @param tokenSeedHex Canonical 32-byte seed from KeelSeedRegistry or the\n * local `deriveTokenSeed` fallback.\n * @param tokenId One-based token id.\n * @param randomModule The separately committed Keel seeded-random module.\n * @returns Immutable deterministic traits and the canonical runtime seed.\n * @throws RangeError when tokenId is not in the collection range.\n */\nexport declare function deriveFlashEdition(tokenSeedHex: string, tokenId: number, randomModule: SeededRandomModule): FlashEditionTraits;\n"
+          "src/index.d.ts": "/** Deterministic Flash edition traits backed by Keel's seeded-random module. MIT. */\nexport type SeededRandom = () =\u003e number;\n/** The exact API supplied by the reusable `seeded-random` module. */\nexport interface SeededRandomModule {\n    readonly createSeededRandom: (hexSeed: string) =\u003e SeededRandom;\n    readonly randomInt: (random: SeededRandom, minimum: number, maximum: number) =\u003e number;\n}\nexport interface FlashEditionTraits {\n    /** Canonical 32-byte hexadecimal seed for the artwork runtime. */\n    readonly seedHex: `0x${string}`;\n    /** Palette index in the shared Ghost Circuit palette. */\n    readonly paletteIndex: number;\n    /** Motion rate in radians per frame. */\n    readonly motion: number;\n    /** Endpoint pull toward the pointer. */\n    readonly attraction: number;\n    /** Signed gravity bias applied to the arm midpoint. */\n    readonly gravity: number;\n    /** Arm length in stage pixels. */\n    readonly length: number;\n    /** Arm bend amplitude in stage pixels. */\n    readonly bend: number;\n}\n/**\n * Derive a preview token seed from a collection root seed.\n *\n * Production viewers should prefer `context.derivedTokenSeed` from\n * KeelSeedRegistry. This fallback exists for the local playground, where a\n * persisted random root seed is expanded with the same global module.\n */\nexport declare function deriveTokenSeed(rootSeedHex: string, tokenId: number, randomModule: SeededRandomModule): `0x${string}`;\n/**\n * Derive a replayable Flash trait set from a canonical token seed.\n *\n * @param tokenSeedHex Canonical 32-byte seed from KeelSeedRegistry or the\n * local `deriveTokenSeed` fallback.\n * @param tokenId One-based token id.\n * @param randomModule The separately committed Keel seeded-random module.\n * @returns Immutable deterministic traits and the canonical runtime seed.\n * @throws RangeError when tokenId is not in the collection range.\n */\nexport declare function deriveFlashEdition(tokenSeedHex: string, tokenId: number, randomModule: SeededRandomModule): FlashEditionTraits;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -184,10 +198,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "dmFyIGU9L14weFswLTlhLWZdezY0fSQvdTtmdW5jdGlvbiB0KHQscil7aWYoInN0cmluZyIhPXR5cGVvZiB0fHwhZS50ZXN0KHQpKXRocm93IG5ldyBSYW5nZUVycm9yKGAke3J9IG11c3QgYmUgYSBjYW5vbmljYWwgMzItYnl0ZSBoZXhhZGVjaW1hbCBzZWVkLmApO3JldHVybiB0LnRvTG93ZXJDYXNlKCl9ZnVuY3Rpb24gcihlKXtpZigib2JqZWN0IiE9dHlwZW9mIGV8fG51bGw9PT1lfHwiZnVuY3Rpb24iIT10eXBlb2YgZS5jcmVhdGVTZWVkZWRSYW5kb218fCJmdW5jdGlvbiIhPXR5cGVvZiBlLnJhbmRvbUludCl0aHJvdyBuZXcgVHlwZUVycm9yKCJmbGFzaC1lZGl0aW9uIHJlcXVpcmVzIHRoZSBLZWVsIHNlZWRlZC1yYW5kb20gbW9kdWxlLiIpO3JldHVybiBlfWZ1bmN0aW9uIG4oZSl7cmV0dXJuKGU+Pj4wKS50b1N0cmluZygxNikucGFkU3RhcnQoOCwiMCIpfWZ1bmN0aW9uIG8oZSl7cmV0dXJuIE1hdGguZmxvb3IoNDI5NDk2NzI5NiplKCkpPj4+MH1mdW5jdGlvbiBhKGUsYSxpKXtsZXQgZD10KGUsInJvb3RTZWVkSGV4Iik7aWYocihpKSwhTnVtYmVyLmlzU2FmZUludGVnZXIoYSl8fGE8MXx8YT4xMTEpdGhyb3cgbmV3IFJhbmdlRXJyb3IoInRva2VuSWQgbXVzdCBiZSBhbiBpbnRlZ2VyIGZyb20gMSB0aHJvdWdoIDExMS4iKTtsZXQgZj1pLmNyZWF0ZVNlZWRlZFJhbmRvbShkKSx1PVtdO2ZvcihsZXQgZT0xO2U8PWE7ZSs9MSl1PUFycmF5LmZyb20oe2xlbmd0aDo4fSwoKT0+byhmKSk7cmV0dXJuYDB4JHt1Lm1hcChuKS5qb2luKCIiKX1gfWZ1bmN0aW9uIGkoZSxuLG8pe2xldCBhPXQoZSwidG9rZW5TZWVkSGV4Iik7aWYocihvKSwhTnVtYmVyLmlzU2FmZUludGVnZXIobil8fG48MXx8bj4xMTEpdGhyb3cgbmV3IFJhbmdlRXJyb3IoInRva2VuSWQgbXVzdCBiZSBhbiBpbnRlZ2VyIGZyb20gMSB0aHJvdWdoIDExMS4iKTtsZXQgaT1vLmNyZWF0ZVNlZWRlZFJhbmRvbShhKTtyZXR1cm4gT2JqZWN0LmZyZWV6ZSh7c2VlZEhleDphLHBhbGV0dGVJbmRleDpvLnJhbmRvbUludChpLDAsNSksbW90aW9uOi4wMDcrLjAxNippKCksYXR0cmFjdGlvbjouMDgrLjE2KmkoKSxncmF2aXR5Oi4zNippKCktLjE4LGxlbmd0aDoxMzArMjEwKmkoKSxiZW5kOjQwKzEwMCppKCl9KX1leHBvcnR7aSBhcyBkZXJpdmVGbGFzaEVkaXRpb24sYSBhcyBkZXJpdmVUb2tlblNlZWR9Ow==",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "WiH!.l$ZcP+cozS(P$EDil7J-x9n,A:L|$,W}qiGPQ}o9!`Rr}67h\u003cwbN`/^1phJ4(M(.C)JeZo$!'zrg-f,y},xuy8DMlX6:tGd7g}PeArLd3`]E[l8usdr$B53AdT*IPltg5+:646?1GOY/}YWGHTd\u003el|_uH!;|lr\u003eSd_:DADRAhnY05Jnw/lkUpO\u0026[i{,-hFJ!dnwUw_74Wi\u0026uSo?GU2=W!h)/q^JN@1fn(ZQ.?[A}I147ztM!5dFr(Dp:SXVmVni-:2ZMB|}n/~-^gu9)L1l+\u003e32e8E^Ai8QPW+Q30glwDbZ!6'0Tua\u00264!7'0T*\u0026aak_xA\u003ed=F:,qO,s@/'S71'wq!{AkX`A/6;n|RrkQ?$[Y5\u0026J2\u003cs\u0026pCb`x\u0026MCc_hw,;nmUH{=ZiF?2{f?3u[)h=e4\u003e=,|O\u0026Ctg$1p=S\u003cg71*U\u0026:6J.},mm,EEC)Xk,lE{oqdX46|Hom\u0026x{eYycmm,q;=;lBbO$Ini7le|DwbpG'JOPlcJLDCsg'W0mr/\u003e=}{6?E8wYtF|kRu\u002693eI;nnt!~'z_e{V{9u\u0026=Zo!*M5u4vN|qRojL(R(b?2*w:oPd;d_GV\u0026o)ku;aB3z{s(otC1iU-t|i\u0026Dn]:QV]dHM5frgVYI'[9zuI3ChB^.n@Te/N5xNAsuLz+y[OmcZ|p_ni3jm.XaqA?_UAVgwwDKRbO4EiwAtq)Sw?~uXAONJ*QK33pWkYfLw*14?QQTswc$",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xa89a7c792b9687664b765faf5bf6744d20088566daa7aa7c9f7f8f5db073ef9e",
+          "byteLength": 1177
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x7ea4ff5fbe68878b14190de7ade2010117b58a9713b4faba90e2198f915e8b9a",
+          "byteLength": 583
+        }
       }
     },
     {
@@ -214,7 +242,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/** Fixed-timestep animation clock with explicit FPS and bounded catch-up. MIT. */\n/** Information passed to the frame callback for every simulated frame. */\nexport interface FrameInfo {\n    /** Zero-based frame index. */\n    readonly frame: number;\n    /** Simulated time in milliseconds, always frame * step. */\n    readonly time: number;\n    /** Fixed step length in milliseconds. */\n    readonly delta: number;\n}\n/** Options for {@link createFrameClock}. */\nexport interface FrameClockOptions {\n    /** Frames per second; must be greater than 0 and at most 240. Defaults to 12. */\n    readonly fps?: number;\n    /** Maximum simulated frames per animation tick; must be a safe integer of at least 1. Defaults to 4. */\n    readonly maxCatchUpFrames?: number;\n    /** Called once per simulated frame. */\n    readonly onFrame: (info: FrameInfo) => void;\n}\n/** Handle returned by {@link createFrameClock}. */\nexport interface FrameClock {\n    /** Starts the clock. Calling it while running does nothing. */\n    start(): void;\n    /** Stops the clock and resets the accumulated real time. The frame counter is kept. */\n    stop(): void;\n    /** Jumps the frame counter to the given non-negative safe integer. */\n    seek(nextFrame: number): void;\n    /** The next frame index that will be simulated. */\n    readonly frame: number;\n}\n/**\n * Creates a fixed-timestep clock driven by requestAnimationFrame.\n *\n * The clock accumulates real elapsed time, clamped to at most\n * maxCatchUpFrames steps per tick, and calls onFrame once per whole step.\n *\n * @param options FPS, catch-up bound, and the per-frame callback.\n * @returns A start/stop/seek handle exposing the current frame index.\n * @throws RangeError when fps or maxCatchUpFrames is out of range.\n */\nexport declare function createFrameClock({ fps, maxCatchUpFrames, onFrame }: FrameClockOptions): FrameClock;\n"
+          "src/index.d.ts": "/** Fixed-timestep animation clock with explicit FPS and bounded catch-up. MIT. */\n/** Information passed to the frame callback for every simulated frame. */\nexport interface FrameInfo {\n    /** Zero-based frame index. */\n    readonly frame: number;\n    /** Simulated time in milliseconds, always frame * step. */\n    readonly time: number;\n    /** Fixed step length in milliseconds. */\n    readonly delta: number;\n}\n/** Options for {@link createFrameClock}. */\nexport interface FrameClockOptions {\n    /** Frames per second; must be greater than 0 and at most 240. Defaults to 12. */\n    readonly fps?: number;\n    /** Maximum simulated frames per animation tick; must be a safe integer of at least 1. Defaults to 4. */\n    readonly maxCatchUpFrames?: number;\n    /** Called once per simulated frame. */\n    readonly onFrame: (info: FrameInfo) =\u003e void;\n}\n/** Handle returned by {@link createFrameClock}. */\nexport interface FrameClock {\n    /** Starts the clock. Calling it while running does nothing. */\n    start(): void;\n    /** Stops the clock and resets the accumulated real time. The frame counter is kept. */\n    stop(): void;\n    /** Jumps the frame counter to the given non-negative safe integer. */\n    seek(nextFrame: number): void;\n    /** The next frame index that will be simulated. */\n    readonly frame: number;\n}\n/**\n * Creates a fixed-timestep clock driven by requestAnimationFrame.\n *\n * The clock accumulates real elapsed time, clamped to at most\n * maxCatchUpFrames steps per tick, and calls onFrame once per whole step.\n *\n * @param options FPS, catch-up bound, and the per-frame callback.\n * @returns A start/stop/seek handle exposing the current frame index.\n * @throws RangeError when fps or maxCatchUpFrames is out of range.\n */\nexport declare function createFrameClock({ fps, maxCatchUpFrames, onFrame }: FrameClockOptions): FrameClock;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -252,10 +280,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gZSh7ZnBzOmU9MTIsbWF4Q2F0Y2hVcEZyYW1lczpyPTQsb25GcmFtZTphfSl7aWYoIShlPjAmJmU8PTI0MCl8fCFOdW1iZXIuaXNTYWZlSW50ZWdlcihyKXx8cjwxKXRocm93IG5ldyBSYW5nZUVycm9yKCJJbnZhbGlkIGZyYW1lLWNsb2NrIGxpbWl0cy4iKTtsZXQgdD0xZTMvZSxuPSExLG09MCxpPTAsbz0wLGY9MCxzPWU9PntpZighbilyZXR1cm47MD09PWkmJihpPWUpLG8rPU1hdGgubWluKGUtaSx0KnIpLGk9ZTtsZXQgbD0wO2Zvcig7bz49dCYmbDxyOylhKHtmcmFtZTpmLHRpbWU6Zip0LGRlbHRhOnR9KSxmKz0xLGwrPTEsby09dDttPXJlcXVlc3RBbmltYXRpb25GcmFtZShzKX07cmV0dXJue3N0YXJ0KCl7bnx8KG49ITAsbT1yZXF1ZXN0QW5pbWF0aW9uRnJhbWUocykpfSxzdG9wKCl7bj0hMSxjYW5jZWxBbmltYXRpb25GcmFtZShtKSxpPTAsbz0wfSxzZWVrKGUpe2lmKCFOdW1iZXIuaXNTYWZlSW50ZWdlcihlKXx8ZTwwKXRocm93IG5ldyBSYW5nZUVycm9yKCJJbnZhbGlkIGZyYW1lLiIpO2Y9ZX0sZ2V0IGZyYW1lKCl7cmV0dXJuIGZ9fX1leHBvcnR7ZSBhcyBjcmVhdGVGcmFtZUNsb2NrfTs=",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "1'6!.lmpWI9u-1*^9UOPjCIK[\u003cTKRJD{zTAMqzK$_R,e*D1UwrB;9[I~yRp\u003cqAuWXI\u003c[Ke\u003e+X\u003eQ6okT\u003eTXzw8k1zDlWP*lx?s/?UX8jgQ_u^Z-vK]/7.z~NAY`)WzJ=)|D=o\u003ch^Fi4mCmWLT}e?bdiwn:Qvl'3hq-GlzK5T=w|')yC^c]\u0026rF@U5za(p\u003cShqa@]DH9'MLp*2RY1$$4RrZ:j;e7g)`[jlq36OytnCY`=kP4B+]yi2R\u003cFtf[T8mks7Np.f-5',QA8z~V~,A7,6`Ga}\u0026oo0`=?bvpa.(8?b9=yUl^)wC[i!ygkz.\u003ei},WQc3$Ghe[~O*@V~r}-G6wwvi,U{/s:Fs{PEUYXHL,08swT]\u0026PK4Z6R\u003edu.G!:Xb\u003ejJ*Oz!R7lCvX\u003e0':(l6=(,'3r0crov6:EAX!",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x49f70f6268dc3fd3ff09fa532b8308c005833f94d1bb88b1f9b56198b6fb1a9e",
+          "byteLength": 578
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x758f3b3d39079b5df1e5253b82237336b2db6f0e3e8d8994fa4eb8614c9e7175",
+          "byteLength": 337
+        }
       }
     },
     {
@@ -437,10 +479,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "dmFyIGU9e2NvbG9yOiIjN2M4M2ZmIixiYWNrZ3JvdW5kOiIjMGMwZDEwIixyaW5nczo4LHNwZWVkOjEsbW9vZDoiY2FsbSIscHVsc2U6ITAsYWNjZW50czpbXSxyZXZlYWxPbjpudWxsfSx0PS9eI1swLTlhLWZdezZ9JC9pdSxsPS9eXGR7NH0tXGR7Mn0tXGR7Mn0kL3U7ZnVuY3Rpb24gbihlLGwpe3JldHVybiJzdHJpbmciPT10eXBlb2YgZSYmdC50ZXN0KGUpP2UudG9Mb3dlckNhc2UoKTpsfWZ1bmN0aW9uIG8oZSx0LGwsbil7cmV0dXJuIm51bWJlciI9PXR5cGVvZiBlJiZOdW1iZXIuaXNGaW5pdGUoZSk/TWF0aC5taW4obCxNYXRoLm1heCh0LGUpKTpufWZ1bmN0aW9uIHIocil7aWYobnVsbD09PXJ8fCJvYmplY3QiIT10eXBlb2YgcilyZXR1cm4gZTtsZXQgYT1yLHM9QXJyYXkuaXNBcnJheShhLmFjY2VudHMpP2EuYWNjZW50cy5maWx0ZXIoZT0+InN0cmluZyI9PXR5cGVvZiBlJiZ0LnRlc3QoZSkpLnNsaWNlKDAsNCk6W107cmV0dXJue2NvbG9yOm4oYS5jb2xvcixlLmNvbG9yKSxiYWNrZ3JvdW5kOm4oYS5iYWNrZ3JvdW5kLGUuYmFja2dyb3VuZCkscmluZ3M6TWF0aC5yb3VuZChvKGEucmluZ3MsMSwyNCxlLnJpbmdzKSksc3BlZWQ6byhhLnNwZWVkLDAsMyxlLnNwZWVkKSxtb29kOiJsaXZlbHkiPT09YS5tb29kPyJsaXZlbHkiOiJjYWxtIixwdWxzZToiYm9vbGVhbiI9PXR5cGVvZiBhLnB1bHNlP2EucHVsc2U6ZS5wdWxzZSxhY2NlbnRzOnMscmV2ZWFsT246InN0cmluZyI9PXR5cGVvZiBhLnJldmVhbE9uJiZsLnRlc3QoYS5yZXZlYWxPbik/YS5yZXZlYWxPbjpudWxsfX1mdW5jdGlvbiBhKGUsdCl7cmV0dXJuIG51bGw9PT1lLnJldmVhbE9ufHx0Pj1lLnJldmVhbE9ufWZ1bmN0aW9uIHModCxsLG4sbyxyPWUscz0iOTk5OS0xMi0zMSIpe2xldCBjPWEocixzKSxpPW8qci5zcGVlZCooImxpdmVseSI9PT1yLm1vb2Q/MS44Oi43KSxkPXIucHVsc2U/Ljc4Ky4yMipNYXRoLnNpbigxLjMqaSk6MSx1PWwvMixmPW4vMixwPU1hdGguaHlwb3QobCxuKS8yO3QuZmlsbFN0eWxlPXIuYmFja2dyb3VuZCx0LmZpbGxSZWN0KDAsMCxsLG4pO2xldCBnPXQuY3JlYXRlUmFkaWFsR3JhZGllbnQodSxmLDAsdSxmLC45KnApO2lmKGcuYWRkQ29sb3JTdG9wKDAsYCR7ci5jb2xvcn0ke2M/IjY2IjoiMjIifWApLGcuYWRkQ29sb3JTdG9wKDEsYCR7ci5jb2xvcn0wMGApLHQuZmlsbFN0eWxlPWcsdC5maWxsUmVjdCgwLDAsbCxuKSxjKXt0LmxpbmVXaWR0aD1NYXRoLm1heCgxLE1hdGgubWluKGwsbikvMjYwKTtmb3IobGV0IGU9MDtlPHIucmluZ3M7ZSs9MSl7bGV0IGw9KGUvci5yaW5ncysuMDgqaSklMSxuPWwqcCxvPXIuYWNjZW50cy5sZW5ndGg+MCYmZSUyPT0xP3IuYWNjZW50c1soZT4+MSklci5hY2NlbnRzLmxlbmd0aF06dm9pZCAwLGE9TWF0aC5yb3VuZCgyNTUqZCooMS1sKSouODUpLnRvU3RyaW5nKDE2KS5wYWRTdGFydCgyLCIwIik7dC5zdHJva2VTdHlsZT1gJHtvPz9yLmNvbG9yfSR7YX1gLHQuYmVnaW5QYXRoKCksdC5hcmModSxmLG4sMCwyKk1hdGguUEkpLHQuc3Ryb2tlKCl9fX1leHBvcnR7ZSBhcyBERUZBVUxUX0dMT1dfU0VUVElOR1MscyBhcyBkcmF3R2xvdyxhIGFzIGdsb3dSZXZlYWxlZCxyIGFzIGdsb3dTZXR0aW5nc307",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "h@V!.lv_eE|8a(Fb;U[o?3IeMX6N8.SzVWiA@a+n]6OCH_(Q?_L?:ciT?*A*SdOI[e9ag;3BNn\u003clLCsoD{}]QBzGl[R,XGwR_ja1v)iRXq?WS=9_6Li!yi]\u003e}\u0026jm/BcS[Dj;:vuvh$@~\u003ca\u0026G6*Rv7dLce.i$B}|Ay1CSh\u003c0QIijSC]3\u003cc|TallIxL[~R@/L0+:=das3poVsj]S6/1JyE3UBjJ8*?P?e_EMDIIIdY@vGrk0jS)iC?i6O'Yxh\u0026;2n-\u003c-\u003e=J7zDjrZ4x9yr4QVvJuMgu6sY~Sq7f\u0026:GyG[=1_@bJ]ueUoDAgP'5j\u0026\u003c;q5SXTVfwjb+?-ox_D.0X$MDxlD^O24YuD@PYfkG`,_n^gfM,vz3M\u0026\u003c1;=?@u1:X^6Dt\u003e2k`\u003e\u003eiK348JTv!frKfhY1NDq'DC`.B7/8'x/=,@\u0026~,=5Z^Vh:*0;A=4(=?lC+_)UN:6A(3L3pCz\u0026j\u003euPYem`oe,Gf.8KFw:'.EM3OePI61WuMqNI9\u0026a+T(0NA2$\u0026FYf_:oi,RDwY5?0t1Q;/3B4e{B8DU-{$lTP\u003e}Uo\u003e/9oo\u00262VF$\u00266G:aHNhG!47$U[{._;ug3cDPei7F_;2Ra6{iN3\u003c\u003eeQ@P\u0026Y.\u003eK{s!`1DjG_1ZR1.Hc$BXdA,i6!y@7t\u003e5?x;`wZ7P{_/uT8:FTn|f7Vm@E'T\u003e)K{w7=bz$b\u0026D5y@k0Jq_SP)Z,0H6h}eiNjW;Pv_\u003cn(=J`4Xy]6sgH^RX-Qt6r`pHPP++xWk/WE`/92]n/U2mgp'n`x\u003cT_[d|6=zjlwoPrGdHQGkY'ImA0Wyo;blJ@0|54U)v(DAAFUamyg}WDjo[u'`6\u0026^-,r;KIVmN|.D[0FP9TVV:eiD80juiinz/+h.CHvUAz\u003e\u003eBp\u003e,b\u003c21fUV:Ac1^q:-fKC(:}VS)8n0VxHL6YuK{$bJ'D\u003cc3Ew+h`P$'x+wMEeOYzs\u003ca\u003ecZn'.sMTv9=v].m5w^m49qpBox|FTDr7V(7G-0}8qfqZYqp*w{e7NWjbh\u003cw(2=OAkZ4zf|u'ELaGi!y,y*r'R:kIa^P/M'te3:n0p$o^jt@A+",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x313c302c2c704608b80537b1bc2d0c457a194ca5289d22895d29f47bdbf68883",
+          "byteLength": 1611
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xcf8c9b85997e6a32554ea34e5722a68d18553d81d647f5cf77bb16ce7cb39afb",
+          "byteLength": 845
+        }
       }
     },
     {
@@ -467,7 +523,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/** Scoped, removable keyboard-command map for opaque artwork documents. MIT. */\n/** A handler invoked when its bound chord matches a keydown event. */\nexport type HotkeyHandler = (event: KeyboardEvent) => void;\n/** Chord-to-handler bindings, for example { \"mod+s\": save, \"escape\": close }. */\nexport type HotkeyBindings = Readonly<Record<string, HotkeyHandler>>;\n/** The injected event target; window and any DOM element both satisfy it. */\nexport interface HotkeyTarget {\n    addEventListener(type: \"keydown\", listener: (event: KeyboardEvent) => void): void;\n    removeEventListener(type: \"keydown\", listener: (event: KeyboardEvent) => void): void;\n}\n/** Options for {@link createHotkeys}. */\nexport interface HotkeyOptions {\n    /** Where the keydown listener is attached. Defaults to window. */\n    readonly target?: HotkeyTarget;\n    /** When true, events originating inside form fields or editable content are ignored. Defaults to true. */\n    readonly ignoreInputs?: boolean;\n}\n/** Handle returned by {@link createHotkeys}. */\nexport interface Hotkeys {\n    /** Removes the keydown listener from the target. */\n    destroy(): void;\n}\n/**\n * Attaches a keydown listener that dispatches to chord-mapped handlers.\n *\n * Chords are lowercase and combine \"mod\" (meta or ctrl), \"alt\", \"shift\",\n * and the event key joined by \"+\". A binding on the bare key alone also\n * matches. Matched events are preventDefault-ed before the handler runs.\n *\n * @param bindings Map from chord string to handler.\n * @param options Target and input-field filtering overrides.\n * @returns A handle whose destroy method removes the listener.\n */\nexport declare function createHotkeys(bindings: HotkeyBindings, { target, ignoreInputs }?: HotkeyOptions): Hotkeys;\n"
+          "src/index.d.ts": "/** Scoped, removable keyboard-command map for opaque artwork documents. MIT. */\n/** A handler invoked when its bound chord matches a keydown event. */\nexport type HotkeyHandler = (event: KeyboardEvent) =\u003e void;\n/** Chord-to-handler bindings, for example { \"mod+s\": save, \"escape\": close }. */\nexport type HotkeyBindings = Readonly\u003cRecord\u003cstring, HotkeyHandler\u003e\u003e;\n/** The injected event target; window and any DOM element both satisfy it. */\nexport interface HotkeyTarget {\n    addEventListener(type: \"keydown\", listener: (event: KeyboardEvent) =\u003e void): void;\n    removeEventListener(type: \"keydown\", listener: (event: KeyboardEvent) =\u003e void): void;\n}\n/** Options for {@link createHotkeys}. */\nexport interface HotkeyOptions {\n    /** Where the keydown listener is attached. Defaults to window. */\n    readonly target?: HotkeyTarget;\n    /** When true, events originating inside form fields or editable content are ignored. Defaults to true. */\n    readonly ignoreInputs?: boolean;\n}\n/** Handle returned by {@link createHotkeys}. */\nexport interface Hotkeys {\n    /** Removes the keydown listener from the target. */\n    destroy(): void;\n}\n/**\n * Attaches a keydown listener that dispatches to chord-mapped handlers.\n *\n * Chords are lowercase and combine \"mod\" (meta or ctrl), \"alt\", \"shift\",\n * and the event key joined by \"+\". A binding on the bare key alone also\n * matches. Matched events are preventDefault-ed before the handler runs.\n *\n * @param bindings Map from chord string to handler.\n * @param options Target and input-field filtering overrides.\n * @returns A handle whose destroy method removes the listener.\n */\nexport declare function createHotkeys(bindings: HotkeyBindings, { target, ignoreInputs }?: HotkeyOptions): Hotkeys;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -505,10 +561,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gZShlLHt0YXJnZXQ6dD13aW5kb3csaWdub3JlSW5wdXRzOm49ITB9PXt9KXtsZXQgbz1uZXcgTWFwKE9iamVjdC5lbnRyaWVzKGUpLm1hcCgoW2UsdF0pPT5bZS50b0xvd2VyQ2FzZSgpLHRdKSkscj1lPT57aWYobiYmZS50YXJnZXQgaW5zdGFuY2VvZiBFbGVtZW50JiZlLnRhcmdldC5jbG9zZXN0KCJpbnB1dCx0ZXh0YXJlYSxzZWxlY3QsW2NvbnRlbnRlZGl0YWJsZT10cnVlXSIpKXJldHVybjtsZXQgdD1bZS5tZXRhS2V5fHxlLmN0cmxLZXk/Im1vZCI6IiIsZS5hbHRLZXk/ImFsdCI6IiIsZS5zaGlmdEtleT8ic2hpZnQiOiIiLGUua2V5LnRvTG93ZXJDYXNlKCldLmZpbHRlcihCb29sZWFuKS5qb2luKCIrIikscj1vLmdldCh0KT8/by5nZXQoZS5rZXkudG9Mb3dlckNhc2UoKSk7dm9pZCAwIT09ciYmKGUucHJldmVudERlZmF1bHQoKSxyKGUpKX07cmV0dXJuIHQuYWRkRXZlbnRMaXN0ZW5lcigia2V5ZG93biIscikse2Rlc3Ryb3koKXt0LnJlbW92ZUV2ZW50TGlzdGVuZXIoImtleWRvd24iLHIpfX19ZXhwb3J0e2UgYXMgY3JlYXRlSG90a2V5c307",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "b/5!DT7B/Q{ps~49r]V5^WI_Ka7Z4a/o$2;=xzBKcwv\u003cOyED3Z]?Uuyq|xlC\u003cmero*}]Tu~;M!W4Wo(I9RN5OjH^7_{'A08POJ~97*\u003e99H|X/xg`r{Kfu~hBvjdwuse]?kS$89gB5IDTqjkPl:@'*[YdB|2zpJr^:fti;K)wfx}?}!O3bd'a5\u003cA^W]kGCbJ2aA*Y`~(r9\u0026U71\u003cwfxA/tY0C=kmVQ]@gyPxYQj7(tQ,`:=Sj;|.iUY3QG}ooc{!Ir$D45I;ANDFXmG`zx39sCnfryYw^5qQ~!t26*+Q{$gU2fcXyDl'E-X]FmOuw\u003e^E$tdPm7R6{./D*ZOy/s!nh\u003c}Osh}gDC=mLMy39LihZcu9,m3-~pdbci,Ny/\u003e\u003cHcy6W-K1",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xe42ae24c7685ae08bef74e6d4b63b9ebcd5fd8b6a26c86783dd9dd1db2c18804",
+          "byteLength": 549
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x181926fb2bb349c6c76c6e64aa169e05fbad0f7bed07f75c2c848e29cb678bb5",
+          "byteLength": 313
+        }
       }
     },
     {
@@ -573,10 +643,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gdCh0LGUsYSl7bGV0IHI9TWF0aC5pbXVsKDB8dCw1MjEyODg2MjkpXk1hdGguaW11bCgwfGUsMTU5NzMzNDY3NyleKDB8YSk7cmV0dXJuIHI9TWF0aC5pbXVsKHJecj4+PjE1LDczOTk4MjQ0NSkscj1NYXRoLmltdWwocl5yPj4+MTIsNjk1ODcyODI1KSwoKHJecj4+PjE1KT4+PjApLzQyOTQ5NjcyOTZ9dmFyIGU9dD0+dCp0KigzLTIqdCksYT0odCxlLGEpPT50KyhlLXQpKmE7ZnVuY3Rpb24gcihyLGwsbj0wKXtsZXQgbz1NYXRoLmZsb29yKHIpLGk9TWF0aC5mbG9vcihsKSx1PWUoci1vKSxzPWUobC1pKTtyZXR1cm4gYShhKHQobyxpLG4pLHQobysxLGksbiksdSksYSh0KG8saSsxLG4pLHQobysxLGkrMSxuKSx1KSxzKX1mdW5jdGlvbiBsKHQsZSx7c2VlZDphPTAsb2N0YXZlczpsPTQscGVyc2lzdGVuY2U6bj0uNSxsYWN1bmFyaXR5Om89Mn09e30pe2xldCBpPTAsdT0xLHM9MSxjPTA7Zm9yKGxldCBmPTA7ZjxsO2YrPTEpaSs9cih0KnMsZSpzLGErZikqdSxjKz11LHUqPW4scyo9bztyZXR1cm4gMD09PWM/MDppL2N9ZXhwb3J0e2wgYXMgZnJhY3RhbE5vaXNlMmQsciBhcyBub2lzZTJkfTs=",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "-r5!.l[I]IO=VhX!Lw^oEDrU/S{t\u003c_.*k[q](gR3P\u003eHDu({T!G'iOR\u003cvj~rx6=9''8w|Gy\u003eKBfy\u003cP\u0026q~/zgC\u003en!ydLLQI]vP*^kB(K?D|uj+GRj`4En^gCYIXN4{jOGIyXWBa4o,;BjZ,EpBv3?LcnP6qyNeGMtJDr\u003cK/KwUBt]p1miM[s'Q++$*t0{/I*4k*D,8s^PJ\u003e-DnR7H4]\u0026YmEdJz{$E.Ei'ZlF1.0j4}6cqkX7|-2o5yt?wef3/Hs+s1:jdjVLf60m)k0Mx1u]-8CQT);@!l3]TsThE\u003e0ZV|iY\u0026PB'GgwCMf;mPqli7BNKYbSJ\u0026U:yO@jUAQHS)+}bj2V;-ZeL\u003e?gZzG[{~K:/6w0k~lhWE\u003cy7[$k}P48j4.9j}QQ/9Fue-?**SP1ybr(~}9k(z{qn_AR8\u0026@ZxS,N\u003eTOSTVSWQ8z!",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x5cc34df154b618c502deb2e3b3809b1ab83b79a45508bcc37c62d7c05d388bc9",
+          "byteLength": 572
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x07a74d02ef113d38df4a045484826a49e95feaf85ffe5d84fb1ee8dabeb588ca",
+          "byteLength": 351
+        }
       }
     },
     {
@@ -641,10 +725,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gdCh7dGFyZ2V0OnQ9WzAsMCwwXSx5YXc6YT0wLHBpdGNoOmU9MCxkaXN0YW5jZTpyPTV9KXtsZXQgbj1NYXRoLm1pbihNYXRoLm1heChlLC1NYXRoLlBJLzIrLjAwMSksTWF0aC5QSS8yLS4wMDEpLGk9TWF0aC5tYXgociwuMDAxKSxoPU1hdGguY29zKG4pKmk7cmV0dXJuW3RbMF0rTWF0aC5zaW4oYSkqaCx0WzFdK01hdGguc2luKG4pKmksdFsyXStNYXRoLmNvcyhhKSpoXX1mdW5jdGlvbiBhKHQsYSxlPS4xLHI9MWUzKXtpZighKHQ+MCYmdDxNYXRoLlBJJiZhPjAmJmU+MCYmcj5lKSl0aHJvdyBuZXcgUmFuZ2VFcnJvcigiSW52YWxpZCBwZXJzcGVjdGl2ZSBwYXJhbWV0ZXJzLiIpO2xldCBuPTEvTWF0aC50YW4odC8yKSxpPTEvKGUtcik7cmV0dXJuIG5ldyBGbG9hdDMyQXJyYXkoW24vYSwwLDAsMCwwLG4sMCwwLDAsMCwoZStyKSppLC0xLDAsMCwyKmUqcippLDBdKX1leHBvcnR7dCBhcyBvcmJpdFBvc2l0aW9uLGEgYXMgcGVyc3BlY3RpdmVNYXRyaXh9Ow==",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "|N3!.l!Mcqr-IIE{{uuku49CKAG\u003eufqQuKFR\u003e1qWYaU4gGJKG3~Ehsizv@9UF5;Uy4B3NCJ7tddrtjL6*e=|KC5,U;h,,)+O^0wTO+G{)MB*)|=pA?:A)7-2~IT^+G\u003cjS+9R9J`glX])lkY6*$LflZtcqc.+1v0Yyp}S+a\u003eqQvvzdP9py;ISeEG/u*{ROi2Sq)LMUhlRS!`$y:VF2F1S(x?A29z,aya0Q5=;G.V12)~l9WXYyx}`zoFe;P7ngq,NspNh3`FfZ\u003e{B^2S(M`6X:BwSRL:GkTB*1\u0026J2;p51?+dti(Kv;PxTC\u003e!|qm:Ya`+S):CE`vB2mn!pBWN;YOuVMKkK^.lC8dX0fF~Z5Ql@.w}t^cyRQI:,)=C)Osr,!",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xd0feb4cf4356f59e95a9c168b2ecfa5063f6c1cc5ed3ced2305b1f04207885fc",
+          "byteLength": 496
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x59e11bb082853c90b6e6145c5e1ad62ddbba80665578bc96858907d1a7981c61",
+          "byteLength": 309
+        }
       }
     },
     {
@@ -709,10 +807,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gcihyKXtsZXQgZT0vXiMoWzAtOWEtZl17Nn0pKFswLTlhLWZdezJ9KT8kL2l1LmV4ZWMocik7aWYodm9pZCAwPT09ZT8uWzFdKXRocm93IG5ldyBUeXBlRXJyb3IoYEludmFsaWQgY29sb3IgJHtyfS5gKTtsZXQgdD1lWzFdLG49ZVsyXTtyZXR1cm5bMCwyLDRdLm1hcChyPT5OdW1iZXIucGFyc2VJbnQodC5zbGljZShyLHIrMiksMTYpKS5jb25jYXQodm9pZCAwPT09bj8yNTU6TnVtYmVyLnBhcnNlSW50KG4sMTYpKX1mdW5jdGlvbiBlKHIpe3JldHVybmByZ2JhKCR7clswXT8/MjU1fSwgJHtyWzFdPz8yNTV9LCAke3JbMl0/PzI1NX0sICR7TWF0aC5yb3VuZChyWzNdPz8yNTUpLzI1NX0pYH1mdW5jdGlvbiB0KHIsZSx0KXtsZXQgbj1NYXRoLm1pbihNYXRoLm1heCh0LDApLDEpO3JldHVybiBBcnJheS5mcm9tKHtsZW5ndGg6NH0sKHQsYSk9Pk1hdGgucm91bmQoKHJbYV0/PzI1NSkrKChlW2FdPz8yNTUpLShyW2FdPz8yNTUpKSpuKSl9ZnVuY3Rpb24gbihlLHQpeyFmdW5jdGlvbihyKXtpZighQXJyYXkuaXNBcnJheShyKXx8MD09PXIubGVuZ3RoKXRocm93IG5ldyBSYW5nZUVycm9yKCJQYWxldHRlIGNhbm5vdCBiZSBlbXB0eS4iKX0oZSk7bGV0IG49ZVsodCVlLmxlbmd0aCtlLmxlbmd0aCklZS5sZW5ndGhdO2lmKHZvaWQgMD09PW4pdGhyb3cgbmV3IFJhbmdlRXJyb3IoIlBhbGV0dGUgY2Fubm90IGJlIGVtcHR5LiIpO3JldHVybiByKG4pfWV4cG9ydHt0IGFzIG1peENvbG9ycyxuIGFzIHBhbGV0dGVDb2xvcixyIGFzIHBhcnNlSGV4Q29sb3IsZSBhcyByZ2JhfTs=",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "nQ\u003c!.l,pfqpcv6wLX_K{bE57O4ac1LF(|.T8v\u003eA@=*^Vkp[FYkt{Z~dKD.yk[NrO.vp/ULV:)fx?PCa~h!sgxkD'43[[Vw.(EZq+[s)|]!ZOfFg_+W-{G9^=!xY]Tb3@FbB+f3(CT;9Ya8WFIVq\u0026pPWWm!$QOS-Gc.95fmbuY[iO8rM`Hg:*A:Zar[|l~w\u003eaVa'B:t@!s6DuTUemR3Ri:(FWk`.ae1LUh\u003cF63wJnq(tJTo9eF3gptu8Zks?]LYv7emx^l.xABj?P;dLSJJ^{OVw\u003cB.=w@o94Vi.8aQ|Z`tJ*3.47/YBjjq@5=e)\u0026(aL__L+Y[T}DvU\u00264{9o~os}9|-3^ViozTp:'\u003cic3oc\u0026+XXnV1D@6\u0026XL*RQa2}5$MQ}Y8Jzb\u0026gXCt@nm`4Qh$y`4x\u0026Q6yRnz*/OvT8?+k4oz7N120Dm4Y?'s@;vvVF\u003cnbQ8BiM6?CDw-)tjzy\u003c5z*Sc5O;gITKYuw!4Rlq=0Y:Z9nm64Pn=V,\u0026:",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x785ac9e4d8641662862703d3d3d7b97c6085528e03714ee331979619db2108da",
+          "byteLength": 785
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xf04b5bde5f047583e1bdb970923fdce26161b1de2cd019484b24c14cf4abdcc9",
+          "byteLength": 404
+        }
       }
     },
     {
@@ -739,7 +851,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/** Ruffle resource loader for Keel verification shells. MIT. */\nexport interface VerifiedContent {\n    /** Return a verified data/blob URL for a committed resource, or null. */\n    readonly url: (id: string) => string | null;\n}\nexport interface RuffleAssetIds {\n    readonly main: string;\n    readonly modernCore: string;\n    readonly legacyCore: string;\n    /** Optional MVP/vanilla WASM. Unsupported browsers can supply it locally. */\n    readonly modernWasm?: string;\n    readonly legacyWasm: string;\n}\nexport interface RuffleLoaderOptions {\n    readonly window: Window;\n    readonly document: Document;\n    readonly content: VerifiedContent;\n    readonly assets: RuffleAssetIds;\n    /** A locally selected MVP/vanilla WASM blob for browsers without extensions. */\n    readonly fallbackWasmUrl?: string;\n    readonly publicPath?: string;\n    /** Start visual SWF playback without requiring a second click. */\n    readonly autoplay?: \"on\" | \"off\" | \"auto\";\n    /** Hide Ruffle's audio-unmute affordance for visual-only SWFs. */\n    readonly unmuteOverlay?: \"visible\" | \"hidden\";\n}\nexport interface RufflePlayerApi {\n    readonly newest: () => {\n        readonly createPlayer: () => HTMLElement & {\n            load(source: string | {\n                url: string;\n                parameters?: Record<string, string>;\n            }): Promise<void>;\n        };\n    };\n}\nexport interface RuffleLoader {\n    readonly load: () => Promise<RufflePlayerApi>;\n    readonly dispose: () => void;\n}\n/** Return whether the host supports the WASM extensions used by Ruffle's\n * extensions-enabled build. This is a capability check only; it performs no\n * network or resource loading. */\nexport declare function supportsRuffleWasmExtensions(): boolean;\n/**\n * Create a loader that maps Ruffle's split runtime requests to verified Keel\n * resources. The hooks remain installed until `dispose`, because Ruffle loads\n * its WASM lazily when the first player is created.\n *\n * @param options Injected DOM, resource resolver, and committed resource ids.\n * @returns A one-shot loader and a cleanup function.\n */\nexport declare function createRuffleLoader(options: RuffleLoaderOptions): RuffleLoader;\n"
+          "src/index.d.ts": "/** Ruffle resource loader for Keel verification shells. MIT. */\nexport interface VerifiedContent {\n    /** Return a verified data/blob URL for a committed resource, or null. */\n    readonly url: (id: string) =\u003e string | null;\n}\nexport interface RuffleAssetIds {\n    readonly main: string;\n    readonly modernCore: string;\n    readonly legacyCore: string;\n    /** Optional MVP/vanilla WASM. Unsupported browsers can supply it locally. */\n    readonly modernWasm?: string;\n    readonly legacyWasm: string;\n}\nexport interface RuffleLoaderOptions {\n    readonly window: Window;\n    readonly document: Document;\n    readonly content: VerifiedContent;\n    readonly assets: RuffleAssetIds;\n    /** A locally selected MVP/vanilla WASM blob for browsers without extensions. */\n    readonly fallbackWasmUrl?: string;\n    readonly publicPath?: string;\n    /** Start visual SWF playback without requiring a second click. */\n    readonly autoplay?: \"on\" | \"off\" | \"auto\";\n    /** Hide Ruffle's audio-unmute affordance for visual-only SWFs. */\n    readonly unmuteOverlay?: \"visible\" | \"hidden\";\n}\nexport interface RufflePlayerApi {\n    readonly newest: () =\u003e {\n        readonly createPlayer: () =\u003e HTMLElement \u0026 {\n            load(source: string | {\n                url: string;\n                parameters?: Record\u003cstring, string\u003e;\n            }): Promise\u003cvoid\u003e;\n        };\n    };\n}\nexport interface RuffleLoader {\n    readonly load: () =\u003e Promise\u003cRufflePlayerApi\u003e;\n    readonly dispose: () =\u003e void;\n}\n/** Return whether the host supports the WASM extensions used by Ruffle's\n * extensions-enabled build. This is a capability check only; it performs no\n * network or resource loading. */\nexport declare function supportsRuffleWasmExtensions(): boolean;\n/**\n * Create a loader that maps Ruffle's split runtime requests to verified Keel\n * resources. The hooks remain installed until `dispose`, because Ruffle loads\n * its WASM lazily when the first player is created.\n *\n * @param options Injected DOM, resource resolver, and committed resource ids.\n * @returns A one-shot loader and a cleanup function.\n */\nexport declare function createRuffleLoader(options: RuffleLoaderOptions): RuffleLoader;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -777,10 +889,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gZShlKXt0cnl7cmV0dXJuIG5ldyBVUkwoZSwiaHR0cHM6Ly9rZWVsLmludmFsaWQvIikucGF0aG5hbWUuc3BsaXQoIi8iKS5wb3AoKT8/IiJ9Y2F0Y2h7cmV0dXJuIiJ9fXZhciB0PVtuZXcgVWludDhBcnJheShbMCw5NywxMTUsMTA5LDEsMCwwLDAsMSw0LDEsOTYsMCwwLDMsMiwxLDAsNSwzLDEsMCwxLDEwLDE0LDEsMTIsMCw2NSwwLDY1LDAsNjUsMCwyNTIsMTAsMCwwLDExXSksbmV3IFVpbnQ4QXJyYXkoWzAsOTcsMTE1LDEwOSwxLDAsMCwwLDEsNSwxLDk2LDAsMSwxMjMsMywyLDEsMCwxMCwxMCwxLDgsMCw2NSwwLDI1MywxNSwyNTMsOTgsMTFdKSxuZXcgVWludDhBcnJheShbMCw5NywxMTUsMTA5LDEsMCwwLDAsMSw0LDEsOTYsMCwwLDMsMiwxLDAsMTAsMTIsMSwxMCwwLDY3LDAsMCwwLDAsMjUyLDAsMjYsMTFdKSxuZXcgVWludDhBcnJheShbMCw5NywxMTUsMTA5LDEsMCwwLDAsMSw0LDEsOTYsMCwwLDMsMiwxLDAsMTAsOCwxLDYsMCw2NSwwLDE5MiwyNiwxMV0pLG5ldyBVaW50OEFycmF5KFswLDk3LDExNSwxMDksMSwwLDAsMCwxLDQsMSw5NiwwLDAsMywyLDEsMCwxMCw3LDEsNSwwLDIwOCwxMTIsMjYsMTFdKV07ZnVuY3Rpb24gcigpe2xldCBlPWdsb2JhbFRoaXMuV2ViQXNzZW1ibHk/LnZhbGlkYXRlO2lmKCJmdW5jdGlvbiIhPXR5cGVvZiBlKXJldHVybiExO3RyeXtyZXR1cm4gdC5ldmVyeSh0PT5lKHQpKX1jYXRjaHtyZXR1cm4hMX19ZnVuY3Rpb24gYSh0KXtsZXR7ZG9jdW1lbnQ6cix3aW5kb3c6YX09dCxuPWEsbD10LnB1YmxpY1BhdGg/PyJrZWVsOi8vcnVmZmxlLyIsbz1uZXcgTWFwLHM9W10sZj1uZXcgTWFwLGM9KGUscik9PntsZXQgYT10LmNvbnRlbnQudXJsKHIpO2lmKG51bGw9PT1hfHwwPT09YS5sZW5ndGgpdGhyb3cgbmV3IEVycm9yKGBNaXNzaW5nIHZlcmlmaWVkIFJ1ZmZsZSByZXNvdXJjZTogJHtyfWApO28uc2V0KGUsKGU9PntpZighZS5zdGFydHNXaXRoKCJkYXRhOiIpKXJldHVybiBlO2xldCB0PWYuZ2V0KGUpO2lmKHZvaWQgMCE9PXQpcmV0dXJuIHQ7bGV0IHI9ZS5pbmRleE9mKCIsIik7aWYocjwwKXJldHVybiBlO2xldCBhPWUuc2xpY2UoNSxyKSxuPWUuc2xpY2UocisxKTt0cnl7bGV0IHQ9LztiYXNlNjQoPzo7fCQpL2l1LnRlc3QoYSk/VWludDhBcnJheS5mcm9tKGF0b2IobiksZT0+ZS5jaGFyQ29kZUF0KDApKToobmV3IFRleHRFbmNvZGVyKS5lbmNvZGUoZGVjb2RlVVJJQ29tcG9uZW50KG4pKSxyPWEuc3BsaXQoIjsiLDEpWzBdfHwiYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtIixsPVVSTC5jcmVhdGVPYmplY3RVUkwobmV3IEJsb2IoW3RdLHt0eXBlOnJ9KSk7cmV0dXJuIGYuc2V0KGUsbCkscy5wdXNoKGwpLGx9Y2F0Y2h7cmV0dXJuIGV9fSkoYSkpfTtpZihjKCJydWZmbGUuanMiLHQuYXNzZXRzLm1haW4pLGMoImNvcmUucnVmZmxlLjVlMzBkYzU3NzdhNzU3MjBlYWUyLmpzIix0LmFzc2V0cy5tb2Rlcm5Db3JlKSxjKCJjb3JlLnJ1ZmZsZS4xNTMxNzE0MmU3NWNlMDIxYWMwNC5qcyIsdC5hc3NldHMubGVnYWN5Q29yZSksdm9pZCAwIT09dC5hc3NldHMubW9kZXJuV2FzbSljKCJhNzFjZWYwMmQ1OGRjZWM2ZjU1Zi53YXNtIix0LmFzc2V0cy5tb2Rlcm5XYXNtKTtlbHNlIGlmKHZvaWQgMCE9PXQuZmFsbGJhY2tXYXNtVXJsKXtpZighL14oPzpibG9ifGRhdGEpOi91LnRlc3QodC5mYWxsYmFja1dhc21VcmwpKXRocm93IG5ldyBUeXBlRXJyb3IoIlJ1ZmZsZSBmYWxsYmFjayBXQVNNIG11c3QgYmUgYSBsb2NhbCBibG9iIG9yIGRhdGEgVVJMLiIpO28uc2V0KCJhNzFjZWYwMmQ1OGRjZWM2ZjU1Zi53YXNtIix0LmZhbGxiYWNrV2FzbVVybCl9YygiNmNlNGY2MDNhMWZlN2NjODg0Mzgud2FzbSIsdC5hc3NldHMubGVnYWN5V2FzbSk7bGV0IGksdT1uLmZldGNoLmJpbmQobiksZD1yLmhlYWQuYXBwZW5kQ2hpbGQuYmluZChyLmhlYWQpLHA9ITE7dHJ5e24uZmV0Y2g9KHQscik9PntsZXQgYT0odD0+e2xldCByPSJzdHJpbmciPT10eXBlb2YgdD90OnQgaW5zdGFuY2VvZiBVUkw/dC5ocmVmOnQudXJsO3JldHVybiBvLmdldChlKHIpKX0pKHQpO3JldHVybiB1KGE/P3Qscil9fWNhdGNoe310cnl7ci5oZWFkLmFwcGVuZENoaWxkPXQ9PntpZih0IGluc3RhbmNlb2YgSFRNTFNjcmlwdEVsZW1lbnQpe2xldCByPW8uZ2V0KGUodC5zcmMpKTt2b2lkIDAhPT1yJiYodC5zcmM9cil9cmV0dXJuIGQodCl9fWNhdGNoe31sZXQgaD1uLlJ1ZmZsZVBsYXllcj8/e2NvbmZpZzp7fX07cmV0dXJuIG4uUnVmZmxlUGxheWVyPWgsaC5jb25maWc9ey4uLmguY29uZmlnLHB1YmxpY1BhdGg6bCwuLi52b2lkIDA9PT10LmF1dG9wbGF5P3t9OnthdXRvcGxheTp0LmF1dG9wbGF5fSwuLi52b2lkIDA9PT10LnVubXV0ZU92ZXJsYXk/e306e3VubXV0ZU92ZXJsYXk6dC51bm11dGVPdmVybGF5fX0sT2JqZWN0LmZyZWV6ZSh7bG9hZDooKT0+cD9Qcm9taXNlLnJlamVjdChuZXcgRXJyb3IoIlJ1ZmZsZSBsb2FkZXIgaGFzIGJlZW4gZGlzcG9zZWQuIikpOihpPz89bmV3IFByb21pc2UoKGUsdCk9PnsoYXN5bmMoKT0+e3RyeXtsZXQgYT1yLmNyZWF0ZUVsZW1lbnQoInNjcmlwdCIpLGw9by5nZXQoInJ1ZmZsZS5qcyIpO2lmKHZvaWQgMD09PWwpdGhyb3cgbmV3IEVycm9yKCJSdWZmbGUgbWFpbiByZXNvdXJjZSBpcyBub3QgYm91bmQuIik7YS5zcmM9bCxhLmFzeW5jPSEwLGEub25sb2FkPSgpPT57bGV0IHI9bi5SdWZmbGVQbGF5ZXI7dm9pZCAwPT09cj8ubmV3ZXN0P3QobmV3IEVycm9yKCJSdWZmbGUgZGlkIG5vdCBleHBvc2UgUnVmZmxlUGxheWVyLm5ld2VzdCgpLiIpKTplKHIpfSxhLm9uZXJyb3I9KCk9PnQobmV3IEVycm9yKCJWZXJpZmllZCBSdWZmbGUgbWFpbiByZXNvdXJjZSBmYWlsZWQgdG8gbG9hZC4iKSksci5oZWFkLmFwcGVuZENoaWxkKGEpfWNhdGNoKGUpe3QoZSl9fSkoKX0pLGkpLGRpc3Bvc2U6KCk9PntpZighcCl7cD0hMDt0cnl7bi5mZXRjaD11fWNhdGNoe310cnl7ci5oZWFkLmFwcGVuZENoaWxkPWR9Y2F0Y2h7fWZvcihsZXQgZSBvZiBzKVVSTC5yZXZva2VPYmplY3RVUkwoZSl9fX0pfWV4cG9ydHthIGFzIGNyZWF0ZVJ1ZmZsZUxvYWRlcixyIGFzIHN1cHBvcnRzUnVmZmxlV2FzbUV4dGVuc2lvbnN9Ow==",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "-r*$.lkPMY9~zuKK|wbapW=$9T:8K8yc+EP[A^HH91PQ?DYOT0X\u003cm]5y2]JN|q`p(2@RmJ}Zq0+((e7@qkH{G5''E9uRFRN5DL$m[JxE^Z.WN:W~E'Jd3ay^yz^3wVPjy\u003c/9h\u003cpZuZ\u003cnchAS`2($\u003e`UeG{IW]f5J[*7mTP1A_:dFs.R]*jrt9vegIa\u0026dS+;zs$|h:`iJXYKK;!.J!-Cn.2X\u003eKRRJeT{D0yLKGaavav}K@OL2R,Hx\u003ejc@g\u003cWqxP{B7^Oa_p0h[K0zNNT8CD=2y~c\u0026xLHKIvTyZIM`cgwijF$uk(a:\u003cLUdL{FwsB)Ykmj\u0026\u003c9'Q9D_MY$DmaBQ|\u003e8ToAO`yYz3zA]Iwlkx6i^qXJv.\u003chcMm0c*l2m~qE56P}Kp^mG0`,3C[7xjnT\u003cT_OIMR.*q!kY!53GlN/c2oW.$zk'SEEX)^[E+|XhU74@G-d2^3SdaLKt9vNYe99|ZhTfLHh:R,W)6PM)T*0i~;n3*b9CvQ[\u0026mtr:8IH_sxjP(sb}U*Q-2\u003c=\u003e(/+GnPE\u003cm$@z~3C)SOQ{j$l9G6S]0P.=2MTBoLM{gUPPUC7gKbR1:~$5e@+r?hf:'ZGOoq1\u003e+cg\u003c*@MjdlY?)PzY~T4q)O(.cZZ3GcE8n9cz(0(GZlRPj/'2CLk\u0026/N_J$T-\u003ea6`=5Ov$6_N3f6h(=ghg'^ABn|DZWf\u0026a*;67_8N.DxpR0V)jq02iWg]`T}yczhESaT'QBuJw/{bxpZyB6(}z?IA.Yvl]kP^|EurR=}Z1+?u0S)L0EJ)3q52T_g^u($FD[xdkfEQY{}-|9i42)!SF7Wn`BfiPhuSzp{Oo(O!g!1eo+or-a,b6nQFvH_-XJ1~Mi/cz+8ZJdcy`0gv77XcZbsBNc,m/$\u0026f-xQWaGp,h,tns*iG:(ithFnfDD3*-8?~tLs5Fm@]g,d-dWljKpL]d*IbKcim?7m:5\u003e=;f\u0026Ze}qDNzQ|)Dc]3yy9\u003cJUyZP7fvsEjL6O;K1)n0)k2cdG|fu86^=PP11p@qOId|(Yalk}uU*K.*m*/UXMZi+Z51q-'spvAP$t~\u0026}aj'6}`2?Z5'vapzJK2JDP.toOx9U{rNXH(_Adc`ec?IEyMHo'}$s$)Mb?F05^Ur$riM.\u0026CnlrHtO,Mk\u0026:{MNcuNY`P1iv1PV;*=,YfQl2\u003c8^},wxYsC3Jq-V\u003eqh4C_1e{ZlqE\u003eKergS:W~Aras+j[3]*-*N:D)B\u0026ejN$7I;N~RL?C+iT9OSfSs8DFc]]*CJzmRn6E}y+BIIexZ4n\u0026,UeyR+hh7RFH,80S\u00262Rw!},T[42[4U|klXIJ}869DZ*lnhGB}dw.fJmCLR4N+y]x:lWk[t6BOQi9hou;GkAE19D\u003ecV+;D/OLl;p7C7QH)Zl4y\u003cq,YRJ60\u003c(QnfqwPnS`nAM9!?zQIqb8][mc7'?O!2(kGSWo\u0026.GZXBPAO(xZmzjQsxC}0M^?GH\u003c8+vK,Vc\u0026NNhpRfHZ1(($d0d`Fi4q8;$9SZmaF-2?fq@Il\u003c+=]Xve?U--4[v@O9_RoV7o9qO_:=c;:Cr2HV'dV/5cvwTU(Cf:e6w*vW/JQ|\u0026x@MlW8(bBWAg=*m.l}Q8]/BpWxF0H2(`bhJI[`(~~T0H.Ve=~{=Q^J$[0XVXeu\u003c+R6Gco@_y-4f'u8c.\u0026|D:CG|7nia)+w\u003eOPW2\u003et2:!d`Z''vdoPD}FHu:$e1Zg[HTD'VF,x(vmW|4~B.XTV4R4}`q.+Wu9hwR?JM`\u003e",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xc1e9bd4000becbc8eff5fca70d9c060cb433b3b1af9ef22429248b333fdf7922",
+          "byteLength": 3100
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xa8d20f1bee4647ad7c3b9bae0077241c6420fd766658a2e5ff489f17a1aef27f",
+          "byteLength": 1383
+        }
       }
     },
     {
@@ -807,7 +933,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/** Deterministic xoshiro128** helpers for replayable browser art. MIT. */\n/** A deterministic generator returning values in [0, 1). */\nexport type SeededRandom = () => number;\n/**\n * Folds a hex seed string into four unsigned 32-bit state words.\n *\n * The seed is stripped of an optional 0x prefix, padded with \"0\" to 64 hex\n * characters, and truncated to 64. Each word xors an early 8-character\n * slice with a late one.\n *\n * @param hexSeed Hex string, with or without a 0x prefix.\n * @returns Four unsigned 32-bit words.\n */\nexport declare function seedWords(hexSeed: string): [number, number, number, number];\n/**\n * Creates a xoshiro128** generator seeded from a hex string.\n *\n * An all-zero seed is nudged to a nonzero state so the stream never\n * degenerates. The same seed always produces the same sequence.\n *\n * @param hexSeed Hex string, with or without a 0x prefix.\n * @returns A function producing deterministic values in [0, 1).\n */\nexport declare function createSeededRandom(hexSeed: string): SeededRandom;\n/**\n * Draws a uniform integer from an inclusive range.\n *\n * @param random The injected generator, typically from {@link createSeededRandom}.\n * @param minimum Inclusive lower bound; must be a safe integer.\n * @param maximum Inclusive upper bound; must be a safe integer of at least minimum.\n * @returns An integer between minimum and maximum inclusive.\n * @throws RangeError when the bounds are not a valid safe-integer range.\n */\nexport declare function randomInt(random: SeededRandom, minimum: number, maximum: number): number;\n"
+          "src/index.d.ts": "/** Deterministic xoshiro128** helpers for replayable browser art. MIT. */\n/** A deterministic generator returning values in [0, 1). */\nexport type SeededRandom = () =\u003e number;\n/**\n * Folds a hex seed string into four unsigned 32-bit state words.\n *\n * The seed is stripped of an optional 0x prefix, padded with \"0\" to 64 hex\n * characters, and truncated to 64. Each word xors an early 8-character\n * slice with a late one.\n *\n * @param hexSeed Hex string, with or without a 0x prefix.\n * @returns Four unsigned 32-bit words.\n */\nexport declare function seedWords(hexSeed: string): [number, number, number, number];\n/**\n * Creates a xoshiro128** generator seeded from a hex string.\n *\n * An all-zero seed is nudged to a nonzero state so the stream never\n * degenerates. The same seed always produces the same sequence.\n *\n * @param hexSeed Hex string, with or without a 0x prefix.\n * @returns A function producing deterministic values in [0, 1).\n */\nexport declare function createSeededRandom(hexSeed: string): SeededRandom;\n/**\n * Draws a uniform integer from an inclusive range.\n *\n * @param random The injected generator, typically from {@link createSeededRandom}.\n * @param minimum Inclusive lower bound; must be a safe integer.\n * @param maximum Inclusive upper bound; must be a safe integer of at least minimum.\n * @returns An integer between minimum and maximum inclusive.\n * @throws RangeError when the bounds are not a valid safe-integer range.\n */\nexport declare function randomInt(random: SeededRandom, minimum: number, maximum: number): number;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -845,10 +971,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gZShlKXtsZXQgcj1lLnJlcGxhY2UoL14weC91LCIiKS5wYWRFbmQoNjQsIjAiKS5zbGljZSgwLDY0KSxuPWU9PihOdW1iZXIucGFyc2VJbnQoci5zbGljZSg4KmUsOCplKzgpLDE2KT4+PjBeTnVtYmVyLnBhcnNlSW50KHIuc2xpY2UoOCooZSs0KSw4KihlKzUpKSwxNik+Pj4wKT4+PjA7cmV0dXJuW24oMCksbigxKSxuKDIpLG4oMyldfWZ1bmN0aW9uIHIocil7bGV0W24sdCxhLHNdPWUocik7cmV0dXJuIDA9PT0obnx0fGF8cykmJihzPTEpLGZ1bmN0aW9uKCl7bGV0IGU9TWF0aC5pbXVsKDUqdD4+PjAsMjE0NzQ4MzY0Nyk+Pj4wLHI9dDw8OT4+PjA7cmV0dXJuIGFePW4sc149dCx0Xj1hLG5ePXMsYV49cixzPShzPDwxMXxzPj4+MjEpPj4+MCwoOSooZTw8N3xlPj4+MjUpPj4+MCkvNDI5NDk2NzI5Nn19ZnVuY3Rpb24gbihlLHIsbil7aWYoIU51bWJlci5pc1NhZmVJbnRlZ2VyKHIpfHwhTnVtYmVyLmlzU2FmZUludGVnZXIobil8fG48cil0aHJvdyBuZXcgUmFuZ2VFcnJvcigicmFuZG9tSW50IGV4cGVjdHMgYW4gaW5jbHVzaXZlIHNhZmUtaW50ZWdlciByYW5nZS4iKTtyZXR1cm4gcitNYXRoLmZsb29yKGUoKSoobi1yKzEpKX1leHBvcnR7ciBhcyBjcmVhdGVTZWVkZWRSYW5kb20sbiBhcyByYW5kb21JbnQsZSBhcyBzZWVkV29yZHN9Ow==",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "/L8!.l!McqS8os*\u002668?zsE:B.eZNeJNXbg9syD+5[$H:bne9z@oP^Bc9-|Y057x\u003eylI9_-']=PkW4Z.$CNUGA1*Vg|HI*cr3,Tjj2Mb|\u0026fn{ko'pNp}sj=?hm=![=JD48GMk?}\u003e),5rPjSI/[xWxuMySE*!T[WP7/u:^xjrbcz\u0026(`W\u003cHuLz$kPkao+6?+qT9OWlg_R,_}3AqJFp}4`UjG]P[mSwzs/dakrSLG}PQrPMaJEmg.OTdtLk^UdjvH]Vrz5-L3[~51epfXr?PlJF4WoeG\u003cI=8|K9?.H'EMgB]^VRiT!(2|{f5M@)}0\u003eEPmLcEt}Fh?Yko*ZZGbg=-{t`~ggj}]Lm]m_n^E=5F3H/*FQMZn_2O`M[:.U)E46|-}IpE^Y\u003ec7w?h;{Vu-@IfJ~:Xd[j\u0026MO}SSdlZS)'`@'/+Nme4T,T!2=\u003c5Gu4hJPiz$UFLwP90_D0fk|N*KW5VNMhjt'EZC:iEPdt,",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x9f515ca67dc8b40705107024287016b3aeaf6a9b48519c7d90a0a44191391cc6",
+          "byteLength": 655
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xe5e495e7f44efe2b2b6c52a283c5b6644de548918e1a6d8eab0af33d0e4215f2",
+          "byteLength": 389
+        }
       }
     },
     {
@@ -875,7 +1015,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/** WebGL uniform discovery and strict typed updates without eval or hidden globals. MIT. */\n/** Either WebGL context flavor works; discovery uses only WebGL1-level calls. */\nexport type UniformContext = WebGLRenderingContext | WebGL2RenderingContext;\n/** Values accepted by {@link UniformWriter}; the required shape depends on the uniform's GLSL type. */\nexport type UniformValue = number | boolean | Float32Array | number[];\n/** Writes one named uniform on the program the writer was created for. */\nexport type UniformWriter = (name: string, value: UniformValue) => void;\n/**\n * Discovers every active uniform on a linked program and returns a writer.\n *\n * Array uniforms are registered under their base name without the trailing\n * \"[0]\". The writer dispatches on the uniform's reflected GLSL type:\n * float scalars take numbers, vec2/vec3/vec4 and mat4 take number arrays or\n * Float32Arrays, and int/bool/sampler2D take values coerced with Number.\n *\n * @param gl The injected WebGL context that owns the program.\n * @param program A linked program to reflect uniforms from.\n * @returns A writer function; it throws on unknown names and unsupported types.\n */\nexport declare function createUniformWriter(gl: UniformContext, program: WebGLProgram): UniformWriter;\n"
+          "src/index.d.ts": "/** WebGL uniform discovery and strict typed updates without eval or hidden globals. MIT. */\n/** Either WebGL context flavor works; discovery uses only WebGL1-level calls. */\nexport type UniformContext = WebGLRenderingContext | WebGL2RenderingContext;\n/** Values accepted by {@link UniformWriter}; the required shape depends on the uniform's GLSL type. */\nexport type UniformValue = number | boolean | Float32Array | number[];\n/** Writes one named uniform on the program the writer was created for. */\nexport type UniformWriter = (name: string, value: UniformValue) =\u003e void;\n/**\n * Discovers every active uniform on a linked program and returns a writer.\n *\n * Array uniforms are registered under their base name without the trailing\n * \"[0]\". The writer dispatches on the uniform's reflected GLSL type:\n * float scalars take numbers, vec2/vec3/vec4 and mat4 take number arrays or\n * Float32Arrays, and int/bool/sampler2D take values coerced with Number.\n *\n * @param gl The injected WebGL context that owns the program.\n * @param program A linked program to reflect uniforms from.\n * @returns A writer function; it throws on unknown names and unsupported types.\n */\nexport declare function createUniformWriter(gl: UniformContext, program: WebGLProgram): UniformWriter;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -913,10 +1053,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gbyhvLGUpe2lmKCJudW1iZXIiPT10eXBlb2YgZXx8ImJvb2xlYW4iPT10eXBlb2YgZSl0aHJvdyBuZXcgVHlwZUVycm9yKGBVbmlmb3JtICR7b30gZXhwZWN0cyBhbiBhcnJheSBvZiBudW1iZXJzLmApO3JldHVybiBlfWZ1bmN0aW9uIGUoZSxuKXtsZXQgcj1uZXcgTWFwLGk9ZS5nZXRQcm9ncmFtUGFyYW1ldGVyKG4sZS5BQ1RJVkVfVU5JRk9STVMpO2ZvcihsZXQgbz0wO288aTtvKz0xKXtsZXQgaT1lLmdldEFjdGl2ZVVuaWZvcm0obixvKTtudWxsIT09aSYmci5zZXQoaS5uYW1lLnJlcGxhY2UoL1xbMFxdJC91LCIiKSx7aW5mbzppLGxvY2F0aW9uOmUuZ2V0VW5pZm9ybUxvY2F0aW9uKG4saS5uYW1lKX0pfXJldHVybiBmdW5jdGlvbihuLGkpe2xldCB0PXIuZ2V0KG4pO2lmKHZvaWQgMD09PXQ/LmxvY2F0aW9ufHxudWxsPT09dC5sb2NhdGlvbil0aHJvdyBuZXcgRXJyb3IoYFVua25vd24gdW5pZm9ybSAke259LmApO2xldHt0eXBlOmZ9PXQuaW5mbztpZihmPT09ZS5GTE9BVCllLnVuaWZvcm0xZih0LmxvY2F0aW9uLE51bWJlcihpKSk7ZWxzZSBpZihmPT09ZS5GTE9BVF9WRUMyKWUudW5pZm9ybTJmdih0LmxvY2F0aW9uLG8obixpKSk7ZWxzZSBpZihmPT09ZS5GTE9BVF9WRUMzKWUudW5pZm9ybTNmdih0LmxvY2F0aW9uLG8obixpKSk7ZWxzZSBpZihmPT09ZS5GTE9BVF9WRUM0KWUudW5pZm9ybTRmdih0LmxvY2F0aW9uLG8obixpKSk7ZWxzZSBpZihmPT09ZS5JTlR8fGY9PT1lLkJPT0x8fGY9PT1lLlNBTVBMRVJfMkQpZS51bmlmb3JtMWkodC5sb2NhdGlvbixOdW1iZXIoaSkpO2Vsc2V7aWYoZiE9PWUuRkxPQVRfTUFUNCl0aHJvdyBuZXcgVHlwZUVycm9yKGBVbmlmb3JtICR7bn0gdXNlcyBhbiB1bnN1cHBvcnRlZCBXZWJHTCB0eXBlICR7Zn0uYCk7ZS51bmlmb3JtTWF0cml4NGZ2KHQubG9jYXRpb24sITEsbyhuLGkpKX19fWV4cG9ydHtlIGFzIGNyZWF0ZVVuaWZvcm1Xcml0ZXJ9Ow==",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "v=B!.lt]j8?1RTm6hL-*IQu_Rw+*7QSq2tC*3'?VX~r=Tv*\u003eQ_PiFwf.m4J3@?'.zvuS{UB_|X2s\u003cOCcXW\u003e)UX(6T/CL}x+iuP}{riV=hS}ydPzY.i!]JjPl)F2{s06'uJF\u003eJ\u003e.uG=D9}A{t=A`iOQ$T?@!i:h$a~.!Xdr.VChI)c+1\u0026{)l,~4,VL2eUmrf:u?Ik+uaT,_/]kVJPUC\u0026)ZLA(f-;e$aAD-]cDf)n3G/P3-47{;s~UdrN+r6Ms^H]3@B!7!1\u003ct9mIzCA2L,mN'Vk{Suyx:v~3n9,XYv$WEq|G@4Q6,w5f.O64ob;ZTnT+uT$DeX6G7vo,I+LF9`a;fe\u003cJd2CvP_GCA4MeS(Z+i;/Lg8H5c3y@$hAz:bfE`0NhW'JU?2=(G(|{;nRas|^B+iX7yZ7H!hu\u003eFdFS5_H02L8dz.;OV!bUkS+X(vW~M9qK?.Q\u003eL@r^U'XMX/q{.kPCp_{WMomtLuDdsg\u003elKJ+A!evsEm}@Avf=XT:F!1F(wI0FcP2e$NcyTD3'^kE2pcCGs@qkHrPex6~.zEJj(+\u003cCxn:/]ghE)`;'6Uu`Ra|!",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x57aaa53a83f5005519c087059a52f8cc1af9734cfe5f8cf8af647b420e0fcf98",
+          "byteLength": 970
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x7f95386533a1796601cc68ecbe2af34d2e3d0d516217746283c7c713a3f5923d",
+          "byteLength": 462
+        }
       }
     },
     {
@@ -981,10 +1135,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gZShlLHIse2NvbHVtbnM6dCxyb3dzOmk9MX0pe2lmKCFbZSxyLHQsaV0uZXZlcnkoTnVtYmVyLmlzU2FmZUludGVnZXIpfHx0PDF8fGk8MSl0aHJvdyBuZXcgUmFuZ2VFcnJvcigiU3ByaXRlIGdlb21ldHJ5IG11c3QgdXNlIHBvc2l0aXZlIGludGVnZXJzLiIpO2lmKGUldCE9PTB8fHIlaSE9PTApdGhyb3cgbmV3IFJhbmdlRXJyb3IoIlNwcml0ZSBzaGVldCBkaW1lbnNpb25zIG11c3QgZGl2aWRlIGV2ZW5seSBpbnRvIHRoZSByZXF1ZXN0ZWQgZ3JpZC4iKTtsZXQgbj1lL3QsYT1yL2k7cmV0dXJuIEFycmF5LmZyb20oe2xlbmd0aDp0Kml9LChlLHIpPT4oe3g6ciV0Km4seTpNYXRoLmZsb29yKHIvdCkqYSx3aWR0aDpuLGhlaWdodDphfSkpfWZ1bmN0aW9uIHIoZSxyKXtyZXR1cm4gbnVsbCE9PWUmJiJvYmplY3QiPT10eXBlb2YgZT9lW3JdOnZvaWQgMH1mdW5jdGlvbiB0KGUpe2lmKG51bGw9PT1lfHwib2JqZWN0IiE9dHlwZW9mIGV8fEFycmF5LmlzQXJyYXkocihlLCJmcmFtZXMiKSkpdGhyb3cgbmV3IFR5cGVFcnJvcigiRXhwZWN0ZWQgYSBuYW1lZCBKU09OIGF0bGFzIGZyYW1lIG1hcC4iKTtsZXQgdD0oZSxyKT0+e2lmKCJudW1iZXIiIT10eXBlb2Ygcnx8IU51bWJlci5pc1NhZmVJbnRlZ2VyKHIpfHxyPDApdGhyb3cgbmV3IFR5cGVFcnJvcihgSW52YWxpZCBhdGxhcyBmcmFtZSAke2V9LmApO3JldHVybiByfTtyZXR1cm4gT2JqZWN0LmVudHJpZXMocihlLCJmcmFtZXMiKT8/e30pLm1hcCgoW2UsaV0pPT57bGV0IG49cihpLCJmcmFtZSIpPz9pO3JldHVybntuYW1lOmUseDp0KGUscihuLCJ4IikpLHk6dChlLHIobiwieSIpKSx3aWR0aDp0KGUscihuLCJ3Iik/P3Iobiwid2lkdGgiKSksaGVpZ2h0OnQoZSxyKG4sImgiKT8/cihuLCJoZWlnaHQiKSl9fSl9ZnVuY3Rpb24gaShlLHIsdCxpKXtlLmltYWdlU21vb3RoaW5nRW5hYmxlZD0hMSxlLmRyYXdJbWFnZShyLHQueCx0LnksdC53aWR0aCx0LmhlaWdodCxpLngsaS55LGkud2lkdGgsaS5oZWlnaHQpfWV4cG9ydHt0IGFzIGF0bGFzRnJhbWVzLGkgYXMgZHJhd0ZyYW1lLGUgYXMgZXF1YWxDZWxsc307",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": ");E!.lNBKcnC6(sG*~vBqxBfPr9?Sp{r'9dz.5\u003cJc,`-s~_o0H;OQueR*S1K0n|4E_ecmK?p\u003epM~oX\u0026/NCB;o;R\u003c=AO!,,[Y*lK7fE2tjjO!a`EAH(@}{-K?nveqFRQ/^YJZqD,I0dt3MLnpf4iK^D;9fGeGf9hn2;$\u0026sPrvR$nFPka+/~\u003e?nwl\u003c^:wIb[]`@1D?{N1A-u$A`MuJi6VUw]_GycLI9ec=_Nqs{Ny9V\u003cB-B?5HOlobY^cM:8}:@wfTnT\u003c4Uj~(,mw5JVF3O@z]HQ4~SZiPBP{,mRUr;DA5|WEj-Ud/82]\u003cb=r?J^mrit5H@]/DK`iz~g;])ElP4^d|gZ}}=LLS`k`{zrY03`*DKJIJ/;-nE,E+K-Y\u003e3)DAiK!=PI+CsLwe\u003eZ*{t^9]dy$vOoA.m!EHuU0e@W^Su6?)GQd9FXM9kQq-XrbBu9*npr(FPZb1+2lJTr5h6_7m;7O`WC/QJMyKj(I:XgaqH(=XT9px;waxD/u-SN!o1fmj@qp(E2LRxtRd_VRU]Pq^ph\u0026xFOxJ1uF7P).?|gdpex,a7xT6q`bVG*rTH,6-`bo\u0026D'6m6fjw6:wCSPt,-v*OF=F=yv+VQww\u003cjkFbhFZfK;\u003e)4LTbGT=rH/z9Hsj:K+F7tBshfGx+KW:588S?N@=^W)^31F|-\u003e-$PZtQAO1!",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xff354364eddaaa27628c03d8c80c77ed9e0c6f3c0f1d66b2023a3a920b62e624",
+          "byteLength": 1065
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x43886ebc2ba3717585ee46b08723adf53a11ab4745a679693ad760d8d2a4738e",
+          "byteLength": 547
+        }
       }
     },
     {
@@ -1011,7 +1179,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/**\n * AI-friendly helpers for exact Keel poster and motion capture markers.\n * The viewer injects __KEEL_THUMBNAIL__; importing this file is optional.\n * MIT.\n */\n/** The capture API a thumbnail-aware Keel viewer injects on globalThis. */\nexport interface ThumbnailRuntime {\n    readonly protocol: \"keel-thumbnail-capture@1\";\n    init(label: string): void;\n    ready(label: string): void;\n    stop(label: string): void;\n    after(delayMs: number, label: string): void;\n}\n/** Options for {@link thumbnailAfterInit}. */\nexport interface ThumbnailAfterInitOptions {\n    /** Capture label. Defaults to \"hero\". */\n    readonly label?: string;\n    /** Delay in milliseconds after initialization before capture. Defaults to 0. */\n    readonly delayMs?: number;\n}\n/**\n * Marks the labeled capture as initializing.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailInit(label?: string): void;\n/**\n * Marks the labeled capture as ready to shoot now.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailReady(label?: string): void;\n/**\n * Stops the labeled capture.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailStop(label?: string): void;\n/**\n * Schedules the labeled capture after a delay.\n *\n * @param delayMs Delay in milliseconds before the capture fires.\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailAfter(delayMs: number, label?: string): void;\n/**\n * Runs an initializer between init and a delayed capture marker.\n *\n * @param initializer Awaited setup work; its resolved value is returned.\n * @param options Capture label and post-initialization delay.\n * @returns The initializer's resolved value.\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailAfterInit<T>(initializer: () => T | PromiseLike<T>, options?: ThumbnailAfterInitOptions): Promise<T>;\n/** Typed capture helpers. Import this object to use thumbnail.snapshot(). */\nexport declare const thumbnail: Readonly<{\n    init: typeof thumbnailInit;\n    snapshot: typeof thumbnailReady;\n    ready: typeof thumbnailReady;\n    stop: typeof thumbnailStop;\n    after: typeof thumbnailAfter;\n    afterInit: typeof thumbnailAfterInit;\n}>;\nexport default thumbnail;\n"
+          "src/index.d.ts": "/**\n * AI-friendly helpers for exact Keel poster and motion capture markers.\n * The viewer injects __KEEL_THUMBNAIL__; importing this file is optional.\n * MIT.\n */\n/** The capture API a thumbnail-aware Keel viewer injects on globalThis. */\nexport interface ThumbnailRuntime {\n    readonly protocol: \"keel-thumbnail-capture@1\";\n    init(label: string): void;\n    ready(label: string): void;\n    stop(label: string): void;\n    after(delayMs: number, label: string): void;\n}\n/** Options for {@link thumbnailAfterInit}. */\nexport interface ThumbnailAfterInitOptions {\n    /** Capture label. Defaults to \"hero\". */\n    readonly label?: string;\n    /** Delay in milliseconds after initialization before capture. Defaults to 0. */\n    readonly delayMs?: number;\n}\n/**\n * Marks the labeled capture as initializing.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailInit(label?: string): void;\n/**\n * Marks the labeled capture as ready to shoot now.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailReady(label?: string): void;\n/**\n * Stops the labeled capture.\n *\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailStop(label?: string): void;\n/**\n * Schedules the labeled capture after a delay.\n *\n * @param delayMs Delay in milliseconds before the capture fires.\n * @param label Capture label. Defaults to \"hero\".\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailAfter(delayMs: number, label?: string): void;\n/**\n * Runs an initializer between init and a delayed capture marker.\n *\n * @param initializer Awaited setup work; its resolved value is returned.\n * @param options Capture label and post-initialization delay.\n * @returns The initializer's resolved value.\n * @throws Error when no thumbnail-aware viewer runtime is present.\n */\nexport declare function thumbnailAfterInit\u003cT\u003e(initializer: () =\u003e T | PromiseLike\u003cT\u003e, options?: ThumbnailAfterInitOptions): Promise\u003cT\u003e;\n/** Typed capture helpers. Import this object to use thumbnail.snapshot(). */\nexport declare const thumbnail: Readonly\u003c{\n    init: typeof thumbnailInit;\n    snapshot: typeof thumbnailReady;\n    ready: typeof thumbnailReady;\n    stop: typeof thumbnailStop;\n    after: typeof thumbnailAfter;\n    afterInit: typeof thumbnailAfterInit;\n}\u003e;\nexport default thumbnail;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -1049,10 +1217,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gdCgpe2xldCB0PWdsb2JhbFRoaXMuX19LRUVMX1RIVU1CTkFJTF9fO2lmKCJrZWVsLXRodW1ibmFpbC1jYXB0dXJlQDEiIT09dD8ucHJvdG9jb2wpdGhyb3cgbmV3IEVycm9yKCJUaGlzIGFydHdvcmsgaXMgbm90IHJ1bm5pbmcgaW4gYSB0aHVtYm5haWwtYXdhcmUgS2VlbCB2aWV3ZXIuIik7cmV0dXJuIHR9ZnVuY3Rpb24gYShhPSJoZXJvIil7dCgpLmluaXQoYSl9ZnVuY3Rpb24gbihhPSJoZXJvIil7dCgpLnJlYWR5KGEpfWZ1bmN0aW9uIGUoYT0iaGVybyIpe3QoKS5zdG9wKGEpfWZ1bmN0aW9uIGkoYSxuPSJoZXJvIil7dCgpLmFmdGVyKGEsbil9YXN5bmMgZnVuY3Rpb24gcih0LG49e30pe2Eobi5sYWJlbCk7bGV0IGU9YXdhaXQgdCgpO3JldHVybiBpKG4uZGVsYXlNcz8/MCxuLmxhYmVsKSxlfXZhciBvPU9iamVjdC5mcmVlemUoe2luaXQ6YSxzbmFwc2hvdDpuLHJlYWR5Om4sc3RvcDplLGFmdGVyOmksYWZ0ZXJJbml0OnJ9KSxsPW87ZXhwb3J0e2wgYXMgZGVmYXVsdCxvIGFzIHRodW1ibmFpbCxpIGFzIHRodW1ibmFpbEFmdGVyLHIgYXMgdGh1bWJuYWlsQWZ0ZXJJbml0LGEgYXMgdGh1bWJuYWlsSW5pdCxuIGFzIHRodW1ibmFpbFJlYWR5LGUgYXMgdGh1bWJuYWlsU3RvcH07",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "|N7!.l|ZXIhzc35ej}soKD0*7k|Q/8soaM-~Hy`f\u003cjzJC:A5,F:'6p+kr6;ph-J9,:*c+\u003eYp=$tt\u003e[kvMweQaZQzZDaDp_gvNN34lP4iAElPI]BDq?\u003cQ)p80SN$urs|fh3rLjF:wiH[UF:c^[.+wd5)s4^TY0]5nj2gxN|krL6.'),eDnQu$o{vz6ycN?lRWzF$}F}0-U;/F6vt_ljf25/Psrp(;.N(?''qLE$4;6P@)iCF]n~'{MH!wd\u003eY;n!i:aPF~K{.VN]TA\u003e@\u0026KgLPE;J8JJaPcDyUB/uIyI4{]9L]L4*id)xyfnpXyNfUOzV_pufbknf[2+/S0?^89u)TIjp;m3D/CTG{mKH^WG-|k8M*f!uKW`/*M.BCmn'b+*s`;E1\u003e._Z-Y|(m3|bqP6b|z(!",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x8f48f68b345b05f28bec0efc0a94103b97d1249ac35a286f8aa3f7b5125cee18",
+          "byteLength": 624
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0xb7120cb140b23cd9d7ba2864d3e47d60600ceb912c2d07e2794185bc6382046d",
+          "byteLength": 329
+        }
       }
     },
     {
@@ -1079,7 +1261,7 @@
           }
         ],
         "files": {
-          "src/index.d.ts": "/** Dependency-injected asset loader. The host resolver supplies already verified bytes. MIT. */\n/** Byte sources the resolver may return, directly or wrapped in a promise. */\nexport type ResolvedBytes = ArrayBuffer | ArrayLike<number>;\n/** The injected host resolver. It maps an asset id to already verified bytes. */\nexport type ResolveResource = (id: string) => ResolvedBytes | PromiseLike<ResolvedBytes>;\n/** Cached asset views over the injected resolver. */\nexport interface VerifiedAssets {\n    /** Resolves the raw bytes for an id, caching the promise per id. */\n    bytes(id: string): Promise<Uint8Array>;\n    /** Decodes the bytes as strict UTF-8 text; invalid sequences reject. */\n    text(id: string): Promise<string>;\n    /** Parses the UTF-8 text as JSON. */\n    json(id: string): Promise<unknown>;\n    /** Decodes the bytes as an image. The media type defaults to \"image/webp\". */\n    image(id: string, mediaType?: string): Promise<ImageBitmap>;\n    /** Drops one cached id, or the whole cache when no id is given. */\n    clear(id?: string): void;\n}\n/**\n * Creates a caching asset loader over an injected verified-byte resolver.\n *\n * Every accessor funnels through one per-id promise cache, so each asset is\n * resolved at most once until it is cleared.\n *\n * @param resolveResource The host resolver supplying verified bytes per id.\n * @returns Byte, text, JSON, and image views over the resolver.\n * @throws TypeError when the resolver is not a function.\n */\nexport declare function createVerifiedAssets(resolveResource: ResolveResource): VerifiedAssets;\n"
+          "src/index.d.ts": "/** Dependency-injected asset loader. The host resolver supplies already verified bytes. MIT. */\n/** Byte sources the resolver may return, directly or wrapped in a promise. */\nexport type ResolvedBytes = ArrayBuffer | ArrayLike\u003cnumber\u003e;\n/** The injected host resolver. It maps an asset id to already verified bytes. */\nexport type ResolveResource = (id: string) =\u003e ResolvedBytes | PromiseLike\u003cResolvedBytes\u003e;\n/** Cached asset views over the injected resolver. */\nexport interface VerifiedAssets {\n    /** Resolves the raw bytes for an id, caching the promise per id. */\n    bytes(id: string): Promise\u003cUint8Array\u003e;\n    /** Decodes the bytes as strict UTF-8 text; invalid sequences reject. */\n    text(id: string): Promise\u003cstring\u003e;\n    /** Parses the UTF-8 text as JSON. */\n    json(id: string): Promise\u003cunknown\u003e;\n    /** Decodes the bytes as an image. The media type defaults to \"image/webp\". */\n    image(id: string, mediaType?: string): Promise\u003cImageBitmap\u003e;\n    /** Drops one cached id, or the whole cache when no id is given. */\n    clear(id?: string): void;\n}\n/**\n * Creates a caching asset loader over an injected verified-byte resolver.\n *\n * Every accessor funnels through one per-id promise cache, so each asset is\n * resolved at most once until it is cleared.\n *\n * @param resolveResource The host resolver supplying verified bytes per id.\n * @returns Byte, text, JSON, and image views over the resolver.\n * @throws TypeError when the resolver is not a function.\n */\nexport declare function createVerifiedAssets(resolveResource: ResolveResource): VerifiedAssets;\n"
         },
         "integrity": {
           "algorithm": "sha256",
@@ -1117,10 +1299,24 @@
       "provenance": "vendored",
       "origin": null,
       "runtime": {
-        "encoding": "base64",
-        "data": "ZnVuY3Rpb24gZShlKXtpZigiZnVuY3Rpb24iIT10eXBlb2YgZSl0aHJvdyBuZXcgVHlwZUVycm9yKCJBIHZlcmlmaWVkIGhvc3QgcmVzb2x2ZXIgaXMgcmVxdWlyZWQuIik7bGV0IHQ9bmV3IE1hcCxyPWFzeW5jIHI9PntsZXQgYT10LmdldChyKTtpZih2b2lkIDAhPT1hKXJldHVybiBhO2xldCBpPVByb21pc2UucmVzb2x2ZShlKHIpKS50aGVuKGU9Pm5ldyBVaW50OEFycmF5KGUpKTtyZXR1cm4gdC5zZXQocixpKSxpfSxhPWFzeW5jIGU9Pm5ldyBUZXh0RGVjb2RlcigidXRmLTgiLHtmYXRhbDohMH0pLmRlY29kZShhd2FpdCByKGUpKTtyZXR1cm57Ynl0ZXM6cix0ZXh0OmEsanNvbjphc3luYyBlPT5KU09OLnBhcnNlKGF3YWl0IGEoZSkpLGltYWdlOmFzeW5jKGUsdD0iaW1hZ2Uvd2VicCIpPT5jcmVhdGVJbWFnZUJpdG1hcChuZXcgQmxvYihbYXdhaXQgcihlKV0se3R5cGU6dH0pKSxjbGVhcihlKXt2b2lkIDA9PT1lP3QuY2xlYXIoKTp0LmRlbGV0ZShlKX19fWV4cG9ydHtlIGFzIGNyZWF0ZVZlcmlmaWVkQXNzZXRzfTs=",
+        "schema": "keel-module-runtime@2",
+        "encoding": "base90",
+        "transportProfile": "base90-v1",
+        "compression": "brotli",
+        "encryption": "none",
+        "data": "YC4!.lBaXIAH_8hVKjG:m7M,?/qS^;f8[s!l^KK)U}rv1o\u003e-G-xTc1qM*n^6p(Xz-)ZsMERAy/ui+72Bd8t9.ZG~@Uk5;~Spc6\u003e7ZeU5zd9:-~5\u0026C@pa5PH2q$t}s`TRPt1+D5k[D\u003ei(DN)y0dY,W+GqvKU=d2J@DjYmnbvsea{F5*N[qDKLVN(i,(6jQd]G\u003c!5F9Jme:T`:?4;h^5CNP$H\u0026\u003eS|55l2GqU2b*6j^WvoX9P`-?Y.nAp;)z@X{xW2*uU)Fqi-o7+l62\u003c']2j_CjJ/$8qgp15AAAYEMVCb0}ZCp=GLZM^}FzTfYh@z?KJ5s';O4)]jloq[S{[n}shf}:+2iS.F?8$S$8\u0026O'NG49_xz?o$/:R//U_:}\u00268GmJAO6._'`XGa'R\u003cqh;Yl*.\u0026!",
         "format": "esm",
-        "entry": "src/index.ts"
+        "entry": "src/index.ts",
+        "decodedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x24bfbcbc7159518b6cd9a673e3b0736000f31dc0880e54d6e16fd590666b9d25",
+          "byteLength": 524
+        },
+        "storedIntegrity": {
+          "algorithm": "sha256",
+          "digest": "0x54537ebafd667a61681c56b9ef5b8f692c72e8b66ef138283f4949974d4df52a",
+          "byteLength": 326
+        }
       }
     }
   ]

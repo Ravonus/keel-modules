@@ -129,6 +129,74 @@
           "name": "typescript",
           "version": "5.9.3"
         },
+        "recipeDigest": "0x31bcfdd773e55e57e1aaacd1adacd8d1d622f7b7cc5d22fb87bcadc5afc3f850",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 1177,
+          "digest": "0xa89a7c792b9687664b765faf5bf6744d20088566daa7aa7c9f7f8f5db073ef9e"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x7895bcd85756e668ad74747eeeffccf17e8e5d9ba1261480618f7d8c4e3fa761",
+              "byteLength": 3976
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Deterministic Flash edition traits backed by Keel's seeded-random module. MIT. */\nexport type SeededRandom = () => number;\n/** The exact API supplied by the reusable `seeded-random` module. */\nexport interface SeededRandomModule {\n    readonly createSeededRandom: (hexSeed: string) => SeededRandom;\n    readonly randomInt: (random: SeededRandom, minimum: number, maximum: number) => number;\n}\nexport interface FlashEditionTraits {\n    /** Canonical 32-byte hexadecimal seed for the artwork runtime. */\n    readonly seedHex: `0x${string}`;\n    /** Palette index in the shared Ghost Circuit palette. */\n    readonly paletteIndex: number;\n    /** Motion rate in radians per frame. */\n    readonly motion: number;\n    /** Endpoint pull toward the pointer. */\n    readonly attraction: number;\n    /** Signed gravity bias applied to the arm midpoint. */\n    readonly gravity: number;\n    /** Arm length in stage pixels. */\n    readonly length: number;\n    /** Arm bend amplitude in stage pixels. */\n    readonly bend: number;\n}\n/**\n * Derive a preview token seed from a collection root seed.\n *\n * Production viewers should prefer `context.derivedTokenSeed` from\n * KeelSeedRegistry. This fallback exists for the local playground, where a\n * persisted random root seed is expanded with the same global module.\n */\nexport declare function deriveTokenSeed(rootSeedHex: string, tokenId: number, randomModule: SeededRandomModule): `0x${string}`;\n/**\n * Derive a replayable Flash trait set from a canonical token seed.\n *\n * @param tokenSeedHex Canonical 32-byte seed from KeelSeedRegistry or the\n * local `deriveTokenSeed` fallback.\n * @param tokenId One-based token id.\n * @param randomModule The separately committed Keel seeded-random module.\n * @returns Immutable deterministic traits and the canonical runtime seed.\n * @throws RangeError when tokenId is not in the collection range.\n */\nexport declare function deriveFlashEdition(tokenSeedHex: string, tokenId: number, randomModule: SeededRandomModule): FlashEditionTraits;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xd9558d18482d7e3a45b38233a1755f6c138b39e928cc1625d4d2e9bc93677aa8",
+          "byteLength": 2086
+        }
+      },
+      "id": "flash-edition",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "Deterministic seed-and-token traits for replayable Flash editions.",
+      "publisher": "keel-web3",
+      "category": "generative",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "generative",
+        "member": "ravonus"
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": "https://github.com/keel-web3/flash-edition",
+      "githubPath": "modules/keel-web3/generative/flash-edition/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/generative/flash-edition/src/index.ts",
+          "sha256": "0x7895bcd85756e668ad74747eeeffccf17e8e5d9ba1261480618f7d8c4e3fa761"
+        }
+      ],
+      "outputDigest": "0xa89a7c792b9687664b765faf5bf6744d20088566daa7aa7c9f7f8f5db073ef9e",
+      "receiptDigest": "0xca50259df9186db87838ce1e177cf0d4c693cc7b9c6cb64ac05e8b28eadf6bfd",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIGU9L14weFswLTlhLWZdezY0fSQvdTtmdW5jdGlvbiB0KHQscil7aWYoInN0cmluZyIhPXR5cGVvZiB0fHwhZS50ZXN0KHQpKXRocm93IG5ldyBSYW5nZUVycm9yKGAke3J9IG11c3QgYmUgYSBjYW5vbmljYWwgMzItYnl0ZSBoZXhhZGVjaW1hbCBzZWVkLmApO3JldHVybiB0LnRvTG93ZXJDYXNlKCl9ZnVuY3Rpb24gcihlKXtpZigib2JqZWN0IiE9dHlwZW9mIGV8fG51bGw9PT1lfHwiZnVuY3Rpb24iIT10eXBlb2YgZS5jcmVhdGVTZWVkZWRSYW5kb218fCJmdW5jdGlvbiIhPXR5cGVvZiBlLnJhbmRvbUludCl0aHJvdyBuZXcgVHlwZUVycm9yKCJmbGFzaC1lZGl0aW9uIHJlcXVpcmVzIHRoZSBLZWVsIHNlZWRlZC1yYW5kb20gbW9kdWxlLiIpO3JldHVybiBlfWZ1bmN0aW9uIG4oZSl7cmV0dXJuKGU+Pj4wKS50b1N0cmluZygxNikucGFkU3RhcnQoOCwiMCIpfWZ1bmN0aW9uIG8oZSl7cmV0dXJuIE1hdGguZmxvb3IoNDI5NDk2NzI5NiplKCkpPj4+MH1mdW5jdGlvbiBhKGUsYSxpKXtsZXQgZD10KGUsInJvb3RTZWVkSGV4Iik7aWYocihpKSwhTnVtYmVyLmlzU2FmZUludGVnZXIoYSl8fGE8MXx8YT4xMTEpdGhyb3cgbmV3IFJhbmdlRXJyb3IoInRva2VuSWQgbXVzdCBiZSBhbiBpbnRlZ2VyIGZyb20gMSB0aHJvdWdoIDExMS4iKTtsZXQgZj1pLmNyZWF0ZVNlZWRlZFJhbmRvbShkKSx1PVtdO2ZvcihsZXQgZT0xO2U8PWE7ZSs9MSl1PUFycmF5LmZyb20oe2xlbmd0aDo4fSwoKT0+byhmKSk7cmV0dXJuYDB4JHt1Lm1hcChuKS5qb2luKCIiKX1gfWZ1bmN0aW9uIGkoZSxuLG8pe2xldCBhPXQoZSwidG9rZW5TZWVkSGV4Iik7aWYocihvKSwhTnVtYmVyLmlzU2FmZUludGVnZXIobil8fG48MXx8bj4xMTEpdGhyb3cgbmV3IFJhbmdlRXJyb3IoInRva2VuSWQgbXVzdCBiZSBhbiBpbnRlZ2VyIGZyb20gMSB0aHJvdWdoIDExMS4iKTtsZXQgaT1vLmNyZWF0ZVNlZWRlZFJhbmRvbShhKTtyZXR1cm4gT2JqZWN0LmZyZWV6ZSh7c2VlZEhleDphLHBhbGV0dGVJbmRleDpvLnJhbmRvbUludChpLDAsNSksbW90aW9uOi4wMDcrLjAxNippKCksYXR0cmFjdGlvbjouMDgrLjE2KmkoKSxncmF2aXR5Oi4zNippKCktLjE4LGxlbmd0aDoxMzArMjEwKmkoKSxiZW5kOjQwKzEwMCppKCl9KX1leHBvcnR7aSBhcyBkZXJpdmVGbGFzaEVkaXRpb24sYSBhcyBkZXJpdmVUb2tlblNlZWR9Ow==",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
         "recipeDigest": "0x295aebccea66ece990267b6b4ec8f1606803af46f2e4d1edda95fa0d03d2854e",
         "output": {
           "algorithm": "sha256",
@@ -339,12 +407,6 @@
           }
         ]
       },
-      "runtime": {
-        "encoding": "base64",
-        "data": "dmFyIGU9e2NvbG9yOiIjN2M4M2ZmIixiYWNrZ3JvdW5kOiIjMGMwZDEwIixyaW5nczo4LHNwZWVkOjEsbW9vZDoiY2FsbSIscHVsc2U6ITAsYWNjZW50czpbXSxyZXZlYWxPbjpudWxsfSx0PS9eI1swLTlhLWZdezZ9JC9pdSxsPS9eXGR7NH0tXGR7Mn0tXGR7Mn0kL3U7ZnVuY3Rpb24gbihlLGwpe3JldHVybiJzdHJpbmciPT10eXBlb2YgZSYmdC50ZXN0KGUpP2UudG9Mb3dlckNhc2UoKTpsfWZ1bmN0aW9uIG8oZSx0LGwsbil7cmV0dXJuIm51bWJlciI9PXR5cGVvZiBlJiZOdW1iZXIuaXNGaW5pdGUoZSk/TWF0aC5taW4obCxNYXRoLm1heCh0LGUpKTpufWZ1bmN0aW9uIHIocil7aWYobnVsbD09PXJ8fCJvYmplY3QiIT10eXBlb2YgcilyZXR1cm4gZTtsZXQgYT1yLHM9QXJyYXkuaXNBcnJheShhLmFjY2VudHMpP2EuYWNjZW50cy5maWx0ZXIoZT0+InN0cmluZyI9PXR5cGVvZiBlJiZ0LnRlc3QoZSkpLnNsaWNlKDAsNCk6W107cmV0dXJue2NvbG9yOm4oYS5jb2xvcixlLmNvbG9yKSxiYWNrZ3JvdW5kOm4oYS5iYWNrZ3JvdW5kLGUuYmFja2dyb3VuZCkscmluZ3M6TWF0aC5yb3VuZChvKGEucmluZ3MsMSwyNCxlLnJpbmdzKSksc3BlZWQ6byhhLnNwZWVkLDAsMyxlLnNwZWVkKSxtb29kOiJsaXZlbHkiPT09YS5tb29kPyJsaXZlbHkiOiJjYWxtIixwdWxzZToiYm9vbGVhbiI9PXR5cGVvZiBhLnB1bHNlP2EucHVsc2U6ZS5wdWxzZSxhY2NlbnRzOnMscmV2ZWFsT246InN0cmluZyI9PXR5cGVvZiBhLnJldmVhbE9uJiZsLnRlc3QoYS5yZXZlYWxPbik/YS5yZXZlYWxPbjpudWxsfX1mdW5jdGlvbiBhKGUsdCl7cmV0dXJuIG51bGw9PT1lLnJldmVhbE9ufHx0Pj1lLnJldmVhbE9ufWZ1bmN0aW9uIHModCxsLG4sbyxyPWUscz0iOTk5OS0xMi0zMSIpe2xldCBjPWEocixzKSxpPW8qci5zcGVlZCooImxpdmVseSI9PT1yLm1vb2Q/MS44Oi43KSxkPXIucHVsc2U/Ljc4Ky4yMipNYXRoLnNpbigxLjMqaSk6MSx1PWwvMixmPW4vMixwPU1hdGguaHlwb3QobCxuKS8yO3QuZmlsbFN0eWxlPXIuYmFja2dyb3VuZCx0LmZpbGxSZWN0KDAsMCxsLG4pO2xldCBnPXQuY3JlYXRlUmFkaWFsR3JhZGllbnQodSxmLDAsdSxmLC45KnApO2lmKGcuYWRkQ29sb3JTdG9wKDAsYCR7ci5jb2xvcn0ke2M/IjY2IjoiMjIifWApLGcuYWRkQ29sb3JTdG9wKDEsYCR7ci5jb2xvcn0wMGApLHQuZmlsbFN0eWxlPWcsdC5maWxsUmVjdCgwLDAsbCxuKSxjKXt0LmxpbmVXaWR0aD1NYXRoLm1heCgxLE1hdGgubWluKGwsbikvMjYwKTtmb3IobGV0IGU9MDtlPHIucmluZ3M7ZSs9MSl7bGV0IGw9KGUvci5yaW5ncysuMDgqaSklMSxuPWwqcCxvPXIuYWNjZW50cy5sZW5ndGg+MCYmZSUyPT0xP3IuYWNjZW50c1soZT4+MSklci5hY2NlbnRzLmxlbmd0aF06dm9pZCAwLGE9TWF0aC5yb3VuZCgyNTUqZCooMS1sKSouODUpLnRvU3RyaW5nKDE2KS5wYWRTdGFydCgyLCIwIik7dC5zdHJva2VTdHlsZT1gJHtvPz9yLmNvbG9yfSR7YX1gLHQuYmVnaW5QYXRoKCksdC5hcmModSxmLG4sMCwyKk1hdGguUEkpLHQuc3Ryb2tlKCl9fX1leHBvcnR7ZSBhcyBERUZBVUxUX0dMT1dfU0VUVElOR1MscyBhcyBkcmF3R2xvdyxhIGFzIGdsb3dSZXZlYWxlZCxyIGFzIGdsb3dTZXR0aW5nc307",
-        "format": "esm",
-        "entry": "src/index.ts"
-      },
       "id": "glow-field",
       "version": "0.1.0",
       "license": "MIT",
@@ -373,7 +435,13 @@
       "deployments": [],
       "deployed": false,
       "provenance": "vendored",
-      "origin": null
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIGU9e2NvbG9yOiIjN2M4M2ZmIixiYWNrZ3JvdW5kOiIjMGMwZDEwIixyaW5nczo4LHNwZWVkOjEsbW9vZDoiY2FsbSIscHVsc2U6ITAsYWNjZW50czpbXSxyZXZlYWxPbjpudWxsfSx0PS9eI1swLTlhLWZdezZ9JC9pdSxsPS9eXGR7NH0tXGR7Mn0tXGR7Mn0kL3U7ZnVuY3Rpb24gbihlLGwpe3JldHVybiJzdHJpbmciPT10eXBlb2YgZSYmdC50ZXN0KGUpP2UudG9Mb3dlckNhc2UoKTpsfWZ1bmN0aW9uIG8oZSx0LGwsbil7cmV0dXJuIm51bWJlciI9PXR5cGVvZiBlJiZOdW1iZXIuaXNGaW5pdGUoZSk/TWF0aC5taW4obCxNYXRoLm1heCh0LGUpKTpufWZ1bmN0aW9uIHIocil7aWYobnVsbD09PXJ8fCJvYmplY3QiIT10eXBlb2YgcilyZXR1cm4gZTtsZXQgYT1yLHM9QXJyYXkuaXNBcnJheShhLmFjY2VudHMpP2EuYWNjZW50cy5maWx0ZXIoZT0+InN0cmluZyI9PXR5cGVvZiBlJiZ0LnRlc3QoZSkpLnNsaWNlKDAsNCk6W107cmV0dXJue2NvbG9yOm4oYS5jb2xvcixlLmNvbG9yKSxiYWNrZ3JvdW5kOm4oYS5iYWNrZ3JvdW5kLGUuYmFja2dyb3VuZCkscmluZ3M6TWF0aC5yb3VuZChvKGEucmluZ3MsMSwyNCxlLnJpbmdzKSksc3BlZWQ6byhhLnNwZWVkLDAsMyxlLnNwZWVkKSxtb29kOiJsaXZlbHkiPT09YS5tb29kPyJsaXZlbHkiOiJjYWxtIixwdWxzZToiYm9vbGVhbiI9PXR5cGVvZiBhLnB1bHNlP2EucHVsc2U6ZS5wdWxzZSxhY2NlbnRzOnMscmV2ZWFsT246InN0cmluZyI9PXR5cGVvZiBhLnJldmVhbE9uJiZsLnRlc3QoYS5yZXZlYWxPbik/YS5yZXZlYWxPbjpudWxsfX1mdW5jdGlvbiBhKGUsdCl7cmV0dXJuIG51bGw9PT1lLnJldmVhbE9ufHx0Pj1lLnJldmVhbE9ufWZ1bmN0aW9uIHModCxsLG4sbyxyPWUscz0iOTk5OS0xMi0zMSIpe2xldCBjPWEocixzKSxpPW8qci5zcGVlZCooImxpdmVseSI9PT1yLm1vb2Q/MS44Oi43KSxkPXIucHVsc2U/Ljc4Ky4yMipNYXRoLnNpbigxLjMqaSk6MSx1PWwvMixmPW4vMixwPU1hdGguaHlwb3QobCxuKS8yO3QuZmlsbFN0eWxlPXIuYmFja2dyb3VuZCx0LmZpbGxSZWN0KDAsMCxsLG4pO2xldCBnPXQuY3JlYXRlUmFkaWFsR3JhZGllbnQodSxmLDAsdSxmLC45KnApO2lmKGcuYWRkQ29sb3JTdG9wKDAsYCR7ci5jb2xvcn0ke2M/IjY2IjoiMjIifWApLGcuYWRkQ29sb3JTdG9wKDEsYCR7ci5jb2xvcn0wMGApLHQuZmlsbFN0eWxlPWcsdC5maWxsUmVjdCgwLDAsbCxuKSxjKXt0LmxpbmVXaWR0aD1NYXRoLm1heCgxLE1hdGgubWluKGwsbikvMjYwKTtmb3IobGV0IGU9MDtlPHIucmluZ3M7ZSs9MSl7bGV0IGw9KGUvci5yaW5ncysuMDgqaSklMSxuPWwqcCxvPXIuYWNjZW50cy5sZW5ndGg+MCYmZSUyPT0xP3IuYWNjZW50c1soZT4+MSklci5hY2NlbnRzLmxlbmd0aF06dm9pZCAwLGE9TWF0aC5yb3VuZCgyNTUqZCooMS1sKSouODUpLnRvU3RyaW5nKDE2KS5wYWRTdGFydCgyLCIwIik7dC5zdHJva2VTdHlsZT1gJHtvPz9yLmNvbG9yfSR7YX1gLHQuYmVnaW5QYXRoKCksdC5hcmModSxmLG4sMCwyKk1hdGguUEkpLHQuc3Ryb2tlKCl9fX1leHBvcnR7ZSBhcyBERUZBVUxUX0dMT1dfU0VUVElOR1MscyBhcyBkcmF3R2xvdyxhIGFzIGdsb3dSZXZlYWxlZCxyIGFzIGdsb3dTZXR0aW5nc307",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
     },
     {
       "types": {
@@ -643,6 +711,74 @@
       "runtime": {
         "encoding": "base64",
         "data": "ZnVuY3Rpb24gcihyKXtsZXQgZT0vXiMoWzAtOWEtZl17Nn0pKFswLTlhLWZdezJ9KT8kL2l1LmV4ZWMocik7aWYodm9pZCAwPT09ZT8uWzFdKXRocm93IG5ldyBUeXBlRXJyb3IoYEludmFsaWQgY29sb3IgJHtyfS5gKTtsZXQgdD1lWzFdLG49ZVsyXTtyZXR1cm5bMCwyLDRdLm1hcChyPT5OdW1iZXIucGFyc2VJbnQodC5zbGljZShyLHIrMiksMTYpKS5jb25jYXQodm9pZCAwPT09bj8yNTU6TnVtYmVyLnBhcnNlSW50KG4sMTYpKX1mdW5jdGlvbiBlKHIpe3JldHVybmByZ2JhKCR7clswXT8/MjU1fSwgJHtyWzFdPz8yNTV9LCAke3JbMl0/PzI1NX0sICR7TWF0aC5yb3VuZChyWzNdPz8yNTUpLzI1NX0pYH1mdW5jdGlvbiB0KHIsZSx0KXtsZXQgbj1NYXRoLm1pbihNYXRoLm1heCh0LDApLDEpO3JldHVybiBBcnJheS5mcm9tKHtsZW5ndGg6NH0sKHQsYSk9Pk1hdGgucm91bmQoKHJbYV0/PzI1NSkrKChlW2FdPz8yNTUpLShyW2FdPz8yNTUpKSpuKSl9ZnVuY3Rpb24gbihlLHQpeyFmdW5jdGlvbihyKXtpZighQXJyYXkuaXNBcnJheShyKXx8MD09PXIubGVuZ3RoKXRocm93IG5ldyBSYW5nZUVycm9yKCJQYWxldHRlIGNhbm5vdCBiZSBlbXB0eS4iKX0oZSk7bGV0IG49ZVsodCVlLmxlbmd0aCtlLmxlbmd0aCklZS5sZW5ndGhdO2lmKHZvaWQgMD09PW4pdGhyb3cgbmV3IFJhbmdlRXJyb3IoIlBhbGV0dGUgY2Fubm90IGJlIGVtcHR5LiIpO3JldHVybiByKG4pfWV4cG9ydHt0IGFzIG1peENvbG9ycyxuIGFzIHBhbGV0dGVDb2xvcixyIGFzIHBhcnNlSGV4Q29sb3IsZSBhcyByZ2JhfTs=",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xa022ff61991d51a0c1384659e26eb545a4c56518328e77b20c1c897ab7ad98aa",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 3100,
+          "digest": "0xc1e9bd4000becbc8eff5fca70d9c060cb433b3b1af9ef22429248b333fdf7922"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x92694c5ab81e49a212844d46c3b4d6508659b4547b405dc93c1e2febe608b8d8",
+              "byteLength": 9120
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/** Ruffle resource loader for Keel verification shells. MIT. */\nexport interface VerifiedContent {\n    /** Return a verified data/blob URL for a committed resource, or null. */\n    readonly url: (id: string) => string | null;\n}\nexport interface RuffleAssetIds {\n    readonly main: string;\n    readonly modernCore: string;\n    readonly legacyCore: string;\n    /** Optional MVP/vanilla WASM. Unsupported browsers can supply it locally. */\n    readonly modernWasm?: string;\n    readonly legacyWasm: string;\n}\nexport interface RuffleLoaderOptions {\n    readonly window: Window;\n    readonly document: Document;\n    readonly content: VerifiedContent;\n    readonly assets: RuffleAssetIds;\n    /** A locally selected MVP/vanilla WASM blob for browsers without extensions. */\n    readonly fallbackWasmUrl?: string;\n    readonly publicPath?: string;\n    /** Start visual SWF playback without requiring a second click. */\n    readonly autoplay?: \"on\" | \"off\" | \"auto\";\n    /** Hide Ruffle's audio-unmute affordance for visual-only SWFs. */\n    readonly unmuteOverlay?: \"visible\" | \"hidden\";\n}\nexport interface RufflePlayerApi {\n    readonly newest: () => {\n        readonly createPlayer: () => HTMLElement & {\n            load(source: string | {\n                url: string;\n                parameters?: Record<string, string>;\n            }): Promise<void>;\n        };\n    };\n}\nexport interface RuffleLoader {\n    readonly load: () => Promise<RufflePlayerApi>;\n    readonly dispose: () => void;\n}\n/** Return whether the host supports the WASM extensions used by Ruffle's\n * extensions-enabled build. This is a capability check only; it performs no\n * network or resource loading. */\nexport declare function supportsRuffleWasmExtensions(): boolean;\n/**\n * Create a loader that maps Ruffle's split runtime requests to verified Keel\n * resources. The hooks remain installed until `dispose`, because Ruffle loads\n * its WASM lazily when the first player is created.\n *\n * @param options Injected DOM, resource resolver, and committed resource ids.\n * @returns A one-shot loader and a cleanup function.\n */\nexport declare function createRuffleLoader(options: RuffleLoaderOptions): RuffleLoader;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0xdbbd01a67c791eea2aad0798a2bcdb3e12c4c81e23e6a96033e238db79bca895",
+          "byteLength": 2266
+        }
+      },
+      "id": "ruffle-loader",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "Verified-resource loader for the Ruffle self-hosted Flash runtime.",
+      "publisher": "keel-web3",
+      "category": "viewer",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "runtime",
+        "member": "ravonus"
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": "https://github.com/keel-web3/ruffle-loader",
+      "githubPath": "modules/keel-web3/viewer/ruffle-loader/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/viewer/ruffle-loader/src/index.ts",
+          "sha256": "0x92694c5ab81e49a212844d46c3b4d6508659b4547b405dc93c1e2febe608b8d8"
+        }
+      ],
+      "outputDigest": "0xc1e9bd4000becbc8eff5fca70d9c060cb433b3b1af9ef22429248b333fdf7922",
+      "receiptDigest": "0xb209a928cc782cbb27fc7e653cffb09594f44b0f4b39df060a6bf01d16ffabf8",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "ZnVuY3Rpb24gZShlKXt0cnl7cmV0dXJuIG5ldyBVUkwoZSwiaHR0cHM6Ly9rZWVsLmludmFsaWQvIikucGF0aG5hbWUuc3BsaXQoIi8iKS5wb3AoKT8/IiJ9Y2F0Y2h7cmV0dXJuIiJ9fXZhciB0PVtuZXcgVWludDhBcnJheShbMCw5NywxMTUsMTA5LDEsMCwwLDAsMSw0LDEsOTYsMCwwLDMsMiwxLDAsNSwzLDEsMCwxLDEwLDE0LDEsMTIsMCw2NSwwLDY1LDAsNjUsMCwyNTIsMTAsMCwwLDExXSksbmV3IFVpbnQ4QXJyYXkoWzAsOTcsMTE1LDEwOSwxLDAsMCwwLDEsNSwxLDk2LDAsMSwxMjMsMywyLDEsMCwxMCwxMCwxLDgsMCw2NSwwLDI1MywxNSwyNTMsOTgsMTFdKSxuZXcgVWludDhBcnJheShbMCw5NywxMTUsMTA5LDEsMCwwLDAsMSw0LDEsOTYsMCwwLDMsMiwxLDAsMTAsMTIsMSwxMCwwLDY3LDAsMCwwLDAsMjUyLDAsMjYsMTFdKSxuZXcgVWludDhBcnJheShbMCw5NywxMTUsMTA5LDEsMCwwLDAsMSw0LDEsOTYsMCwwLDMsMiwxLDAsMTAsOCwxLDYsMCw2NSwwLDE5MiwyNiwxMV0pLG5ldyBVaW50OEFycmF5KFswLDk3LDExNSwxMDksMSwwLDAsMCwxLDQsMSw5NiwwLDAsMywyLDEsMCwxMCw3LDEsNSwwLDIwOCwxMTIsMjYsMTFdKV07ZnVuY3Rpb24gcigpe2xldCBlPWdsb2JhbFRoaXMuV2ViQXNzZW1ibHk/LnZhbGlkYXRlO2lmKCJmdW5jdGlvbiIhPXR5cGVvZiBlKXJldHVybiExO3RyeXtyZXR1cm4gdC5ldmVyeSh0PT5lKHQpKX1jYXRjaHtyZXR1cm4hMX19ZnVuY3Rpb24gYSh0KXtsZXR7ZG9jdW1lbnQ6cix3aW5kb3c6YX09dCxuPWEsbD10LnB1YmxpY1BhdGg/PyJrZWVsOi8vcnVmZmxlLyIsbz1uZXcgTWFwLHM9W10sZj1uZXcgTWFwLGM9KGUscik9PntsZXQgYT10LmNvbnRlbnQudXJsKHIpO2lmKG51bGw9PT1hfHwwPT09YS5sZW5ndGgpdGhyb3cgbmV3IEVycm9yKGBNaXNzaW5nIHZlcmlmaWVkIFJ1ZmZsZSByZXNvdXJjZTogJHtyfWApO28uc2V0KGUsKGU9PntpZighZS5zdGFydHNXaXRoKCJkYXRhOiIpKXJldHVybiBlO2xldCB0PWYuZ2V0KGUpO2lmKHZvaWQgMCE9PXQpcmV0dXJuIHQ7bGV0IHI9ZS5pbmRleE9mKCIsIik7aWYocjwwKXJldHVybiBlO2xldCBhPWUuc2xpY2UoNSxyKSxuPWUuc2xpY2UocisxKTt0cnl7bGV0IHQ9LztiYXNlNjQoPzo7fCQpL2l1LnRlc3QoYSk/VWludDhBcnJheS5mcm9tKGF0b2IobiksZT0+ZS5jaGFyQ29kZUF0KDApKToobmV3IFRleHRFbmNvZGVyKS5lbmNvZGUoZGVjb2RlVVJJQ29tcG9uZW50KG4pKSxyPWEuc3BsaXQoIjsiLDEpWzBdfHwiYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtIixsPVVSTC5jcmVhdGVPYmplY3RVUkwobmV3IEJsb2IoW3RdLHt0eXBlOnJ9KSk7cmV0dXJuIGYuc2V0KGUsbCkscy5wdXNoKGwpLGx9Y2F0Y2h7cmV0dXJuIGV9fSkoYSkpfTtpZihjKCJydWZmbGUuanMiLHQuYXNzZXRzLm1haW4pLGMoImNvcmUucnVmZmxlLjVlMzBkYzU3NzdhNzU3MjBlYWUyLmpzIix0LmFzc2V0cy5tb2Rlcm5Db3JlKSxjKCJjb3JlLnJ1ZmZsZS4xNTMxNzE0MmU3NWNlMDIxYWMwNC5qcyIsdC5hc3NldHMubGVnYWN5Q29yZSksdm9pZCAwIT09dC5hc3NldHMubW9kZXJuV2FzbSljKCJhNzFjZWYwMmQ1OGRjZWM2ZjU1Zi53YXNtIix0LmFzc2V0cy5tb2Rlcm5XYXNtKTtlbHNlIGlmKHZvaWQgMCE9PXQuZmFsbGJhY2tXYXNtVXJsKXtpZighL14oPzpibG9ifGRhdGEpOi91LnRlc3QodC5mYWxsYmFja1dhc21VcmwpKXRocm93IG5ldyBUeXBlRXJyb3IoIlJ1ZmZsZSBmYWxsYmFjayBXQVNNIG11c3QgYmUgYSBsb2NhbCBibG9iIG9yIGRhdGEgVVJMLiIpO28uc2V0KCJhNzFjZWYwMmQ1OGRjZWM2ZjU1Zi53YXNtIix0LmZhbGxiYWNrV2FzbVVybCl9YygiNmNlNGY2MDNhMWZlN2NjODg0Mzgud2FzbSIsdC5hc3NldHMubGVnYWN5V2FzbSk7bGV0IGksdT1uLmZldGNoLmJpbmQobiksZD1yLmhlYWQuYXBwZW5kQ2hpbGQuYmluZChyLmhlYWQpLHA9ITE7dHJ5e24uZmV0Y2g9KHQscik9PntsZXQgYT0odD0+e2xldCByPSJzdHJpbmciPT10eXBlb2YgdD90OnQgaW5zdGFuY2VvZiBVUkw/dC5ocmVmOnQudXJsO3JldHVybiBvLmdldChlKHIpKX0pKHQpO3JldHVybiB1KGE/P3Qscil9fWNhdGNoe310cnl7ci5oZWFkLmFwcGVuZENoaWxkPXQ9PntpZih0IGluc3RhbmNlb2YgSFRNTFNjcmlwdEVsZW1lbnQpe2xldCByPW8uZ2V0KGUodC5zcmMpKTt2b2lkIDAhPT1yJiYodC5zcmM9cil9cmV0dXJuIGQodCl9fWNhdGNoe31sZXQgaD1uLlJ1ZmZsZVBsYXllcj8/e2NvbmZpZzp7fX07cmV0dXJuIG4uUnVmZmxlUGxheWVyPWgsaC5jb25maWc9ey4uLmguY29uZmlnLHB1YmxpY1BhdGg6bCwuLi52b2lkIDA9PT10LmF1dG9wbGF5P3t9OnthdXRvcGxheTp0LmF1dG9wbGF5fSwuLi52b2lkIDA9PT10LnVubXV0ZU92ZXJsYXk/e306e3VubXV0ZU92ZXJsYXk6dC51bm11dGVPdmVybGF5fX0sT2JqZWN0LmZyZWV6ZSh7bG9hZDooKT0+cD9Qcm9taXNlLnJlamVjdChuZXcgRXJyb3IoIlJ1ZmZsZSBsb2FkZXIgaGFzIGJlZW4gZGlzcG9zZWQuIikpOihpPz89bmV3IFByb21pc2UoKGUsdCk9PnsoYXN5bmMoKT0+e3RyeXtsZXQgYT1yLmNyZWF0ZUVsZW1lbnQoInNjcmlwdCIpLGw9by5nZXQoInJ1ZmZsZS5qcyIpO2lmKHZvaWQgMD09PWwpdGhyb3cgbmV3IEVycm9yKCJSdWZmbGUgbWFpbiByZXNvdXJjZSBpcyBub3QgYm91bmQuIik7YS5zcmM9bCxhLmFzeW5jPSEwLGEub25sb2FkPSgpPT57bGV0IHI9bi5SdWZmbGVQbGF5ZXI7dm9pZCAwPT09cj8ubmV3ZXN0P3QobmV3IEVycm9yKCJSdWZmbGUgZGlkIG5vdCBleHBvc2UgUnVmZmxlUGxheWVyLm5ld2VzdCgpLiIpKTplKHIpfSxhLm9uZXJyb3I9KCk9PnQobmV3IEVycm9yKCJWZXJpZmllZCBSdWZmbGUgbWFpbiByZXNvdXJjZSBmYWlsZWQgdG8gbG9hZC4iKSksci5oZWFkLmFwcGVuZENoaWxkKGEpfWNhdGNoKGUpe3QoZSl9fSkoKX0pLGkpLGRpc3Bvc2U6KCk9PntpZighcCl7cD0hMDt0cnl7bi5mZXRjaD11fWNhdGNoe310cnl7ci5oZWFkLmFwcGVuZENoaWxkPWR9Y2F0Y2h7fWZvcihsZXQgZSBvZiBzKVVSTC5yZXZva2VPYmplY3RVUkwoZSl9fX0pfWV4cG9ydHthIGFzIGNyZWF0ZVJ1ZmZsZUxvYWRlcixyIGFzIHN1cHBvcnRzUnVmZmxlV2FzbUV4dGVuc2lvbnN9Ow==",
         "format": "esm",
         "entry": "src/index.ts"
       }

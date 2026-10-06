@@ -1,0 +1,15 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "ruffle-loader",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Verified-resource loader for the Ruffle self-hosted Flash runtime.",
+  "category": "viewer",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime",
+    "member": "ravonus"
+  },
+  "repository": "https://github.com/keel-web3/ruffle-loader"
+}

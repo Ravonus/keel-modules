@@ -2,13 +2,20 @@ import assert from 'node:assert/strict';
 
 function recorder() {
   const events = [];
+  const gradients = new Map();
   const context = new Proxy({}, {
-    set(target, key, value) { events.push([key, value]); target[key] = value; return true; },
+    // Record gradient identity by creation order, not by its callback function.
+    // Coordinates and color stops remain separate commands in the trace.
+    set(target, key, value) { events.push([key, gradients.get(value) ?? value]); target[key] = value; return true; },
     get(target, key) {
       if (key === 'createRadialGradient') return (...args) => {
-        events.push([key, ...args]);
-        return { addColorStop: (...stop) => events.push(['stop', ...stop]) };
+        const id = gradients.size;
+        events.push([key, id, ...args]);
+        const gradient = { addColorStop: (...stop) => events.push(['stop', id, ...stop]) };
+        gradients.set(gradient, { gradient: id });
+        return gradient;
       };
+      if (Object.hasOwn(target, key)) return target[key];
       return (...args) => events.push([key, ...args]);
     },
   });

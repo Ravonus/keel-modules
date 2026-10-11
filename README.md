@@ -94,11 +94,18 @@ here starts. Nothing infers one axis from the other, in this repo or on the
 site.
 
 The catalog is generated from committed files only, with nothing read from a
-clock or a file mtime, so re-running `keel module index` on a clean checkout is
+clock or a file mtime, so re-running `keel module index --runtime-encoding base64` on a clean checkout is
 a no-op diff and anyone can check the published catalog by regenerating it and
 running `diff`.
 
 `catalog/` is generated output, not hand-edited: `keel module index` writes a `keel-module-catalog@3` document there so hosts, viewers, and the site can map module ids to their publishers, receipts, and on-chain locations without walking the tree.
+
+This repository explicitly retains Base64 catalog runtime descriptors for the
+currently approved Studio consumers. Use the SDK builder's
+`--runtime-encoding base64` option when indexing it. New SDK catalogs default to
+Base90; changing this catalog's transport requires upgrading and checking its
+consumers first. Catalog transport does not change stored objects, receipts or
+deployment records.
 
 The rules above are house rules for THIS repository. They are not imposed on
 anyone registering a module that lives in their own repository: see

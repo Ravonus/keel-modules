@@ -37,3 +37,41 @@ jobs:
       # repository's own CI is deliberately toolchain-free: every check here
       # runs with nothing but Node, so a contributor can run all of them
       # locally without installing the SDK.
+
+  studio-catalog-compatibility:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: keel-modules
+      - uses: actions/checkout@v4
+        with:
+          repository: keel-web3/keel-sdk
+          ref: 510707fb9fed73062f4e7267f886a4d65b0a173e
+          path: keel-sdk
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: keel-web3/keel-site
+          ref: 58e47e261cee2023fe7b18fd13397634001f880e
+          path: keel-site
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+      - name: Build the pinned parser dependencies
+        working-directory: keel-sdk
+        run: |
+          pnpm install --frozen-lockfile
+          node scripts/build.mjs
+      - name: Install the approved Studio parser's exact Zod version
+        run: |
+          npm install --prefix studio-parser-deps --ignore-scripts --no-audit --no-fund zod@4.4.3
+          mkdir -p keel-site/node_modules
+          ln -s "$GITHUB_WORKSPACE/studio-parser-deps/node_modules/zod" keel-site/node_modules/zod
+      - name: Check real Studio catalog parsing and byte commitments
+        working-directory: keel-modules
+        run: node scripts/qualify-studio-catalog.mjs

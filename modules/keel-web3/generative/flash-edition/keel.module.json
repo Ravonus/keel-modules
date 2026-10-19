@@ -1,0 +1,15 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "flash-edition",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Deterministic seed-and-token traits for replayable Flash editions.",
+  "category": "generative",
+  "owner": {
+    "org": "keel-web3",
+    "group": "generative",
+    "member": "ravonus"
+  },
+  "repository": "https://github.com/keel-web3/flash-edition"
+}

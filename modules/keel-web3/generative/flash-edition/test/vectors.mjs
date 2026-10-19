@@ -27,6 +27,14 @@ const ROOT_SEED = "0x957fae940b0a63c139b65a7c75adc164391dd6a68053c7e37344595f7af
 
 export default [
   {
+    name: "untyped invalid random modules retain their runtime rejection",
+    run: ({ deriveTokenSeed }) => [null, {}, { createSeededRandom: 1, randomInt: 2 }].map(value => {
+      try { deriveTokenSeed(ROOT_SEED, 1, value); return "no throw"; }
+      catch (error) { return error.constructor.name; }
+    }),
+    expect: ["TypeError", "TypeError", "TypeError"],
+  },
+  {
     name: "token 7 has a stable token seed and trait vector",
     run: ({ deriveTokenSeed, deriveFlashEdition }) => {
       const tokenSeed = deriveTokenSeed(ROOT_SEED, 7, randomModule);

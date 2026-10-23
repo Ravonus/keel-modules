@@ -1,0 +1,15 @@
+{
+  "base": "a3a5318736a44887c333b3f4f1b95c7c27b4ff83",
+  "sourcePolicy": "Keep verified readable source and existing catalog commitments. Superseded dirty source remains in history. The Base90/Brotli catalog branch requires a qualified consumer release before transport activation.",
+  "dirtySnapshot": "9f5a18c66026aac0aee0cf613c52321ca1b66489",
+  "preservedFiles": [
+    "modules/keel-web3/generative/flash-edition/src/index.ts",
+    "modules/keel-web3/generative/flash-edition/test/vectors.mjs",
+    "modules/keel-web3/viewer/ruffle-loader/keel.module.json",
+    "modules/keel-web3/viewer/ruffle-loader/src/index.ts",
+    "modules/keel-web3/viewer/ruffle-loader/test/vectors.mjs",
+    "tests/reproduction.test.mjs"
+  ],
+  "mainHistory": "f871aedb1825f072d1ce8f366d15c49d18015f48",
+  "catalogTreeUnchanged": true
+}

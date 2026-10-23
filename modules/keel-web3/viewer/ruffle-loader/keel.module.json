@@ -1,7 +1,7 @@
 {
   "schema": "keel.jsmodule@2",
   "id": "ruffle-loader",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "entry": "src/index.ts",
   "license": "MIT",
   "summary": "Verified-resource loader for the Ruffle self-hosted Flash runtime.",

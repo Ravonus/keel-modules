@@ -35,7 +35,7 @@ export interface RufflePlayerApi {
 }
 
 interface RuffleWindow extends Window {
-  RufflePlayer?: Partial<RufflePlayerApi> & { config?: Record<string, unknown> };
+  RufflePlayer?: RufflePlayerApi & { config?: Record<string, unknown> };
 }
 
 export interface RuffleLoader {
@@ -67,7 +67,7 @@ const RUFFLE_EXTENSION_PROBES: readonly Uint8Array[] = [
  * extensions-enabled build. This is a capability check only; it performs no
  * network or resource loading. */
 export function supportsRuffleWasmExtensions(): boolean {
-  const validate = (globalThis as { readonly WebAssembly?: typeof WebAssembly }).WebAssembly?.validate;
+  const validate = globalThis.WebAssembly?.validate;
   if (typeof validate !== "function") return false;
   try {
     return RUFFLE_EXTENSION_PROBES.every((probe) => validate(probe as unknown as BufferSource));
@@ -76,11 +76,24 @@ export function supportsRuffleWasmExtensions(): boolean {
   }
 }
 
-function executableResourceUrl(objectUrls: string[]): (value: string) => string {
-  const cache = new Map<string, string>();
-  return (value: string): string => {
+/**
+ * Create a loader that maps Ruffle's split runtime requests to verified Keel
+ * resources. The hooks remain installed until `dispose`, because Ruffle loads
+ * its WASM lazily when the first player is created.
+ *
+ * @param options Injected DOM, resource resolver, and committed resource ids.
+ * @returns A one-shot loader and a cleanup function.
+ */
+export function createRuffleLoader(options: RuffleLoaderOptions): RuffleLoader {
+  const { document, window } = options;
+  const hostWindow = window as RuffleWindow;
+  const publicPath = options.publicPath ?? "keel://ruffle/";
+  const resources = new Map<string, string>();
+  const objectUrls: string[] = [];
+  const executableUrlCache = new Map<string, string>();
+  const executableUrl = (value: string): string => {
     if (!value.startsWith("data:")) return value;
-    const cached = cache.get(value);
+    const cached = executableUrlCache.get(value);
     if (cached !== undefined) return cached;
     const comma = value.indexOf(",");
     if (comma < 0) return value;
@@ -90,23 +103,17 @@ function executableResourceUrl(objectUrls: string[]): (value: string) => string 
       const bytes = /;base64(?:;|$)/iu.test(metadata)
         ? Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0))
         : new TextEncoder().encode(decodeURIComponent(encoded));
-      const declaredType = metadata.split(";", 1)[0];
-      const mediaType = declaredType === "" ? "application/octet-stream" : declaredType ?? "application/octet-stream";
+      const mediaType = metadata.split(";", 1)[0] || "application/octet-stream";
       const url = URL.createObjectURL(new Blob([bytes], { type: mediaType }));
-      cache.set(value, url);
+      executableUrlCache.set(value, url);
       objectUrls.push(url);
       return url;
     } catch {
-      // Retain the verified URL for normal browser error reporting. Never
-      // substitute an unverified network URL when local decoding fails.
+      // Keep the original data URL; the browser will report a normal load
+      // error if it cannot execute it. No unverified network URL is opened.
       return value;
     }
   };
-}
-
-function bindResources(options: RuffleLoaderOptions, objectUrls: string[]): Map<string, string> {
-  const resources = new Map<string, string>();
-  const executableUrl = executableResourceUrl(objectUrls);
   const bind = (name: string, id: string): void => {
     const url = options.content.url(id);
     if (url === null || url.length === 0) throw new Error(`Missing verified Ruffle resource: ${id}`);
@@ -124,20 +131,30 @@ function bindResources(options: RuffleLoaderOptions, objectUrls: string[]): Map<
     resources.set("a71cef02d58dcec6f55f.wasm", options.fallbackWasmUrl);
   }
   bind("6ce4f603a1fe7cc88438.wasm", options.assets.legacyWasm);
-  return resources;
-}
 
-function installResourceHooks(hostWindow: RuffleWindow, document: Document, resources: ReadonlyMap<string, string>): () => void {
   const originalFetch = hostWindow.fetch.bind(hostWindow);
   const originalAppend = document.head.appendChild.bind(document.head);
-  // A locked sandbox fetch already resolves verified keel://ruffle aliases.
-  // Keep that gateway and the host's URL-property guard intact.
+  let disposed = false;
+  let loaded: Promise<RufflePlayerApi> | undefined;
+
+  const mapRequest = (value: RequestInfo | URL): string | undefined => {
+    const raw = typeof value === "string" ? value : value instanceof URL ? value.href : value.url;
+    return resources.get(fileName(raw));
+  };
+  // Keel's strict sandbox deliberately makes fetch non-writable after it has
+  // installed the verified-only gateway. In that case the gateway itself
+  // resolves the manifest-declared `keel://ruffle/*` aliases; keep using it
+  // rather than weakening the boundary or failing before Ruffle can start.
   try {
-    hostWindow.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      return originalFetch(resources.get(fileName(raw)) ?? input, init);
-    };
-  } catch { /* The host gateway continues to enforce the same aliases. */ }
+    hostWindow.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const mapped = mapRequest(input);
+      return originalFetch(mapped ?? input, init);
+    }) as typeof hostWindow.fetch;
+  } catch {
+    // A locked fetch is expected in a Keel sandbox. The mapped aliases are
+    // still enforced by the host gateway and the URL-property guard below.
+  }
+
   try {
     document.head.appendChild = ((node: Node): Node => {
       if (node instanceof HTMLScriptElement) {
@@ -146,66 +163,51 @@ function installResourceHooks(hostWindow: RuffleWindow, document: Document, reso
       }
       return originalAppend(node);
     }) as typeof document.head.appendChild;
-  } catch { /* The host URL-property guard still rewrites declared aliases. */ }
-  return () => {
-    try { hostWindow.fetch = originalFetch; } catch {}
-    try { document.head.appendChild = originalAppend; } catch {}
-  };
-}
+  } catch {
+    // The sandbox's URL-property guard still rewrites the declared aliases.
+  }
 
-function loadPlayer(hostWindow: RuffleWindow, document: Document, main: string | undefined): Promise<RufflePlayerApi> {
-  return new Promise<RufflePlayerApi>((resolve, reject) => {
-    try {
-      if (main === undefined) throw new Error("Ruffle main resource is not bound.");
-      const script = document.createElement("script");
-      script.src = main;
-      script.async = true;
-      script.onload = () => {
-        const api = hostWindow.RufflePlayer;
-        if (typeof api?.newest !== "function") reject(new Error("Ruffle did not expose RufflePlayer.newest()."));
-        else resolve(api as RufflePlayerApi);
-      };
-      script.onerror = () => { reject(new Error("Verified Ruffle main resource failed to load.")); };
-      document.head.appendChild(script);
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error(String(error)));
-    }
-  });
-}
-
-/**
- * Create a loader that maps Ruffle's split runtime requests to verified Keel
- * resources. The hooks remain installed until `dispose`, because Ruffle loads
- * its WASM lazily when the first player is created.
- *
- * @param options Injected DOM, resource resolver, and committed resource ids.
- * @returns A one-shot loader and a cleanup function.
- */
-export function createRuffleLoader(options: RuffleLoaderOptions): RuffleLoader {
-  const { document, window } = options;
-  const hostWindow = window as RuffleWindow;
-  const objectUrls: string[] = [];
-  const resources = bindResources(options, objectUrls);
-  const restoreHooks = installResourceHooks(hostWindow, document, resources);
-  const playerHost = hostWindow.RufflePlayer ?? { config: {} };
+  const playerHost: RufflePlayerApi & { config?: Record<string, unknown> } =
+    hostWindow.RufflePlayer ?? { config: {} } as RufflePlayerApi & { config?: Record<string, unknown> };
   hostWindow.RufflePlayer = playerHost;
   playerHost.config = {
     ...playerHost.config,
-    publicPath: options.publicPath ?? "keel://ruffle/",
+    publicPath,
     ...(options.autoplay === undefined ? {} : { autoplay: options.autoplay }),
     ...(options.unmuteOverlay === undefined ? {} : { unmuteOverlay: options.unmuteOverlay }),
   };
-  let disposed = false;
-  let loaded: Promise<RufflePlayerApi> | undefined;
+
   const load = (): Promise<RufflePlayerApi> => {
     if (disposed) return Promise.reject(new Error("Ruffle loader has been disposed."));
-    loaded ??= loadPlayer(hostWindow, document, resources.get("ruffle.js"));
+    loaded ??= new Promise<RufflePlayerApi>((resolve, reject) => {
+      const start = async (): Promise<void> => {
+        try {
+          const script = document.createElement("script");
+          const main = resources.get("ruffle.js");
+          if (main === undefined) throw new Error("Ruffle main resource is not bound.");
+          script.src = main;
+          script.async = true;
+          script.onload = () => {
+            const api = hostWindow.RufflePlayer;
+            if (api?.newest === undefined) reject(new Error("Ruffle did not expose RufflePlayer.newest()."));
+            else resolve(api);
+          };
+          script.onerror = () => reject(new Error("Verified Ruffle main resource failed to load."));
+          document.head.appendChild(script);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      void start();
+    });
     return loaded;
   };
+
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
-    restoreHooks();
+    try { hostWindow.fetch = originalFetch; } catch {}
+    try { document.head.appendChild = originalAppend; } catch {}
     for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
   };
   return Object.freeze({ load, dispose });

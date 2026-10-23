@@ -34,7 +34,7 @@ function requireSeed(value: string, label: string): `0x${string}` {
   return value.toLowerCase() as `0x${string}`;
 }
 
-function requireRandomModule(value: SeededRandomModule | null): SeededRandomModule {
+function requireRandomModule(value: SeededRandomModule): SeededRandomModule {
   if (typeof value !== "object" || value === null ||
       typeof value.createSeededRandom !== "function" || typeof value.randomInt !== "function") {
     throw new TypeError("flash-edition requires the Keel seeded-random module.");
@@ -72,7 +72,7 @@ export function deriveTokenSeed(
   for (let index = 1; index <= tokenId; index += 1) {
     words = Array.from({ length: 8 }, () => randomWord(random));
   }
-  return `0x${words.map(wordHex).join("")}`;
+  return `0x${words.map(wordHex).join("")}` as `0x${string}`;
 }
 
 /**

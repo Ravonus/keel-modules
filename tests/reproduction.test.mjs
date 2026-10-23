@@ -35,8 +35,8 @@ const sdkRoot = path.resolve(workspaceRoot, "../keel-sdk");
 const cli = path.join(sdkRoot, "packages/builder/dist/cli.js");
 const catalogRepository = "https://github.com/Ravonus/keel-modules";
 
-const EXPECTED_MODULES = 14;
-const EXPECTED_VECTORS = 81;
+const EXPECTED_MODULES = 11;
+const EXPECTED_VECTORS = 65;
 
 async function directoryExists(target) {
   try {
@@ -151,7 +151,7 @@ test("every vector passes on the readable source and on the shipped minified byt
 test("indexing the workspace reproduces the committed catalog, digest for digest", { skip: skipWorkspace }, async (t) => {
   const root = await copyWorkspace(t);
   await runCli(["module", "build", "--all", "--root", root]);
-  await runCli(["module", "index", "--runtime-encoding", "base64", "--root", root, "--repository", catalogRepository]);
+  await runCli(["module", "index", "--root", root, "--repository", catalogRepository]);
 
   const regeneratedText = await readFile(path.join(root, "catalog/catalog.json"), "utf8");
   const committedText = await readFile(path.join(workspaceRoot, "catalog/catalog.json"), "utf8");
@@ -180,7 +180,7 @@ test("the receipt chain recomputes link by link, from readable files to catalog 
   const root = await copyWorkspace(t);
   const id = "noise2d";
   await runCli(["module", "build", "--all", "--root", root]);
-  await runCli(["module", "index", "--runtime-encoding", "base64", "--root", root, "--repository", catalogRepository]);
+  await runCli(["module", "index", "--root", root, "--repository", catalogRepository]);
 
   const modules = await discoverModules(root);
   const module = modules.find((candidate) => candidate.id === id);

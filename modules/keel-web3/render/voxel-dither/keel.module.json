@@ -1,0 +1,45 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "voxel-dither",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Dithered voxel pixel art for Three.js scenes: integer pixel grids, depth-banded dither screens, palettes, outlines and cel light.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "style", "label": "Look", "type": "select", "required": false, "options": [
+      { "value": "smart", "label": "Smart voxel" },
+      { "value": "bayer", "label": "Bayer cel" },
+      { "value": "soft", "label": "Soft ordered" },
+      { "value": "halftone", "label": "Halftone print" },
+      { "value": "engraving", "label": "Engraving" },
+      { "value": "chunky", "label": "Chunky 8-bit" },
+      { "value": "grain", "label": "Noise grain" },
+      { "value": "blossom", "label": "Blossom 16" },
+      { "value": "pocket", "label": "Pocket green" },
+      { "value": "clean", "label": "Clean cel" }
+    ], "default": "smart" },
+    { "key": "pixel", "label": "Pixel size", "type": "number", "required": false, "min": 0, "max": 12, "step": 1, "unit": "px", "control": "slider", "help": "CSS pixels per art pixel. 0 picks one from the frame size.", "default": 0 },
+    { "key": "screen", "label": "Dither screen", "type": "select", "required": false, "placement": "advanced", "options": [
+      { "value": "auto", "label": "Auto (by depth band)" },
+      { "value": "bayer2", "label": "Bayer 2x2" },
+      { "value": "bayer4", "label": "Bayer 4x4" },
+      { "value": "bayer8", "label": "Bayer 8x8" },
+      { "value": "halftone", "label": "Halftone dots" },
+      { "value": "lines", "label": "Lines" },
+      { "value": "diagonal", "label": "Diagonal lines" },
+      { "value": "hatch", "label": "Cross hatch" },
+      { "value": "ign", "label": "Gradient noise" },
+      { "value": "stipple", "label": "Stipple" },
+      { "value": "checker", "label": "Checker" },
+      { "value": "none", "label": "None (posterized)" }
+    ] },
+    { "key": "shading", "label": "Shading", "type": "select", "required": false, "placement": "advanced", "options": [{ "value": "cel", "label": "Cel (stepped light)" }, { "value": "smooth", "label": "Smooth (dithered light)" }] },
+    { "key": "levels", "label": "Tone steps", "type": "number", "required": false, "placement": "advanced", "min": 2, "max": 16, "step": 1, "control": "slider" },
+    { "key": "bands", "label": "Cel bands", "type": "number", "required": false, "placement": "advanced", "min": 2, "max": 8, "step": 1, "control": "slider" },
+    { "key": "outline", "label": "Outline", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
+    { "key": "crease", "label": "Voxel creases", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
+    { "key": "palette", "label": "Palette", "type": "palette", "required": false, "placement": "advanced", "help": "Up to 32 colors. When set, every pixel is one of them.", "minItems": 0, "maxItems": 32 }
+  ]
+}

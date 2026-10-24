@@ -1,0 +1,76 @@
+export default [
+  {
+    name: 'unsafe settings fall back to the preset and stay bounded',
+    run: ({ ditherSettings }) => {
+      const look = ditherSettings({ style: '<script>', screen: 'wobble', levels: 900, pixel: -4, outlineColor: 'red', palette: ['#ABCDEF', 'nope'], depthBands: [40, 10] });
+      return [look.style, look.screen, look.levels, look.pixel, look.outlineColor, look.palette, look.depthBands];
+    },
+    expect: ['smart', 'auto', 16, 0, null, ['#abcdef'], [40, 40]],
+  },
+  {
+    name: 'a style is a preset and a setting beside it overrides it',
+    run: ({ ditherSettings }) => {
+      const chunky = ditherSettings({ style: 'chunky' });
+      const tuned = ditherSettings({ style: 'chunky', pixel: 2, shading: 'smooth' });
+      return [chunky.screen, chunky.pixel, chunky.shading, tuned.screen, tuned.pixel, tuned.shading];
+    },
+    expect: ['bayer2', 6, 'cel', 'bayer2', 2, 'smooth'],
+  },
+  {
+    name: 'art pixels are whole device pixels and the grid covers the frame',
+    run: ({ ditherSettings, resolveGrid }) => {
+      const grid = resolveGrid(778, 547, 2, ditherSettings());
+      const fixed = resolveGrid(100, 50, 1.5, ditherSettings({ pixel: 3 }));
+      return [grid.pixel, grid.width, grid.height, grid.originX, grid.originY, fixed.pixel, fixed.width, fixed.height];
+    },
+    expect: [6, 260, 183, -2, -2, 5, 30, 15],
+  },
+  {
+    name: 'bayer4 visits every one of its sixteen levels once per tile',
+    run: ({ thresholdAt }) => {
+      const levels = [];
+      for (let y = 0; y < 4; y += 1) for (let x = 0; x < 4; x += 1) levels.push(thresholdAt('bayer4', x, y) * 16);
+      return levels.sort((a, b) => a - b);
+    },
+    expect: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  },
+  {
+    name: 'every screen is a pure function of the pixel, inside [0, 1)',
+    run: ({ SCREENS, thresholdAt }) => SCREENS.every((screen) => {
+      for (let y = 0; y < 16; y += 1) {
+        for (let x = 0; x < 16; x += 1) {
+          const t = thresholdAt(screen, x, y);
+          if (!(t >= 0 && t < 1) || t !== thresholdAt(screen, x, y)) return false;
+        }
+      }
+      return true;
+    }),
+    expect: true,
+  },
+  {
+    name: 'a tone between two steps lands on the screen, never off the ramp',
+    run: ({ quantizeTone }) => [quantizeTone(0.5, 3, 0), quantizeTone(0.5, 3, 0.99), quantizeTone(0.6, 3, 0.2), quantizeTone(0.6, 3, 0.9), quantizeTone(0.6, 3, 0.9, 0), quantizeTone(2, 4, 0.5)],
+    expect: [0.5, 0.5, 0.5, 1, 0.5, 1],
+  },
+  {
+    name: 'auto screens follow the grid size and soften with distance',
+    run: ({ ditherSettings, bandScreens }) => {
+      const look = ditherSettings();
+      return [100, 200, 400].map((short) => { const bands = bandScreens(look, short); return [bands.near.screen, bands.far.screen, bands.far.amount]; });
+    },
+    expect: [['bayer2', 'checker', 0.5], ['bayer4', 'bayer8', 0.5], ['bayer8', 'ign', 0.45]],
+  },
+  {
+    name: 'cel ramps step from a lifted shadow to full light',
+    run: ({ celRamp }) => [Array.from(celRamp(3)), Array.from(celRamp(99)).length],
+    expect: [[77, 154, 255], 8],
+  },
+  {
+    name: 'a palette packs into the shader uniform in order',
+    run: ({ paletteUniform }) => {
+      const packed = paletteUniform(['#ff0000', '#00ff00']);
+      return [packed.size, Array.from(packed.data.slice(0, 6)), packed.data.length];
+    },
+    expect: [2, [1, 0, 0, 0, 1, 0], 96],
+  },
+];

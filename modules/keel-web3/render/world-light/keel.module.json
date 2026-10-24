@@ -1,0 +1,27 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "world-light",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "The light of a real place and instant: sun and moon from a small almanac, sky colours by sun height, season, climate and weather moods, haze, fog and god-ray settings.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "climate", "label": "Climate", "type": "select", "required": false, "options": [
+      { "value": "temperate", "label": "Temperate" },
+      { "value": "maritime", "label": "Maritime" },
+      { "value": "alpine", "label": "Alpine" },
+      { "value": "monsoon", "label": "Monsoon" },
+      { "value": "highland", "label": "Highland" },
+      { "value": "desert", "label": "Desert" }
+    ], "default": "temperate" },
+    { "key": "weather", "label": "Weather", "type": "select", "required": false, "placement": "advanced", "options": [
+      { "value": "clear", "label": "Clear" },
+      { "value": "wind", "label": "Wind" },
+      { "value": "leaves", "label": "Blowing leaves" },
+      { "value": "rain", "label": "Rain" },
+      { "value": "snow", "label": "Snow" }
+    ], "default": "clear" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "tree-growth",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Self-organizing tree growth over a whole lifespan: light-driven branching, pipe-model thickening, yearly bloom, leaf and fall, slow dieback and shed limbs. Deterministic and renderer-free.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" },
+  "inputs": [
+    { "key": "species", "label": "Species", "type": "select", "required": false, "options": [
+      { "value": "cherry", "label": "Cherry" },
+      { "value": "oak", "label": "Oak" },
+      { "value": "pine", "label": "Pine" },
+      { "value": "birch", "label": "Birch" },
+      { "value": "willow", "label": "Willow" },
+      { "value": "acacia", "label": "Acacia" }
+    ], "default": "cherry" },
+    { "key": "maxNodes", "label": "Internode budget", "type": "number", "required": false, "placement": "advanced", "min": 64, "max": 6000, "step": 100, "control": "slider", "help": "More internodes make a finer crown and cost more to grow and draw.", "default": 3200 }
+  ]
+}

@@ -57,6 +57,12 @@ export interface DitherSettings {
   readonly palette: readonly string[];
   /** How much of the screen's spread is used, 0 (posterized) to 1. */
   readonly amount: number;
+  /**
+   * 0 to 0.9: how much of each step between two tones snaps flat instead of
+   * dithering. 0 dithers every in-between tone; higher keeps flats clean and
+   * leaves a short dithered seam where one tone meets the next, as pixel art does.
+   */
+  readonly snap: number;
   readonly shading: Shading;
   /** Cel light steps, 2 to 8. */
   readonly bands: number;
@@ -82,7 +88,7 @@ const BLOSSOM_16 = ["#1b1726", "#3a2d45", "#5c4363", "#8a5a78", "#c77d97", "#f0a
 
 /** Named looks. A setting given alongside `style` overrides the preset's. */
 export const DITHER_STYLES = {
-  pixel: { label: "3D pixel art", screen: "bayer4", pixel: 4, levels: 5, color: "luma", shading: "cel", bands: 3, outline: 1, crease: 0.3, contrast: 1.1, saturation: 1.2 },
+  pixel: { label: "3D pixel art", screen: "bayer4", pixel: 4, levels: 5, snap: 0.6, color: "luma", shading: "cel", bands: 3, outline: 1, crease: 0.3, contrast: 1.1, saturation: 1.2 },
   smart: { label: "Smart voxel", screen: "auto", pixel: 0, levels: 6, color: "luma", shading: "cel", bands: 4, outline: 0.9, crease: 0.35, contrast: 1.05, saturation: 1.1 },
   bayer: { label: "Bayer cel", screen: "bayer4", pixel: 4, levels: 4, color: "rgb", shading: "cel", bands: 3, outline: 0.85, crease: 0.25 },
   soft: { label: "Soft ordered", screen: "bayer8", pixel: 3, levels: 5, color: "luma", shading: "smooth", outline: 0.5, crease: 0.2 },
@@ -105,6 +111,7 @@ export const DEFAULT_DITHER_SETTINGS: DitherSettings = {
   color: "luma",
   palette: [],
   amount: 1,
+  snap: 0,
   shading: "cel",
   bands: 4,
   outline: 0.9,
@@ -152,12 +159,13 @@ function presetOf(style: StyleId): DitherSettings {
   return { ...DEFAULT_DITHER_SETTINGS, ...fields, style };
 }
 
-function toneFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "levels" | "color" | "palette" | "amount" | "contrast" | "saturation"> {
+function toneFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "levels" | "color" | "palette" | "amount" | "snap" | "contrast" | "saturation"> {
   return {
     levels: Math.round(bounded(value.levels, 2, 16, base.levels)),
     color: oneOf(value.color, ["rgb", "luma"], base.color),
     palette: paletteOf(value.palette, base.palette),
     amount: bounded(value.amount, 0, 1, base.amount),
+    snap: bounded(value.snap, 0, 0.9, base.snap),
     contrast: bounded(value.contrast, 0.5, 2, base.contrast),
     saturation: bounded(value.saturation, 0, 2, base.saturation),
   };
@@ -300,10 +308,13 @@ export function thresholdAt(screen: ScreenId, x: number, y: number): number {
 }
 
 /** One channel through a screen: `levels` steps, the threshold deciding which neighbour a tone between two lands on. */
-export function quantizeTone(value: number, levels: number, threshold: number, amount = 1): number {
+export function quantizeTone(value: number, levels: number, threshold: number, amount = 1, snap = 0): number {
   const steps = Math.max(1, levels - 1);
   const t = 0.5 + (threshold - 0.5) * Math.min(1, Math.max(0, amount));
-  return Math.min(steps, Math.max(0, Math.floor(Math.min(1, Math.max(0, value)) * steps + t))) / steps;
+  const scaled = Math.min(1, Math.max(0, value)) * steps;
+  const base = Math.floor(scaled);
+  const share = Math.min(1, Math.max(0, (scaled - base - 0.5) / Math.max(1 - Math.min(0.9, Math.max(0, snap)), 0.001) + 0.5));
+  return Math.min(steps, Math.max(0, base + (share >= 1 - t ? 1 : 0))) / steps;
 }
 
 /** The stepped light a cel ramp of `bands` steps returns, darkest first (0..255). */
@@ -377,6 +388,7 @@ uniform vec3 uScale;
 uniform vec3 uAmount;
 uniform vec2 uBands;
 uniform float uLevels;
+uniform float uSnap;
 uniform float uLuma;
 uniform int uPaletteSize;
 uniform vec3 uPalette[32];
@@ -424,9 +436,17 @@ vec3 toSrgb(vec3 c) {
   c = max(c, 0.0);
   return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
 }
+// One step: the share past the lower tone, squeezed by uSnap so most of it
+// snaps flat and only the middle of the step dithers.
+float snapStep(float value, float t) {
+  float base = floor(value);
+  float share = clamp((value - base - 0.5) / max(1.0 - uSnap, 0.001) + 0.5, 0.0, 1.0);
+  return base + step(1.0 - t, share);
+}
+vec3 snapStep3(vec3 value, float t) { return vec3(snapStep(value.x, t), snapStep(value.y, t), snapStep(value.z, t)); }
 vec3 stepTones(vec3 c, float t) {
   float steps = max(1.0, uLevels - 1.0);
-  if (uLuma < 0.5) return clamp(floor(c * steps + t) / steps, 0.0, 1.0);
+  if (uLuma < 0.5) return clamp(snapStep3(c * steps, t) / steps, 0.0, 1.0);
   // YCoCg: lightness gets twice the steps of colour, so shading reads as ramps.
   float y = dot(c, vec3(0.25, 0.5, 0.25));
   float co = 0.5 * (c.r - c.b);
@@ -437,9 +457,9 @@ vec3 stepTones(vec3 c, float t) {
   float ys = steps * 2.0;
   float cs = steps * 2.0 + 2.0;
   float tc = 0.5 + (t - 0.5) * 0.35;
-  y = floor(y * ys + t) / ys;
-  co = floor(co * cs + tc) / cs;
-  cg = floor(cg * cs + tc) / cs;
+  y = snapStep(y * ys, t) / ys;
+  co = snapStep(co * cs, tc) / cs;
+  cg = snapStep(cg * cs, tc) / cs;
   return clamp(vec3(y + co - cg, y + cg, y - co - cg), 0.0, 1.0);
 }
 vec3 stepPalette(vec3 c, float t) {
@@ -724,7 +744,7 @@ function createUniforms(): Record<string, Uniform> {
   return {
     tColor: { value: null }, tDepth: { value: null }, uGrid: { value: [1, 1] }, uPixel: { value: 1 }, uOrigin: { value: [0, 0] },
     uScreen: { value: [2, 3, 8] }, uScale: { value: [1, 1, 1] },
-    uAmount: { value: [1, 1, 1] }, uBands: { value: [18, 30] }, uLevels: { value: 6 }, uLuma: { value: 1 }, uPaletteSize: { value: 0 },
+    uAmount: { value: [1, 1, 1] }, uBands: { value: [18, 30] }, uLevels: { value: 6 }, uSnap: { value: 0 }, uLuma: { value: 1 }, uPaletteSize: { value: 0 },
     uPalette: { value: new Float32Array(96) }, uOutline: { value: 0.9 }, uOutlineColor: { value: [0, 0, 0, 0] }, uCrease: { value: 0.35 },
     uContrast: { value: 1 }, uSaturation: { value: 1 }, uSkyFrom: { value: 100 }, uRaySource: { value: [0.5, 0.5] }, uRayColor: { value: [1, 1, 1] },
     uRayStrength: { value: 0 }, uRayDecay: { value: 0.95 }, uRayDensity: { value: 0.8 }, tLook: { value: null },
@@ -741,6 +761,7 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
   set("uAmount", order.map((band) => band.amount));
   set("uBands", [...settings.depthBands]);
   set("uLevels", settings.levels);
+  set("uSnap", settings.snap);
   set("uLuma", settings.color === "luma" ? 1 : 0);
   set("uPalette", palette.data);
   set("uPaletteSize", palette.size);

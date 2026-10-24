@@ -148,7 +148,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   gold: {
     label: "Polished gold", family: "metal", shapes: ["tiered", "rounded", "octagon", "round", "scallop", "diamond"], patterns: ["ingot", "hammered", "brushed", "coins"], effects: ["sweep", "sweep", "sparkle"],
     decor: ["ingots", "coins", "nuggets"], decorCount: [4, 12], underside: ["slab", "cone", "spire"], trim: ["gold", "chrome", "studs"],
-    palettes: [["yellow gold", ["#d89a18", "#ffd040", "#8a5a0c", "#5a3a06", "#ffc830", "#fff0b0"]], ["rose gold", ["#d07860", "#f8b8a0", "#8a4838", "#5e2e24", "#f0a088", "#ffe8e0"]], ["24 karat", ["#e08a08", "#ffc820", "#8a4a04", "#5a3002", "#ffb810", "#fff0a0"]], ["white gold", ["#d8d2c0", "#f4efe0", "#a8a290", "#7c7666", "#e8e2d0", "#fffdf4"]], ["old gold", ["#a87a28", "#dcae50", "#6a4a14", "#46300a", "#c8962e", "#ffe8a8"]]],
+    palettes: [["yellow gold", ["#d89a18", "#ffd040", "#8a5a0c", "#5a3a06", "#ffc830", "#fff0b0"]], ["rose gold", ["#c86a50", "#f0a080", "#8a4838", "#5e2e24", "#e89078", "#ffe0d0"]], ["24 karat", ["#e08a08", "#ffc820", "#8a4a04", "#5a3002", "#ffb810", "#fff0a0"]], ["white gold", ["#d8d2c0", "#f4efe0", "#a8a290", "#7c7666", "#e8e2d0", "#fffdf4"]], ["old gold", ["#b88c30", "#e8c460", "#7a5818", "#4e360c", "#d0a038", "#fff0b8"]]],
     shine: 1, glow: 0.05, sparkle: 0.35, veins: [0, 0], alpha: 1, drift: 4, worlds: ["nature", "city", "crystal", "cosmic", "vapor"],
   },
   goldOre: {
@@ -163,7 +163,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   amethyst: { ...GEM, label: "Amethyst", family: "gem", palettes: [["violet", ["#8f4ad8", "#c9a0ff", "#4c2478", "#331852", "#6a34a8", "#efe0ff"]], ["lavender", ["#b48ae8", "#e0ccff", "#6a4a98", "#4a3270", "#8e6ac0", "#ffffff"]]] },
   jade: {
     ...GEM, label: "Jade", family: "gem", patterns: ["marble", "speckle"], effects: ["breathe", "shimmer"], decor: ["pillars", "orbs", "rocks"], decorCount: [2, 6], shine: 0.55, glow: 0.15, sparkle: 0.05,
-    palettes: [["imperial", ["#3aa86a", "#8ad8a0", "#1e6a40", "#124428", "#2a8a54", "#e8fff0"]], ["lavender jade", ["#b8a8d8", "#e0d8f0", "#8a7aa8", "#605080", "#a898c8", "#ffffff"]], ["celadon", ["#9cc8a8", "#cce8d4", "#6a9a7a", "#4a7058", "#88b898", "#f4fff8"]]],
+    palettes: [["imperial", ["#3aa86a", "#8ad8a0", "#1e6a40", "#124428", "#2a8a54", "#e8fff0"]], ["lavender jade", ["#9a86c8", "#c4b4e4", "#6a5a98", "#483a70", "#8a78b8", "#4a3a78"]], ["celadon", ["#9cc8a8", "#cce8d4", "#6a9a7a", "#4a7058", "#88b898", "#f4fff8"]]],
   },
   marble: { ...STONE, label: "Marble", family: "stone", patterns: ["marble"], effects: ["none", "sweep"], decor: ["pillars", "orbs", "none"], palettes: [["carrara", ["#ecebe6", "#ffffff", "#d6d3cb", "#bdb9ae", "#c9c5bb", "#8a857c"]], ["nero", ["#2a2a2e", "#3c3c42", "#1c1c20", "#121216", "#26262a", "#e8e2d0"]], ["rosa", ["#ead2cc", "#f8e6e2", "#d0b2aa", "#b8968c", "#dcc0b8", "#9a6e64"]], ["verde", ["#2e4a40", "#45685a", "#1e322a", "#14241e", "#2a4038", "#e8f0e0"]]], veins: [0.14, 0.28], shine: 0.5 },
   obsidian: { ...STONE, label: "Obsidian", family: "stone", patterns: ["facet", "mirror", "marble"], effects: ["sweep", "shimmer"], decor: ["shards", "rocks"], palettes: [["black glass", ["#1a1622", "#2c2638", "#0e0b14", "#08060c", "#1c1828", "#8a6cff"]], ["snowflake", ["#1c1c22", "#33333c", "#101014", "#08080a", "#202026", "#e8eef8"]], ["rainbow", ["#141620", "#222838", "#0a0c12", "#06070a", "#181c28", "#5af0c8"]]], veins: [0.02, 0.08], shine: 0.85, glow: 0.2, sparkle: 0.1 },
@@ -184,7 +184,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   chrome: {
     label: "Liquid chrome", family: "metal", shapes: ["round", "rounded", "tiered", "octagon"], patterns: ["mirror", "brushed"], effects: ["sweep", "rainbow", "flow"], decor: ["orbs", "rings", "pillars"], decorCount: [2, 6],
     underside: ["slab", "cone", "float"], trim: ["chrome", "neon"],
-    palettes: [["mirror", ["#c8ccd8", "#f4f6fc", "#8a90a0", "#5a6070", "#e0e4ec", "#ffffff"]], ["black chrome", ["#3a3c44", "#7a7e8c", "#1e2026", "#121318", "#5a5e6a", "#c8d0ff"]], ["oil slick", ["#6a5a8a", "#a8f0e0", "#3a3a5a", "#24243a", "#c8a8f0", "#ffe0a8"]]],
+    palettes: [["mirror", ["#c8ccd8", "#f4f6fc", "#8a90a0", "#5a6070", "#e0e4ec", "#ffffff"]], ["black chrome", ["#3a3c44", "#7a7e8c", "#1e2026", "#121318", "#5a5e6a", "#c8d0ff"]], ["oil slick", ["#2e2a42", "#5a7a98", "#1e1c30", "#121020", "#8a6ab8", "#ffe0a8"]]],
     shine: 1, glow: 0.1, sparkle: 0.15, veins: [0, 0], alpha: 1, drift: 20, worlds: ["city", "vapor", "synth", "cosmic"],
   },
   cyber: {
@@ -467,7 +467,7 @@ export const TREE_SKINS: Readonly<Record<TreeSkinId, TreeSkinRecipe>> = {
   },
   gold: {
     label: "Golden", rarity: "rare", weight: 15, leaf: "coin", bark: "brushed", effect: "sweep", glow: 0.35, shine: 1, alpha: 1, motes: 0, leafSize: 0.85,
-    palettes: [["yellow gold", ["#8a5a0c", "#d89a18", "#ffd040", "#f2b020", "#ffe48a", "#fff0b0"]], ["rose gold", ["#8a4838", "#d07860", "#f8b8a0", "#e89078", "#ffd2c0", "#ffe8e0"]], ["white gold", ["#7c7666", "#d8d2c0", "#f4efe0", "#e0dac8", "#ffffff", "#fffdf4"]]],
+    palettes: [["yellow gold", ["#8a5a0c", "#d89a18", "#ffd040", "#f2b020", "#ffe48a", "#fff0b0"]], ["rose gold", ["#7a3a2c", "#c86a50", "#e8907a", "#d07860", "#f8b8a0", "#ffe0d0"]], ["white gold", ["#7c7666", "#d8d2c0", "#f4efe0", "#e0dac8", "#ffffff", "#fffdf4"]]],
   },
   ember: {
     label: "Ember", rarity: "epic", weight: 8, leaf: "ember", bark: "magma", effect: "flow", glow: 0.9, shine: 0.3, alpha: 1, motes: 30, leafSize: 0.8,

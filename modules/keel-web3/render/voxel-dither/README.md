@@ -37,7 +37,9 @@ never outlined.
 Bayer screen on every channel and three cel bands, for smooth low-poly scenes), `bayer`, `soft`, `halftone`, `engraving`, `chunky`,
 `grain`, `blossom` (a 16-colour palette), `pocket` (4 greens) and `clean`
 (posterized cel, no dither). A setting passed with `style` overrides the
-preset's.
+preset's. `snap` (0 to 0.9) keeps flat in-between tones clean: most of each
+step between two tones snaps flat, and only a short seam where one tone meets
+the next dithers, the way pixel art is drawn.
 
 ## Injected dependencies
 

@@ -73,4 +73,14 @@ export default [
     },
     expect: [2, [1, 0, 0, 0, 1, 0], 96],
   },
+  {
+    name: 'snap keeps flat in-between tones clean and dithers only the middle of a step',
+    run: ({ quantizeTone }) => {
+      const flat = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.3, 2, threshold, 1, 0.6));
+      const plain = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.3, 2, threshold, 1, 0));
+      const middle = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.5, 2, threshold, 1, 0.6));
+      return [flat, plain, middle];
+    },
+    expect: [[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 1]],
+  },
 ];

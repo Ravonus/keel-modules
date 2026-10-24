@@ -82,6 +82,7 @@ const BLOSSOM_16 = ["#1b1726", "#3a2d45", "#5c4363", "#8a5a78", "#c77d97", "#f0a
 
 /** Named looks. A setting given alongside `style` overrides the preset's. */
 export const DITHER_STYLES = {
+  pixel: { label: "3D pixel art", screen: "bayer4", pixel: 4, levels: 5, color: "luma", shading: "cel", bands: 3, outline: 1, crease: 0.3, contrast: 1.1, saturation: 1.2 },
   smart: { label: "Smart voxel", screen: "auto", pixel: 0, levels: 6, color: "luma", shading: "cel", bands: 4, outline: 0.9, crease: 0.35, contrast: 1.05, saturation: 1.1 },
   bayer: { label: "Bayer cel", screen: "bayer4", pixel: 4, levels: 4, color: "rgb", shading: "cel", bands: 3, outline: 0.85, crease: 0.25 },
   soft: { label: "Soft ordered", screen: "bayer8", pixel: 3, levels: 5, color: "luma", shading: "smooth", outline: 0.5, crease: 0.2 },
@@ -639,7 +640,7 @@ function carryOver(from: MaterialLike, to: MaterialLike): void {
   to.visible = from.visible;
 }
 
-const TOON_KEYS = ["map", "emissive", "emissiveIntensity", "transparent", "opacity", "depthWrite", "depthTest", "side", "alphaTest", "vertexColors", "name"] as const;
+const TOON_KEYS = ["map", "emissive", "emissiveIntensity", "transparent", "opacity", "depthWrite", "depthTest", "side", "alphaTest", "vertexColors", "flatShading", "name"] as const;
 
 function toonParameters(source: MaterialLike, gradientMap: TextureLike): Record<string, unknown> {
   const bag = source as unknown as Readonly<Record<string, unknown>>;

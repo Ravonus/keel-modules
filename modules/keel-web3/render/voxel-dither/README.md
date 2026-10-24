@@ -33,7 +33,8 @@ never outlined.
 
 ## Styles
 
-`smart` (the default), `bayer`, `soft`, `halftone`, `engraving`, `chunky`,
+`smart` (the default), `pixel` (3D pixel art: big art pixels, a hard
+Bayer screen on every channel and three cel bands, for smooth low-poly scenes), `bayer`, `soft`, `halftone`, `engraving`, `chunky`,
 `grain`, `blossom` (a 16-colour palette), `pocket` (4 greens) and `clean`
 (posterized cel, no dither). A setting passed with `style` overrides the
 preset's.

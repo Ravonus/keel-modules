@@ -1,41 +1,202 @@
 {
   "schema": "keel.jsmodule@2",
   "id": "world-theme",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "Themes for a small floating world: gem, gold, stone, tech, synth, hologram and cosmic planters, and nature, city, synthwave, vaporwave, crystal and cosmic worlds, each resolved by a seed into its own variant.",
+  "summary": "Themes for a small floating world: gold, gem, stone, lava, ice, chrome, tech, synth, hologram, glitter and cosmic planters (shape, animated surface pattern, decor and underside) and nature, city, synthwave, vaporwave, crystal, cosmic and voxel worlds, with rare tree skins (crystal, petrified, frost, gold, ember, mystic, hologram, cosmic) rolled by rarity, each resolved by a seed into its own variant.",
   "category": "render",
-  "owner": { "org": "keel-web3", "group": "graphics" },
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
   "inputs": [
-    { "key": "planter", "label": "Planter", "type": "select", "required": false, "options": [
-      { "value": "seed", "label": "Seed's pick" },
-      { "value": "earth", "label": "Earth" },
-      { "value": "gold", "label": "Polished gold" },
-      { "value": "goldOre", "label": "Gold ore" },
-      { "value": "emerald", "label": "Emerald" },
-      { "value": "ruby", "label": "Ruby" },
-      { "value": "sapphire", "label": "Sapphire" },
-      { "value": "amethyst", "label": "Amethyst" },
-      { "value": "marble", "label": "Marble" },
-      { "value": "obsidian", "label": "Obsidian" },
-      { "value": "granite", "label": "Granite" },
-      { "value": "sandstone", "label": "Sandstone" },
-      { "value": "cyber", "label": "Cyber tech" },
-      { "value": "vapor", "label": "Vapor" },
-      { "value": "antigravity", "label": "Anti-gravity" },
-      { "value": "hologram", "label": "Hologram" },
-      { "value": "glitter", "label": "Glitter" },
-      { "value": "cosmic", "label": "Cosmic" }
-    ], "default": "seed" },
-    { "key": "world", "label": "World", "type": "select", "required": false, "options": [
-      { "value": "seed", "label": "Seed's pick" },
-      { "value": "nature", "label": "Nature" },
-      { "value": "city", "label": "Cityscape" },
-      { "value": "synth", "label": "Synthwave" },
-      { "value": "vapor", "label": "Vaporwave" },
-      { "value": "crystal", "label": "Crystal" },
-      { "value": "cosmic", "label": "Cosmic" }
-    ], "default": "seed" }
+    {
+      "key": "planter",
+      "label": "Planter",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "seed",
+          "label": "Seed's pick"
+        },
+        {
+          "value": "earth",
+          "label": "Earth"
+        },
+        {
+          "value": "gold",
+          "label": "Polished gold"
+        },
+        {
+          "value": "goldOre",
+          "label": "Gold ore"
+        },
+        {
+          "value": "emerald",
+          "label": "Emerald"
+        },
+        {
+          "value": "ruby",
+          "label": "Ruby"
+        },
+        {
+          "value": "sapphire",
+          "label": "Sapphire"
+        },
+        {
+          "value": "amethyst",
+          "label": "Amethyst"
+        },
+        {
+          "value": "jade",
+          "label": "Jade"
+        },
+        {
+          "value": "marble",
+          "label": "Marble"
+        },
+        {
+          "value": "obsidian",
+          "label": "Obsidian"
+        },
+        {
+          "value": "granite",
+          "label": "Granite"
+        },
+        {
+          "value": "sandstone",
+          "label": "Sandstone"
+        },
+        {
+          "value": "lava",
+          "label": "Lava"
+        },
+        {
+          "value": "ice",
+          "label": "Ice"
+        },
+        {
+          "value": "chrome",
+          "label": "Liquid chrome"
+        },
+        {
+          "value": "cyber",
+          "label": "Cyber tech"
+        },
+        {
+          "value": "vapor",
+          "label": "Vapor"
+        },
+        {
+          "value": "antigravity",
+          "label": "Anti-gravity"
+        },
+        {
+          "value": "hologram",
+          "label": "Hologram"
+        },
+        {
+          "value": "glitter",
+          "label": "Glitter"
+        },
+        {
+          "value": "cosmic",
+          "label": "Cosmic"
+        }
+      ],
+      "default": "seed"
+    },
+    {
+      "key": "world",
+      "label": "World",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "seed",
+          "label": "Seed's pick"
+        },
+        {
+          "value": "nature",
+          "label": "Nature"
+        },
+        {
+          "value": "city",
+          "label": "Cityscape"
+        },
+        {
+          "value": "synth",
+          "label": "Synthwave"
+        },
+        {
+          "value": "vapor",
+          "label": "Vaporwave"
+        },
+        {
+          "value": "crystal",
+          "label": "Crystal"
+        },
+        {
+          "value": "cosmic",
+          "label": "Cosmic"
+        },
+        {
+          "value": "voxel",
+          "label": "Voxel craft"
+        }
+      ],
+      "default": "seed"
+    },
+    {
+      "key": "tree",
+      "label": "Tree skin",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "seed",
+          "label": "Seed's roll"
+        },
+        {
+          "value": "natural",
+          "label": "Natural"
+        },
+        {
+          "value": "crystal",
+          "label": "Crystal \u00b7 uncommon"
+        },
+        {
+          "value": "petrified",
+          "label": "Petrified \u00b7 uncommon"
+        },
+        {
+          "value": "frost",
+          "label": "Frost \u00b7 rare"
+        },
+        {
+          "value": "gold",
+          "label": "Golden \u00b7 rare"
+        },
+        {
+          "value": "ember",
+          "label": "Ember \u00b7 epic"
+        },
+        {
+          "value": "mystic",
+          "label": "Mystic \u00b7 epic"
+        },
+        {
+          "value": "hologram",
+          "label": "Hologram \u00b7 legendary"
+        },
+        {
+          "value": "cosmic",
+          "label": "Cosmic \u00b7 legendary"
+        }
+      ],
+      "default": "seed"
+    }
   ]
 }

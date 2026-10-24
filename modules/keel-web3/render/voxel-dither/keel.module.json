@@ -10,6 +10,7 @@
   "inputs": [
     { "key": "style", "label": "Look", "type": "select", "required": false, "options": [
       { "value": "smart", "label": "Smart voxel" },
+      { "value": "pixel", "label": "3D pixel art" },
       { "value": "bayer", "label": "Bayer cel" },
       { "value": "soft", "label": "Soft ordered" },
       { "value": "halftone", "label": "Halftone print" },

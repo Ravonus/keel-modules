@@ -1,0 +1,41 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "world-theme",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Themes for a small floating world: gem, gold, stone, tech, synth, hologram and cosmic planters, and nature, city, synthwave, vaporwave, crystal and cosmic worlds, each resolved by a seed into its own variant.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "planter", "label": "Planter", "type": "select", "required": false, "options": [
+      { "value": "seed", "label": "Seed's pick" },
+      { "value": "earth", "label": "Earth" },
+      { "value": "gold", "label": "Polished gold" },
+      { "value": "goldOre", "label": "Gold ore" },
+      { "value": "emerald", "label": "Emerald" },
+      { "value": "ruby", "label": "Ruby" },
+      { "value": "sapphire", "label": "Sapphire" },
+      { "value": "amethyst", "label": "Amethyst" },
+      { "value": "marble", "label": "Marble" },
+      { "value": "obsidian", "label": "Obsidian" },
+      { "value": "granite", "label": "Granite" },
+      { "value": "sandstone", "label": "Sandstone" },
+      { "value": "cyber", "label": "Cyber tech" },
+      { "value": "vapor", "label": "Vapor" },
+      { "value": "antigravity", "label": "Anti-gravity" },
+      { "value": "hologram", "label": "Hologram" },
+      { "value": "glitter", "label": "Glitter" },
+      { "value": "cosmic", "label": "Cosmic" }
+    ], "default": "seed" },
+    { "key": "world", "label": "World", "type": "select", "required": false, "options": [
+      { "value": "seed", "label": "Seed's pick" },
+      { "value": "nature", "label": "Nature" },
+      { "value": "city", "label": "Cityscape" },
+      { "value": "synth", "label": "Synthwave" },
+      { "value": "vapor", "label": "Vaporwave" },
+      { "value": "crystal", "label": "Crystal" },
+      { "value": "cosmic", "label": "Cosmic" }
+    ], "default": "seed" }
+  ]
+}

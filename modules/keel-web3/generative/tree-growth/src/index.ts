@@ -12,7 +12,7 @@
 
 // ---------------------------------------------------------------- species
 
-export type SpeciesId = "cherry" | "oak" | "pine" | "birch" | "willow" | "acacia";
+export type SpeciesId = "cherry" | "oak" | "pine" | "birch" | "willow" | "acacia" | "palm";
 export type Hemisphere = "north" | "south" | "equatorial";
 
 /**
@@ -34,7 +34,7 @@ export interface PhenologySpec {
   readonly marcescent: number;
 }
 
-export type OrnamentKind = "blossom" | "catkin" | "candle" | "puff" | "cherry" | "acorn" | "cone" | "pod";
+export type OrnamentKind = "blossom" | "catkin" | "candle" | "puff" | "spadix" | "cherry" | "acorn" | "cone" | "pod" | "coconut";
 
 /** Flowers or fruit: what they are, where they grow and when. */
 export interface OrnamentSpec {
@@ -46,6 +46,24 @@ export interface OrnamentSpec {
   readonly window: readonly [number, number, number, number];
   /** First growth cycle at which the tree is old enough to bear them. */
   readonly from: number;
+}
+
+/**
+ * Palms never branch. The trunk grows only from its crown, at one girth all
+ * its life, and the crown unfolds a few fronds each cycle while the oldest
+ * die and drop.
+ */
+export interface PalmSpec {
+  /** New fronds each cycle. */
+  readonly fronds: number;
+  /** Frond length, in internode lengths. */
+  readonly frond: number;
+  /** Cycles a frond lives before it browns and drops. */
+  readonly frondLife: number;
+  /** Trunk radius, world units. */
+  readonly trunk: number;
+  /** How far the trunk leans out before it curves back up. */
+  readonly lean: number;
 }
 
 export interface Species {
@@ -99,6 +117,8 @@ export interface Species {
   /** Fruit and seed, or null. */
   readonly fruit: OrnamentSpec | null;
   readonly evergreen: boolean;
+  /** Grows as a palm instead of a branching tree, or null. */
+  readonly palm: PalmSpec | null;
   /** Radius of a one-year twig, world units. */
   readonly radiusTip: number;
   /** Pipe-model exponent: radius^pipe is the sum of the tips it carries. */
@@ -120,43 +140,50 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
     id: "cherry", cycles: 26, height: 8.6, apical: 0.5, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 44, divergence: 137.5, whorl: 0,
     straight: 1, light: 0.4, up: 0.45, lateralUp: 0.12, weep: 0.03, flat: 0.12, spread: 0.52, crownAt: 0.32, ceiling: Infinity, shed: 0.2,
     leafSlots: 4, leafSpread: 0.34, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [86, 97, 101, 116], from: 4 }, fruit: { kind: "cherry", on: "spur", perNode: 2, window: [130, 156, 166, 188], from: 5 },
-    evergreen: false, radiusTip: 0.025, pipe: 2.75,
+    evergreen: false, palm: null, radiusTip: 0.025, pipe: 2.75,
     phenology: { ...DECIDUOUS, leaf: [100, 130] },
   },
   oak: {
     id: "oak", cycles: 30, height: 10.2, apical: 0.46, vigor: 2.2, maxShoot: 3, sideShoot: 3, angle: 56, divergence: 137.5, whorl: 0,
     straight: 0.9, light: 0.45, up: 0.32, lateralUp: 0.02, weep: 0.02, flat: 0.28, spread: 0.5, crownAt: 0.28, ceiling: Infinity, shed: 0.18,
     leafSlots: 4, leafSpread: 0.36, hang: 0, flower: { kind: "catkin", on: "tip", perNode: 2, window: [108, 120, 130, 146], from: 7 }, fruit: { kind: "acorn", on: "tip", perNode: 1, window: [190, 250, 268, 300], from: 9 },
-    evergreen: false, radiusTip: 0.027, pipe: 2.65,
+    evergreen: false, palm: null, radiusTip: 0.027, pipe: 2.65,
     phenology: { ...DECIDUOUS, leaf: [112, 146], color: [268, 304], drop: [290, 334], marcescent: 0.22 },
   },
   pine: {
     id: "pine", cycles: 28, height: 11.2, apical: 0.82, vigor: 2, maxShoot: 3, sideShoot: 2, angle: 72, divergence: 137.5, whorl: 5,
     straight: 1.1, light: 0.22, up: 1.3, lateralUp: -0.06, weep: 0.04, flat: 0.45, spread: 0.36, crownAt: 0.14, ceiling: Infinity, shed: 0.15,
     leafSlots: 5, leafSpread: 0.3, hang: 0, flower: { kind: "candle", on: "tip", perNode: 1, window: [112, 134, 158, 176], from: 2 }, fruit: { kind: "cone", on: "spur", perNode: 1, window: [140, 250, 330, 420], from: 6 },
-    evergreen: true, radiusTip: 0.023, pipe: 2.85,
+    evergreen: true, palm: null, radiusTip: 0.023, pipe: 2.85,
     phenology: { leaf: [60, 61], color: [262, 300], drop: [270, 310], dropMax: 0.14, flush: [126, 176], marcescent: 0 },
   },
   birch: {
     id: "birch", cycles: 26, height: 9.6, apical: 0.62, vigor: 2, maxShoot: 3, sideShoot: 3, angle: 40, divergence: 137.5, whorl: 0,
     straight: 1.1, light: 0.32, up: 0.7, lateralUp: 0.02, weep: 0.14, flat: 0.06, spread: 0.4, crownAt: 0.36, ceiling: Infinity, shed: 0.21,
     leafSlots: 4, leafSpread: 0.3, hang: 0.3, flower: { kind: "catkin", on: "tip", perNode: 2, window: [88, 100, 112, 128], from: 5 }, fruit: null,
-    evergreen: false, radiusTip: 0.022, pipe: 2.85,
+    evergreen: false, palm: null, radiusTip: 0.022, pipe: 2.85,
     phenology: { ...DECIDUOUS, leaf: [98, 124], color: [246, 280], drop: [266, 302] },
   },
   willow: {
     id: "willow", cycles: 24, height: 8.2, apical: 0.45, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 50, divergence: 137.5, whorl: 0,
     straight: 0.8, light: 0.16, up: 0.5, lateralUp: 0.3, weep: 0.3, flat: 0, spread: 0.5, crownAt: 0.3, ceiling: Infinity, shed: 0.09,
     leafSlots: 9, leafSpread: 0.28, hang: 1.5, flower: { kind: "catkin", on: "tip", perNode: 2, window: [66, 78, 92, 106], from: 3 }, fruit: null,
-    evergreen: false, radiusTip: 0.023, pipe: 2.65,
+    evergreen: false, palm: null, radiusTip: 0.023, pipe: 2.65,
     phenology: { ...DECIDUOUS, leaf: [84, 110], color: [272, 302], drop: [290, 326] },
   },
   acacia: {
     id: "acacia", cycles: 22, height: 7.4, apical: 0.4, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 48, divergence: 137.5, whorl: 0,
     straight: 0.9, light: 0.3, up: 0.6, lateralUp: 0.26, weep: 0, flat: 0.5, spread: 0.66, crownAt: 0.46, ceiling: 15, shed: 0.18,
     leafSlots: 4, leafSpread: 0.34, hang: 0, flower: { kind: "puff", on: "tip", perNode: 2, window: [268, 284, 298, 318], from: 3 }, fruit: { kind: "pod", on: "tip", perNode: 1, window: [300, 334, 380, 420], from: 4 },
-    evergreen: false, radiusTip: 0.027, pipe: 2.55,
+    evergreen: false, palm: null, radiusTip: 0.027, pipe: 2.55,
     phenology: { leaf: [60, 61], color: [236, 280], drop: [250, 296], dropMax: 0.42, flush: [300, 340], marcescent: 0 },
+  },
+  palm: {
+    id: "palm", cycles: 30, height: 12.5, apical: 1, vigor: 1, maxShoot: 1, sideShoot: 0, angle: 0, divergence: 137.5, whorl: 0,
+    straight: 1, light: 0, up: 1, lateralUp: 0, weep: 0, flat: 0, spread: 0.3, crownAt: 0, ceiling: Infinity, shed: 0,
+    leafSlots: 16, leafSpread: 0.62, hang: 0.4, flower: { kind: "spadix", on: "spur", perNode: 2, window: [100, 128, 150, 176], from: 5 }, fruit: { kind: "coconut", on: "spur", perNode: 3, window: [60, 61, 400, 424], from: 6 },
+    evergreen: true, palm: { fronds: 4, frond: 17, frondLife: 2.6, trunk: 0.24, lean: 0.45 }, radiusTip: 0.02, pipe: 2.5,
+    phenology: { leaf: [60, 61], color: [300, 330], drop: [300, 340], dropMax: 0.08, flush: [120, 170], marcescent: 0 },
   },
 };
 
@@ -566,7 +593,7 @@ function dieBack(sim: Sim, cycle: number, share: number): void {
 function declineCycle(sim: Sim, cycle: number, decline: number): void {
   if (decline > 0.3 && decline <= 0.3 + 1 / (sim.species.cycles * 0.28)) killLeaderTop(sim, cycle);
   dieBack(sim, cycle, 0.03 + decline * decline * 0.3);
-  growCycle(sim, cycle, Math.max(0.12, 1 - decline * 1.2), sim.species.shed + decline * 0.2, (sim.maxNodes - sim.pos.length) * 0.3);
+  growCycle(sim, cycle, Math.max(0.3, 1 - decline * 0.9), sim.species.shed + decline * 0.2, declineAllowance(sim, decline));
 }
 
 // ---------------------------------------------------------------- the model
@@ -627,15 +654,90 @@ export interface GrowInput {
  */
 function growthAllowance(sim: Sim, cycle: number, matureAt: number): number {
   const life = Math.min(1, cycle / matureAt);
-  const target = sim.maxNodes * (0.08 + 0.92 * (1 - (1 - life) ** 1.8));
-  return Math.max(target - sim.pos.length, sim.pos.length * 0.04);
+  // A share of the budget is kept back for old age, which still grows.
+  const budget = sim.maxNodes * OLD_AGE_KEEP;
+  const target = budget * (0.08 + 0.92 * (1 - (1 - life) ** 1.8));
+  return Math.max(target - sim.pos.length, Math.min(sim.pos.length * 0.015, budget - sim.pos.length));
 }
 
-function simulate(species: Species, seed: number, maxNodes: number): Sim {
-  const sim: Sim = {
+const OLD_AGE_KEEP = 0.84;
+
+/**
+ * Old trees keep growing while anything of them lives: far less each cycle,
+ * tapering on a curve, and more than a real tree would, until the end.
+ */
+function declineAllowance(sim: Sim, decline: number): number {
+  const room = Math.max(0, sim.maxNodes - sim.pos.length);
+  return room * 0.13 * (1 - decline) ** 1.1;
+}
+
+function newSim(species: Species, seed: number, maxNodes: number): Sim {
+  return {
     species, random: createRandom(seed ^ 0x7ee5), grid: { shadow: new Float32Array(GRID_X * GRID_X * GRID_Y) }, maxNodes,
     pos: [], dir: [], parent: [], order: [], birth: [], span: [], main: [], deadAt: [], shedAt: [], weak: [], children: [], buds: [], nodeBuds: [], height: 0,
   };
+}
+
+/** Unfolds one frond from the crown: a rachis that leaves steep and arches out and down. */
+function growFrond(sim: Sim, top: number, around: number, length: number, cycle: number): void {
+  const segments = 8;
+  const out = vec(Math.cos(around), 0, Math.sin(around));
+  const lift = 1 - sim.random() * 0.5;
+  const sag = 1.6 + sim.random() * 0.4;
+  let node = top;
+  for (let step = 0; step < segments; step += 1) {
+    const heading = normalize(vec(out.x, lift - (step / (segments - 1)) * sag, out.z));
+    node = addNode(sim, node, add(sim.pos[node] ?? vec(0, 0, 0), heading, length / segments), heading, 1, cycle + step * 0.03, 0.2, false);
+  }
+}
+
+/** Two trunk internodes a cycle: barely rising while the young palm establishes, curving back toward the sky. */
+function climbTrunk(sim: Sim, top: number, heading: Vec, cycle: number, vigor: number): [number, Vec] {
+  const rise = (0.2 + 0.85 * ramp(cycle, 2, 6)) * vigor;
+  let node = top;
+  let dir = heading;
+  for (let step = 0; step < 2; step += 1) {
+    dir = normalize(add(dir, vec(0, 1, 0), 0.05));
+    node = addNode(sim, node, add(sim.pos[node] ?? vec(0, 0, 0), dir, rise), dir, 0, cycle - 1 + step * 0.5, 0.5, true);
+  }
+  return [node, dir];
+}
+
+function simulatePalm(sim: Sim, palm: PalmSpec): void {
+  const { species, random } = sim;
+  const toward = random() * Math.PI * 2;
+  const lean = palm.lean * (0.6 + random() * 0.8);
+  let heading = normalize(vec(Math.cos(toward) * lean, 1, Math.sin(toward) * lean));
+  let top = addNode(sim, -1, vec(0, 0.2, 0), heading, 0, 0, 1, true);
+  const matureAt = Math.round(species.cycles * 0.72);
+  let around = random() * Math.PI * 2;
+  for (let cycle = 1; cycle < species.cycles; cycle += 1) {
+    const life = Math.min(1, cycle / matureAt);
+    const decline = cycle > matureAt ? (cycle - matureAt) / (species.cycles - matureAt) : 0;
+    [top, heading] = climbTrunk(sim, top, heading, cycle, 1 - decline * 0.75);
+    const fronds = Math.max(1, Math.round(palm.fronds * (1 - decline * 0.6)));
+    for (let index = 0; index < fronds; index += 1) {
+      around += (species.divergence * Math.PI) / 180;
+      const first = sim.pos.length;
+      growFrond(sim, top, around, palm.frond * (0.15 + 0.85 * life ** 0.8) * (1 - decline * 0.35), cycle - 1 + index / fronds);
+      const dies = cycle + palm.frondLife * (0.8 + random() * 0.4);
+      for (let node = first; node < sim.pos.length; node += 1) sim.deadAt[node] = dies;
+      sim.shedAt[first] = dies + 0.3 + random() * 0.5;
+    }
+  }
+  // The last crown dies with the palm and drops, leaving the bare trunk standing.
+  for (let node = 0; node < sim.pos.length; node += 1) {
+    sim.deadAt[node] = Math.min(at(sim.deadAt, node), species.cycles - 0.6);
+    if (at(sim.shedAt, node) !== Infinity) sim.shedAt[node] = Math.min(at(sim.shedAt, node), species.cycles - 0.2);
+  }
+}
+
+function simulate(species: Species, seed: number, maxNodes: number): Sim {
+  const sim = newSim(species, seed, maxNodes);
+  if (species.palm !== null) {
+    simulatePalm(sim, species.palm);
+    return sim;
+  }
   const lean = normalize(vec((sim.random() - 0.5) * 0.12, 1, (sim.random() - 0.5) * 0.12));
   const seedling = addNode(sim, -1, vec(lean.x, 1, lean.z), lean, 0, 0, 1, true);
   addBud(sim, seedling, lean, true);
@@ -657,6 +759,7 @@ function leafSlots(sim: Sim, perNode: number, spread: number, hang: number, seed
   const slots = { count, node: Int32Array.from(nodes), dx: new Float32Array(count), dy: new Float32Array(count), dz: new Float32Array(count), rank: new Float32Array(count), size: new Float32Array(count), tone: new Uint8Array(count) };
   for (let index = 0; index < count; index += 1) {
     const heading = sim.dir[at(slots.node, index)] ?? vec(0, 1, 0);
+    if (sim.species.palm !== null && hang > 0) { leaflet(slots, index, heading, spread, hang, random); continue; }
     const theta = random() * Math.PI * 2;
     const lift = random() * 2 - 1;
     const ring = Math.sqrt(1 - lift * lift) * Math.cbrt(random());
@@ -672,9 +775,32 @@ function leafSlots(sim: Sim, perNode: number, spread: number, hang: number, seed
   return slots;
 }
 
+/** A palm frond's first internode, where flowers and coconuts hang. */
+const frondBase = (sim: Sim, node: number): boolean => at(sim.order, node) > 0 && at(sim.order, at(sim.parent, node)) === 0;
+
+/** A palm leaflet: one of a pair of rows down each side of the frond's rachis, drooping at its tip. */
+function leaflet(slots: LeafSlots & { dx: Float32Array; dy: Float32Array; dz: Float32Array }, index: number, heading: Vec, spread: number, hang: number, random: () => number): void {
+  const side = normalize(cross(heading, vec(0, 1, 0)), perpendicular(heading));
+  const sign = index % 2 === 0 ? 1 : -1;
+  const reach = spread * (0.25 + 0.75 * random());
+  const along = (random() - 0.5) * spread * 0.6;
+  slots.dx[index] = side.x * sign * reach + heading.x * along;
+  slots.dy[index] = side.y * sign * reach + heading.y * along - hang * (reach / spread) ** 2;
+  slots.dz[index] = side.z * sign * reach + heading.z * along;
+  slots.rank[index] = random();
+  slots.size[index] = 0.7 + random() * 0.3;
+  slots.tone[index] = Math.floor(random() * 3);
+}
+
 function ornamentSlots(sim: Sim, spec: OrnamentSpec | null, spread: number, seed: number): LeafSlots {
   if (spec === null) return leafSlots(sim, 0, 0, 0, 0, () => false);
-  return leafSlots(sim, spec.perNode, spread, 0, seed, (node) => at(sim.order, node) > 0);
+  const palm = sim.species.palm !== null;
+  return leafSlots(sim, spec.perNode, spread, 0, seed, (node) => (palm ? frondBase(sim, node) : at(sim.order, node) > 0));
+}
+
+function leafEligible(sim: Sim, node: number): boolean {
+  if (sim.species.palm !== null) return at(sim.order, node) > 0 && !frondBase(sim, node);
+  return at(sim.order, node) > 0 || at(sim.birth, node) < 4;
 }
 
 /** Grows one tree from its seed. The same species and seed always give the same tree. */
@@ -698,7 +824,7 @@ export function growTree(input: GrowInput): TreeModel {
     deadAt: Float32Array.from(sim.deadAt),
     shedAt: Float32Array.from(sim.shedAt, (value) => (value === Infinity ? 1e9 : value)),
     phase: Float32Array.from(sim.pos, () => random() * Math.PI * 2),
-    leaves: leafSlots(sim, species.leafSlots, species.leafSpread, species.hang, seed ^ 0x1eaf, (node) => at(sim.order, node) > 0 || at(sim.birth, node) < 4),
+    leaves: leafSlots(sim, species.leafSlots, species.leafSpread, species.hang, seed ^ 0x1eaf, (node) => leafEligible(sim, node)),
     blossoms: ornamentSlots(sim, species.flower, species.leafSpread * 0.8, seed ^ 0xb105),
     fruit: ornamentSlots(sim, species.fruit, species.leafSpread * 0.7, seed ^ 0xf2017),
     roots: Array.from({ length: rootCount }, (_, index) => ({ angle: (index / rootCount) * Math.PI * 2 + random() * 0.6, reach: 0.7 + random() * 0.6 })),
@@ -758,10 +884,20 @@ function growthPass(model: TreeModel, cycle: number, frame: TreeFrame): void {
     const parent = at(model.parent, node);
     if (parent >= 0 && grow > 0) frame.tips[parent] = at(frame.tips, parent) + tips;
   }
-  const { radiusTip, pipe } = model.species;
+  const { radiusTip, pipe, palm } = model.species;
   for (let node = 0; node < model.count; node += 1) {
     const grow = at(frame.grow, node);
     frame.radius[node] = grow <= 0 ? 0 : radiusTip * at(frame.tips, node) ** (1 / pipe) * (0.45 + 0.55 * grow);
+  }
+  if (palm !== null) palmTrunk(model, cycle, frame, palm.trunk);
+}
+
+/** A palm trunk keeps one girth all its life, swelling only at its foot; it reaches it while young. */
+function palmTrunk(model: TreeModel, cycle: number, frame: TreeFrame, trunk: number): void {
+  const girth = trunk * (0.35 + 0.65 * ramp(cycle, 1, 8));
+  for (let node = 0; node < model.count; node += 1) {
+    if (at(model.order, node) !== 0 || at(frame.grow, node) <= 0) continue;
+    frame.radius[node] = girth * (node < 3 ? 1.35 - node * 0.1 : 1);
   }
 }
 

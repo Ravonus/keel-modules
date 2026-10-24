@@ -25,6 +25,9 @@ and any day of the year. Deterministic, dependency-free, no renderer.
   life (fast while young, slower as it matures), so trees end grander than
   their real counterparts, never absurd. A light envelope around the crown
   (`spread × height`) keeps wide species wide and narrow ones narrow.
+- **Old age still grows.** Part of the internode budget is kept back for old
+  age: a declining tree keeps adding wood each cycle while anything of it
+  lives, less every cycle on a tapering curve, until the very end.
 - **Old age.** After about 72% of its life vigor fades, the leader dies back
   (stag-headed), the weakest limbs die a growing share each cycle, dead limbs
   fall and lie flat on the ground inside the plot (no twig is left standing in
@@ -38,6 +41,14 @@ and any day of the year. Deterministic, dependency-free, no renderer.
 | `birch` | slender | hanging catkins | — | |
 | `willow` | leaf curtains | upright catkins, very early | — | |
 | `acacia` | flat-topped | yellow puffs | seed pods | semi-evergreen |
+| `palm` | coconut palm | cream spadices | coconuts, year round | never branches; see below |
+
+**Palms** (`species.palm`) grow their own way. The trunk rises only from its
+crown, keeps one girth all its life (swollen at the foot), leans out and
+curves back toward the sky. Each cycle the crown unfolds a few fronds, each an
+arching rachis with paired leaflets drooping down both sides, and the oldest
+fronds die and drop. A seedling is a tuft of short fronds at the ground; at
+death the last crown falls and the bare trunk stands.
 
 Each species' `flower` and `fruit` give the ornament kind, where it grows
 (`spur` on older wood or `tip` of a leafy shoot), how many per node, its

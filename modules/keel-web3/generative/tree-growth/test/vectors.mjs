@@ -134,7 +134,32 @@ export default [
       const cherryJune = day(api, 165, 'north', 'cherry');
       return [kinds.join(' '), oakJanuary.withered && oakJanuary.leaf > 0, birchJanuary.withered, cherryJune.fruit > 0.5];
     },
-    expect: ['blossom/cherry catkin/acorn candle/cone catkin/- catkin/- puff/pod', true, false, true],
+    expect: ['blossom/cherry catkin/acorn candle/cone catkin/- catkin/- puff/pod spadix/coconut', true, false, true],
+  },
+  {
+    name: 'old trees keep growing through their decline, less each cycle, until the end',
+    run: ({ growTree }) => ['cherry', 'oak', 'palm'].map((species) => {
+      const tree = growTree({ species, seed: 4 });
+      const born = new Array(tree.cycles + 1).fill(0);
+      for (let node = 0; node < tree.count; node += 1) born[Math.floor(tree.birth[node])] += 1;
+      const late = born.slice(tree.matureAt + 1, tree.cycles - 2);
+      return late.every((count) => count > 0) && late[late.length - 1] < late[0];
+    }),
+    expect: [true, true, true],
+  },
+  {
+    name: 'a palm is one unbranched trunk of one girth; at death its crown drops and the pole stands',
+    run: (api) => {
+      const tree = api.growTree({ species: 'palm', seed: 9 });
+      let maxOrder = 0;
+      for (let node = 0; node < tree.count; node += 1) maxOrder = Math.max(maxOrder, tree.order[node]);
+      const [young, old] = [0.4, 0.8].map((share) => frameAt(api, tree, share));
+      const end = api.treeFrame(tree, tree.cycles, { ground: 0 });
+      let crown = 0;
+      for (let node = 0; node < tree.count; node += 1) if (tree.order[node] > 0 && end.grow[node] > 0 && end.fall[node] === 0) crown += 1;
+      return [maxOrder, Math.abs(young.radius[5] - old.radius[5]) < 1e-6, old.height > young.height, crown, tree.fruit.count > 0];
+    },
+    expect: [1, true, true, 0, true],
   },
   {
     name: 'unknown species grow a cherry instead of failing',

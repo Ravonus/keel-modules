@@ -109,6 +109,75 @@
       "default": "seed"
     },
     {
+      "key": "form",
+      "label": "Planter shape",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "seed",
+          "label": "Seed's roll"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "rounded",
+          "label": "Rounded"
+        },
+        {
+          "value": "octagon",
+          "label": "Octagon"
+        },
+        {
+          "value": "round",
+          "label": "Round"
+        },
+        {
+          "value": "hex",
+          "label": "Hex"
+        },
+        {
+          "value": "tiered",
+          "label": "Tiered pedestal"
+        },
+        {
+          "value": "blob",
+          "label": "Organic blob"
+        },
+        {
+          "value": "scallop",
+          "label": "Scalloped"
+        },
+        {
+          "value": "diamond",
+          "label": "Diamond"
+        },
+        {
+          "value": "urn",
+          "label": "Urn (sculpt)"
+        },
+        {
+          "value": "stump",
+          "label": "Tree stump (sculpt)"
+        },
+        {
+          "value": "shell",
+          "label": "Shell (sculpt)"
+        },
+        {
+          "value": "head",
+          "label": "Stone head (sculpt)"
+        },
+        {
+          "value": "skull",
+          "label": "Skull (sculpt)"
+        }
+      ],
+      "default": "seed"
+    },
+    {
       "key": "world",
       "label": "World",
       "type": "select",

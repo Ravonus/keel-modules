@@ -50,13 +50,16 @@ export default [
     expect: [true, true, true, true],
   },
   {
-    name: 'sculpted planters are a rare roll that suits the family and floats with no rim',
-    run: ({ themeFor, SCULPTS }) => {
-      const looks = Array.from({ length: 600 }, (_, seed) => themeFor({ seed }).planter);
+    name: 'planter shape and size are their own roll: the same for every material, sculpts rare, a forced shape keeps the size',
+    run: ({ themeFor, SCULPT_WEIGHTS, PLANTER_IDS }) => {
+      const same = Array.from({ length: 40 }, (_, seed) => PLANTER_IDS.map((planter) => themeFor({ planter, seed }).planter)).every((looks) => looks.every((look) => look.shape === looks[0].shape && look.size === looks[0].size));
+      const looks = Array.from({ length: 800 }, (_, seed) => themeFor({ seed }).planter);
       const sculpted = looks.filter((look) => look.sculpted);
-      return [sculpted.length > 40 && sculpted.length < 140, sculpted.every((look) => SCULPTS[look.family].includes(look.shape) && look.underside === 'float' && look.trim === 'none'), looks.filter((look) => !look.sculpted).every((look) => !Object.values(SCULPTS).flat().includes(look.shape))];
+      const sculptsFloat = sculpted.every((look) => Object.hasOwn(SCULPT_WEIGHTS, look.shape) && look.underside === 'float' && look.trim === 'none');
+      const forced = Array.from({ length: 20 }, (_, seed) => [themeFor({ seed }).planter, themeFor({ seed, form: 'skull' }).planter]).every(([plain, skull]) => skull.shape === 'skull' && skull.sculpted && skull.size === plain.size);
+      return [same, sculpted.length > 60 && sculpted.length < 160, sculptsFloat, forced];
     },
-    expect: [true, true, true],
+    expect: [true, true, true, true],
   },
   {
     name: 'the seed picks a world that suits the planter',

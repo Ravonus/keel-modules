@@ -27,23 +27,22 @@ night, weather).
 | `glitter` | big flakes that flash as they catch the light, disco balls | party, silver, disco, gold dust, mermaid |
 | `cosmic` | a swirling starfield, orbs and rings | nebula, deep field, supernova |
 
-The seed also picks the outline (`shape`: square, rounded, octagon, round,
-hex, tiered pedestal, organic blob, scalloped, diamond), how the sides
-`flare` or taper, the body `height`, the surface `pattern`, its animated
+The seed also picks the surface `pattern`, its animated
 `effect` (sweep, sparkle, pulse, scroll, shimmer, swirl, flicker, flow,
 breathe, rainbow), the `decor` and how many, the underside (cone, spire,
 floating rocks, thruster slab, hanging crystals, drips), the trim (neon,
 chrome, gold, studs, frost), a pattern `grain` and effect `speed`, and a small
 hue drift. `surface` and `crystals` name the same look for a block renderer.
 
-Two rolls come last, so a seed keeps every choice above. `size` is the
-planter's width as a share of full size: most are small (0.58 to 0.9), about
-one in six tiny (0.45 to 0.58, named "tiny") so a tree's roots overrun it, and
-a few large (to 1.05, named "grand"). About one in seven planters is
-sculpted (`sculpted: true`): `shape` is then a `Sculpt` chosen from `SCULPTS`
-for its family (skull, urn, stump, shell or a carved stone head), the
-underside is floating rocks and there is no trim. The renderer decides how to
-carve each sculpt.
+The planter's form is its own attribute, rolled on its own stream apart
+from the material (`resolveForm`, or pass `form` to force a shape): any
+material can take any outline or sculpt at any size. `size` is the width as a
+share of full size: most are small (0.58 to 0.9), about one in six tiny (0.45
+to 0.58, named "tiny") so a tree's roots overrun it, and a few large (to
+1.05, named "grand"). About one planter in eight is sculpted (`sculpted:
+true`, weights in `SCULPT_WEIGHTS`): an urn or tree stump most often, then a
+scallop shell, a carved stone head, and rarest a skull. A sculpt floats on
+loose rocks with no trim. The renderer decides how to carve each sculpt.
 
 ## Worlds
 

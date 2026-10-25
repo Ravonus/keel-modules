@@ -83,4 +83,19 @@ export default [
     },
     expect: [[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 1]],
   },
+  {
+    name: 'signal settings default off, clamp to 0..1, and the crt look turns scanlines and fringe on',
+    run: ({ ditherSettings }) => {
+      const plain = ditherSettings({ style: 'pixel' });
+      const wild = ditherSettings({ scanlines: 3, chroma: -1, glitch: 0.4 });
+      const crt = ditherSettings({ style: 'crt', glitch: 1 });
+      return [[plain.scanlines, plain.chroma, plain.glitch], [wild.scanlines, wild.chroma, wild.glitch], [crt.scanlines > 0, crt.chroma > 0, crt.glitch, crt.shading]];
+    },
+    expect: [[0, 0, 0], [1, 0, 0.4], [true, true, 1, 'smooth']],
+  },
+  {
+    name: 'part signals pack in part order, clamped, with empty parts left at zero',
+    run: ({ signalUniform, SIGNAL_TAG_ALPHA }) => [Array.from(signalUniform([{ scanlines: 0.5 }, null, { chroma: 2, glitch: 0.25 }])), [SIGNAL_TAG_ALPHA[1], SIGNAL_TAG_ALPHA[2], SIGNAL_TAG_ALPHA[3]]],
+    expect: [[0.5, 0, 0, 0, 0, 0, 0, 1, 0.25], [0.25, 0.5, 0.75]],
+  },
 ];

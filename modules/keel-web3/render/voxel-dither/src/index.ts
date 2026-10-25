@@ -80,6 +80,16 @@ export interface DitherSettings {
   readonly rays: number;
   /** View distance from which a pixel counts as open sky (it lets light through); 0 means the camera's far plane. */
   readonly skyDistance: number;
+  /** CRT scanlines across every art-pixel row, 0 (off) to 1. */
+  readonly scanlines: number;
+  /** Colour fringe: red and blue drift sideways off the image, 0 (off) to 1. */
+  readonly chroma: number;
+  /**
+   * Signal glitch, 0 (off) to 1: bursts that tear rows sideways and drop blocks
+   * of the frame out of place. Higher means more often and more violent.
+   * Bursts follow the time given to `setTime`, so a still frame never glitches.
+   */
+  readonly glitch: number;
 }
 
 type StyleFields = Partial<Omit<DitherSettings, "style">> & { readonly label: string };
@@ -88,7 +98,7 @@ const BLOSSOM_16 = ["#1b1726", "#3a2d45", "#5c4363", "#8a5a78", "#c77d97", "#f0a
 
 /** Named looks. A setting given alongside `style` overrides the preset's. */
 export const DITHER_STYLES = {
-  pixel: { label: "3D pixel art", screen: "bayer4", pixel: 4, levels: 5, snap: 0.6, color: "luma", shading: "cel", bands: 3, outline: 1, crease: 0.3, contrast: 1.1, saturation: 1.2 },
+  pixel: { label: "3D pixel art", screen: "bayer4", pixel: 4, levels: 5, snap: 0.6, color: "luma", shading: "cel", bands: 3, outline: 1, crease: 0.3, contrast: 1.25, saturation: 1.35 },
   smart: { label: "Smart voxel", screen: "auto", pixel: 0, levels: 6, color: "luma", shading: "cel", bands: 4, outline: 0.9, crease: 0.35, contrast: 1.05, saturation: 1.1 },
   bayer: { label: "Bayer cel", screen: "bayer4", pixel: 4, levels: 4, color: "rgb", shading: "cel", bands: 3, outline: 0.85, crease: 0.25 },
   soft: { label: "Soft ordered", screen: "bayer8", pixel: 3, levels: 5, color: "luma", shading: "smooth", outline: 0.5, crease: 0.2 },
@@ -99,6 +109,7 @@ export const DITHER_STYLES = {
   blossom: { label: "Blossom 16", screen: "bayer4", pixel: 3, palette: BLOSSOM_16, shading: "cel", bands: 4, outline: 0.9, crease: 0.3 },
   pocket: { label: "Pocket green", screen: "bayer4", pixel: 4, palette: ["#0f2a1d", "#2f5a35", "#7a9a4a", "#cddc8a"], shading: "cel", bands: 3, outline: 0, crease: 0, saturation: 1, rays: 0.6 },
   clean: { label: "Clean cel", screen: "none", pixel: 3, levels: 8, color: "luma", shading: "cel", bands: 4, outline: 1, crease: 0.4 },
+  crt: { label: "CRT painted", screen: "bayer8", pixel: 2, levels: 7, snap: 0.75, color: "luma", shading: "smooth", outline: 1, outlineColor: "#0b0d22", crease: 0.15, contrast: 1.3, saturation: 1.55, scanlines: 0.55, chroma: 0.5 },
 } as const satisfies Readonly<Record<string, StyleFields>>;
 export type StyleId = keyof typeof DITHER_STYLES;
 export const STYLE_IDS = Object.keys(DITHER_STYLES) as readonly StyleId[];
@@ -122,6 +133,9 @@ export const DEFAULT_DITHER_SETTINGS: DitherSettings = {
   depthBands: [18, 30],
   rays: 1,
   skyDistance: 0,
+  scanlines: 0,
+  chroma: 0,
+  glitch: 0,
 };
 
 // ---------------------------------------------------------------- settings
@@ -171,6 +185,14 @@ function toneFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "lev
   };
 }
 
+function signalFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "scanlines" | "chroma" | "glitch"> {
+  return {
+    scanlines: bounded(value.scanlines, 0, 1, base.scanlines),
+    chroma: bounded(value.chroma, 0, 1, base.chroma),
+    glitch: bounded(value.glitch, 0, 1, base.glitch),
+  };
+}
+
 function formFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "screen" | "pixel" | "shading" | "bands" | "outline" | "outlineColor" | "crease" | "depthBands" | "rays" | "skyDistance"> {
   return {
     screen: oneOf<ScreenChoice>(value.screen, ["auto", ...SCREENS], base.screen),
@@ -197,7 +219,7 @@ export function ditherSettings(input?: unknown): DitherSettings {
   if (input === null || typeof input !== "object") return DEFAULT_DITHER_SETTINGS;
   const value = input as Bag;
   const base = presetOf(oneOf(value.style, STYLE_IDS, DEFAULT_DITHER_SETTINGS.style));
-  return { ...base, ...toneFields(value, base), ...formFields(value, base) };
+  return { ...base, ...toneFields(value, base), ...formFields(value, base), ...signalFields(value, base) };
 }
 
 // ---------------------------------------------------------------- grid
@@ -403,6 +425,12 @@ uniform vec3 uRayColor;
 uniform float uRayStrength;
 uniform float uRayDecay;
 uniform float uRayDensity;
+uniform float uScanlines;
+uniform float uChroma;
+uniform float uGlitch;
+uniform float uTime;
+// Per-part signals: x scanlines, y chroma, z glitch, for the parts tagged 1, 2 and 3.
+uniform vec3 uSignal[3];
 ${SCREEN_GLSL}
 vec2 cellUv(vec2 cell) { return (clamp(cell, vec2(0.0), uGrid - 1.0) + 0.5) / uGrid; }
 float distanceAt(vec2 cell) {
@@ -475,9 +503,62 @@ vec3 stepPalette(vec3 c, float t) {
   float m = sqrt(bd) / max(1e-5, sqrt(bd) + sqrt(nd));
   return t < m ? next : best;
 }
+float signalHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// The part a pixel belongs to, from the alpha its material wrote (see tagSignal):
+// 0 untagged, else 1 to 3.
+int partAt(vec2 cell) {
+  float a = texture2D(tColor, cellUv(cell)).a;
+  return a < 0.375 ? 1 : a < 0.625 ? 2 : a < 0.875 ? 3 : 0;
+}
+vec3 signalOf(int part) {
+  vec3 own = part == 1 ? uSignal[0] : part == 2 ? uSignal[1] : part == 3 ? uSignal[2] : vec3(0.0);
+  return max(own, vec3(uScanlines, uChroma, uGlitch));
+}
+// A burst lasts one eighth of a second; each part keeps its own timing, and how
+// many of its slots burst grows with its glitch strength.
+float burstOf(float strength, float part) {
+  if (strength <= 0.0) return 0.0;
+  return step(1.0 - strength * 0.16, signalHash(vec2(floor(uTime * 8.0), 1.7 + part * 13.1)));
+}
+// Where a bursting part reads from: bands of rows slide sideways (carrying the
+// part's silhouette out over its neighbours), and one block of the part shows
+// what sits above it, so sky tears into it.
+vec2 tornCell(vec2 cell, float strength, float part) {
+  float slot = floor(uTime * 8.0) + part * 31.0;
+  float rows = floor(cell.y / (2.0 + floor(signalHash(vec2(slot, 3.1)) * 6.0)));
+  if (signalHash(vec2(rows, slot)) > 1.0 - 0.5 * strength) cell.x += floor((signalHash(vec2(rows, slot + 9.0)) - 0.5) * uGrid.x * 0.12 * strength);
+  return clamp(cell, vec2(0.0), uGrid - 1.0);
+}
+bool inTearBlock(vec2 cell, float part) {
+  float slot = floor(uTime * 8.0) + part * 31.0;
+  vec2 size = uGrid * vec2(0.12 + 0.2 * signalHash(vec2(slot, 5.0)), 0.02 + 0.035 * signalHash(vec2(slot, 6.0)));
+  vec2 origin = vec2(signalHash(vec2(slot, 7.0)), signalHash(vec2(slot, 8.0))) * uGrid;
+  return all(greaterThan(cell, origin)) && all(lessThan(cell, origin + size));
+}
+vec2 glitchCell(vec2 cell, int part) {
+  for (int k = 1; k <= 3; k++) {
+    float strength = signalOf(k).z;
+    if (burstOf(strength, float(k)) < 0.5) continue;
+    vec2 source = tornCell(cell, strength, float(k));
+    if (part == k && inTearBlock(cell, float(k))) return clamp(source + vec2(0.0, floor(uGrid.y * 0.06)), vec2(0.0), uGrid - 1.0);
+    if (part == k || partAt(source) == k) return source;
+  }
+  return cell;
+}
 void main() {
-  vec2 cell = clamp(floor(gl_FragCoord.xy), vec2(0.0), uGrid - 1.0);
+  vec2 home = clamp(floor(gl_FragCoord.xy), vec2(0.0), uGrid - 1.0);
+  int part = partAt(home);
+  vec3 signal = signalOf(part);
+  vec2 cell = glitchCell(home, part);
   vec3 c = toSrgb(texture2D(tColor, cellUv(cell)).rgb);
+  // Red and blue drift apart by whole art pixels around a fringed part, and
+  // further while it bursts.
+  float fringe = max(signal.y, max(signalOf(partAt(home + vec2(2.0, 0.0))).y, signalOf(partAt(home - vec2(2.0, 0.0))).y));
+  float split = floor(fringe * 1.6) + burstOf(signal.z, float(part));
+  if (split >= 1.0) {
+    c.r = toSrgb(texture2D(tColor, cellUv(clamp(cell + vec2(split, 0.0), vec2(0.0), uGrid - 1.0))).rgb).r;
+    c.b = toSrgb(texture2D(tColor, cellUv(clamp(cell - vec2(split, 0.0), vec2(0.0), uGrid - 1.0))).rgb).b;
+  }
   float d0 = distanceAt(cell);
   bool sky = d0 >= uSkyFrom;
   float dl = distanceAt(cell - vec2(1.0, 0.0));
@@ -507,7 +588,8 @@ void main() {
 
   // A silhouette is a solid run of tone, never broken speckle.
   float t = 0.5 + (screenAt(screen, floor(cell / scale)) - 0.5) * amount * (1.0 - edge * outline);
-  gl_FragColor = vec4(uPaletteSize > 0 ? stepPalette(c, t) : stepTones(c, t), 1.0);
+  // Alpha carries this pixel's scanline strength to the blit.
+  gl_FragColor = vec4(uPaletteSize > 0 ? stepPalette(c, t) : stepTones(c, t), signal.x);
 }
 `;
 
@@ -519,9 +601,22 @@ uniform sampler2D tLook;
 uniform vec2 uGrid;
 uniform float uPixel;
 uniform vec2 uOrigin;
+uniform float uScanlines;
+uniform float uTime;
 void main() {
-  vec2 cell = clamp(floor((gl_FragCoord.xy - uOrigin) / uPixel), vec2(0.0), uGrid - 1.0);
-  gl_FragColor = vec4(texture2D(tLook, (cell + 0.5) / uGrid).rgb, 1.0);
+  vec2 frame = (gl_FragCoord.xy - uOrigin) / uPixel;
+  vec2 cell = clamp(floor(frame), vec2(0.0), uGrid - 1.0);
+  vec4 look = texture2D(tLook, (cell + 0.5) / uGrid);
+  vec3 c = look.rgb;
+  // Each pixel's scanline strength came from the look pass (whole frame or its part);
+  // none show when an art pixel is too few device pixels tall.
+  float scan = uPixel >= 2.0 ? look.a : 0.0;
+  // Scanlines: the lower part of every art-pixel row is dimmed, and a faint
+  // brighter band rolls slowly down the frame, as on a tube screen.
+  // Dark gaps between lines, with the lit rows lifted to keep the frame's brightness.
+  float line = (1.0 + scan * 0.22) * (1.0 - scan * 0.5 * step(fract(frame.y), 0.4));
+  float roll = 1.0 + scan * 0.07 * sin((frame.y / uGrid.y + uTime * 0.12) * 6.2832);
+  gl_FragColor = vec4(c * line * roll, 1.0);
 }
 `;
 
@@ -595,6 +690,8 @@ interface ShaderMaterialLike {
 }
 interface MaterialLike {
   readonly isMeshStandardMaterial?: boolean;
+  onBeforeCompile?: (shader: { fragmentShader: string }, renderer: unknown) => void;
+  customProgramCacheKey?: () => string;
   readonly color?: ColorLike;
   opacity: number;
   transparent: boolean;
@@ -719,6 +816,64 @@ function createCelShader(three: ThreeLike, bands: number): CelShader {
   };
 }
 
+// ---------------------------------------------------------------- part signals
+
+/** One of three scene parts a host can tag (say platform, tree, background) to give it its own signal. */
+export type SignalPart = 1 | 2 | 3;
+/** A part's own scanlines, colour fringe and glitch, each 0 to 1. */
+export interface SignalSpec {
+  readonly scanlines?: number;
+  readonly chroma?: number;
+  readonly glitch?: number;
+}
+
+/** The alpha a tagged material writes into the scene target; untagged pixels keep 1. */
+export const SIGNAL_TAG_ALPHA: Readonly<Record<SignalPart, number>> = { 1: 0.25, 2: 0.5, 3: 0.75 };
+
+/** Packs up to three part signals into the shader's uniform, in part order. */
+export function signalUniform(parts: readonly (SignalSpec | null | undefined)[]): Float32Array {
+  const data = new Float32Array(9);
+  for (let index = 0; index < 3; index += 1) {
+    const part = parts[index];
+    if (part === null || part === undefined) continue;
+    data[index * 3] = bounded(part.scanlines, 0, 1, 0);
+    data[index * 3 + 1] = bounded(part.chroma, 0, 1, 0);
+    data[index * 3 + 2] = bounded(part.glitch, 0, 1, 0);
+  }
+  return data;
+}
+
+interface SignalBase {
+  readonly compile: MaterialLike["onBeforeCompile"];
+  readonly key: MaterialLike["customProgramCacheKey"];
+}
+
+/**
+ * Makes an opaque material write its part's tag into alpha after its own
+ * shading. Transparent materials blend alpha, so they stay untagged.
+ */
+function tagMaterial(material: MaterialLike, part: SignalPart): void {
+  if (material.transparent || material.userData.voxelDitherSignal === part) return;
+  const base = (material.userData.voxelDitherSignalBase as SignalBase | undefined) ?? { compile: material.onBeforeCompile, key: material.customProgramCacheKey };
+  material.userData.voxelDitherSignalBase = base;
+  material.userData.voxelDitherSignal = part;
+  const alpha = SIGNAL_TAG_ALPHA[part].toFixed(2);
+  material.onBeforeCompile = (shader, renderer) => {
+    base.compile?.call(material, shader, renderer);
+    const end = shader.fragmentShader.lastIndexOf("}");
+    shader.fragmentShader = `${shader.fragmentShader.slice(0, end)}  gl_FragColor.a = ${alpha};\n}\n`;
+  };
+  material.customProgramCacheKey = () => `${base.key?.call(material) ?? ""}|voxel-dither-signal-${String(part)}`;
+  material.needsUpdate = true;
+}
+
+function tagTree(root: NodeLike, part: SignalPart): void {
+  root.traverse((node) => {
+    if (node.isMesh !== true || node.material === undefined) return;
+    for (const material of Array.isArray(node.material) ? node.material : [node.material]) tagMaterial(material, part);
+  });
+}
+
 // ---------------------------------------------------------------- the pass
 
 /** A live dithered-voxel look bound to one renderer. */
@@ -735,6 +890,15 @@ export interface VoxelDither {
   shade(root: NodeLike): void;
   /** Sets (or clears, with null) the light the god rays stream from; cheap enough per frame. */
   setRays(rays: RaySpec | null): void;
+  /** Sets the clock, in seconds, that rolls the scanlines and times glitch bursts; cheap enough per frame. */
+  setTime(seconds: number): void;
+  /**
+   * Tags every opaque mesh material under `root` as one part, so that part can
+   * carry its own signal. Call it again after `shade`, which swaps materials.
+   */
+  tagSignal(root: NodeLike, part: SignalPart): void;
+  /** Sets the signal of parts 1 to 3 (null for none), on top of the look's own whole-frame settings. */
+  setSignals(parts: readonly (SignalSpec | null | undefined)[]): void;
   /** Draws `scene` from `camera` through the look into the renderer's current target. */
   render(scene: unknown, camera: CameraLike): void;
   dispose(): void;
@@ -748,6 +912,7 @@ function createUniforms(): Record<string, Uniform> {
     uPalette: { value: new Float32Array(96) }, uOutline: { value: 0.9 }, uOutlineColor: { value: [0, 0, 0, 0] }, uCrease: { value: 0.35 },
     uContrast: { value: 1 }, uSaturation: { value: 1 }, uSkyFrom: { value: 100 }, uRaySource: { value: [0.5, 0.5] }, uRayColor: { value: [1, 1, 1] },
     uRayStrength: { value: 0 }, uRayDecay: { value: 0.95 }, uRayDensity: { value: 0.8 }, tLook: { value: null },
+    uScanlines: { value: 0 }, uChroma: { value: 0 }, uGlitch: { value: 0 }, uTime: { value: 0 }, uSignal: { value: new Float32Array(9) },
   };
 }
 
@@ -770,6 +935,9 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
   set("uCrease", settings.crease);
   set("uContrast", settings.contrast);
   set("uSaturation", settings.saturation);
+  set("uScanlines", settings.scanlines);
+  set("uChroma", settings.chroma);
+  set("uGlitch", settings.glitch);
   set("uGrid", [grid.width, grid.height]);
   set("uPixel", grid.pixel);
   set("uOrigin", [grid.originX, grid.originY]);
@@ -905,6 +1073,15 @@ export function createVoxelDither(three: ThreeLike, renderer: RendererLike, inpu
     },
     setRays(next) {
       rays = next;
+    },
+    setTime(seconds) {
+      Object.assign(uniforms.uTime ?? {}, { value: Number.isFinite(seconds) ? seconds % 3600 : 0 });
+    },
+    tagSignal(root, part) {
+      tagTree(root, part);
+    },
+    setSignals(parts) {
+      Object.assign(uniforms.uSignal ?? {}, { value: signalUniform(parts) });
     },
     render(scene, view) {
       pipeline.draw(renderer, scene, view, settings, rays);

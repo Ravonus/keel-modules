@@ -36,11 +36,21 @@ floating rocks, thruster slab, hanging crystals, drips), the trim (neon,
 chrome, gold, studs, frost), a pattern `grain` and effect `speed`, and a small
 hue drift. `surface` and `crystals` name the same look for a block renderer.
 
+Two rolls come last, so a seed keeps every choice above. `size` is the
+planter's width as a share of full size: most are small (0.58 to 0.9), about
+one in six tiny (0.45 to 0.58, named "tiny") so a tree's roots overrun it, and
+a few large (to 1.05, named "grand"). About one in seven planters is
+sculpted (`sculpted: true`): `shape` is then a `Sculpt` chosen from `SCULPTS`
+for its family (skull, urn, stump, shell or a carved stone head), the
+underside is floating rocks and there is no trim. The renderer decides how to
+carve each sculpt.
+
 ## Worlds
 
 | World | Form | Skyline | Clouds | Sun · moon |
 |---|---|---|---|---|
 | `nature` | pixel | ridges | puffs | real |
+| `beach` | pixel | sand, shallows and open sea to a hard horizon | puffs or pastel | disc or striped · big moon |
 | `city` | pixel | towers with lit windows | puffs or none | disc · big moon |
 | `synth` | pixel | neon grid floor and hills | neon or none | striped sun · neon moon |
 | `vapor` | pixel | pastel grid | pastel | striped pastel sun · big or ringed moon |
@@ -70,6 +80,25 @@ move a planter or world), and the finer the skin the rarer it is:
 | `mystic` | epic | 7 | veined | glowing orbs, drifting wisps |
 | `hologram` | legendary | 4 | scanlines, see-through | light cubes |
 | `cosmic` | legendary | 3 | starfield | stars, orbiting motes |
+
+## Signal glitch
+
+A glitch hits parts of the scene, never the whole frame: the platform
+(`planter`), the `tree` and the background (`world`) each roll their own kind,
+on a stream of their own so a glitch never moves a planter, world or tree.
+`theme.glitch.parts[part]` gives that part's `scanlines`, `chroma` and
+`glitch` strengths (0 to 1) for the render look; each varies a little per
+seed. A full glitch, all three parts torn at full strength, is a separate and
+rarer draw.
+
+| Kind (per part) | Rarity | Draws in 1000 |
+| --- | --- | --- |
+| Clean | common | 820 |
+| Scanlines | uncommon | 90 |
+| Colour fringe | uncommon | 50 |
+| Flicker | rare | 25 |
+| Torn signal | epic | 15 |
+| Full glitch (every part) | legendary | 6 |
 
 ## Usage
 

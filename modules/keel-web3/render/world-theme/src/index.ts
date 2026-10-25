@@ -79,10 +79,12 @@ export type PlanterId =
   | "marble" | "obsidian" | "granite" | "sandstone" | "lava" | "ice" | "chrome"
   | "cyber" | "vapor" | "antigravity" | "hologram" | "glitter" | "cosmic";
 
-export type WorldId = "nature" | "city" | "synth" | "vapor" | "crystal" | "cosmic" | "voxel";
+export type WorldId = "nature" | "beach" | "city" | "synth" | "vapor" | "crystal" | "cosmic" | "voxel";
 
 /** The planter's outline seen from above; "tiered" steps down like a pedestal. */
-export type Shape = "square" | "rounded" | "octagon" | "round" | "hex" | "tiered" | "blob" | "scallop" | "diamond";
+export type Shape = "square" | "rounded" | "octagon" | "round" | "hex" | "tiered" | "blob" | "scallop" | "diamond" | Sculpt;
+/** A sculpted planter: a carved body the tree grows out of the top of, instead of an outline pushed down. */
+export type Sculpt = "skull" | "urn" | "stump" | "shell" | "head";
 /** The pattern drawn over the planter's top and sides (a shader, not geometry). */
 export type Pattern =
   | "turf" | "ingot" | "hammered" | "brushed" | "coins" | "nugget" | "facet" | "marble" | "speckle" | "strata"
@@ -143,7 +145,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   earth: {
     label: "Earth", family: "earth", palettes: [["meadow", ["#739e61", "#b9c979", "#6d4d39", "#5a3f2e", "#6f4b35", "#8fbf58"]]],
     shapes: ["rounded", "round", "blob", "blob", "scallop", "square"], patterns: ["turf"], effects: ["none"], decor: ["none", "rocks"], decorCount: [0, 4], underside: ["cone"], trim: ["none"],
-    shine: 0, glow: 0, sparkle: 0, veins: [0, 0], alpha: 1, drift: 0, worlds: ["nature", "city", "crystal", "voxel"],
+    shine: 0, glow: 0, sparkle: 0, veins: [0, 0], alpha: 1, drift: 0, worlds: ["nature", "beach", "city", "crystal", "voxel"],
   },
   gold: {
     label: "Polished gold", family: "metal", shapes: ["tiered", "rounded", "octagon", "round", "scallop", "diamond"], patterns: ["ingot", "hammered", "brushed", "coins"], effects: ["sweep", "sweep", "sparkle"],
@@ -168,7 +170,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   marble: { ...STONE, label: "Marble", family: "stone", patterns: ["marble"], effects: ["none", "sweep"], decor: ["pillars", "orbs", "none"], palettes: [["carrara", ["#ecebe6", "#ffffff", "#d6d3cb", "#bdb9ae", "#c9c5bb", "#8a857c"]], ["nero", ["#2a2a2e", "#3c3c42", "#1c1c20", "#121216", "#26262a", "#e8e2d0"]], ["rosa", ["#ead2cc", "#f8e6e2", "#d0b2aa", "#b8968c", "#dcc0b8", "#9a6e64"]], ["verde", ["#2e4a40", "#45685a", "#1e322a", "#14241e", "#2a4038", "#e8f0e0"]]], veins: [0.14, 0.28], shine: 0.5 },
   obsidian: { ...STONE, label: "Obsidian", family: "stone", patterns: ["facet", "mirror", "marble"], effects: ["sweep", "shimmer"], decor: ["shards", "rocks"], palettes: [["black glass", ["#1a1622", "#2c2638", "#0e0b14", "#08060c", "#1c1828", "#8a6cff"]], ["snowflake", ["#1c1c22", "#33333c", "#101014", "#08080a", "#202026", "#e8eef8"]], ["rainbow", ["#141620", "#222838", "#0a0c12", "#06070a", "#181c28", "#5af0c8"]]], veins: [0.02, 0.08], shine: 0.85, glow: 0.2, sparkle: 0.1 },
   granite: { ...STONE, label: "Granite", family: "stone", patterns: ["speckle"], palettes: [["grey", ["#8e8a86", "#a8a39d", "#6b6764", "#585451", "#7a7672", "#c9c3bb"]], ["pink", ["#b08a80", "#c8a49a", "#8a6a62", "#6e544e", "#9a7a72", "#e8d0c8"]], ["blue pearl", ["#4a5260", "#6a7484", "#323844", "#22262e", "#3e4654", "#a8c8f0"]]], veins: [0.02, 0.06], sparkle: 0.12 },
-  sandstone: { ...STONE, label: "Sandstone", family: "stone", patterns: ["strata"], decor: ["rocks", "pillars"], palettes: [["desert", ["#d8a86c", "#e8c48e", "#b07e48", "#8e6236", "#c49058", "#f2dcb0"]], ["red canyon", ["#c4744a", "#dc9468", "#9a5432", "#7a3e22", "#b0623c", "#f0c4a0"]], ["wave", ["#e0a070", "#f4c8a0", "#b8683c", "#904c28", "#cc8250", "#fff0dc"]]], veins: [0.04, 0.1] },
+  sandstone: { ...STONE, label: "Sandstone", family: "stone", patterns: ["strata"], decor: ["rocks", "pillars"], palettes: [["desert", ["#d8a86c", "#e8c48e", "#b07e48", "#8e6236", "#c49058", "#f2dcb0"]], ["red canyon", ["#c4744a", "#dc9468", "#9a5432", "#7a3e22", "#b0623c", "#f0c4a0"]], ["wave", ["#e0a070", "#f4c8a0", "#b8683c", "#904c28", "#cc8250", "#fff0dc"]]], veins: [0.04, 0.1], worlds: ["nature", "beach", "crystal", "voxel"] },
   lava: {
     label: "Lava", family: "molten", shapes: ["round", "blob", "blob", "octagon"], patterns: ["magma"], effects: ["flow", "breathe"], decor: ["rocks", "vents"], decorCount: [3, 8],
     underside: ["drip", "cone", "spire"], trim: ["none"],
@@ -197,7 +199,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
     label: "Vapor", family: "synth", shapes: ["rounded", "round", "tiered", "hex", "diamond", "scallop"], patterns: ["checker", "grid", "tile"], effects: ["rainbow", "scroll", "shimmer"], decor: ["pillars", "orbs", "rings"], decorCount: [2, 6],
     underside: ["slab", "cone", "float"], trim: ["chrome", "neon"],
     palettes: [["sunset", ["#ff9ad5", "#ffd1ec", "#9a6bff", "#6c48c8", "#7fe9ff", "#ffffff"]], ["mall", ["#7fe9ff", "#c8f8ff", "#ff7ac8", "#c85aa0", "#ffd36e", "#ffffff"]], ["lilac", ["#c8a8ff", "#efe2ff", "#ff9ec8", "#d872a4", "#9ef0ff", "#ffffff"]]],
-    shine: 0.8, glow: 0.6, sparkle: 0.06, veins: [0, 0.04], alpha: 1, drift: 12, worlds: ["vapor", "synth"],
+    shine: 0.8, glow: 0.6, sparkle: 0.06, veins: [0, 0.04], alpha: 1, drift: 12, worlds: ["vapor", "synth", "beach"],
   },
   antigravity: {
     label: "Anti-gravity", family: "float", shapes: ["round", "blob", "hex", "diamond"], patterns: ["speckle", "facet", "circuit"], effects: ["breathe", "pulse"], decor: ["rings", "rocks", "orbs"], decorCount: [3, 8],
@@ -215,7 +217,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
     label: "Glitter", family: "glitter", shapes: ["round", "scallop", "hex", "tiered", "diamond"], patterns: ["flake"], effects: ["sparkle", "rainbow", "shimmer"], decor: ["discoball", "orbs", "shards"], decorCount: [1, 5],
     underside: ["cone", "float", "crystal"], trim: ["chrome", "neon", "gold"],
     palettes: [["party", ["#ff6ac8", "#ffb0e4", "#a04ad8", "#6a2aa0", "#ffd36e", "#ffffff"]], ["silver", ["#a8b0c8", "#e8ecf4", "#6a7088", "#4a5068", "#d8dce8", "#ffffff"]], ["disco", ["#3a5aff", "#8ab0ff", "#2a2a8a", "#1a1a5a", "#ffcf5a", "#ffffff"]], ["gold dust", ["#d8a030", "#ffe08a", "#8a5a18", "#5a3a0c", "#ffd060", "#ffffff"]], ["mermaid", ["#2ad8c8", "#a8fff0", "#1a7a9a", "#0e4a6a", "#c88aff", "#ffffff"]]],
-    shine: 1, glow: 0.3, sparkle: 1, veins: [0, 0], alpha: 1, drift: 20, worlds: ["vapor", "cosmic", "crystal", "city"],
+    shine: 1, glow: 0.3, sparkle: 1, veins: [0, 0], alpha: 1, drift: 20, worlds: ["vapor", "cosmic", "crystal", "city", "beach"],
   },
   cosmic: {
     label: "Cosmic", family: "cosmic", shapes: ["round", "hex", "blob", "scallop"], patterns: ["stars"], effects: ["swirl", "sparkle"], decor: ["orbs", "rings", "shards"], decorCount: [2, 6],
@@ -263,6 +265,41 @@ export interface PlanterLook {
   readonly bob: number;
   /** How deep the underside hangs, as a share of the default. */
   readonly depth: number;
+  /** The planter's width as a share of the full-size one: most are small, a few tiny, a few large. */
+  readonly size: number;
+  /** True when `shape` is a sculpt. */
+  readonly sculpted: boolean;
+}
+
+/** Which sculpts suit each family. A sculpt replaces the plain body on a rare roll. */
+export const SCULPTS: Readonly<Record<PlanterRecipe["family"], readonly Sculpt[]>> = {
+  earth: ["stump", "urn", "skull"], metal: ["skull", "urn", "head"], gem: ["skull", "shell"], stone: ["skull", "head", "urn"],
+  molten: ["skull", "head"], ice: ["skull", "shell"], tech: ["head", "skull"], synth: ["skull", "shell", "head"],
+  float: ["skull", "shell"], holo: ["skull", "head"], glitter: ["shell", "skull"], cosmic: ["skull", "head"],
+};
+/** Chance a planter is sculpted rather than plain. */
+export const SCULPT_CHANCE = 0.14;
+
+/** Planter size classes: [upper bound of the roll, smallest, largest, word for the name]. */
+const PLANTER_SIZES: readonly (readonly [number, number, number, string])[] = [
+  [0.18, 0.45, 0.58, "tiny"],
+  [0.6, 0.58, 0.75, ""],
+  [0.92, 0.75, 0.9, ""],
+  [1, 0.9, 1.05, "grand"],
+];
+
+interface PlanterForm { readonly shape: Shape; readonly underside: Underside; readonly trim: Trim; readonly bob: number }
+
+/** On a rare roll the plain body becomes a sculpt, which is its own foot: it floats on loose rocks, with no rim band. */
+function sculptFor(recipe: PlanterRecipe, random: () => number, plain: PlanterForm): PlanterForm & { readonly sculpted: boolean } {
+  if (random() >= SCULPT_CHANCE) return { ...plain, sculpted: false };
+  return { shape: pick(SCULPTS[recipe.family], random), underside: "float", trim: "none", bob: 0.05, sculpted: true };
+}
+
+function planterSize(random: () => number): { readonly size: number; readonly word: string } {
+  const roll = random();
+  const [, low, high, word] = PLANTER_SIZES.find(([upper]) => roll < upper) ?? PLANTER_SIZES[1] ?? [1, 0.6, 0.75, ""];
+  return { size: Math.round((low + random() * (high - low)) * 100) / 100, word };
 }
 
 const BLOCK_SURFACE: Readonly<Record<Pattern, Surface>> = {
@@ -284,22 +321,27 @@ function resolvePlanter(id: PlanterId, random: () => number): PlanterLook {
   const underside = pick(recipe.underside, random);
   const trim = pick(recipe.trim, random);
   const veins = recipe.veins[0] + random() * (recipe.veins[1] - recipe.veins[0]);
-  const words = [paletteName, pattern === "turf" ? "" : pattern, effect === "none" ? "" : effect, decor === "none" ? "" : decor].filter((word) => word !== "");
+  const bob = underside === "float" ? (recipe.family === "float" ? 0.16 : 0.08) * (0.7 + random() * 0.6) : 0;
+  const depth = 0.8 + random() * 0.6;
+  // Rolled last, so a seed keeps every earlier choice it had before sizes and sculpts existed.
+  const { size, word: sizeWord } = planterSize(random);
+  const form = sculptFor(recipe, random, { shape, underside, trim, bob });
+  const sculpt = form.sculpted ? form.shape : null;
+  const words = [sizeWord, sculpt ?? "", paletteName, pattern === "turf" ? "" : pattern, effect === "none" ? "" : effect, decor === "none" ? "" : decor].filter((word) => word !== "");
   return {
     id, label: recipe.label, family: recipe.family, variant: words.join(" · "),
     colors: { top: [top, top2], body: [body, body2], rim, accent },
-    shape, flare: Math.round((random() * 2 - 1) * 100) / 100 * 0.25, height: 0.75 + random() * 0.7, wobble: Math.floor(random() * 1000), pattern, effect, decor, decorCount, grain: 0.75 + random() * 0.6, speed: 0.7 + random() * 0.7,
-    surface: BLOCK_SURFACE[pattern], underside, trim, shine: recipe.shine, glow: recipe.glow, sparkle: recipe.sparkle, veins,
+    shape: form.shape, sculpted: form.sculpted, flare: Math.round((random() * 2 - 1) * 100) / 100 * 0.25, height: 0.75 + random() * 0.7, wobble: Math.floor(random() * 1000), pattern, effect, decor, decorCount, grain: 0.75 + random() * 0.6, speed: 0.7 + random() * 0.7,
+    surface: BLOCK_SURFACE[pattern], underside: form.underside, trim: form.trim, shine: recipe.shine, glow: recipe.glow, sparkle: recipe.sparkle, veins,
     crystals: decor === "shards" || decor === "geodes" ? decorCount : 0, alpha: recipe.alpha,
     seasonal: recipe.family === "earth",
-    bob: underside === "float" ? (recipe.family === "float" ? 0.16 : 0.08) * (0.7 + random() * 0.6) : 0,
-    depth: 0.8 + random() * 0.6,
+    bob: form.bob, depth, size,
   };
 }
 
 // ---------------------------------------------------------------- worlds
 
-export type Skyline = "ridges" | "city" | "grid" | "spires" | "void";
+export type Skyline = "ridges" | "shore" | "city" | "grid" | "spires" | "void";
 export type CloudStyle = "puff" | "voxel" | "pastel" | "neon" | "nebula" | "none";
 /** How the whole scene is built: smooth low-poly shapes drawn as pixel art, or whole voxel blocks. */
 export type Form = "pixel" | "voxel";
@@ -309,7 +351,7 @@ export type MoonStyle = "disc" | "ringed" | "big" | "neon";
 interface WorldPalette {
   /** Sky top and horizon by day, horizon and top by night. */
   readonly sky: readonly [string, string, string, string];
-  /** Skyline low, mid and high, then its accent (window lights, neon, crystal glow). */
+  /** Skyline low, mid and high, then its accent (window lights, neon, crystal glow). On a shore: sand, shallows, deep water, surf. */
   readonly skyline: readonly [string, string, string, string];
   readonly cloud: readonly [string, string];
   /** Sun gradient top to bottom. */
@@ -339,6 +381,14 @@ export const WORLDS: Readonly<Record<WorldId, WorldRecipe>> = {
   nature: {
     label: "Nature", form: "pixel", skyline: "ridges", clouds: ["puff"], sun: ["disc"], moon: ["disc"], skyMix: 0, lightMix: 0, stars: 1,
     palettes: [["valley", { sky: ["#d6edf0", "#91b4bd", "#2a5963", "#081a24"], skyline: ["#739e61", "#4c6b55", "#7d8486", "#f1f4f2"], cloud: ["#ffffff", "#e6eef2"], sun: ["#fff1cf", "#fff1cf"], moon: "#c9d6ff", light: "#ffffff" }]],
+  },
+  beach: {
+    label: "Beach", form: "pixel", skyline: "shore", clouds: ["puff", "pastel"], sun: ["disc", "striped"], moon: ["big", "disc"], skyMix: 0.75, lightMix: 0.15, stars: 1.2,
+    palettes: [
+      ["tropic noon", { sky: ["#2fa8ff", "#bff4ff", "#1a3a6a", "#040a1e"], skyline: ["#f4e2b0", "#2ad8d0", "#0a6ab8", "#ffffff"], cloud: ["#ffffff", "#d8f4ff"], sun: ["#fffbe0", "#fff0a0"], moon: "#f0f4ff", light: "#fff6e0" }],
+      ["golden hour", { sky: ["#ff9a4a", "#ffd88a", "#3a1a4a", "#0a0418"], skyline: ["#f0c890", "#ff8a6a", "#2a2a7a", "#fff0d0"], cloud: ["#ffd0a0", "#ff9a8a"], sun: ["#fff0a0", "#ff6a3a"], moon: "#ffe0c0", light: "#ffc89a" }],
+      ["vapor cove", { sky: ["#ff9ad8", "#9af0ff", "#3a1a6a", "#0e0628"], skyline: ["#ffd8ec", "#5af0e8", "#8a4ae8", "#ffffff"], cloud: ["#ffe0f4", "#c0f4ff"], sun: ["#fff09a", "#ff5ab0"], moon: "#e0f8ff", light: "#ffd8f4" }],
+    ],
   },
   city: {
     label: "Cityscape", form: "pixel", skyline: "city", clouds: ["puff", "none"], sun: ["disc"], moon: ["disc", "big"], skyMix: 0.3, lightMix: 0.12, stars: 0.4,
@@ -527,6 +577,101 @@ function resolveTree(id: TreeSkinId, random: () => number): TreeLook {
   };
 }
 
+// ---------------------------------------------------------------- signal glitch
+
+/** The parts of the scene a glitch can hit. It never takes the whole frame unless it hits all three. */
+export type GlitchPart = "planter" | "tree" | "world";
+export const GLITCH_PARTS: readonly GlitchPart[] = ["planter", "tree", "world"];
+/** How badly one part misbehaves. */
+export type GlitchKind = "clean" | "scanlines" | "fringe" | "flicker" | "tear";
+
+interface GlitchRecipe {
+  readonly label: string;
+  readonly rarity: Rarity;
+  /** Draws out of 1000, per part. */
+  readonly weight: number;
+  /** Strengths handed to the render look, each 0 to 1. */
+  readonly scanlines: number;
+  readonly chroma: number;
+  readonly glitch: number;
+}
+
+export const GLITCH_KINDS: Readonly<Record<GlitchKind, GlitchRecipe>> = {
+  clean: { label: "Clean", rarity: "common", weight: 820, scanlines: 0, chroma: 0, glitch: 0 },
+  scanlines: { label: "Scanlines", rarity: "uncommon", weight: 90, scanlines: 0.55, chroma: 0, glitch: 0 },
+  fringe: { label: "Colour fringe", rarity: "uncommon", weight: 50, scanlines: 0.3, chroma: 0.8, glitch: 0 },
+  flicker: { label: "Flicker", rarity: "rare", weight: 25, scanlines: 0.5, chroma: 0.5, glitch: 0.35 },
+  tear: { label: "Torn signal", rarity: "epic", weight: 15, scanlines: 0.65, chroma: 0.7, glitch: 0.75 },
+};
+const GLITCH_KIND_IDS = Object.keys(GLITCH_KINDS) as GlitchKind[];
+/** Draws out of 1000 for a full glitch: every part torn at full strength. */
+const FULL_GLITCH_WEIGHT = 6;
+
+export interface PartGlitch {
+  readonly kind: GlitchKind;
+  readonly scanlines: number;
+  readonly chroma: number;
+  readonly glitch: number;
+}
+
+export interface GlitchLook {
+  /** "clean", "full", or the parts that glitch joined by "+", such as "tree" or "planter+world". */
+  readonly id: string;
+  readonly rarity: Rarity;
+  readonly full: boolean;
+  readonly parts: Readonly<Record<GlitchPart, PartGlitch>>;
+}
+
+const RARITY_ORDER: readonly Rarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+
+function rollKind(random: () => number): GlitchKind {
+  let roll = random() * 1000;
+  for (const id of GLITCH_KIND_IDS) {
+    roll -= GLITCH_KINDS[id].weight;
+    if (roll < 0) return id;
+  }
+  return "clean";
+}
+
+/** Each strength wavers a little per seed, so two torn trees never tear alike. */
+function partGlitch(kind: GlitchKind, random: () => number, full = false): PartGlitch {
+  const recipe = GLITCH_KINDS[kind];
+  const vary = (value: number): number => (value === 0 ? 0 : Math.min(1, Math.round(value * (0.85 + random() * 0.3) * 100) / 100));
+  return full ? { kind, scanlines: 0.8, chroma: 1, glitch: 1 } : { kind, scanlines: vary(recipe.scanlines), chroma: vary(recipe.chroma), glitch: vary(recipe.glitch) };
+}
+
+/**
+ * Rolls each part on its own; a full glitch (all three torn at once) is a
+ * separate, rarer draw. `forced` is "clean", "full", or one part's name, which
+ * tears that part alone.
+ */
+function resolveGlitch(forced: string | undefined, random: () => number): GlitchLook {
+  const fullRoll = random() * 1000 < FULL_GLITCH_WEIGHT;
+  const kinds = GLITCH_PARTS.map((part) => {
+    const rolled = rollKind(random);
+    if (forced === "clean") return "clean";
+    if (forced === "full") return "tear";
+    if (forced !== undefined && (GLITCH_PARTS as readonly string[]).includes(forced)) return forced === part ? "tear" : "clean";
+    return fullRoll ? "tear" : rolled;
+  });
+  const full = forced === "full" || (forced === undefined && fullRoll);
+  const parts = Object.fromEntries(GLITCH_PARTS.map((part, index) => [part, partGlitch(kinds[index] ?? "clean", random, full)])) as Record<GlitchPart, PartGlitch>;
+  const hit = GLITCH_PARTS.filter((part) => parts[part].kind !== "clean");
+  const worst = hit.reduce<Rarity>((rarest, part) => {
+    const rarity = GLITCH_KINDS[parts[part].kind].rarity;
+    return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(rarest) ? rarity : rarest;
+  }, "common");
+  return { id: full ? "full" : hit.length === 0 ? "clean" : hit.join("+"), rarity: full ? "legendary" : worst, full, parts };
+}
+
+function glitchName(glitch: GlitchLook): string {
+  if (glitch.full) return " · legendary full glitch";
+  const hit = GLITCH_PARTS.filter((part) => glitch.parts[part].kind !== "clean");
+  if (hit.length === 0) return "";
+  const label = { planter: "platform", tree: "tree", world: "background" } as const;
+  return ` · ${hit.map((part) => `${label[part]} ${GLITCH_KINDS[glitch.parts[part].kind].label.toLowerCase()}`).join(", ")}`;
+}
+
 // ---------------------------------------------------------------- the theme
 
 export interface ThemeInput {
@@ -536,6 +681,8 @@ export interface ThemeInput {
   readonly world?: string;
   /** A tree skin id, or "seed" to roll one: most trees are natural, the finest are the rarest. */
   readonly tree?: string;
+  /** "clean", "full", a part to tear ("planter", "tree", "world"), or "seed" to roll each part: most are clean, a full glitch is the rarest. */
+  readonly glitch?: string;
   readonly seed: number;
 }
 
@@ -543,6 +690,7 @@ export interface Theme {
   readonly planter: PlanterLook;
   readonly world: WorldLook;
   readonly tree: TreeLook;
+  readonly glitch: GlitchLook;
   readonly name: string;
 }
 
@@ -564,5 +712,8 @@ export function themeFor(input: ThemeInput): Theme {
   const treeRandom = createRandom((input.seed >>> 0) ^ 0x5eed7a);
   const tree = resolveTree(Object.hasOwn(TREE_SKINS, input.tree ?? "") ? (input.tree as TreeSkinId) : rollSkin(treeRandom), treeRandom);
   const treeName = tree.natural ? "" : ` · ${tree.rarity} ${tree.label.toLowerCase()} tree (${tree.variant})`;
-  return { planter, world, tree, name: `${planterName} over ${world.label} · ${world.variant}${treeName}` };
+  const glitchRandom = createRandom((input.seed >>> 0) ^ 0x611c4);
+  const forced = ["clean", "full", ...GLITCH_PARTS].includes(input.glitch ?? "") ? input.glitch : undefined;
+  const glitch = resolveGlitch(forced, glitchRandom);
+  return { planter, world, tree, glitch, name: `${planterName} over ${world.label} · ${world.variant}${treeName}${glitchName(glitch)}` };
 }

@@ -19,7 +19,8 @@
       { "value": "grain", "label": "Noise grain" },
       { "value": "blossom", "label": "Blossom 16" },
       { "value": "pocket", "label": "Pocket green" },
-      { "value": "clean", "label": "Clean cel" }
+      { "value": "clean", "label": "Clean cel" },
+      { "value": "crt", "label": "CRT painted" }
     ], "default": "smart" },
     { "key": "pixel", "label": "Pixel size", "type": "number", "required": false, "min": 0, "max": 12, "step": 1, "unit": "px", "control": "slider", "help": "CSS pixels per art pixel. 0 picks one from the frame size.", "default": 0 },
     { "key": "screen", "label": "Dither screen", "type": "select", "required": false, "placement": "advanced", "options": [
@@ -41,6 +42,9 @@
     { "key": "bands", "label": "Cel bands", "type": "number", "required": false, "placement": "advanced", "min": 2, "max": 8, "step": 1, "control": "slider" },
     { "key": "outline", "label": "Outline", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
     { "key": "crease", "label": "Voxel creases", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
+    { "key": "scanlines", "label": "Scanlines", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
+    { "key": "chroma", "label": "Colour fringe", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
+    { "key": "glitch", "label": "Glitch", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider", "help": "Signal bursts that tear rows and drop blocks of the frame. Timed by setTime." },
     { "key": "palette", "label": "Palette", "type": "palette", "required": false, "placement": "advanced", "help": "Up to 32 colors. When set, every pixel is one of them.", "minItems": 0, "maxItems": 32 }
   ]
 }

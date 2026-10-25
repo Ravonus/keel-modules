@@ -4,7 +4,7 @@
   "version": "0.3.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "Themes for a small floating world: gold, gem, stone, lava, ice, chrome, tech, synth, hologram, glitter and cosmic planters (shape, animated surface pattern, decor and underside) and nature, city, synthwave, vaporwave, crystal, cosmic and voxel worlds, with rare tree skins (crystal, petrified, frost, gold, ember, mystic, hologram, cosmic) rolled by rarity, each resolved by a seed into its own variant.",
+  "summary": "Themes for a small floating world: gold, gem, stone, lava, ice, chrome, tech, synth, hologram, glitter and cosmic planters (shape, animated surface pattern, decor and underside) and nature, city, synthwave, vaporwave, crystal, cosmic and voxel worlds, with rare tree skins (crystal, petrified, frost, gold, ember, mystic, hologram, cosmic) rolled by rarity, each resolved by a seed into its own variant, and a signal glitch rolled separately for the platform, tree and background (scanlines, colour fringe, flicker, torn signal), with a full glitch of all three the rarest.",
   "category": "render",
   "owner": {
     "org": "keel-web3",
@@ -123,6 +123,10 @@
           "label": "Nature"
         },
         {
+          "value": "beach",
+          "label": "Beach"
+        },
+        {
           "value": "city",
           "label": "Cityscape"
         },
@@ -165,38 +169,70 @@
         },
         {
           "value": "crystal",
-          "label": "Crystal \u00b7 uncommon"
+          "label": "Crystal · uncommon"
         },
         {
           "value": "petrified",
-          "label": "Petrified \u00b7 uncommon"
+          "label": "Petrified · uncommon"
         },
         {
           "value": "frost",
-          "label": "Frost \u00b7 rare"
+          "label": "Frost · rare"
         },
         {
           "value": "gold",
-          "label": "Golden \u00b7 rare"
+          "label": "Golden · rare"
         },
         {
           "value": "ember",
-          "label": "Ember \u00b7 epic"
+          "label": "Ember · epic"
         },
         {
           "value": "mystic",
-          "label": "Mystic \u00b7 epic"
+          "label": "Mystic · epic"
         },
         {
           "value": "hologram",
-          "label": "Hologram \u00b7 legendary"
+          "label": "Hologram · legendary"
         },
         {
           "value": "cosmic",
-          "label": "Cosmic \u00b7 legendary"
+          "label": "Cosmic · legendary"
         }
       ],
       "default": "seed"
+    },
+    {
+      "key": "glitch",
+      "label": "Signal glitch",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "seed",
+          "label": "Seed's roll"
+        },
+        {
+          "value": "clean",
+          "label": "Clean"
+        },
+        {
+          "value": "planter",
+          "label": "Platform glitch"
+        },
+        {
+          "value": "tree",
+          "label": "Tree glitch"
+        },
+        {
+          "value": "world",
+          "label": "Background glitch"
+        },
+        {
+          "value": "full",
+          "label": "Full glitch (legendary)"
+        }
+      ]
     }
   ]
 }

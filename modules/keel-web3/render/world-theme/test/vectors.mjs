@@ -40,6 +40,25 @@ export default [
     expect: true,
   },
   {
+    name: 'planter sizes vary: mostly small, some tiny, a few large, never past full size',
+    run: ({ themeFor }) => {
+      const sizes = Array.from({ length: 400 }, (_, seed) => themeFor({ planter: 'earth', seed }).planter.size);
+      const tiny = sizes.filter((size) => size < 0.58).length;
+      const large = sizes.filter((size) => size >= 0.9).length;
+      return [sizes.every((size) => size >= 0.45 && size <= 1.05), tiny > 30 && tiny < 120, large > 10 && large < 60, sizes.reduce((sum, size) => sum + size, 0) / sizes.length < 0.8];
+    },
+    expect: [true, true, true, true],
+  },
+  {
+    name: 'sculpted planters are a rare roll that suits the family and floats with no rim',
+    run: ({ themeFor, SCULPTS }) => {
+      const looks = Array.from({ length: 600 }, (_, seed) => themeFor({ seed }).planter);
+      const sculpted = looks.filter((look) => look.sculpted);
+      return [sculpted.length > 40 && sculpted.length < 140, sculpted.every((look) => SCULPTS[look.family].includes(look.shape) && look.underside === 'float' && look.trim === 'none'), looks.filter((look) => !look.sculpted).every((look) => !Object.values(SCULPTS).flat().includes(look.shape))];
+    },
+    expect: [true, true, true],
+  },
+  {
     name: 'the seed picks a world that suits the planter',
     run: ({ themeFor, PLANTERS }) => Array.from({ length: 60 }, (_, seed) => themeFor({ seed })).every((theme) => PLANTERS[theme.planter.id].worlds.includes(theme.world.id)),
     expect: true,
@@ -72,5 +91,20 @@ export default [
     name: 'colour helpers mix and turn hues',
     run: ({ mixHex, shiftHue }) => [mixHex('#000000', '#ffffff', 0.5), shiftHue('#ff0000', 120), shiftHue('#808080', 90)],
     expect: ['#808080', '#00ff00', '#808080'],
+  },
+  {
+    name: 'glitch hits parts, never the frame: most are clean, each part rolls alone, a full glitch is rarest',
+    run: ({ themeFor }) => {
+      const counts = { clean: 0, single: 0, full: 0 };
+      for (let seed = 0; seed < 20000; seed += 1) {
+        const glitch = themeFor({ seed }).glitch;
+        const hit = ['planter', 'tree', 'world'].filter((part) => glitch.parts[part].kind !== 'clean').length;
+        if (glitch.full) counts.full += 1; else if (hit === 0) counts.clean += 1; else if (hit === 1) counts.single += 1;
+      }
+      const tree = themeFor({ seed: 9, glitch: 'tree' }).glitch;
+      const full = themeFor({ seed: 9, glitch: 'full' }).glitch;
+      return [counts.clean > counts.single, counts.single > counts.full, counts.full > 0, tree.id, tree.parts.planter.kind, full.parts.world.glitch, full.rarity];
+    },
+    expect: [true, true, true, 'tree', 'clean', 1, 'legendary'],
   },
 ];

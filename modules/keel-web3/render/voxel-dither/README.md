@@ -35,11 +35,27 @@ never outlined.
 
 `smart` (the default), `pixel` (3D pixel art: big art pixels, a hard
 Bayer screen on every channel and three cel bands, for smooth low-poly scenes), `bayer`, `soft`, `halftone`, `engraving`, `chunky`,
-`grain`, `blossom` (a 16-colour palette), `pocket` (4 greens) and `clean`
-(posterized cel, no dither). A setting passed with `style` overrides the
+`grain`, `blossom` (a 16-colour palette), `pocket` (4 greens), `clean`
+(posterized cel, no dither) and `crt` (painted 3D pixel art: fine pixels,
+smooth light, dark ink outlines, rich colour, scanlines and a colour fringe). A setting passed with `style` overrides the
 preset's. `snap` (0 to 0.9) keeps flat in-between tones clean: most of each
 step between two tones snaps flat, and only a short seam where one tone meets
 the next dithers, the way pixel art is drawn.
+
+Three signal settings sit on top of any style: `scanlines` (0 to 1) dims part
+of every art-pixel row like a tube screen, `chroma` (0 to 1) drifts red and
+blue apart by whole art pixels, and `glitch` (0 to 1) fires short bursts that
+tear bands of rows sideways and drop a block of the frame out of place. Call
+`look.setTime(seconds)` each frame to roll the scanlines and time the bursts;
+without it the frame never glitches.
+
+Those three apply to the whole frame. To give one part of the scene its own
+signal instead, tag it: `look.tagSignal(root, part)` (part 1, 2 or 3) makes
+every opaque material under `root` write the part into the scene target's
+alpha, and `look.setSignals([platform, tree, background])` gives each part its
+`scanlines`, `chroma` and `glitch`. A torn part's rows slide out over its
+neighbours and blocks of it show the sky above, while untagged pixels stay
+clean. Call `tagSignal` again after `shade`, which swaps materials.
 
 ## Injected dependencies
 

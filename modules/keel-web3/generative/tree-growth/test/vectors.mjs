@@ -186,6 +186,33 @@ export default [
     expect: [1, true, true, 0, true],
   },
   {
+    name: 'weight bends wood: no load changes nothing, the trunk barely moves, heavier and thinner sag more, a lift springs up',
+    run: ({ growTree, treeFrame, bendFrame }) => {
+      const tree = growTree({ species: 'oak', seed: 3 });
+      const frame = treeFrame(tree, tree.cycles * 0.5, { ground: 0 });
+      let twig = -1;
+      let limb = -1;
+      for (let node = 1; node < tree.count; node += 1) {
+        if (frame.grow[node] < 1 || frame.fall[node] > 0 || tree.order[node] === 0) continue;
+        if (twig < 0 || Math.abs(frame.radius[node] - 0.03) < Math.abs(frame.radius[twig] - 0.03)) twig = node;
+        if (limb < 0 || (tree.order[node] === 1 && frame.radius[node] > frame.radius[limb])) limb = node;
+      }
+      const drop = (loads) => { const bent = bendFrame(tree, frame, loads); return frame.y[loads[0]?.node ?? twig] - bent.y[loads[0]?.node ?? twig]; };
+      const still = bendFrame(tree, frame, []);
+      const same = [...frame.y].every((y, i) => y === still.y[i]);
+      const trunk = bendFrame(tree, frame, [{ node: twig, weight: 1 }]);
+      return [
+        same,
+        Math.abs(trunk.y[0] - frame.y[0]) < 1e-9,
+        drop([{ node: twig, weight: 0.01 }]) > drop([{ node: twig, weight: 0.001 }]),
+        drop([{ node: twig, weight: 0.01 }]) > drop([{ node: limb, weight: 0.01 }]),
+        drop([{ node: twig, weight: -0.001 }]) < 0,
+        drop([{ node: twig, weight: 0.001 }]) < 0.1,
+      ];
+    },
+    expect: [true, true, true, true, true, true],
+  },
+  {
     name: 'unknown species grow a cherry instead of failing',
     run: ({ growTree, speciesOf }) => [speciesOf('<script>').id, growTree({ species: 'nope', seed: 1, maxNodes: 80 }).count <= 80],
     expect: ['cherry', true],

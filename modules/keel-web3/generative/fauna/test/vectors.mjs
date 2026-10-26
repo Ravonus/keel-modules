@@ -96,4 +96,64 @@ export default [
     },
     expect: [true, true],
   },
+  {
+    name: 'a command sends an animal where it is told, its own way, and only the one named',
+    run: ({ castFor, createHerd }) => {
+      const cast = castFor({ seed: 7, region: 'rockies', world: 'nature', radius: 3, species: 'fox', group: 'pair' });
+      const herd = createHerd(cast);
+      const at = stage();
+      for (let t = 0; t < 4; t += 0.5) herd.at(t, at);
+      const sent = herd.command(4, { id: '0.0', to: { on: 'ground', x: 1.6, z: -1.2 } }, at);
+      let body = null;
+      for (let t = 4; t <= 30; t += 0.5) body = herd.at(t, at).find((each) => each.id === '0.0') ?? body;
+      const everyone = herd.command(30, { to: { on: 'ground', x: -1.5, z: 1 } }, at);
+      return [sent, Math.hypot(body.at[0] - 1.6, body.at[2] + 1.2) < 0.4, everyone.length];
+    },
+    expect: [['0.0'], true, 2],
+  },
+  {
+    name: 'a tap picks the animal it passes through, the nearest first, and nothing when it misses',
+    run: ({ castFor, createHerd, pickBody }) => {
+      const herd = createHerd(castFor({ seed: 7, region: 'rockies', world: 'nature', radius: 3, species: 'deer', group: 'pair' }));
+      const bodies = herd.at(5, stage());
+      const target = bodies[0];
+      const centre = target.capsules.find((c) => c.part === 'body')?.a ?? target.at;
+      const from = [centre[0], centre[1] + 10, centre[2]];
+      const hit = pickBody(bodies, from, [0, -1, 0]);
+      const miss = pickBody(bodies, [centre[0] + 50, 10, centre[2]], [0, -1, 0]);
+      return [hit?.id === target.id, miss];
+    },
+    expect: [true, null],
+  },
+  {
+    name: 'a climber keeps to the wood: up the trunk and out along the branch, bearing on the tree as it goes',
+    run: ({ castFor, createHerd }) => {
+      const path = [{ p: [0, 1.6, 0], r: 0.2 }, { p: [0.5, 1.9, 0], r: 0.1 }, { p: [1.1, 2.1, 0], r: 0.06 }];
+      const tree = { ...stage(), trunk: { base: [0, 0, 0], top: [0, 2.5, 0], r: 0.3 }, perches: [{ p: [1.1, 2.1, 0], d: [1, 0, 0], r: 0.06, path }] };
+      const herd = createHerd(castFor({ seed: 7, region: 'rockies', world: 'nature', radius: 3, species: 'monkey', group: 'solo' }));
+      herd.at(0, tree);
+      herd.command(0, { to: { on: 'perch', i: 0 } }, tree);
+      let worst = 0;
+      let bearing = 0;
+      let arrived = null;
+      for (let t = 0; t <= 40; t += 0.1) {
+        const body = herd.at(t, tree)[0];
+        if (body.action !== 'climb') { if (body.contact) arrived = body; continue; }
+        if (body.contact) bearing += 1;
+        const p = body.at;
+        const trunkGap = p[1] <= 1.6 ? Math.hypot(p[0], p[2]) - 0.3 : Infinity;
+        let limbGap = Infinity;
+        for (let k = 0; k + 1 < path.length; k += 1) {
+          const a = path[k].p;
+          const b = path[k + 1].p;
+          const ab = b.map((v, j) => v - a[j]);
+          const u = Math.max(0, Math.min(1, ab.reduce((sum, v, j) => sum + v * (p[j] - a[j]), 0) / ab.reduce((sum, v) => sum + v * v, 0)));
+          limbGap = Math.min(limbGap, Math.hypot(...p.map((v, j) => v - (a[j] + ab[j] * u))) - path[k].r);
+        }
+        if (p[1] > 0.3) worst = Math.max(worst, Math.min(Math.abs(trunkGap), Math.abs(limbGap)));
+      }
+      return [worst < 0.25, bearing > 10, arrived !== null && arrived.weight > 0];
+    },
+    expect: [true, true, true],
+  },
 ];

@@ -1062,6 +1062,78 @@ export function treeFrame(model: TreeModel, cycle: number, options: FrameOptions
   return { ...frame, visible, height };
 }
 
+// ---------------------------------------------------------------- bending
+
+/** Weight resting on a node of the tree (an animal on a branch), pulling it down. A negative weight lifts it, as a limb springs back past rest. */
+export interface Load {
+  readonly node: number;
+  readonly weight: number;
+}
+
+/** How far a branch sags under a load: sag = this × weight^0.6 ÷ radius^1.5 at the load. */
+export const WOOD_SAG = 0.0226;
+/** The most a branch sags, in world units, and as a share of its reach from the trunk. */
+const MOST_SAG = 0.5;
+const MOST_SAG_SHARE = 0.25;
+
+/**
+ * Every node's drop under one load. The limb it sits on, out from where it
+ * leaves the trunk, takes a cantilever's curve: flat at the trunk, steepest
+ * under the weight, which sags by the load over the wood's girth (a thin twig
+ * dips under a songbird, a limb under a monkey, the trunk not at all).
+ * Whatever grows from the limb rides along.
+ */
+function loadDrop(model: TreeModel, frame: TreeFrame, load: Load, drop: Float32Array, sag: number): void {
+  const chain: number[] = [];
+  for (let node = load.node; node > 0 && at(model.order, node) > 0; node = at(model.parent, node)) chain.push(node);
+  chain.reverse();
+  const lengths = chain.map((node) => Math.hypot(at(frame.x, node) - at(frame.baseX, node), at(frame.y, node) - at(frame.baseY, node), at(frame.z, node) - at(frame.baseZ, node)));
+  const reach = lengths.reduce((sum, value) => sum + value, 0);
+  if (reach <= 0) return;
+  const radius = Math.max(at(frame.radius, load.node), 0.01);
+  const most = Math.sign(load.weight) * Math.min((sag * Math.abs(load.weight) ** 0.6) / radius ** 1.5, MOST_SAG, reach * MOST_SAG_SHARE);
+  const own = new Float32Array(model.count);
+  const marked = new Uint8Array(model.count);
+  let s = 0;
+  chain.forEach((node, index) => {
+    s += lengths[index] ?? 0;
+    const k = s / reach;
+    own[node] = (most * k * k * (3 - k)) / 2;
+    marked[node] = 1;
+  });
+  for (let node = 1; node < model.count; node += 1) {
+    if (!marked[node]) own[node] = own[at(model.parent, node)] ?? 0;
+    drop[node] = (drop[node] ?? 0) + (own[node] ?? 0);
+  }
+}
+
+/**
+ * The frame with branches bent under `loads`: a bird's twig dips, a monkey's
+ * limb sags, the trunk hardly moves. Pass `out` from the last call to reuse
+ * its arrays (the same object comes back, so a renderer can tell it is the
+ * same pose); everything but the positions is shared with `frame`.
+ */
+export function bendFrame(model: TreeModel, frame: TreeFrame, loads: readonly Load[], out?: TreeFrame, sag = WOOD_SAG): TreeFrame {
+  const target = out ?? { ...frame, x: new Float32Array(frame.x), y: new Float32Array(frame.y), z: new Float32Array(frame.z), baseX: new Float32Array(frame.baseX), baseY: new Float32Array(frame.baseY), baseZ: new Float32Array(frame.baseZ) };
+  target.x.set(frame.x);
+  target.z.set(frame.z);
+  target.baseX.set(frame.baseX);
+  target.baseZ.set(frame.baseZ);
+  if (loads.length === 0) {
+    target.y.set(frame.y);
+    target.baseY.set(frame.baseY);
+    return target;
+  }
+  const drop = new Float32Array(model.count);
+  for (const load of loads) if (load.weight !== 0 && load.node > 0 && load.node < model.count) loadDrop(model, frame, load, drop, sag);
+  for (let node = 0; node < model.count; node += 1) {
+    target.y[node] = at(frame.y, node) - at(drop, node);
+    const parent = at(model.parent, node);
+    target.baseY[node] = at(frame.baseY, node) - (parent >= 0 ? at(drop, parent) : 0);
+  }
+  return target;
+}
+
 // ---------------------------------------------------------------- the year
 
 export type Climate = "temperate" | "maritime" | "alpine" | "monsoon" | "highland" | "desert";

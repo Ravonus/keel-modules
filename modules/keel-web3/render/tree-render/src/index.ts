@@ -260,43 +260,73 @@ export function seededRandom(seed: number): () => number {
 
 export interface Offset { x: number; z: number }
 
+/** The breeze at a moment: how hard it blows (0 is dead calm), and the way it blows toward, in radians from +x toward +z. */
+export interface Breeze { readonly wind: number; readonly dir: number }
+
+/**
+ * A breeze that lives: it freshens and slackens over a minute or two, its
+ * direction wanders slowly about the way it prevails, and now and then
+ * (rarely) it dies away to nothing for a while. `base` is the weather's
+ * usual strength; the same seed and time always give the same breeze.
+ */
+export function breezeAt(elapsed: number, base: number, seed = 0): Breeze {
+  const s = (seed % 9973) * 0.731;
+  const t = elapsed;
+  // Freshening and slackening: mostly between half and all of the weather's strength.
+  const mood = 0.5 + 0.5 * (0.6 * Math.sin(t * 0.047 + s) + 0.4 * Math.sin(t * 0.113 + s * 1.7));
+  // A dead calm comes only when two slow swells line up, a few minutes in an hour.
+  const still = Math.sin(t * 0.0093 + s * 2.3) * Math.sin(t * 0.0151 + s * 3.1);
+  const calm = 1 - smoothstep(0.72, 0.86, still);
+  const wind = Math.max(0, base * (0.35 + 0.75 * mood) * calm);
+  const dir = (s % TAU) + 0.45 * Math.sin(t * 0.013 + s) + 0.2 * Math.sin(t * 0.041 + s * 0.6);
+  return { wind, dir };
+}
+
+/** How strongly a gust is passing over a point `along` the wind, at a time. */
+const gustAt = (elapsed: number, along: number): number => {
+  const front = elapsed * 0.5 - along * 0.22;
+  return Math.max(0, Math.sin(front) * Math.sin(front * 0.43 + 1.7)) ** 2;
+};
+
 /**
  * Wind bends the tree as one smooth field over space, so a joint moves exactly
  * as both internodes that meet there: the branches flex and never come apart.
- * Gusts roll through from upwind, the crown breathes even in still air, and
- * limbs far from the trunk whip harder than the core.
+ * The crown leans downwind, more as each gust rolls through from upwind and
+ * eases back after it; limbs far from the trunk give a little more. In still
+ * air it only breathes.
  */
-export function sway(out: Offset, x: number, y: number, z: number, elapsed: number, wind: number, height: number): Offset {
+export function sway(out: Offset, x: number, y: number, z: number, elapsed: number, wind: number, height: number, dir = 0): Offset {
   const reach = clamp(y / Math.max(height, 1), 0, 1.4);
   const spread = Math.min(Math.hypot(x, z) / Math.max(height * 0.5, 0.5), 1.5);
-  const front = elapsed * 0.55 - x * 0.18;
-  const gust = Math.max(0, Math.sin(front) * Math.sin(front * 0.43 + 1.7)) ** 2;
-  const push = wind * (0.55 + 1.1 * gust);
-  const bend = push * reach * reach * 0.32;
-  const idle = 0.018 * reach * (Math.sin(elapsed * 0.7 + y * 0.3) + 0.6 * Math.sin(elapsed * 1.13 + 2.1));
-  const whip = (wind * 0.06 + 0.012) * reach * (0.4 + spread);
-  out.x = bend * (0.65 + 0.35 * Math.sin(elapsed * 1.3 + z * 0.4)) + idle
-    + whip * (Math.sin(elapsed * 3.1 + x * 2.1 + y * 1.3) + gust * 0.8 * Math.sin(elapsed * 5.3 + z * 3.1));
-  out.z = bend * 0.35 * Math.sin(elapsed * 0.9 + x * 0.5) + idle * 0.7 * Math.cos(elapsed * 0.83 + x * 0.4)
-    + whip * 0.85 * (Math.cos(elapsed * 2.7 + z * 1.9 + y) + gust * 0.8 * Math.cos(elapsed * 4.7 + x * 2.9));
+  const dx = Math.cos(dir);
+  const dz = Math.sin(dir);
+  const along = x * dx + z * dz;
+  const gust = gustAt(elapsed, along);
+  // The lean: always downwind, steady with the breeze and swelling with the gust.
+  const lean = wind * (0.5 + 1.0 * gust) * reach * reach * 0.3 * (1 + 0.15 * Math.sin(elapsed * 0.9 + along * 0.4));
+  // Small give in the outer twigs, quick and short, mostly along the wind.
+  const flick = (wind * 0.022 + 0.003) * reach * (0.3 + spread) * (Math.sin(elapsed * 2.2 + x * 2.1 + y * 1.3) * (0.4 + gust) + 0.5 * gust);
+  const across = flick * 0.35 * Math.cos(elapsed * 1.7 + z * 1.9 + y);
+  const idle = 0.014 * reach * (Math.sin(elapsed * 0.6 + y * 0.3) + 0.6 * Math.sin(elapsed * 0.97 + 2.1)) * (1 - Math.min(1, wind * 3) * 0.5);
+  const downwind = lean + flick;
+  out.x = dx * downwind - dz * across + idle;
+  out.z = dz * downwind + dx * across + idle * 0.7 * Math.cos(elapsed * 0.83 + x * 0.4);
   return out;
 }
 
 export interface Flutter { readonly droop: number; readonly twist: number; readonly nod: number }
 
 /**
- * How a leaf moves on its own, in radians. Even in still air every leaf idles
- * a little on its own phase; wind adds a quick flutter and a gusting twist that
- * shows the paler underside.
+ * How a leaf moves on its own, in radians. In still air it barely stirs; a
+ * breeze sets it trembling a little, and a passing gust lifts and flips it to
+ * show the paler underside before it settles back.
  */
-export function leafFlutter(elapsed: number, wind: number, rank: number, phase: number): Flutter {
-  const idle = 0.07 * Math.sin(elapsed * 0.9 + rank * 31) + 0.04 * Math.sin(elapsed * 2.3 + rank * 57);
-  const shimmer = 0.06 * Math.sin(elapsed * (4.5 + rank * 3) + rank * 23);
-  const front = elapsed * 0.55 + phase * 2.1;
-  const gust = Math.max(0, Math.sin(front) * Math.sin(front * 0.43 + 1.7)) ** 2;
-  const flutter = wind * (0.45 + 1.2 * gust) * Math.sin(elapsed * (7 + rank * 5) + rank * 40);
-  const flip = wind * gust * 1.4 * (0.5 + 0.5 * Math.sin(elapsed * 2.2 + rank * 19));
-  return { droop: 0.35 + 0.25 * rank + idle - flip * 0.25, twist: rank * TAU * 0.25 + flutter * 1.1 + shimmer + flip, nod: idle * 1.5 + flutter * 0.45 + shimmer * 0.5 };
+export function leafFlutter(elapsed: number, wind: number, rank: number, phase: number, along = phase * 2.1): Flutter {
+  const idle = 0.035 * Math.sin(elapsed * 0.8 + rank * 31) + 0.02 * Math.sin(elapsed * 1.9 + rank * 57);
+  const gust = gustAt(elapsed, along);
+  const tremble = wind * (0.12 + 0.45 * gust) * Math.sin(elapsed * (6 + rank * 4) + rank * 40);
+  const flip = wind * gust * 1.6 * (0.6 + 0.4 * Math.sin(elapsed * 1.6 + rank * 19));
+  return { droop: 0.35 + 0.25 * rank + idle - flip * 0.3, twist: rank * TAU * 0.25 + tremble * 0.8 + flip, nod: idle * 1.5 + tremble * 0.35 };
 }
 
 // ---------------------------------------------------------------- instance matrices (column-major, written in place)
@@ -752,6 +782,8 @@ export interface TreeMotion {
   readonly elapsed: number;
   readonly delta?: number;
   readonly wind: number;
+  /** The way the wind blows toward, in radians from +x toward +z (see `breezeAt`). */
+  readonly windDir?: number;
   readonly dead?: boolean;
   readonly snow?: number;
   readonly snowed?: boolean;
@@ -887,8 +919,8 @@ function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): void {
     const a: [number, number, number] = [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)];
     const b: [number, number, number] = [at(frame.x, node), at(frame.y, node), at(frame.z, node)];
     if (!fallen) {
-      sway(offset, a[0], a[1], a[2], motion.elapsed, wind, height);
-      sway(swayB, b[0], b[1], b[2], motion.elapsed, wind, height);
+      sway(offset, a[0], a[1], a[2], motion.elapsed, wind, height, motion.windDir);
+      sway(swayB, b[0], b[1], b[2], motion.elapsed, wind, height, motion.windDir);
       a[0] += offset.x; a[2] += offset.z; b[0] += swayB.x; b[2] += swayB.z;
     }
     writeSegment(array, node, a, b, radius);
@@ -956,8 +988,12 @@ interface LeafPass {
   readonly spread: number;
   readonly bare: boolean;
   readonly wind: number;
+  readonly dir: number;
   readonly elapsed: number;
 }
+
+/** How far downwind a point is, so a gust reaches it in turn. */
+const downwind = (pass: LeafPass, x: number, z: number): number => x * Math.cos(pass.dir) + z * Math.sin(pass.dir);
 
 /** A blade grows from its twig: the stalk sits on the twig and the blade points out along its slot, so no leaf hangs in the air. */
 function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPass, leafSize: number, swing: number): void {
@@ -975,9 +1011,9 @@ function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const x = at(frame.x, node) + n[0] * out;
   const y = at(frame.y, node) + n[1] * out;
   const z = at(frame.z, node) + n[2] * out;
-  sway(tree.offset, x, y, z, pass.elapsed, pass.wind, pass.height);
+  sway(tree.offset, x, y, z, pass.elapsed, pass.wind, pass.height, pass.dir);
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
-  const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node));
+  const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, x, z));
   writeBlade(pass.array, index, [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4], n, leafSize * 1.9, motion);
 }
 
@@ -999,8 +1035,8 @@ function poseSprig(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const { p, n } = sprigPlace(frame, slots, index);
-  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.wind, pass.height);
-  const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node));
+  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.wind, pass.height, pass.dir);
+  const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, p[0], p[2]));
   const stiff = { droop: motion.droop * 0.12, twist: at(slots.rank, index) * TAU + motion.twist * 0.2, nod: motion.nod * 0.3 };
   writeBlade(pass.array, index, [p[0] + tree.offset.x + swing * 0.3, p[1], p[2] + tree.offset.z + swing * 0.12], n, leafSize * 1.9, stiff);
 }
@@ -1012,9 +1048,11 @@ function poseLump(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPas
   const x = at(frame.x, node) + at(slots.dx, index) * pass.spread;
   const y = at(frame.y, node) + at(slots.dy, index) * pass.spread;
   const z = at(frame.z, node) + at(slots.dz, index) * pass.spread;
-  sway(tree.offset, x, y, z, pass.elapsed, pass.wind, pass.height);
-  const flutter = pass.wind * 0.025 * Math.sin(pass.elapsed * 6.3 + rank * 40);
-  writeVoxel(pass.array, index, x + tree.offset.x + flutter + swing, y + flutter * 0.4, z + tree.offset.z + swing * 0.4, leafSize, rank * TAU + flutter * 6);
+  sway(tree.offset, x, y, z, pass.elapsed, pass.wind, pass.height, pass.dir);
+  const flutter = pass.wind * 0.012 * Math.sin(pass.elapsed * 6.3 + rank * 40);
+  const fx = flutter * Math.cos(pass.dir);
+  const fz = flutter * Math.sin(pass.dir);
+  writeVoxel(pass.array, index, x + tree.offset.x + fx + swing * Math.cos(pass.dir), y + flutter * 0.4, z + tree.offset.z + fz + swing * Math.sin(pass.dir), leafSize, rank * TAU + flutter * 6);
 }
 
 function leafShows(tree: Tree, frame: TreeFrameLike, year: YearLike, index: number, leafy: boolean): boolean {
@@ -1028,7 +1066,7 @@ function leafPass(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: Y
   return {
     array: mesh.instanceMatrix.array, height: Math.max(frame.height, 0.5), bare,
     size: tree.colors.leafScale * (seedling ? 0.8 : 1) * (tree.skin?.leafSize ?? 1),
-    spread: bare ? 0.15 : 0.35 + 0.65 * year.leaf, wind: tree.features.sway ? motion.wind : 0, elapsed: motion.elapsed,
+    spread: bare ? 0.15 : 0.35 + 0.65 * year.leaf, wind: tree.features.sway ? motion.wind : 0, dir: motion.windDir ?? 0, elapsed: motion.elapsed,
   };
 }
 
@@ -1145,6 +1183,13 @@ function ornamentSet(tree: Pick<Tree, "lit" | "group" | "model" | "features">, n
 
 // Flowers and fruit hang from the nodes that bear them, open or ripen each in
 // its own turn, and fall in rank order like the leaves.
+/** Hanging fruit swings on its stalk, mostly with the wind; fruit that sits up does not. */
+function hangSwing(lift: number, wind: number, motion: TreeMotion, rank: number): Offset {
+  const swing = lift < 0 ? wind * 0.04 * (0.6 + Math.sin(motion.elapsed * 2.1 + rank * 30)) : 0;
+  const dir = motion.windDir ?? 0;
+  return { x: swing * Math.cos(dir), z: swing * Math.sin(dir) };
+}
+
 function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
   const { spec, slots, mesh, look } = set;
   const { open, fallen } = ornamentState(set, year);
@@ -1161,9 +1206,9 @@ function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year:
     const x = at(frame.x, node) + at(slots.dx, index);
     const z = at(frame.z, node) + at(slots.dz, index);
     const y = at(frame.y, node) + at(slots.dy, index) * 0.5 + look.lift * unit;
-    sway(tree.offset, x, y, z, motion.elapsed, wind, height);
-    const swing = look.lift < 0 ? wind * 0.06 * Math.sin(motion.elapsed * 2.1 + rank * 30) : 0;
-    writeBox(array, index, x + tree.offset.x + swing, y, z + tree.offset.z, look.size[0] * unit, look.size[1] * unit, look.size[2] * unit, rank * TAU);
+    sway(tree.offset, x, y, z, motion.elapsed, wind, height, motion.windDir);
+    const swing = hangSwing(look.lift, wind, motion, rank);
+    writeBox(array, index, x + tree.offset.x + swing.x, y, z + tree.offset.z + swing.z, look.size[0] * unit, look.size[1] * unit, look.size[2] * unit, rank * TAU);
   }
   mesh.instanceMatrix.needsUpdate = true;
 }
@@ -1319,7 +1364,7 @@ function poseSnow(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, motion:
     const mx = (at(frame.x, node) + at(frame.baseX, node)) / 2;
     const my = (at(frame.y, node) + at(frame.baseY, node)) / 2;
     const mz = (at(frame.z, node) + at(frame.baseZ, node)) / 2;
-    sway(tree.offset, mx, my, mz, motion.elapsed, at(frame.fall, node) > 0 ? 0 : wind, height);
+    sway(tree.offset, mx, my, mz, motion.elapsed, at(frame.fall, node) > 0 ? 0 : wind, height, motion.windDir);
     writeBox(array, node, mx + tree.offset.x, my + radius + depth / 2, mz + tree.offset.z, radius * 2.1, depth, level + radius, Math.atan2(dx, dz));
   }
   mesh.instanceMatrix.needsUpdate = true;
@@ -1406,13 +1451,15 @@ function fallFront(tree: Tree, year: YearLike, kind: Faller["kind"]): number {
   return set ? ornamentState(set, year).fallen : 1;
 }
 
-function moveFaller(tree: Tree, faller: Faller, elapsed: number, delta: number, wind: number): void {
+function moveFaller(tree: Tree, faller: Faller, elapsed: number, delta: number, wind: number, dir = 0): void {
   if (faller.landed) return;
-  // Heavy fruit drops nearly straight; leaves and petals flutter and drift.
+  // Heavy fruit drops nearly straight; leaves and petals flutter and drift downwind.
   const drift = faller.speed > 1.5 ? 0.15 : 1;
   const flutter = Math.sin(elapsed * 2.4 + faller.phase);
-  faller.vx += ((wind * 0.9 + flutter * 0.4) * drift - faller.vx) * delta;
-  faller.vz += (Math.cos(elapsed * 1.7 + faller.phase) * 0.4 * drift - faller.vz) * delta;
+  const side = Math.cos(elapsed * 1.7 + faller.phase) * 0.3;
+  const push = wind * 1.4 + flutter * 0.2;
+  faller.vx += ((push * Math.cos(dir) - side * Math.sin(dir)) * drift - faller.vx) * delta;
+  faller.vz += ((push * Math.sin(dir) + side * Math.cos(dir)) * drift - faller.vz) * delta;
   faller.x += faller.vx * delta;
   faller.z += faller.vz * delta;
   faller.y -= delta * faller.speed * (drift < 1 ? 1 : 0.7 + 0.3 * Math.abs(flutter));
@@ -1461,7 +1508,7 @@ function drawFallers(tree: Tree, falling: InstancedLike, fallingLeaves: Instance
     clearSlot(array, slot);
     clearSlot(leafArray, slot);
     if (faller === undefined) continue;
-    moveFaller(tree, faller, motion.elapsed, motion.delta ?? 0, motion.wind);
+    moveFaller(tree, faller, motion.elapsed, motion.delta ?? 0, motion.wind, motion.windDir);
     drawFaller(tree, faller, slot, tree.blades && faller.kind === "leaf" ? fallingLeaves : falling, motion.elapsed);
   }
   for (const mesh of [falling, fallingLeaves]) {

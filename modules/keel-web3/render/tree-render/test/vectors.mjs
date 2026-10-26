@@ -93,4 +93,37 @@ export default [
     },
     expect: [true, true, true, true, true],
   },
+  {
+    name: 'the breeze rises and falls, wanders slowly in direction, and only rarely dies to a calm',
+    run: ({ breezeAt }) => {
+      const samples = Array.from({ length: 7200 }, (_, k) => breezeAt(k * 2, 0.4, 7));
+      const calm = samples.filter((b) => b.wind < 0.01).length / samples.length;
+      const strongest = Math.max(...samples.map((b) => b.wind));
+      const weakest = Math.min(...samples.filter((b) => b.wind >= 0.01).map((b) => b.wind));
+      const turn = Math.max(...samples.slice(1).map((b, k) => Math.abs(b.dir - samples[k].dir)));
+      const again = breezeAt(1234, 0.4, 7);
+      return [calm > 0 && calm < 0.1, strongest > weakest * 2, turn < 0.05, again.wind === breezeAt(1234, 0.4, 7).wind];
+    },
+    expect: [true, true, true, true],
+  },
+  {
+    name: 'a tree leans downwind, whichever way the wind blows, and stands still in a calm but for breathing',
+    run: ({ sway }) => {
+      const lean = (dir, wind) => {
+        let along = 0;
+        let across = 0;
+        for (let t = 0; t < 60; t += 0.25) {
+          const o = sway({ x: 0, z: 0 }, 0.5, 6, 0.3, t, wind, 6, dir);
+          along += o.x * Math.cos(dir) + o.z * Math.sin(dir);
+          across += Math.abs(-o.x * Math.sin(dir) + o.z * Math.cos(dir));
+        }
+        return { along, across };
+      };
+      const east = lean(0, 0.4);
+      const north = lean(Math.PI / 2, 0.4);
+      const still = lean(0, 0);
+      return [east.along > east.across * 2, north.along > north.across * 2, Math.abs(still.along) < east.along * 0.1];
+    },
+    expect: [true, true, true],
+  },
 ];

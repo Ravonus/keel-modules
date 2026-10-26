@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "sdf-body",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Smooth bodies from capsule parts for keel/lit: each body's parts melt into one signed-distance surface, raymarched in its bounding box with true depth, role palettes, crisp eyes, self-lit glow and shadow proxies. Draws the fauna module's animals, or anything posed as capsules.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "blend", "label": "Melt", "type": "number", "required": false, "min": 0, "max": 1.5, "step": 0.05, "control": "slider", "help": "How far parts melt into each other, as a share of their mean thickness.", "default": 0.6 },
+    { "key": "shadows", "label": "Cast shadows", "type": "boolean", "required": false, "default": true }
+  ]
+}

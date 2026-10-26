@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "Dithered voxel pixel art for Three.js scenes: integer pixel grids, depth-banded dither screens, palettes, outlines and cel light.",
+  "summary": "Dithered voxel pixel art for keel/lit stages: integer pixel grids, depth-banded dither screens, palettes, outlines and cel light.",
   "category": "render",
   "owner": { "org": "keel-web3", "group": "graphics" },
   "inputs": [

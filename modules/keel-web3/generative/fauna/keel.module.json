@@ -1,0 +1,35 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "fauna",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Rare, seeded animal life: 32 species that cast by region, world and season, idle through a Markov matrix of actions, act together in joint scenes, climb trees and fly, posed each frame as capsule parts any renderer can draw. Sky flocks and planes included. Deterministic and renderer-free.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" },
+  "inputs": [
+    { "key": "species", "label": "Animals", "type": "select", "required": false, "options": [
+      { "value": "seed", "label": "Seed's roll" },
+      { "value": "none", "label": "None" },
+      { "value": "rabbit", "label": "Rabbit" }, { "value": "fox", "label": "Fox" }, { "value": "deer", "label": "Deer" },
+      { "value": "wolf", "label": "Wolf" }, { "value": "bear", "label": "Bear" }, { "value": "raccoon", "label": "Raccoon" },
+      { "value": "cat", "label": "Cat" }, { "value": "hedgehog", "label": "Hedgehog" }, { "value": "mouse", "label": "Mouse" },
+      { "value": "capybara", "label": "Capybara" }, { "value": "kangaroo", "label": "Kangaroo" }, { "value": "tortoise", "label": "Tortoise" },
+      { "value": "meerkat", "label": "Meerkat" }, { "value": "squirrel", "label": "Squirrel" }, { "value": "redpanda", "label": "Red panda" },
+      { "value": "koala", "label": "Koala" }, { "value": "macaque", "label": "Macaque" }, { "value": "monkey", "label": "Monkey" },
+      { "value": "sloth", "label": "Sloth" }, { "value": "songbird", "label": "Songbird" }, { "value": "crow", "label": "Crow" },
+      { "value": "owl", "label": "Owl" }, { "value": "parrot", "label": "Parrot" }, { "value": "gull", "label": "Gull" },
+      { "value": "peacock", "label": "Peacock" }, { "value": "crane", "label": "Crane" }, { "value": "woodpecker", "label": "Woodpecker" },
+      { "value": "snake", "label": "Snake" }, { "value": "gecko", "label": "Gecko" }, { "value": "butterfly", "label": "Butterflies" },
+      { "value": "firefly", "label": "Fireflies" }, { "value": "crab", "label": "Crab" }
+    ], "default": "seed" },
+    { "key": "group", "label": "Company", "type": "select", "required": false, "options": [
+      { "value": "seed", "label": "Seed's roll" },
+      { "value": "solo", "label": "Alone" },
+      { "value": "pair", "label": "Pair" },
+      { "value": "family", "label": "Parent and young" },
+      { "value": "pack", "label": "Pack or flock" },
+      { "value": "mixed", "label": "Mixed company" }
+    ], "default": "seed" }
+  ]
+}

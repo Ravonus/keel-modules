@@ -12,7 +12,7 @@
 
 // ---------------------------------------------------------------- species
 
-export type SpeciesId = "cherry" | "oak" | "pine" | "birch" | "willow" | "acacia" | "palm";
+export type SpeciesId = "cherry" | "oak" | "pine" | "birch" | "willow" | "acacia" | "palm" | "spruce" | "redwood" | "maple" | "jacaranda" | "baobab";
 export type Hemisphere = "north" | "south" | "equatorial";
 
 /**
@@ -34,7 +34,7 @@ export interface PhenologySpec {
   readonly marcescent: number;
 }
 
-export type OrnamentKind = "blossom" | "catkin" | "candle" | "puff" | "spadix" | "cherry" | "acorn" | "cone" | "pod" | "coconut";
+export type OrnamentKind = "blossom" | "catkin" | "candle" | "puff" | "spadix" | "cherry" | "acorn" | "cone" | "pod" | "coconut" | "samara" | "bell" | "gourd";
 
 /** Flowers or fruit: what they are, where they grow and when. */
 export interface OrnamentSpec {
@@ -46,6 +46,8 @@ export interface OrnamentSpec {
   readonly window: readonly [number, number, number, number];
   /** First growth cycle at which the tree is old enough to bear them. */
   readonly from: number;
+  /** Only above this share of the grown height (spruce cones hang from the top tiers). */
+  readonly above?: number;
 }
 
 /**
@@ -100,8 +102,12 @@ export interface Species {
   readonly flat: number;
   /** Share of the current height kept clear of side shoots on the trunk. */
   readonly crownAt: number;
+  /** Self-pruning: limbs on the trunk below this share of the height die and drop as the tree rises (redwood). */
+  readonly lift?: number;
   /** Widest crown radius as a share of the tree's height; light fades past it. */
   readonly spread: number;
+  /** How far that reach narrows toward the top: 0 keeps it, 1 closes it to a spire (spruce, redwood). */
+  readonly cone?: number;
   /** Height, in internodes, where the leader gives up and the crown spreads flat. */
   readonly ceiling: number;
   /** Average bud light under which a branch starves and dies. */
@@ -150,10 +156,11 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
     evergreen: false, palm: null, radiusTip: 0.027, pipe: 2.65,
     phenology: { ...DECIDUOUS, leaf: [112, 146], color: [268, 304], drop: [290, 334], marcescent: 0.22 },
   },
+  // Pine: a tall bare trunk that sheds its lower limbs, under an open, uneven crown of upturned boughs.
   pine: {
-    id: "pine", cycles: 28, height: 11.2, apical: 0.82, vigor: 2, maxShoot: 3, sideShoot: 2, angle: 72, divergence: 137.5, whorl: 5,
-    straight: 1.1, light: 0.22, up: 1.3, lateralUp: -0.06, weep: 0.04, flat: 0.45, spread: 0.36, crownAt: 0.14, ceiling: Infinity, shed: 0.15,
-    leafSlots: 5, leafSpread: 0.3, hang: 0, flower: { kind: "candle", on: "tip", perNode: 1, window: [112, 134, 158, 176], from: 2 }, fruit: { kind: "cone", on: "spur", perNode: 1, window: [140, 250, 330, 420], from: 6 },
+    id: "pine", cycles: 28, height: 11.2, apical: 0.7, vigor: 2.1, maxShoot: 3, sideShoot: 2, angle: 66, divergence: 137.5, whorl: 4,
+    straight: 1, light: 0.3, up: 1.1, lateralUp: 0.06, weep: 0, flat: 0.38, spread: 0.52, crownAt: 0.3, lift: 0.28, ceiling: Infinity, shed: 0.18,
+    leafSlots: 3, leafSpread: 0.3, hang: 0, flower: { kind: "candle", on: "tip", perNode: 1, window: [112, 134, 158, 176], from: 2 }, fruit: { kind: "cone", on: "spur", perNode: 1, window: [140, 250, 330, 420], from: 6 },
     evergreen: true, palm: null, radiusTip: 0.023, pipe: 2.85,
     phenology: { leaf: [60, 61], color: [262, 300], drop: [270, 310], dropMax: 0.14, flush: [126, 176], marcescent: 0 },
   },
@@ -184,6 +191,46 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
     leafSlots: 16, leafSpread: 0.62, hang: 0.4, flower: { kind: "spadix", on: "spur", perNode: 2, window: [100, 128, 150, 176], from: 5 }, fruit: { kind: "coconut", on: "spur", perNode: 3, window: [60, 61, 400, 424], from: 6 },
     evergreen: true, palm: { fronds: 4, frond: 17, frondLife: 2.6, trunk: 0.24, lean: 0.45 }, radiusTip: 0.02, pipe: 2.5,
     phenology: { leaf: [60, 61], color: [300, 330], drop: [300, 340], dropMax: 0.08, flush: [120, 170], marcescent: 0 },
+  },
+  // Blue spruce: a dense spire of flat whorls down to the ground, cones hanging from the top tiers.
+  spruce: {
+    id: "spruce", cycles: 30, height: 10.4, apical: 0.86, vigor: 2, maxShoot: 3, sideShoot: 2, angle: 78, divergence: 137.5, whorl: 6,
+    straight: 1.1, light: 0.18, up: 1.6, lateralUp: -0.08, weep: 0.12, flat: 0.62, spread: 0.34, cone: 0.97, crownAt: 0, ceiling: Infinity, shed: 0.05,
+    leafSlots: 3, leafSpread: 0.32, hang: 0, flower: { kind: "candle", on: "tip", perNode: 1, window: [118, 136, 150, 166], from: 3 }, fruit: { kind: "cone", on: "spur", perNode: 1, window: [150, 250, 320, 400], from: 7, above: 0.7 },
+    evergreen: true, palm: null, radiusTip: 0.022, pipe: 2.8,
+    phenology: { leaf: [60, 61], color: [262, 300], drop: [270, 310], dropMax: 0.1, flush: [130, 178], marcescent: 0 },
+  },
+  // Redwood: a towering straight column, bare below, short drooping limbs that turn up at the tips.
+  redwood: {
+    id: "redwood", cycles: 34, height: 15, apical: 0.9, vigor: 2.5, maxShoot: 3, sideShoot: 2, angle: 82, divergence: 137.5, whorl: 0,
+    straight: 1.2, light: 0.16, up: 1.7, lateralUp: -0.22, weep: -0.16, flat: 0.3, spread: 0.16, cone: 0.7, crownAt: 0.42, lift: 0.4, ceiling: Infinity, shed: 0.16,
+    leafSlots: 6, leafSpread: 0.24, hang: 0, flower: null, fruit: { kind: "cone", on: "tip", perNode: 1, window: [120, 230, 300, 380], from: 8 },
+    evergreen: true, palm: null, radiusTip: 0.03, pipe: 1.85,
+    phenology: { leaf: [60, 61], color: [262, 300], drop: [270, 310], dropMax: 0.12, flush: [128, 176], marcescent: 0 },
+  },
+  // Maple: a full round crown on paired buds, gold flowers before the leaves, winged keys that spin down in autumn.
+  maple: {
+    id: "maple", cycles: 28, height: 9.4, apical: 0.48, vigor: 2.2, maxShoot: 3, sideShoot: 3, angle: 42, divergence: 90, whorl: 0,
+    straight: 1, light: 0.4, up: 0.42, lateralUp: 0.14, weep: 0.02, flat: 0.1, spread: 0.52, crownAt: 0.26, ceiling: Infinity, shed: 0.2,
+    leafSlots: 5, leafSpread: 0.36, hang: 0, flower: { kind: "puff", on: "tip", perNode: 1, window: [76, 88, 98, 110], from: 5 }, fruit: { kind: "samara", on: "tip", perNode: 2, window: [112, 170, 256, 300], from: 6 },
+    evergreen: false, palm: null, radiusTip: 0.025, pipe: 2.7,
+    phenology: { ...DECIDUOUS, leaf: [104, 134], color: [250, 282], drop: [272, 308] },
+  },
+  // Jacaranda: a wide, open vase that thins in late winter and fills with violet bells late in spring.
+  jacaranda: {
+    id: "jacaranda", cycles: 22, height: 8.4, apical: 0.42, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 46, divergence: 137.5, whorl: 0,
+    straight: 0.9, light: 0.36, up: 0.5, lateralUp: 0.22, weep: 0.06, flat: 0.3, spread: 0.6, crownAt: 0.36, ceiling: 18, shed: 0.18,
+    leafSlots: 5, leafSpread: 0.34, hang: 0, flower: { kind: "blossom", on: "tip", perNode: 3, window: [104, 118, 138, 158], from: 4 }, fruit: { kind: "pod", on: "tip", perNode: 1, window: [150, 210, 340, 410], from: 5 },
+    evergreen: false, palm: null, radiusTip: 0.024, pipe: 2.6,
+    phenology: { leaf: [60, 61], color: [326, 356], drop: [338, 376], dropMax: 0.6, flush: [124, 164], marcescent: 0 },
+  },
+  // Baobab: a swollen bottle trunk under a flat tangle of stubby limbs, bare for a long dry season.
+  baobab: {
+    id: "baobab", cycles: 30, height: 8.2, apical: 0.36, vigor: 2.2, maxShoot: 2, sideShoot: 2, angle: 54, divergence: 137.5, whorl: 0,
+    straight: 0.9, light: 0.3, up: 0.6, lateralUp: 0.34, weep: 0, flat: 0.34, spread: 0.46, crownAt: 0.6, ceiling: 13, shed: 0.16,
+    leafSlots: 3, leafSpread: 0.32, hang: 0, flower: { kind: "bell", on: "tip", perNode: 1, window: [128, 142, 150, 166], from: 6 }, fruit: { kind: "gourd", on: "tip", perNode: 1, window: [150, 230, 340, 420], from: 8 },
+    evergreen: false, palm: null, radiusTip: 0.03, pipe: 2.05,
+    phenology: { ...DECIDUOUS, leaf: [122, 150], color: [252, 282], drop: [262, 296] },
   },
 };
 
@@ -410,11 +457,17 @@ function growShoot(sim: Sim, bud: Bud, count: number, cycle: number): void {
   if (node !== bud.node) addBud(sim, node, heading, true);
 }
 
+/** The crown's reach at height y. A conifer's narrows up the tree, so the crown closes to a spire. */
+function crownReach(sim: Sim, y: number): number {
+  const cone = sim.species.cone ?? 0;
+  return sim.species.spread * Math.max(sim.height, 6) * (1 - cone * clamp01(y / Math.max(sim.height, 1))) + 0.6 * cone;
+}
+
 /** Light seen by every bud, then gathered down the branches (basipetal). */
 function gatherLight(sim: Sim, light: number[], budCount: number[]): void {
-  const reach = sim.species.spread * Math.max(sim.height, 6);
   for (const bud of sim.buds) {
     const at = sim.pos[bud.node] ?? vec(0, 0, 0);
+    const reach = crownReach(sim, at.y);
     // Past the species' crown spread the light fades, so a big crown fills in
     // rather than sprawling sideways.
     const envelope = clamp01(1 - (Math.hypot(at.x, at.z) - reach) / 1.5);
@@ -502,6 +555,16 @@ function prune(sim: Sim, light: number[], budCount: number[], cycle: number, thr
   }
 }
 
+/** A tall conifer sheds the old limbs low on its trunk as it rises, a few each cycle. */
+function liftCrown(sim: Sim, cycle: number): void {
+  const below = (sim.species.lift ?? 0) * sim.height;
+  if (below <= 0) return;
+  for (let node = 1; node < sim.pos.length; node += 1) {
+    if (at(sim.order, node) !== 1 || at(sim.order, at(sim.parent, node)) !== 0 || at(sim.deadAt, node) !== Infinity) continue;
+    if ((sim.pos[node]?.y ?? 0) < below && sim.random() < 0.5) killBranch(sim, node, cycle);
+  }
+}
+
 /** Buds on the bare lower trunk never break: the crown lifts as the tree grows. */
 function clearTrunk(sim: Sim): void {
   const clear = sim.species.crownAt * sim.height;
@@ -543,6 +606,7 @@ function growCycle(sim: Sim, cycle: number, vigorScale: number, shed: number, al
     growShoot(sim, bud, trimmed, cycle);
   }
   prune(sim, light, budCount, cycle, shed);
+  liftCrown(sim, cycle);
 }
 
 /** The highest internode on the leader. */
@@ -795,7 +859,8 @@ function leaflet(slots: LeafSlots & { dx: Float32Array; dy: Float32Array; dz: Fl
 function ornamentSlots(sim: Sim, spec: OrnamentSpec | null, spread: number, seed: number): LeafSlots {
   if (spec === null) return leafSlots(sim, 0, 0, 0, 0, () => false);
   const palm = sim.species.palm !== null;
-  return leafSlots(sim, spec.perNode, spread, 0, seed, (node) => (palm ? frondBase(sim, node) : at(sim.order, node) > 0));
+  const floor = (spec.above ?? 0) * sim.height;
+  return leafSlots(sim, spec.perNode, spread, 0, seed, (node) => (palm ? frondBase(sim, node) : at(sim.order, node) > 0 && (sim.pos[node]?.y ?? 0) >= floor));
 }
 
 function leafEligible(sim: Sim, node: number): boolean {

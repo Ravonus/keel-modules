@@ -95,7 +95,7 @@ export default [
     expect: [true, 0, true, true],
   },
   {
-    name: 'species keep their shape: pine is a narrow cone, acacia a wide flat crown',
+    name: 'species keep their shape: pine is narrow and tall, acacia a wide flat crown',
     run: ({ growTree, treeFrame }) => ['pine', 'acacia'].map((species) => {
       const tree = growTree({ species, seed: 3 });
       const frame = treeFrame(tree, tree.matureAt);
@@ -134,7 +134,31 @@ export default [
       const cherryJune = day(api, 165, 'north', 'cherry');
       return [kinds.join(' '), oakJanuary.withered && oakJanuary.leaf > 0, birchJanuary.withered, cherryJune.fruit > 0.5];
     },
-    expect: ['blossom/cherry catkin/acorn candle/cone catkin/- catkin/- puff/pod spadix/coconut', true, false, true],
+    expect: ['blossom/cherry catkin/acorn candle/cone catkin/- catkin/- puff/pod spadix/coconut candle/cone -/cone puff/samara blossom/pod bell/gourd', true, false, true],
+  },
+  {
+    name: 'a spruce closes to a spire, a redwood stands bare below, a baobab swells at the foot',
+    run: (api) => {
+      const grown = (species) => { const model = api.growTree({ species, seed: 3, maxNodes: 1600 }); return { model, frame: frameAt(api, model, 0.6) }; };
+      /** Widest reach of living wood in a band of the tree's height. */
+      const width = ({ model, frame }, low, high) => {
+        let reach = 0;
+        for (let node = 0; node < model.count; node += 1) {
+          const share = frame.y[node] / frame.height;
+          if (frame.grow[node] > 0 && share >= low && share < high) reach = Math.max(reach, Math.hypot(frame.x[node], frame.z[node]));
+        }
+        return reach;
+      };
+      const lowest = ({ model, frame }) => {
+        let y = Infinity;
+        for (let node = 1; node < model.count; node += 1) if (frame.grow[node] > 0 && frame.dead[node] <= 0.5 && frame.fall[node] <= 0 && model.order[node] > 0) y = Math.min(y, frame.y[node]);
+        return y / frame.height;
+      };
+      const spruce = grown('spruce'), redwood = grown('redwood'), baobab = grown('baobab'), maple = grown('maple');
+      const footShare = ({ frame }) => frame.radius[0] / frame.height;
+      return [width(spruce, 0.75, 1) < width(spruce, 0.1, 0.4) * 0.6, lowest(redwood) > lowest(spruce) + 0.2, footShare(baobab) > footShare(maple) * 1.4];
+    },
+    expect: [true, true, true],
   },
   {
     name: 'old trees keep growing through their decline, less each cycle, until the end',

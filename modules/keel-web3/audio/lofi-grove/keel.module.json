@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "lofi-grove",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A seeded lo-fi score that grows with a tree: rootless jazz chords on felt keys, a dusty kit, bass, a kalimba leitmotif per species, vinyl crackle, tape wow, rain, wind, birds and crickets. Tone.js is injected.",
+  "category": "audio",
+  "owner": { "org": "keel-web3", "group": "sound" }
+}

@@ -14,7 +14,13 @@
       { "value": "pine", "label": "Pine" },
       { "value": "birch", "label": "Birch" },
       { "value": "willow", "label": "Willow" },
-      { "value": "acacia", "label": "Acacia" }
+      { "value": "acacia", "label": "Acacia" },
+      { "value": "palm", "label": "Coconut palm" },
+      { "value": "spruce", "label": "Blue spruce" },
+      { "value": "redwood", "label": "Redwood" },
+      { "value": "maple", "label": "Maple" },
+      { "value": "jacaranda", "label": "Jacaranda" },
+      { "value": "baobab", "label": "Baobab" }
     ], "default": "cherry" },
     { "key": "maxNodes", "label": "Internode budget", "type": "number", "required": false, "placement": "advanced", "min": 64, "max": 6000, "step": 100, "control": "slider", "help": "More internodes make a finer crown and cost more to grow and draw.", "default": 3200 }
   ]

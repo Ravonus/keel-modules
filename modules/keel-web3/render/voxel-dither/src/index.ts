@@ -1,5 +1,5 @@
 /**
- * Dithered voxel pixel art for any Three.js scene. MIT.
+ * Dithered voxel pixel art for any keel/lit stage. MIT.
  *
  * The scene is drawn at a low, integer-scaled resolution and only ever SHOWN
  * through a dither screen: a threshold map plus a few tone steps, or a fixed
@@ -11,12 +11,12 @@
  * neighbour's error, so a pixel whose light does not change never changes
  * colour and the picture does not crawl.
  *
- *   const look = createVoxelDither(THREE, renderer, { style: "smart" });
+ *   const look = createVoxelDither(lit, renderer, { style: "smart" });
  *   look.setSize(cssWidth, cssHeight, devicePixelRatio);
  *   look.shade(scene);                       // after building or rebuilding the scene
  *   renderer.setAnimationLoop(() => look.render(scene, camera));
  *
- * THREE is injected: the module never imports it and never touches globals.
+ * keel/lit is injected: the module never imports it and never touches globals.
  *
  * Outlines and creases come from the depth buffer, so anything drawn with
  * `depthWrite: false` (rain, sparks, glows) is still dithered but never outlined.
@@ -250,7 +250,7 @@ export function resolveGrid(cssWidth: number, cssHeight: number, devicePixelRati
   const ratio = bounded(devicePixelRatio, 0.5, 4, 1);
   const css = settings.pixel === 0 ? autoPixel(cssWidth, cssHeight) : settings.pixel;
   const pixel = Math.max(1, Math.round(css * ratio));
-  // Three sizes its canvas as floor(css * ratio); the grid matches it exactly.
+  // The renderer sizes its canvas as floor(css * ratio); the grid matches it exactly.
   const deviceWidth = Math.max(1, Math.floor(cssWidth * ratio));
   const deviceHeight = Math.max(1, Math.floor(cssHeight * ratio));
   const width = Math.ceil(deviceWidth / pixel);
@@ -646,7 +646,7 @@ export interface ScreenLight {
 
 /**
  * Projects a world direction (a light at infinity) through a camera's view
- * and projection matrices (column-major, as Three keeps them).
+ * and projection matrices (column-major, as keel/lit keeps them).
  */
 export function screenLight(view: ArrayLike<number>, projection: ArrayLike<number>, direction: readonly [number, number, number]): ScreenLight {
   const at = (m: ArrayLike<number>, index: number): number => m[index] ?? 0;
@@ -663,7 +663,7 @@ export function screenLight(view: ArrayLike<number>, projection: ArrayLike<numbe
   return { x: Math.max(-2, Math.min(3, (cx / cw) * 0.5 + 0.5)), y: Math.max(-2, Math.min(3, (cy / cw) * 0.5 + 0.5)), facing };
 }
 
-// ---------------------------------------------------------------- the minimal Three surface it uses
+// ---------------------------------------------------------------- the minimal keel/lit surface it uses
 
 interface ColorLike {
   copy(color: ColorLike): ColorLike;
@@ -689,8 +689,8 @@ interface ShaderMaterialLike {
   dispose(): void;
 }
 interface MaterialLike {
-  readonly isMeshStandardMaterial?: boolean;
-  onBeforeCompile?: (shader: { fragmentShader: string }, renderer: unknown) => void;
+  readonly isLitMaterial?: boolean;
+  onCompile?: (shader: { fragmentShader: string }, renderer: unknown) => void;
   customProgramCacheKey?: () => string;
   readonly color?: ColorLike;
   opacity: number;
@@ -731,20 +731,17 @@ interface SceneLike {
   add(object: unknown): void;
 }
 
-/** The parts of THREE this module calls. Pass the THREE namespace itself. */
-export interface ThreeLike {
-  readonly WebGLRenderTarget: new (width: number, height: number, options: Readonly<Record<string, unknown>>) => RenderTargetLike;
+/** The parts of keel/lit this module calls. Pass the keel/lit namespace itself. */
+export interface LitLike {
+  readonly RenderTarget: new (width: number, height: number, options: Readonly<Record<string, unknown>>) => RenderTargetLike;
   readonly DepthTexture: new (width: number, height: number) => TextureLike;
-  readonly ShaderMaterial: new (parameters: Readonly<Record<string, unknown>>) => ShaderMaterialLike;
-  readonly MeshToonMaterial: new (parameters: Readonly<Record<string, unknown>>) => MaterialLike;
-  readonly DataTexture: new (data: Uint8Array, width: number, height: number, format: unknown) => TextureLike;
-  readonly PlaneGeometry: new (width: number, height: number) => DisposableLike;
+  readonly CustomMaterial: new (parameters: Readonly<Record<string, unknown>>) => ShaderMaterialLike;
+  readonly ToonMaterial: new (parameters: Readonly<Record<string, unknown>>) => MaterialLike;
+  readonly DataTexture: new (data: Uint8Array, width: number, height: number, format: string) => TextureLike;
+  plane(width: number, height: number): DisposableLike;
   readonly Mesh: new (geometry: unknown, material: unknown) => MeshLike;
-  readonly Scene: new () => SceneLike;
-  readonly OrthographicCamera: new (left: number, right: number, top: number, bottom: number, near: number, far: number) => unknown;
-  readonly NearestFilter: unknown;
-  readonly HalfFloatType: unknown;
-  readonly RedFormat: unknown;
+  readonly Stage: new () => SceneLike;
+  readonly OrthoCamera: new (left: number, right: number, top: number, bottom: number, near: number, far: number) => unknown;
 }
 
 // ---------------------------------------------------------------- cel shading
@@ -773,13 +770,13 @@ interface CelShader {
   dispose(): void;
 }
 
-function createCelShader(three: ThreeLike, bands: number): CelShader {
+function createCelShader(lit: LitLike, bands: number): CelShader {
   const toons = new Map<MaterialLike, MaterialLike>();
   const ramp = (count: number): TextureLike => {
     const values = celRamp(count);
-    const texture = new three.DataTexture(values, values.length, 1, three.RedFormat);
-    texture.minFilter = three.NearestFilter;
-    texture.magFilter = three.NearestFilter;
+    const texture = new lit.DataTexture(values, values.length, 1, "red");
+    texture.minFilter = "nearest";
+    texture.magFilter = "nearest";
     texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
@@ -798,10 +795,10 @@ function createCelShader(three: ThreeLike, bands: number): CelShader {
         carryOver(material, source);
         return source;
       }
-      if (source !== undefined || material.isMeshStandardMaterial !== true || material.userData.voxelDitherKeep === true) return material;
+      if (source !== undefined || material.isLitMaterial !== true || material.userData.voxelDitherKeep === true) return material;
       let toon = toons.get(material);
       if (toon === undefined) {
-        toon = new three.MeshToonMaterial(toonParameters(material, gradient));
+        toon = new lit.ToonMaterial(toonParameters(material, gradient));
         toon.userData.voxelDitherSource = material;
         toons.set(material, toon);
       }
@@ -844,7 +841,7 @@ export function signalUniform(parts: readonly (SignalSpec | null | undefined)[])
 }
 
 interface SignalBase {
-  readonly compile: MaterialLike["onBeforeCompile"];
+  readonly compile: MaterialLike["onCompile"];
   readonly key: MaterialLike["customProgramCacheKey"];
 }
 
@@ -854,11 +851,11 @@ interface SignalBase {
  */
 function tagMaterial(material: MaterialLike, part: SignalPart): void {
   if (material.transparent || material.userData.voxelDitherSignal === part) return;
-  const base = (material.userData.voxelDitherSignalBase as SignalBase | undefined) ?? { compile: material.onBeforeCompile, key: material.customProgramCacheKey };
+  const base = (material.userData.voxelDitherSignalBase as SignalBase | undefined) ?? { compile: material.onCompile, key: material.customProgramCacheKey };
   material.userData.voxelDitherSignalBase = base;
   material.userData.voxelDitherSignal = part;
   const alpha = SIGNAL_TAG_ALPHA[part].toFixed(2);
-  material.onBeforeCompile = (shader, renderer) => {
+  material.onCompile = (shader, renderer) => {
     base.compile?.call(material, shader, renderer);
     const end = shader.fragmentShader.lastIndexOf("}");
     shader.fragmentShader = `${shader.fragmentShader.slice(0, end)}  gl_FragColor.a = ${alpha};\n}\n`;
@@ -944,10 +941,10 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
 }
 
 /** The scene target (linear light and depth), or the look target (stepped sRGB). */
-function createTarget(three: ThreeLike, scene: boolean): RenderTargetLike {
-  const filters = { minFilter: three.NearestFilter, magFilter: three.NearestFilter, generateMipmaps: false };
-  if (!scene) return new three.WebGLRenderTarget(1, 1, { ...filters, depthBuffer: false });
-  return new three.WebGLRenderTarget(1, 1, { ...filters, type: three.HalfFloatType, depthBuffer: true, depthTexture: new three.DepthTexture(1, 1) });
+function createTarget(lit: LitLike, scene: boolean): RenderTargetLike {
+  const filters = { minFilter: "nearest", magFilter: "nearest", generateMipmaps: false };
+  if (!scene) return new lit.RenderTarget(1, 1, { ...filters, depthBuffer: false });
+  return new lit.RenderTarget(1, 1, { ...filters, type: "half", depthBuffer: true, depthTexture: new lit.DepthTexture(1, 1) });
 }
 
 interface Pass {
@@ -956,11 +953,11 @@ interface Pass {
 }
 
 /** A full-screen quad drawn with one fragment shader. */
-function createPass(three: ThreeLike, geometry: DisposableLike, uniforms: Record<string, Uniform>, fragmentShader: string): Pass {
-  const material = new three.ShaderMaterial({ uniforms, vertexShader: VERTEX_GLSL, fragmentShader, depthTest: false, depthWrite: false });
-  const quad = new three.Mesh(geometry, material);
+function createPass(lit: LitLike, geometry: DisposableLike, uniforms: Record<string, Uniform>, fragmentShader: string): Pass {
+  const material = new lit.CustomMaterial({ uniforms, vertexShader: VERTEX_GLSL, fragmentShader, depthTest: false, depthWrite: false });
+  const quad = new lit.Mesh(geometry, material);
   quad.frustumCulled = false;
-  const scene = new three.Scene();
+  const scene = new lit.Stage();
   scene.add(quad);
   return { scene, material };
 }
@@ -987,15 +984,15 @@ interface Pipeline {
 }
 
 /** The two targets and two passes: scene -> grid target, look at grid size, blit to the frame. */
-function createPipeline(three: ThreeLike, uniforms: Record<string, Uniform>): Pipeline {
-  const target = createTarget(three, true);
-  const lookTarget = createTarget(three, false);
+function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeline {
+  const target = createTarget(lit, true);
+  const lookTarget = createTarget(lit, false);
   const camera: Readonly<Record<"near" | "far" | "ortho" | "sky", Uniform>> = { near: { value: 0.1 }, far: { value: 100 }, ortho: { value: 0 }, sky: { value: 100 } };
   Object.assign(uniforms, { tColor: { value: target.texture }, tDepth: { value: target.depthTexture }, tLook: { value: lookTarget.texture }, uNear: camera.near, uFar: camera.far, uOrtho: camera.ortho, uSkyFrom: camera.sky });
-  const geometry = new three.PlaneGeometry(2, 2);
-  const post = createPass(three, geometry, uniforms, FRAGMENT_GLSL);
-  const blit = createPass(three, geometry, uniforms, BLIT_GLSL);
-  const quadCamera = new three.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const geometry = lit.plane(2, 2);
+  const post = createPass(lit, geometry, uniforms, FRAGMENT_GLSL);
+  const blit = createPass(lit, geometry, uniforms, BLIT_GLSL);
+  const quadCamera = new lit.OrthoCamera(-1, 1, 1, -1, 0, 1);
   return {
     resize(grid) {
       target.setSize(grid.width, grid.height);
@@ -1029,18 +1026,18 @@ function createPipeline(three: ThreeLike, uniforms: Record<string, Uniform>): Pi
 /**
  * Binds a dithered-voxel look to a renderer.
  *
- * @param three The THREE namespace (r150 or later, WebGL2).
+ * @param lit The keel/lit namespace (WebGL2).
  * @param renderer The WebGLRenderer that owns the canvas.
  * @param input Settings, normalized through `ditherSettings`.
  */
-export function createVoxelDither(three: ThreeLike, renderer: RendererLike, input?: unknown): VoxelDither {
+export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: unknown): VoxelDither {
   let settings = ditherSettings(input);
   let grid: PixelGrid = { width: 1, height: 1, pixel: 1, originX: 0, originY: 0 };
   let frame = { width: 1, height: 1, ratio: 1 };
   let rays: RaySpec | null = null;
   const uniforms = createUniforms();
-  const pipeline = createPipeline(three, uniforms);
-  const cel = createCelShader(three, settings.bands);
+  const pipeline = createPipeline(lit, uniforms);
+  const cel = createCelShader(lit, settings.bands);
   writeLook(uniforms, settings, grid);
 
   const look: VoxelDither = {

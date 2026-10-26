@@ -1,6 +1,6 @@
 # voxel-dither
 
-Dithered voxel pixel art for any Three.js scene. The scene is drawn at a low,
+Dithered voxel pixel art for any keel/lit stage. The scene is drawn at a low,
 integer-scaled resolution and shown only through a dither screen: a threshold
 map plus a few tone steps, or a fixed palette. It is the look of the Cherry
 Blossom grove, packaged so any KEEL artwork can wear it.
@@ -59,17 +59,17 @@ clean. Call `tagSignal` again after `shade`, which swaps materials.
 
 ## Injected dependencies
 
-The caller passes the THREE namespace (r150 or later, WebGL2), the
-`WebGLRenderer`, and the frame size. The module never imports Three.js and
+The caller passes the keel/lit namespace (WebGL2), the renderer from
+`createLitRenderer`, and the frame size. The module never imports keel/lit and
 never reads globals.
 
 ## Usage
 
 ```ts
-import * as THREE from "keel://module/three.js";
+import * as lit from "keel://module/lit.js";
 import { createVoxelDither } from "keel://module/voxel-dither.js";
 
-const look = createVoxelDither(THREE, renderer, { style: "smart", ...globalThis.KEEL_INPUTS?.["voxel-dither"] });
+const look = createVoxelDither(lit, renderer, { style: "smart", ...globalThis.KEEL_INPUTS?.["voxel-dither"] });
 const resize = () => {
   renderer.setSize(width, height, false);
   look.setSize(width, height, renderer.getPixelRatio());

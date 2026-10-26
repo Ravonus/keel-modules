@@ -42,6 +42,13 @@ and any day of the year. Deterministic, dependency-free, no renderer.
 | `willow` | leaf curtains | upright catkins, very early | — | |
 | `acacia` | flat-topped | yellow puffs | seed pods | semi-evergreen |
 | `palm` | coconut palm | cream spadices | coconuts, year round | never branches; see below |
+| `spruce` | dense spire to the ground | new candles | cones on the top tiers | blue spruce; evergreen |
+| `redwood` | tall column, bare below | — | small cones | evergreen; thick trunk, drooping limbs that turn up |
+| `maple` | full round | gold tufts, before the leaves | winged keys, summer to autumn | paired buds |
+| `jacaranda` | open vase | violet bells, late spring | seed pods | thins in late winter |
+| `baobab` | bottle trunk, flat crown | big white hanging bells | velvet gourds | stubby limbs |
+
+`cone` narrows the crown's reach toward the top, closing it to a spire.
 
 **Palms** (`species.palm`) grow their own way. The trunk rises only from its
 crown, keeps one girth all its life (swollen at the foot), leans out and

@@ -801,6 +801,12 @@ export interface TreeMotion {
   readonly dead?: boolean;
   readonly snow?: number;
   readonly snowed?: boolean;
+  /**
+   * How much the built-in sway field moves the wood, leaves and fruit (1, the
+   * default). A host that moves the tree itself (keel/tree-mechanics) passes 0:
+   * leaves still flutter and hanging fruit still swings on its stalk.
+   */
+  readonly field?: number;
 }
 
 export interface TreeMeshes {
@@ -926,7 +932,7 @@ function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): void {
   const { model, meshes, offset } = tree;
   const array = meshes.wood.instanceMatrix.array;
   const height = Math.max(frame.height, 0.5);
-  const wind = tree.features.sway ? motion.wind : 0;
+  const wind = tree.features.sway ? motion.wind * (motion.field ?? 1) : 0;
   const swayB: Offset = { x: 0, z: 0 };
   for (let node = 0; node < model.count; node += 1) {
     const fallen = at(frame.fall, node) > 0;
@@ -1004,6 +1010,8 @@ interface LeafPass {
   readonly spread: number;
   readonly bare: boolean;
   readonly wind: number;
+  /** The wind the sway field moves leaves by (`wind` × the motion's `field`). */
+  readonly field: number;
   readonly dir: number;
   readonly elapsed: number;
 }
@@ -1031,7 +1039,7 @@ function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const x = at(frame.x, node) + n[0] * out;
   const y = at(frame.y, node) + n[1] * out;
   const z = at(frame.z, node) + n[2] * out;
-  sway(tree.offset, x, y, z, pass.elapsed, pass.wind, pass.height, pass.dir);
+  sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
   const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, x, z));
   writeBlade(pass.array, index, [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4], n, leafSize * 1.9, motion);
@@ -1116,7 +1124,7 @@ function poseLeaflet(tree: Tree, fronds: FrondLayout, frame: TreeFrameLike, inde
   const profile = Math.sin(Math.PI * (0.08 + 0.88 * s)) ** 0.7;
   const grown = clamp(leafSize / Math.max(pass.size, 1e-6), 0, 1.4);
   const length = frond * 0.3 * (0.25 + 0.75 * profile) * grown * (0.85 + 0.3 * at(slots.size, index));
-  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.wind, pass.height, pass.dir);
+  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.field, pass.height, pass.dir);
   writeBlade(pass.array, index, [p[0] + tree.offset.x + swing, p[1], p[2] + tree.offset.z + swing * 0.4], norm3(...n), length, { droop: 0.04, twist: sign * 0.35 + shiver * 0.6, nod: 0 });
 }
 
@@ -1138,7 +1146,7 @@ function poseSprig(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const { p, n } = sprigPlace(frame, slots, index);
-  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.wind, pass.height, pass.dir);
+  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.field, pass.height, pass.dir);
   const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, p[0], p[2]));
   const stiff = { droop: motion.droop * 0.12, twist: at(slots.rank, index) * TAU + motion.twist * 0.2, nod: motion.nod * 0.3 };
   writeBlade(pass.array, index, [p[0] + tree.offset.x + swing * 0.3, p[1], p[2] + tree.offset.z + swing * 0.12], n, leafSize * 1.9, stiff);
@@ -1151,7 +1159,7 @@ function poseLump(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPas
   const x = at(frame.x, node) + at(slots.dx, index) * pass.spread;
   const y = at(frame.y, node) + at(slots.dy, index) * pass.spread;
   const z = at(frame.z, node) + at(slots.dz, index) * pass.spread;
-  sway(tree.offset, x, y, z, pass.elapsed, pass.wind, pass.height, pass.dir);
+  sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
   const flutter = pass.wind * 0.012 * Math.sin(pass.elapsed * 6.3 + rank * 40);
   const fx = flutter * Math.cos(pass.dir);
   const fz = flutter * Math.sin(pass.dir);
@@ -1170,6 +1178,7 @@ function leafPass(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: Y
     array: mesh.instanceMatrix.array, height: Math.max(frame.height, 0.5), bare,
     size: tree.colors.leafScale * (seedling ? 0.8 : 1) * (tree.skin?.leafSize ?? 1),
     spread: bare ? 0.15 : 0.35 + 0.65 * year.leaf, wind: tree.features.sway ? motion.wind : 0, dir: motion.windDir ?? 0, elapsed: motion.elapsed,
+    field: tree.features.sway ? motion.wind * (motion.field ?? 1) : 0,
   };
 }
 
@@ -1309,7 +1318,7 @@ function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year:
     const x = at(frame.x, node) + at(slots.dx, index);
     const z = at(frame.z, node) + at(slots.dz, index);
     const y = at(frame.y, node) + at(slots.dy, index) * 0.5 + look.lift * unit;
-    sway(tree.offset, x, y, z, motion.elapsed, wind, height, motion.windDir);
+    sway(tree.offset, x, y, z, motion.elapsed, wind * (motion.field ?? 1), height, motion.windDir);
     const swing = hangSwing(look.lift, wind, motion, rank);
     writeBox(array, index, x + tree.offset.x + swing.x, y, z + tree.offset.z + swing.z, look.size[0] * unit, look.size[1] * unit, look.size[2] * unit, rank * TAU);
   }
@@ -1467,7 +1476,7 @@ function poseSnow(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, motion:
     const mx = (at(frame.x, node) + at(frame.baseX, node)) / 2;
     const my = (at(frame.y, node) + at(frame.baseY, node)) / 2;
     const mz = (at(frame.z, node) + at(frame.baseZ, node)) / 2;
-    sway(tree.offset, mx, my, mz, motion.elapsed, at(frame.fall, node) > 0 ? 0 : wind, height, motion.windDir);
+    sway(tree.offset, mx, my, mz, motion.elapsed, at(frame.fall, node) > 0 ? 0 : wind * (motion.field ?? 1), height, motion.windDir);
     writeBox(array, node, mx + tree.offset.x, my + radius + depth / 2, mz + tree.offset.z, radius * 2.1, depth, level + radius, Math.atan2(dx, dz));
   }
   mesh.instanceMatrix.needsUpdate = true;

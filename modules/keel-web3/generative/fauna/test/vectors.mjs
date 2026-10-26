@@ -88,13 +88,39 @@ export default [
       for (const input of casts(300)) {
         const cast = castFor(input);
         const bodies = [5, 40, 120].flatMap((t) => createHerd(cast).sky(t, { radius: 3 }));
-        if (!cast.sky.flock && !cast.sky.plane && bodies.length > 0) ok = false;
+        if (cast.sky.traffic.length === 0 && bodies.length > 0) ok = false;
         ok &&= finite(bodies);
         flown += bodies.length > 0 ? 1 : 0;
       }
       return [ok, flown > 0];
     },
     expect: [true, true],
+  },
+  {
+    name: 'the sky fits the hour, the weather and the world: bats and satellites by night, balloons and kites only by fair day, saucers in space',
+    run: ({ castFor, createHerd }) => {
+      const seen = (world, now, hours = 1) => {
+        const kinds = new Set();
+        for (const input of casts(12, { world })) {
+          const herd = createHerd(castFor(input));
+          for (let t = 0; t < hours * 3600; t += 3) for (const body of herd.sky(t, { radius: 3, ...now })) kinds.add(body.kind);
+        }
+        return kinds;
+      };
+      const night = seen('nature', { night: true });
+      const rain = seen('beach', { weather: 'rain' });
+      const beach = seen('beach', {});
+      const cosmic = seen('cosmic', {});
+      const city = seen('city', {});
+      return [
+        night.has('bat') || night.has('satellite'), night.has('balloon'), night.has('kite'),
+        rain.has('kite') || rain.has('balloon'),
+        beach.has('kite') || beach.has('balloon'),
+        cosmic.has('ufo'), cosmic.has('airliner') || cosmic.has('songbird'),
+        city.has('helicopter') || city.has('blimp') || city.has('airliner'),
+      ];
+    },
+    expect: [true, false, false, false, true, true, false, true],
   },
   {
     name: 'a command sends an animal where it is told, its own way, and only the one named',

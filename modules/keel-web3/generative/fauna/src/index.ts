@@ -1982,12 +1982,43 @@ export interface CastMember {
 
 export interface CastGroup { readonly kind: GroupKind | "mixed"; readonly members: readonly CastMember[] }
 
-export type PlaneKind = "airliner" | "prop" | "jet" | "ufo" | "balloon";
+/** Craft and lights in the sky. */
+export type PlaneKind = "airliner" | "prop" | "jet" | "ufo" | "balloon" | "helicopter" | "blimp" | "kite" | "satellite" | "rocket" | "comet";
+/** What can pass over: birds (a loose flock, a V, a swirling murmuration), bats, or a craft. */
+export type SkyKind = PlaneKind | "flock" | "vee" | "murmuration" | "bats";
+
+/** One kind of sky traffic, how often it comes, and when it can. */
+export interface SkyTraffic {
+  readonly kind: SkyKind;
+  readonly weight: number;
+  /** Only by day, or only by night. */
+  readonly when?: "day" | "night";
+  /** Only in fair weather: not in rain or snow. */
+  readonly fair?: boolean;
+  /** Only in these seasons (a migration). */
+  readonly seasons?: readonly Season[];
+}
+
+/** What passes over this world. */
 export interface SkyPlan {
-  /** Birds that pass over now and then (none in some scenes). */
-  readonly flock: { readonly species: SpeciesId; readonly size: readonly [number, number]; readonly every: readonly [number, number] } | null;
-  /** Something flying far off: a plane, a balloon, a saucer (only over some worlds). */
-  readonly plane: { readonly kind: PlaneKind; readonly every: readonly [number, number] } | null;
+  /** The birds that flock over, those that fly in a V, and those that gather in a murmuration (null where none do). */
+  readonly birds: SpeciesId | null;
+  readonly vee: SpeciesId | null;
+  readonly swarm: SpeciesId | null;
+  /** Everything that can pass over, weighted; what fits the moment is picked as each pass comes. */
+  readonly traffic: readonly SkyTraffic[];
+  /** Seconds between passes. */
+  readonly every: readonly [number, number];
+}
+
+/** The sky right now, so what passes fits it: bats and satellites by night, balloons and kites in fair weather by day. */
+export interface SkyNow {
+  /** Scales how far off things pass. */
+  readonly radius?: number;
+  readonly night?: boolean;
+  /** "rain" and "snow" keep fair-weather traffic down; anything else is fair. */
+  readonly weather?: string;
+  readonly season?: string;
 }
 
 export interface Cast {
@@ -2155,26 +2186,48 @@ function rarityOf(tier: Tier, groups: readonly CastGroup[]): Rarity {
   return rarity;
 }
 
-const FLOCK_ODDS: Readonly<Record<WorldKey, number>> = { nature: 0.7, voxel: 0.6, beach: 0.8, city: 0.6, crystal: 0.45, vapor: 0.3, synth: 0.1, cosmic: 0 };
-const PLANE_ODDS: Readonly<Record<WorldKey, readonly [number, readonly (readonly [PlaneKind, number])[]]>> = {
-  city: [0.85, [["airliner", 6], ["jet", 3], ["prop", 1]]], beach: [0.7, [["prop", 5], ["airliner", 3], ["balloon", 1]]],
-  nature: [0.35, [["airliner", 3], ["prop", 2], ["balloon", 2]]], voxel: [0.35, [["airliner", 3], ["prop", 2], ["balloon", 2]]],
-  crystal: [0.35, [["balloon", 4], ["airliner", 2]]], synth: [0.6, [["jet", 6], ["ufo", 1]]],
-  vapor: [0.6, [["jet", 5], ["balloon", 2], ["ufo", 1]]], cosmic: [0.5, [["ufo", 1]]],
+const tr = (kind: SkyKind, weight: number, extra: Omit<SkyTraffic, "kind" | "weight"> = {}): SkyTraffic => ({ kind, weight, ...extra });
+const DAY = { when: "day" } as const;
+const NIGHT = { when: "night" } as const;
+const FAIR_DAY = { when: "day", fair: true } as const;
+const FAIR_NIGHT = { when: "night", fair: true } as const;
+const MIGRATING = { when: "day", seasons: ["spring", "autumn"] } as const;
+
+const COUNTRY_SKY: readonly SkyTraffic[] = [
+  tr("flock", 5, DAY), tr("vee", 3, MIGRATING), tr("murmuration", 1, FAIR_DAY), tr("bats", 3, NIGHT),
+  tr("airliner", 3), tr("prop", 1.5, FAIR_DAY), tr("balloon", 1.2, FAIR_DAY), tr("satellite", 2.5, FAIR_NIGHT), tr("comet", 1.2, FAIR_NIGHT),
+];
+
+/** What each world's sky carries, and how busy it is. */
+const WORLD_SKY: Readonly<Record<WorldKey, { readonly traffic: readonly SkyTraffic[]; readonly every: readonly [number, number] }>> = {
+  nature: { traffic: COUNTRY_SKY, every: [12, 34] },
+  voxel: { traffic: COUNTRY_SKY, every: [12, 34] },
+  beach: {
+    traffic: [tr("flock", 6, DAY), tr("vee", 1.5, DAY), tr("kite", 2.5, FAIR_DAY), tr("prop", 3, FAIR_DAY), tr("airliner", 2), tr("balloon", 0.8, FAIR_DAY), tr("bats", 1.5, NIGHT), tr("satellite", 2.5, FAIR_NIGHT), tr("comet", 1.2, FAIR_NIGHT)],
+    every: [10, 30],
+  },
+  city: {
+    traffic: [tr("flock", 4, DAY), tr("murmuration", 1.2, FAIR_DAY), tr("helicopter", 2.5), tr("blimp", 1.2, FAIR_DAY), tr("airliner", 5), tr("jet", 1.5), tr("bats", 1, NIGHT), tr("satellite", 0.6, FAIR_NIGHT)],
+    every: [8, 24],
+  },
+  synth: { traffic: [tr("jet", 5), tr("ufo", 1.8), tr("helicopter", 1), tr("comet", 1.5, NIGHT), tr("satellite", 1, NIGHT)], every: [14, 36] },
+  vapor: { traffic: [tr("jet", 3), tr("balloon", 2, FAIR_DAY), tr("blimp", 2, { fair: true }), tr("flock", 1, DAY), tr("kite", 1, FAIR_DAY), tr("ufo", 1), tr("comet", 0.8, NIGHT)], every: [14, 36] },
+  crystal: { traffic: [tr("vee", 2.5, DAY), tr("flock", 2, DAY), tr("balloon", 3, FAIR_DAY), tr("airliner", 1), tr("comet", 1.8, NIGHT), tr("satellite", 1.5, FAIR_NIGHT)], every: [14, 38] },
+  cosmic: { traffic: [tr("ufo", 2), tr("satellite", 3), tr("rocket", 1.5), tr("comet", 3)], every: [9, 24] },
 };
 const FLOCK_WEIGHTS: Partial<Record<SpeciesId, number>> = { songbird: 4, crow: 2, gull: 4, parrot: 2, crane: 0.6 };
+const BIRDS_FOR: Readonly<Record<"vee" | "murmuration", readonly SpeciesId[]>> = { vee: ["crane", "gull", "crow"], murmuration: ["songbird", "crow"] };
 
 function skyFor(rand: () => number, input: CastInput): SkyPlan {
   const ctx = contextOf(input);
-  const birds = (Object.keys(FLOCK_WEIGHTS) as SpeciesId[]).filter((id) => (ctx.region === null || speciesOf(id).regions.includes(ctx.region)) && speciesOf(id).worlds.includes(ctx.world === "voxel" ? "nature" : ctx.world));
-  const flocking = birds.length > 0 && rand() < FLOCK_ODDS[ctx.world];
-  const species = flocking ? pick(rand, birds.map((id) => [id, FLOCK_WEIGHTS[id] ?? 1] as const)) : null;
-  const [odds, kinds] = PLANE_ODDS[ctx.world];
-  const plane = rand() < odds ? pick(rand, kinds) : null;
-  return {
-    flock: species ? { species, size: species === "crane" ? [3, 7] : [1, 9], every: [14, 50] } : null,
-    plane: plane ? { kind: plane, every: plane === "balloon" ? [60, 140] : [35, 90] } : null,
-  };
+  const here = (id: SpeciesId): boolean => (ctx.region === null || speciesOf(id).regions.includes(ctx.region)) && speciesOf(id).worlds.includes(ctx.world === "voxel" ? "nature" : ctx.world);
+  const flockers = (Object.keys(FLOCK_WEIGHTS) as SpeciesId[]).filter(here);
+  const birds = flockers.length > 0 ? pick(rand, flockers.map((id) => [id, FLOCK_WEIGHTS[id] ?? 1] as const)) : null;
+  const vee = BIRDS_FOR.vee.find(here) ?? null;
+  const swarm = BIRDS_FOR.murmuration.find(here) ?? null;
+  const has: Partial<Record<SkyKind, boolean>> = { flock: birds !== null, vee: vee !== null, murmuration: swarm !== null };
+  const sky = WORLD_SKY[ctx.world];
+  return { birds, vee, swarm, traffic: sky.traffic.filter((each) => has[each.kind] !== false), every: sky.every };
 }
 
 /**
@@ -2197,7 +2250,7 @@ type Who = Pick<Actor, "member" | "spec">;
 /** One posed animal (or plane): its capsules and the colours their roles take. */
 export interface Body {
   readonly id: string;
-  readonly kind: SpeciesId | PlaneKind;
+  readonly kind: SpeciesId | PlaneKind | "bat";
   readonly label: string;
   readonly action: Action;
   readonly morph: Morph;
@@ -2279,15 +2332,25 @@ function galleryMoment(spec: SpeciesSpec, action: Action, t: number): Moment {
 
 // ---------------------------------------------------------------- the sky
 
-interface Pass { readonly start: number; readonly end: number; readonly from: Vec; readonly to: Vec; readonly count: number; readonly v: boolean; readonly seed: number }
+interface Pass {
+  readonly kind: SkyKind;
+  readonly start: number;
+  readonly end: number;
+  readonly from: Vec;
+  readonly to: Vec;
+  readonly count: number;
+  readonly v: boolean;
+  readonly seed: number;
+}
 
-function passesUntil(list: Pass[], rand: () => number, every: readonly [number, number], t: number, make: (start: number) => Pass): void {
-  let last = list[list.length - 1]?.start ?? -between(rand, [0.3, 0.9]) * every[0];
-  while (last < t + 1) {
-    last += between(rand, every);
-    list.push(make(last));
+/** Schedule passes ahead to `t`; `make` may decline one (nothing fits the sky just then). */
+function passesUntil(list: Pass[], clock: { last: number }, rand: () => number, every: readonly [number, number], t: number, make: (start: number) => Pass | null): void {
+  while (clock.last < t + 1) {
+    clock.last += between(rand, every);
+    const pass = make(clock.last);
+    if (pass) list.push(pass);
   }
-  while (list.length > 2 && (list[0]?.end ?? 0) < t - 5) list.shift();
+  while (list.length > 0 && (list[0]?.end ?? 0) < t - 5) list.shift();
 }
 
 function chord(rand: () => number, near: readonly [number, number], height: readonly [number, number], span: number): { from: Vec; to: Vec } {
@@ -2300,7 +2363,79 @@ function chord(rand: () => number, near: readonly [number, number], height: read
   return { from: madd(mid, dir, -span), to: madd(mid, dir, span) };
 }
 
+/** How each kind crosses the sky: how far off, how high, how long a path, how fast, how many together. */
+interface Route { readonly near: readonly [number, number]; readonly height: readonly [number, number]; readonly span: number; readonly speed: readonly [number, number]; readonly count: readonly [number, number] }
+const ROUTES: Readonly<Record<SkyKind, Route>> = {
+  flock: { near: [8, 26], height: [6, 15], span: 45, speed: [3.5, 5.5], count: [1, 9] },
+  vee: { near: [10, 30], height: [12, 22], span: 55, speed: [4, 5.5], count: [5, 11] },
+  murmuration: { near: [14, 26], height: [9, 15], span: 40, speed: [1.6, 2.4], count: [14, 20] },
+  bats: { near: [1.5, 7], height: [3, 7], span: 20, speed: [2.4, 3.4], count: [3, 7] },
+  airliner: { near: [50, 75], height: [26, 38], span: 110, speed: [7, 10], count: [1, 1] },
+  prop: { near: [25, 45], height: [12, 20], span: 80, speed: [5, 7], count: [1, 1] },
+  jet: { near: [45, 70], height: [24, 36], span: 120, speed: [13, 17], count: [1, 1] },
+  ufo: { near: [50, 75], height: [26, 38], span: 110, speed: [4, 6], count: [1, 1] },
+  balloon: { near: [30, 50], height: [16, 26], span: 110, speed: [1.7, 2.5], count: [1, 1] },
+  helicopter: { near: [18, 40], height: [9, 16], span: 70, speed: [3, 4.5], count: [1, 1] },
+  blimp: { near: [35, 55], height: [16, 24], span: 90, speed: [1.4, 2], count: [1, 1] },
+  kite: { near: [11, 17], height: [7, 11], span: 1.5, speed: [0.04, 0.06], count: [1, 1] },
+  satellite: { near: [20, 70], height: [70, 95], span: 150, speed: [10, 13], count: [1, 1] },
+  rocket: { near: [70, 95], height: [1, 3], span: 0, speed: [9, 13], count: [1, 1] },
+  comet: { near: [20, 70], height: [45, 70], span: 60, speed: [45, 60], count: [1, 1] },
+};
+
+const SKY_AT_ONCE = 2;
+const FOUL = new Set(["rain", "snow"]);
+const fitsNow = (each: SkyTraffic, now: SkyNow): boolean =>
+  (each.when === undefined || (each.when === "night") === (now.night === true))
+  && (each.fair !== true || !FOUL.has(now.weather ?? ""))
+  && (each.seasons === undefined || each.seasons.some((season) => season === now.season));
+
+/** What passes next, chosen from what fits the sky right now (null when nothing does). */
+function nextTraffic(rand: () => number, plan: SkyPlan, now: SkyNow): SkyKind | null {
+  const roll = rand();
+  const fitting = plan.traffic.filter((each) => fitsNow(each, now));
+  // Birds keep low and few in rain and snow.
+  const weights = fitting.map((each) => each.weight * (FOUL.has(now.weather ?? "") && BIRD_KINDS.has(each.kind) ? 0.3 : 1));
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let left = roll * total;
+  for (const [i, each] of fitting.entries()) {
+    left -= weights[i] ?? 0;
+    if (left < 0) return each.kind;
+  }
+  return null;
+}
+const BIRD_KINDS: ReadonlySet<SkyKind> = new Set<SkyKind>(["flock", "vee", "murmuration", "bats"]);
+
+function routeOf(kind: SkyKind, rand: () => number, reach: number): { from: Vec; to: Vec } {
+  const route = ROUTES[kind];
+  const near: [number, number] = [route.near[0] * reach, route.near[1] * reach];
+  if (kind === "rocket") {
+    // A rocket climbs from far off on the horizon, straight up and leaning over.
+    const heading = rand() * TAU;
+    const d = between(rand, near);
+    const from: Vec = [Math.sin(heading) * d, between(rand, route.height), Math.cos(heading) * d];
+    return { from, to: add(from, [Math.sin(heading) * 20, 140, Math.cos(heading) * 20]) };
+  }
+  const { from, to } = chord(rand, near, route.height, route.span * reach);
+  // A shooting star falls as it crosses.
+  return kind === "comet" ? { from: add(from, [0, 14, 0]), to: add(to, [0, -14, 0]) } : { from, to };
+}
+
+function passOf(kind: SkyKind, start: number, rand: () => number, reach: number, plan: SkyPlan): Pass {
+  const route = ROUTES[kind];
+  const { from, to } = routeOf(kind, rand, reach);
+  const crane = kind === "flock" && plan.birds === "crane";
+  const count = crane ? intBetween(rand, 3, 7) : intBetween(rand, route.count[0], route.count[1]);
+  const v = kind === "vee" || (kind === "flock" && count >= 5 && rand() < 0.4);
+  return { kind, start, end: start + Math.max(1.2, length(sub(to, from)) / between(rand, route.speed)), from, to, count, v, seed: Math.floor(rand() * 1e6) };
+}
+
 const FLY_SEGMENT: Segment = { act: "fly", t0: 0, t1: 1e9, from: { on: "ground", x: 0, z: 0 }, to: { on: "ground", x: 0, z: 0 }, yaw: 0, face: -1, mode: "fly", pace: 4 };
+
+function flyingBird(id: string, who: Who, p: Vec, dir: Vec, t: number): Body {
+  const m: Moment = { frame: frameOf(p, dir), phase: 0, moving: 1, pace: 4, mode: "fly", segment: FLY_SEGMENT, pose: { ...restPose(), wing: 1 }, t };
+  return bodyOf(id, who, m, poseWho(who, m));
+}
 
 function flockBodies(pass: Pass, who: Who, t: number): Body[] {
   const u = (t - pass.start) / (pass.end - pass.start);
@@ -2312,10 +2447,60 @@ function flockBodies(pass: Pass, who: Who, t: number): Body[] {
     const spread = pass.v ? [rank * 0.9, -Math.abs(rank) * 1.1] : [Math.sin(i * 2.4 + pass.seed) * 2.2, Math.cos(i * 1.7 + pass.seed) * 2.4];
     const bobbing = Math.sin(t * 1.3 + i * 1.1) * 0.25;
     const p = add(madd(madd(lerpV(pass.from, pass.to, u), side, spread[0] ?? 0), dir, spread[1] ?? 0), [0, bobbing + (pass.v ? 0 : Math.sin(i * 3.3) * 0.8), 0]);
-    const m: Moment = { frame: frameOf(p, dir), phase: 0, moving: 1, pace: 4, mode: "fly", segment: FLY_SEGMENT, pose: { ...restPose(), wing: 1 }, t: t + i * 0.37 };
-    out.push(bodyOf(`flock.${pass.seed}.${i}`, who, m, poseWho(who, m)));
+    out.push(flyingBird(`flock.${String(pass.seed)}.${String(i)}`, who, p, dir, t + i * 0.37));
   }
   return out;
+}
+
+/**
+ * A swarm that wheels as it goes: each one weaves on its own slow loops about
+ * the moving middle, the whole cloud breathing in and out, and faces the way
+ * it is moving. A murmuration is wide and smooth; bats flit, tight and quick.
+ */
+function swarmAt(pass: Pass, i: number, t: number, bats: boolean): Vec {
+  const u = (t - pass.start) / (pass.end - pass.start);
+  const k = i * 1.618 + (pass.seed % 97);
+  const breath = 1 + 0.45 * Math.sin(t * 0.37 + pass.seed);
+  const wide = bats ? 1.1 : 3.2 * breath;
+  const quick = bats ? 3 : 0.8;
+  const off: Vec = [
+    (Math.sin(t * quick * 1.1 + k * 2.1) + 0.6 * Math.sin(t * quick * 0.43 + k)) * wide,
+    (Math.sin(t * quick * 1.3 + k * 1.3) * 0.5 + 0.4 * Math.sin(t * 0.21 + k * 0.7)) * wide * 0.5,
+    (Math.cos(t * quick * 0.9 + k * 1.7) + 0.6 * Math.cos(t * quick * 0.51 + k * 0.4)) * wide,
+  ];
+  return add(lerpV(pass.from, pass.to, clamp(u, 0, 1)), off);
+}
+
+function swarmBodies(pass: Pass, who: Who | null, t: number): Body[] {
+  const bats = pass.kind === "bats";
+  const out: Body[] = [];
+  for (let i = 0; i < pass.count; i += 1) {
+    const p = swarmAt(pass, i, t, bats);
+    const dir = unit(sub(swarmAt(pass, i, t + 0.05, bats), p), [0, 0, 1]);
+    const id = `${pass.kind}.${String(pass.seed)}.${String(i)}`;
+    if (bats || !who) out.push(batBody(id, p, dir, t + i * 0.21));
+    else out.push(flyingBird(id, who, p, dir, t + i * 0.29));
+  }
+  return out;
+}
+
+const BAT_LOOK: Palette = { coat: "#3a2e34", alt: "#2a2026", belly: "#4a3a40", dark: "#1a1216", eye: "#ffd27a", nose: "#2a1a1e", accent: "#5a4048", glow: "#ffd27a", horn: "#2a2026", shell: "#2a2026" };
+
+/** A bat: a small furred body, big ears, and membranes that beat fast and fold. */
+function batBody(id: string, p: Vec, dir: Vec, t: number): Body {
+  const size = 0.22;
+  const kit: Kit = { f: frameOf(p, dir), out: [], roll: 0, pivot: [0, 0, 0] };
+  ball(kit, "body", "coat", [0, 0, 0], size * 0.22, 0.85);
+  ball(kit, "head", "coat", [0, size * 0.04, size * 0.22], size * 0.14);
+  for (const x of [-1, 1]) {
+    cap(kit, "ear", "dark", [x * size * 0.06, size * 0.12, size * 0.24], [x * size * 0.09, size * 0.26, size * 0.2], size * 0.04, 0.4, [0, 0, 1]);
+    const beat = Math.sin(t * 15 + (x > 0 ? 0 : 0.2));
+    const tip: Vec = [x * size * 0.95, beat * size * 0.5, -size * 0.05];
+    const elbow: Vec = [x * size * 0.45, beat * size * 0.3 + size * 0.08, size * 0.1];
+    cap(kit, "wing", "alt", [x * size * 0.1, 0, size * 0.05], elbow, size * 0.16, 0.12);
+    cap(kit, "wing", "alt", elbow, tip, size * 0.14, 0.12);
+  }
+  return { id, kind: "bat", label: "Bat", action: "fly", morph: "normal", at: p, front: dir, capsules: kit.out, palette: BAT_LOOK, glow: 0 };
 }
 
 const PLANE_LOOKS: Readonly<Record<PlaneKind, Palette>> = {
@@ -2324,9 +2509,20 @@ const PLANE_LOOKS: Readonly<Record<PlaneKind, Palette>> = {
   jet: { coat: "#1a1a2a", alt: "#ff3ad8", belly: "#2a2a3a", dark: "#0a0a14", eye: "#0a0a14", nose: "#0a0a14", accent: "#3af0ff", glow: "#f4f8ff", horn: "#3af0ff", shell: "#ff3ad8" },
   ufo: { coat: "#c8ccd8", alt: "#8a90a0", belly: "#5a6070", dark: "#2a2e38", eye: "#1a1e28", nose: "#2a2e38", accent: "#7affc8", glow: "#9ff4ff", horn: "#f0f4ff", shell: "#8a90a0" },
   balloon: { coat: "#e83a3a", alt: "#f0d040", belly: "#3a6ad0", dark: "#6a4a2a", eye: "#2a1a10", nose: "#6a4a2a", accent: "#ffffff", glow: "#ffb050", horn: "#6a4a2a", shell: "#f0d040" },
+  helicopter: { coat: "#d83a2a", alt: "#f4f0e8", belly: "#2a2a2a", dark: "#22262c", eye: "#1a1a1a", nose: "#22262c", accent: "#9fd8ff", glow: "#ff4a3a", horn: "#8a8a8a", shell: "#f4f0e8" },
+  blimp: { coat: "#d8dce4", alt: "#2a5ad0", belly: "#f0f2f6", dark: "#3a4250", eye: "#1a2230", nose: "#3a4250", accent: "#f0c040", glow: "#ff4a3a", horn: "#9aa4ae", shell: "#2a5ad0" },
+  kite: { coat: "#ff4a6a", alt: "#ffd040", belly: "#40c8ff", dark: "#f4f0e8", eye: "#1a1a1a", nose: "#2a2a2a", accent: "#40c8ff", glow: "#ffd040", horn: "#f4f0e8", shell: "#ffd040" },
+  satellite: { coat: "#d8d0b0", alt: "#2a4a9a", belly: "#c8c0a0", dark: "#3a3a3a", eye: "#1a1a1a", nose: "#3a3a3a", accent: "#4a7ad8", glow: "#fffbe8", horn: "#9a9a9a", shell: "#2a4a9a" },
+  rocket: { coat: "#f4f4f4", alt: "#2a2a2a", belly: "#e8e8e8", dark: "#2a2a2a", eye: "#1a1a1a", nose: "#d83a2a", accent: "#d83a2a", glow: "#ffb040", horn: "#c8c8c8", shell: "#f0f0f0" },
+  comet: { coat: "#fff8e0", alt: "#c8e8ff", belly: "#fff8e0", dark: "#fff8e0", eye: "#fff8e0", nose: "#fff8e0", accent: "#c8e8ff", glow: "#fffbe8", horn: "#fff8e0", shell: "#fff8e0" },
 };
 
-function airliner(kit: Kit, size: number, prop: boolean): void {
+/** A red light that blinks: on aircraft by day and night. */
+function beacon(kit: Kit, at: Vec, r: number, t: number): void {
+  if (Math.sin(t * 5.2) > 0.6) ball(kit, "beacon", "glow", at, r);
+}
+
+function airliner(kit: Kit, size: number, prop: boolean, t: number): void {
   const L = size;
   cap(kit, "fuselage", "coat", [0, 0, -L * 0.5], [0, 0, L * 0.5], L * 0.07);
   for (const x of [-1, 1]) {
@@ -2337,6 +2533,8 @@ function airliner(kit: Kit, size: number, prop: boolean): void {
   }
   cap(kit, "fin", "accent", [0, 0, -L * 0.4], [0, L * 0.18, -L * 0.52], L * 0.04, 0.2, [1, 0, 0]);
   if (prop) ball(kit, "propeller", "dark", [0, 0, L * 0.53], L * 0.09, 0.08, [0, 0, 1]);
+  beacon(kit, [0, L * 0.09, 0], L * 0.03, t);
+  beacon(kit, [0, -L * 0.08, 0.1 * L], L * 0.03, t + 0.5);
 }
 
 function banner(kit: Kit, size: number, t: number): void {
@@ -2368,30 +2566,102 @@ function balloonShape(kit: Kit, size: number): void {
   ball(kit, "flame", "glow", [0, -size * 0.1, 0], size * 0.04);
 }
 
-const PLANE_SIZE: Readonly<Record<PlaneKind, number>> = { airliner: 3.4, prop: 1.6, jet: 2.4, ufo: 2.6, balloon: 3 };
+function helicopter(kit: Kit, size: number, t: number): void {
+  ball(kit, "cabin", "coat", [0, 0, size * 0.1], size * 0.22, 0.9);
+  ball(kit, "window", "accent", [0, size * 0.05, size * 0.22], size * 0.13, 0.7);
+  cap(kit, "boom", "coat", [0, size * 0.03, -size * 0.08], [0, size * 0.09, -size * 0.66], size * 0.05);
+  cap(kit, "fin", "alt", [0, size * 0.08, -size * 0.62], [0, size * 0.24, -size * 0.7], size * 0.04, 0.25, [1, 0, 0]);
+  cap(kit, "mast", "dark", [0, size * 0.18, size * 0.06], [0, size * 0.28, size * 0.06], size * 0.025);
+  for (let blade = 0; blade < 2; blade += 1) {
+    const a = t * 31 + blade * (Math.PI / 2);
+    const d: Vec = [Math.cos(a) * size * 0.68, 0, Math.sin(a) * size * 0.68];
+    cap(kit, "blade", "dark", add([0, size * 0.29, size * 0.06], d), sub([0, size * 0.29, size * 0.06], d), size * 0.022, 0.3);
+  }
+  const tail = t * 40;
+  cap(kit, "tail-rotor", "dark", [size * 0.03, size * 0.09 + Math.cos(tail) * size * 0.1, -size * 0.66 + Math.sin(tail) * size * 0.1], [size * 0.03, size * 0.09 - Math.cos(tail) * size * 0.1, -size * 0.66 - Math.sin(tail) * size * 0.1], size * 0.012);
+  for (const x of [-1, 1]) cap(kit, "skid", "dark", [x * size * 0.14, -size * 0.25, -size * 0.12], [x * size * 0.14, -size * 0.25, size * 0.26], size * 0.016);
+  beacon(kit, [0, -size * 0.2, 0], size * 0.03, t);
+}
+
+function blimp(kit: Kit, size: number, t: number): void {
+  cap(kit, "envelope", "coat", [0, 0, -size * 0.3], [0, 0, size * 0.3], size * 0.18);
+  cap(kit, "band", "alt", [0, 0, -size * 0.04], [0, 0, size * 0.04], size * 0.185);
+  for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    cap(kit, "fin", "alt", [x * size * 0.08, y * size * 0.08, -size * 0.38], [x * size * 0.2, y * size * 0.2, -size * 0.47], size * 0.05, 0.2, x === 0 ? [1, 0, 0] : UP);
+  }
+  ball(kit, "gondola", "dark", [0, -size * 0.2, size * 0.05], size * 0.06, 0.7);
+  for (let i = 0; i < 3; i += 1) ball(kit, "window", "glow", [size * 0.04, -size * 0.2, size * (i * 0.04 - 0.01)], size * 0.012);
+  beacon(kit, [0, size * 0.19, 0], size * 0.015, t);
+}
+
+function kiteShape(kit: Kit, size: number, t: number): void {
+  // Faces the way it looks; a diamond of two crossed sails, bows down its tail, and the long line down to the ground.
+  cap(kit, "sail", "coat", [0, -size * 0.55, 0], [0, size * 0.45, 0], size * 0.26, 0.08, [0, 0, 1]);
+  cap(kit, "sail", "alt", [-size * 0.32, size * 0.12, 0.01], [size * 0.32, size * 0.12, 0.01], size * 0.18, 0.08, [0, 0, 1]);
+  for (let i = 0; i < 6; i += 1) ball(kit, "bow", i % 2 === 0 ? "accent" : "alt", [Math.sin(t * 3.4 - i * 0.8) * size * 0.12, -size * (0.7 + i * 0.22), -size * 0.05 * i], size * 0.05, 0.4, [0, 0, 1]);
+  cap(kit, "line", "dark", [0, -size * 0.45, 0], [0, -9, -7], 0.008);
+}
+
+function satellite(kit: Kit, size: number, t: number): void {
+  // Far off it is a steady point of light, now and then flaring as its panels catch the sun.
+  const flare = Math.max(0, Math.sin(t * 0.7) - 0.9) * 10;
+  ball(kit, "light", "glow", [0, 0, 0], size * (0.3 + flare * 0.5));
+  for (const x of [-1, 1]) cap(kit, "panel", "alt", [x * size * 0.3, 0, 0], [x * size * 0.9, 0, 0], size * 0.16, 0.1, [0, 0, 1]);
+}
+
+function rocket(kit: Kit, size: number, t: number): void {
+  cap(kit, "hull", "coat", [0, 0, -size * 0.35], [0, 0, size * 0.3], size * 0.09);
+  ball(kit, "nose", "accent", [0, 0, size * 0.38], size * 0.08, 0.9);
+  for (const a of [0, 2.1, 4.2]) cap(kit, "fin", "alt", [0, 0, -size * 0.25], [Math.cos(a) * size * 0.18, Math.sin(a) * size * 0.18, -size * 0.4], size * 0.03, 0.25);
+  ball(kit, "flame", "glow", [0, 0, -size * (0.48 + 0.04 * Math.sin(t * 40))], size * 0.1, 0.7);
+  for (let i = 1; i <= 9; i += 1) ball(kit, "smoke", "belly", [Math.sin(t * 2 + i) * size * 0.04 * i, 0, -size * (0.55 + i * 0.4)], size * (0.08 + i * 0.03), 0.9);
+}
+
+function comet(kit: Kit, size: number): void {
+  // A bright head and a tail of light streaming back along its path.
+  ball(kit, "head", "glow", [0, 0, 0], size * 0.22);
+  for (let i = 1; i <= 10; i += 1) ball(kit, "tail", "glow", [0, 0, -size * i * 0.6], size * 0.2 * (1 - i / 12));
+}
+
+const PLANE_SIZE: Readonly<Record<PlaneKind, number>> = { airliner: 3.4, prop: 1.6, jet: 2.4, ufo: 2.6, balloon: 3, helicopter: 1.8, blimp: 7, kite: 0.9, satellite: 1.4, rocket: 4, comet: 2.2 };
 
 const PLANE_SHAPES: Readonly<Record<PlaneKind, (kit: Kit, size: number, t: number) => void>> = {
-  airliner: (kit, size) => { airliner(kit, size, false); },
-  prop: (kit, size, t) => { airliner(kit, size, true); banner(kit, size, t); },
-  jet: (kit, size) => {
-    airliner(kit, size, false);
+  airliner: (kit, size, t) => { airliner(kit, size, false, t); },
+  prop: (kit, size, t) => { airliner(kit, size, true, t); banner(kit, size, t); },
+  jet: (kit, size, t) => {
+    airliner(kit, size, false, t);
     for (let i = 1; i <= 10; i += 1) ball(kit, "contrail", "glow", [0, 0, -size * (0.5 + i * 0.45)], size * (0.03 + i * 0.012), 0.9);
   },
   ufo: saucer,
   balloon: (kit, size) => { balloonShape(kit, size); },
+  helicopter,
+  blimp,
+  kite: kiteShape,
+  satellite,
+  rocket,
+  comet: (kit, size) => { comet(kit, size); },
 };
 const PLANE_DRIFT: Partial<Record<PlaneKind, (t: number) => Vec>> = {
   ufo: (t) => [Math.sin(t * 0.7) * 3, Math.sin(t * 1.9) * 1.2, 0],
   balloon: (t) => [0, Math.sin(t * 0.2) * 0.8, 0],
+  helicopter: (t) => [0, Math.sin(t * 0.9) * 0.3, 0],
+  kite: (t) => [Math.sin(t * 0.6) * 1.4 + Math.sin(t * 1.7) * 0.3, Math.sin(t * 1.1) * 0.5, 0],
+};
+const PLANE_LABELS: Readonly<Record<PlaneKind, string>> = {
+  airliner: "Airliner", prop: "Banner plane", jet: "Jet", ufo: "Saucer", balloon: "Hot-air balloon", helicopter: "Helicopter",
+  blimp: "Blimp", kite: "Kite", satellite: "Satellite", rocket: "Rocket", comet: "Shooting star",
 };
 
 function planeBody(kind: PlaneKind, pass: Pass, t: number): Body {
   const u = (t - pass.start) / (pass.end - pass.start);
-  const dir = unit(sub(pass.to, pass.from));
+  const route = unit(sub(pass.to, pass.from));
+  // A kite faces back down its line toward whoever flies it.
+  const dir: Vec = kind === "kite" ? unit([-pass.from[0], 0, -pass.from[2]], [0, 0, 1]) : route;
   const p = add(lerpV(pass.from, pass.to, kind === "ufo" ? smooth(u) * 0.6 + u * 0.4 : u), PLANE_DRIFT[kind]?.(t) ?? [0, 0, 0]);
   const kit: Kit = { f: frameOf(p, dir), out: [], roll: 0, pivot: [0, 0, 0] };
   PLANE_SHAPES[kind](kit, PLANE_SIZE[kind], t);
-  return { id: `plane.${pass.seed}`, kind, label: kind, action: "fly", morph: "normal", at: p, front: dir, capsules: kit.out, palette: PLANE_LOOKS[kind], glow: kind === "ufo" || kind === "jet" ? 0.6 : 0 };
+  const bright = kind === "ufo" || kind === "jet" ? 0.6 : kind === "comet" || kind === "satellite" ? 1 : 0;
+  return { id: `${kind}.${String(pass.seed)}`, kind, label: PLANE_LABELS[kind], action: "fly", morph: "normal", at: p, front: dir, capsules: kit.out, palette: PLANE_LOOKS[kind], glow: bright };
 }
 
 // ---------------------------------------------------------------- the herd
@@ -2400,8 +2670,8 @@ export interface Herd {
   readonly cast: Cast;
   /** Every resident animal posed at `t` seconds, on this frame's stage. */
   at(t: number, stage: Stage): Body[];
-  /** What is passing over at `t`: a flock, a plane. `radius` scales how far off they pass. */
-  sky(t: number, options?: { readonly radius?: number }): Body[];
+  /** What is passing over at `t`: birds, bats, craft, lights; `now` says what the sky is like, so what comes fits it. */
+  sky(t: number, now?: SkyNow): Body[];
   /**
    * Send animals somewhere from `t`: one by its body `id`, or everyone. They
    * drop what they are doing, go there their own way (walk, run, climb, fly)
@@ -2535,31 +2805,17 @@ function commandTroupes(troupes: readonly Troupe[], t: number, order: Order, sta
 /** The scene's living cast: call `at` every frame with the stage, and `sky` for what flies over. */
 export function createHerd(cast: Cast): Herd {
   let troupes: Troupe[] | null = null;
-  const flocks: Pass[] = [];
-  const planes: Pass[] = [];
-  const flockRand = streamOf(cast.seed, "fauna.sky.flocks");
-  const planeRand = streamOf(cast.seed, "fauna.sky.planes");
-  const flockWho: Who | null = cast.sky.flock ? { member: memberOf(streamOf(cast.seed, "fauna.sky.bird"), cast.sky.flock.species, speciesOf(cast.sky.flock.species).coats[0]?.[0] ?? "", false, { morph: "normal" }), spec: speciesOf(cast.sky.flock.species) } : null;
-  const flockSky = (t: number, reach: number): Body[] => {
-    const flock = cast.sky.flock;
-    if (!flock || !flockWho) return [];
-    passesUntil(flocks, flockRand, flock.every, t, (start) => {
-      const { from, to } = chord(flockRand, [8 * reach, 26 * reach], [6, 15], 45 * reach);
-      const count = intBetween(flockRand, flock.size[0], flock.size[1]);
-      return { start, end: start + length(sub(to, from)) / between(flockRand, [3.5, 5.5]), from, to, count, v: count >= 5 && flockRand() < 0.6, seed: Math.floor(flockRand() * 1e6) };
-    });
-    return flocks.filter((pass) => t >= pass.start && t < pass.end).flatMap((pass) => flockBodies(pass, flockWho, t));
-  };
-  const planeSky = (t: number, reach: number): Body[] => {
-    const plane = cast.sky.plane;
-    if (!plane) return [];
-    const slow = plane.kind === "balloon" ? 0.25 : plane.kind === "ufo" ? 0.6 : 1;
-    const balloon = plane.kind === "balloon";
-    passesUntil(planes, planeRand, plane.every, t, (start) => {
-      const { from, to } = chord(planeRand, balloon ? [30 * reach, 50 * reach] : [50 * reach, 75 * reach], balloon ? [16, 26] : [26, 38], 110 * reach);
-      return { start, end: start + length(sub(to, from)) / (between(planeRand, [7, 10]) * slow), from, to, count: 1, v: false, seed: Math.floor(planeRand() * 1e6) };
-    });
-    return planes.filter((pass) => t >= pass.start && t < pass.end).map((pass) => planeBody(plane.kind, pass, t));
+  const passes: Pass[] = [];
+  const clock = { last: 0 };
+  const skyRand = streamOf(cast.seed, "fauna.sky.passes");
+  clock.last = -between(skyRand, [0.2, 0.8]) * cast.sky.every[0];
+  const flyer = (species: SpeciesId | null, name: string): Who | null => (species ? { member: memberOf(streamOf(cast.seed, `fauna.sky.${name}`), species, speciesOf(species).coats[0]?.[0] ?? "", false, { morph: "normal" }), spec: speciesOf(species) } : null);
+  const flyers = { flock: flyer(cast.sky.birds, "bird"), vee: flyer(cast.sky.vee, "vee"), swarm: flyer(cast.sky.swarm, "swarm") };
+  const drawPass = (pass: Pass, t: number): Body[] => {
+    if (pass.kind === "flock") return flyers.flock ? flockBodies(pass, flyers.flock, t) : [];
+    if (pass.kind === "vee") return flyers.vee ? flockBodies(pass, flyers.vee, t) : [];
+    if (pass.kind === "murmuration" || pass.kind === "bats") return swarmBodies(pass, pass.kind === "bats" ? null : flyers.swarm, t);
+    return [planeBody(pass.kind, pass, t)];
   };
   return {
     cast,
@@ -2581,9 +2837,15 @@ export function createHerd(cast: Cast): Herd {
       });
       return out;
     },
-    sky(t: number, options: { readonly radius?: number } = {}): Body[] {
-      const reach = options.radius ?? 1;
-      return [...flockSky(t, reach), ...planeSky(t, reach)];
+    sky(t: number, now: SkyNow = {}): Body[] {
+      const reach = now.radius ?? 1;
+      passesUntil(passes, clock, skyRand, cast.sky.every, t, (start) => {
+        const kind = nextTraffic(skyRand, cast.sky, now);
+        // A busy sky still clears between passes: never more than a few at once.
+        const crowded = passes.filter((pass) => pass.end > start).length >= SKY_AT_ONCE;
+        return kind && !crowded ? passOf(kind, start, skyRand, reach, cast.sky) : null;
+      });
+      return passes.filter((pass) => t >= pass.start && t < pass.end).flatMap((pass) => drawPass(pass, t));
     },
     command(t: number, order: Order, stage: Stage): string[] {
       troupes ??= troupesOf(cast, stage);

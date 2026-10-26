@@ -42,15 +42,30 @@ export default [
     expect: [true, true, true],
   },
   {
-    name: 'a tree starts as one tiny sprout and only ever gets taller while it lives',
+    name: 'a tree starts as one tiny sprout, grows taller while young and never shrinks in its prime',
     run: (api) => {
       const tree = api.growTree({ species: 'cherry', seed: 7 });
       const sprout = frameAt(api, tree, 0);
-      const heights = [0.1, 0.3, 0.5, 0.7].map((share) => frameAt(api, tree, share).height);
-      const rising = heights.every((height, index) => index === 0 || height > heights[index - 1]);
+      const heights = [0.02, 0.05, 0.1, 0.2, 0.5, 0.7].map((share) => frameAt(api, tree, share).height);
+      const rising = heights.every((height, index) => index === 0 || height > heights[index - 1] || (index > 3 && height >= heights[index - 1]));
       return [sprout.visible, sprout.height < 0.2, rising, heights[3] > 6];
     },
     expect: [1, true, true, true],
+  },
+  {
+    name: 'growth is a curve: fast while young, slow in its prime, and slow species take longer to fill out',
+    run: (api) => {
+      const height = (species, share) => {
+        const tree = api.growTree({ species, seed: 7 });
+        return api.treeFrame(tree, api.cycleAt(tree, share * 100, 100), { ground: 0 }).height;
+      };
+      const early = height('cherry', 0.1) - height('cherry', 0);
+      const later = height('cherry', 0.5) - height('cherry', 0.4);
+      const share = (species) => height(species, 0.2) / height(species, 0.75);
+      const cycles = [0, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 1].map((life) => api.cycleAt(api.growTree({ species: 'oak', seed: 7 }), life * 100, 100));
+      return [early > later * 3, share('willow') > share('redwood') + 0.2, cycles.every((c, i) => i === 0 || c > cycles[i - 1])];
+    },
+    expect: [true, true, true],
   },
   {
     name: 'the trunk thickens by the pipe model while twigs stay twig-thin',

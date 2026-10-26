@@ -138,6 +138,116 @@ export default [
     expect: [['0.0'], true, 2],
   },
   {
+    name: 'roots are in the way: sent across one, a bird hops it and a rabbit clears it, never passing through, and one sent onto it stands on top',
+    run: ({ castFor, createHerd }) => {
+      // One root lying across the way from (-1.4, 0) to (1.4, 0), at x = 0.
+      const root = { a: [0, 0.08, -1.2], b: [0, 0.08, 1.2], r: 0.12 };
+      const at = { ...stage(), roots: [root] };
+      const top = 0.08 + 0.12;
+      const crossing = (species, region) => {
+        const herd = createHerd(castFor({ seed: 3, region, world: 'nature', radius: 3, species, group: 'solo' }));
+        for (let t = 0; t < 2; t += 0.5) herd.at(t, at);
+        herd.command(2, { id: '0.0', to: { on: 'ground', x: -1.4, z: 0.3 } }, at);
+        for (let t = 2; t < 20; t += 0.5) herd.at(t, at);
+        herd.command(20, { id: '0.0', to: { on: 'ground', x: 1.4, z: 0.3 } }, at);
+        let lowest = Infinity;
+        for (let t = 20; t < 40; t += 0.02) {
+          const body = herd.at(t, at).find((each) => each.id === '0.0');
+          if (body && Math.abs(body.at[0]) < 0.05) lowest = Math.min(lowest, body.at[1]);
+        }
+        herd.command(40, { id: '0.0', to: { on: 'ground', x: 0, z: 0.3 } }, at);
+        // Where it settles to look about, once it gets there.
+        let stood = null;
+        for (let t = 40; t < 60 && !stood; t += 0.25) stood = herd.at(t, at).find((each) => each.id === '0.0' && each.action === 'look') ?? null;
+        return [lowest >= top - 0.01, Math.abs((stood?.at[1] ?? 0) - top) < 0.03];
+      };
+      return [...crossing('parrot', 'bali'), ...crossing('rabbit', 'rockies')];
+    },
+    expect: [true, true, true, true],
+  },
+  {
+    name: 'a bird flies like one: up to a branch overhead it loops out and swoops in from below, down to the ground it glides in, never straight up or down',
+    run: ({ castFor, createHerd }) => {
+      const at = stage();
+      const herd = createHerd(castFor({ seed: 3, region: 'bali', world: 'nature', radius: 3, species: 'parrot', group: 'solo' }));
+      for (let t = 0; t < 2; t += 0.5) herd.at(t, at);
+      herd.command(2, { id: '0.0', to: { on: 'ground', x: 0.9, z: 0.3 } }, at);
+      for (let t = 2; t < 20; t += 0.5) herd.at(t, at);
+      const flight = (t0, to) => {
+        for (let t = t0 - 10; t < t0; t += 0.5) herd.at(t, at);
+        herd.command(t0, { id: '0.0', to }, at);
+        const out = [];
+        for (let t = t0; t < t0 + 10; t += 0.02) {
+          const body = herd.at(t, at).find((each) => each.id === '0.0');
+          if (body?.action === 'fly') out.push(body.at);
+        }
+        return out;
+      };
+      const steepest = (way) => Math.max(...way.slice(1).map((p, i) => Math.abs(p[1] - way[i][1]) / Math.max(1e-6, Math.hypot(p[0] - way[i][0], p[2] - way[i][2]))));
+      const up = flight(20, { on: 'perch', i: 0 });
+      const wide = Math.max(...up.map((p) => Math.hypot(p[0] - 0.9, p[2] - 0.3)));
+      const last = up.slice(-Math.ceil(up.length * 0.3));
+      const perch = up.at(-1)?.[1] ?? 0;
+      const below = last.some((p) => p[1] < perch - 0.05) && perch >= (last[0]?.[1] ?? 0);
+      const down = flight(40, { on: 'ground', x: -1.2, z: 0.6 });
+      const wider = Math.hypot(...[0, 2].map((i) => (down.at(-1)?.[i] ?? 0) - (down[0]?.[i] ?? 0)));
+      return [up.length > 10, wide > 0.8, steepest(up) < 1.8, below, steepest(down) < 1.8, wider > 1];
+    },
+    expect: [true, true, true, true, true, true],
+  },
+  {
+    name: 'perched birds keep out of the trunk, sitting across the branch, and a bird walks a step, hops a little way and flies farther',
+    run: ({ castFor, createHerd }) => {
+      const at = { ...stage(), perches: [{ p: [0.36, 2, 0], d: [1, 0, 0], r: 0.06 }, { p: [1, 2, 0.1], d: [1, 0, 0], r: 0.06 }] };
+      const herd = createHerd(castFor({ seed: 3, region: 'bali', world: 'nature', radius: 3, species: 'parrot', group: 'solo' }));
+      for (let t = 0; t < 2; t += 0.5) herd.at(t, at);
+      herd.command(2, { id: '0.0', to: { on: 'perch', i: 0 } }, at);
+      let body = null;
+      for (let t = 2; t < 8; t += 0.1) body = herd.at(t, at).find((each) => each.id === '0.0');
+      const out = (p) => Math.hypot(p[0], p[2]);
+      const clear = Math.min(...body.capsules.flatMap((c) => [out(c.a) - c.r, out(c.b) - c.r])) > 0.3;
+      const across = Math.abs(body.front[0]) < 0.2;
+      const gait = (species, d) => {
+        const h = createHerd(castFor({ seed: 5, region: 'tokyo', world: 'nature', radius: 3, species, group: 'solo' }));
+        for (let t = 0; t < 2; t += 0.5) h.at(t, at);
+        h.command(2, { id: '0.0', to: { on: 'ground', x: 1.5, z: 0 } }, at);
+        for (let t = 2; t < 12; t += 0.5) h.at(t, at);
+        h.command(12, { id: '0.0', to: { on: 'ground', x: 1.5, z: d } }, at);
+        return h.at(12.3, at).find((each) => each.id === '0.0').action;
+      };
+      return [clear, across, gait('crow', 0.3), gait('crow', 2.6), gait('crane', 1.2)];
+    },
+    expect: [true, true, 'wander', 'fly', 'wander'],
+  },
+  {
+    name: 'every creature has eyes that read: an iris, a pupil and a spark of light, shut when it sleeps',
+    run: ({ SPECIES, poseSpecies }) => {
+      const seeing = Object.keys(SPECIES).filter((id) => SPECIES[id].plan !== 'bug');
+      const has = (body, role) => body.capsules.some((c) => c.role === role);
+      const open = seeing.filter((id) => { const body = poseSpecies(id, 'stand'); return has(body, 'pupil') && has(body, 'shine'); });
+      const asleep = poseSpecies('fox', 'sleep');
+      const most = Math.max(...Object.keys(SPECIES).flatMap((id) => ['stand', 'wander', 'fly', 'climb'].map((act) => poseSpecies(id, act).capsules.length)));
+      return [open.length === seeing.length, has(asleep, 'pupil'), most <= 48];
+    },
+    expect: [true, false, true],
+  },
+  {
+    name: 'coats: each species mostly wears its own colours, no two animals quite alike, and special skins follow the world without crowding out the usual coats',
+    run: ({ castFor }) => {
+      const members = (world) => casts(1500, { world }).flatMap((input) => castFor(input).groups.flatMap((group) => group.members));
+      const nature = members('nature');
+      const wolves = nature.filter((m) => m.species === 'wolf');
+      const usual = wolves.filter((m) => m.coat === 'grey').length / Math.max(1, wolves.length);
+      const pairs = castFor({ seed: 11, region: 'rockies', world: 'nature', radius: 3, species: 'wolf', group: 'pack' }).groups[0].members;
+      const alike = new Set(pairs.map((m) => m.palette.coat)).size === pairs.length;
+      const share = (list, morph) => list.filter((m) => m.morph === morph).length / Math.max(1, list.length);
+      const synth = members('synth');
+      const themed = share(synth, 'neon');
+      return [usual > 0.45, alike, themed > 0.06 && themed < 0.2, share(synth, 'normal') > 0.75, share(nature, 'neon'), share(nature, 'normal') > 0.85];
+    },
+    expect: [true, true, true, true, 0, true],
+  },
+  {
     name: 'a tap picks the animal it passes through, the nearest first, and nothing when it misses',
     run: ({ castFor, createHerd, pickBody }) => {
       const herd = createHerd(castFor({ seed: 7, region: 'rockies', world: 'nature', radius: 3, species: 'deer', group: 'pair' }));

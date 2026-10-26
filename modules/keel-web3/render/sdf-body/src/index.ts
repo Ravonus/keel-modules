@@ -216,7 +216,12 @@ void main() {
   vec3 halfway = normalize(uSun - rd);
   light += uSunCol * INV_PI * 0.12 * pow(max(dot(n, halfway), 0.0), 18.0);
   float glow = max(uGlow, lit);
-  gl_FragColor = vec4(mix(base * light, base * (1.0 + 0.5 * rim), glow), 1.0);
+  vec3 col = mix(base * light, base * (1.0 + 0.5 * rim), glow);
+  // Bright sun would clip a coat channel by channel and turn a brown deer
+  // orange; instead the highlight rolls off as a whole, keeping its hue.
+  float peak = max(max(col.r, col.g), col.b);
+  if (peak > 0.75) col *= (0.75 + 0.25 * (1.0 - exp(-(peak - 0.75) * 4.0))) / peak;
+  gl_FragColor = vec4(col, 1.0);
   vec4 clip = projectionMatrix * modelViewMatrix * vec4((p - uCenter) / uSize, 1.0);
   gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
   #include <tonemapping_fragment>
@@ -227,8 +232,8 @@ const fragment = (maxParts: number, roles: number): string => `#define MAXP ${St
 
 // ---------------------------------------------------------------- bodies
 
-const DEFAULT_CRISP = ["eye", "nose", "glow", "horn"];
-const DEFAULT_EMISSIVE = ["glow"];
+const DEFAULT_CRISP = ["eye", "pupil", "shine", "nose", "glow", "horn"];
+const DEFAULT_EMISSIVE = ["glow", "shine"];
 
 export interface SdfBodies {
   /** Add this to the scene once. */

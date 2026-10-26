@@ -52,8 +52,13 @@ export interface TreeModelLike {
   readonly blossoms: SlotsLike;
   readonly fruit: SlotsLike;
   readonly roots: readonly { readonly angle: number; readonly reach: number }[];
+  /** Each internode's parent (-1 for the root) and branch order (0 for the trunk): palms need them to lay out their fronds. */
+  readonly parent?: ArrayLike<number>;
+  readonly order?: ArrayLike<number>;
   readonly species: {
     readonly id: string;
+    /** Set for palms, whose leaves are the leaflets of their fronds. */
+    readonly palm?: unknown;
     readonly evergreen: boolean;
     readonly flower: OrnamentSpecLike | null;
     readonly fruit: OrnamentSpecLike | null;
@@ -421,11 +426,10 @@ export const LEAF_OUTLINE: readonly (readonly [number, number])[] = [[0, 0], [0.
  * A leaf blade folded along a pale midrib with darker margins, so even a few
  * pixels read as a leaf and not a dot. Colours are baked as vertex colours.
  */
-export function bladeGeometry(lit: LitLike, outline: readonly (readonly [number, number])[] = LEAF_OUTLINE): GeometryLike {
+export function bladeGeometry(lit: LitLike, outline: readonly (readonly [number, number])[] = LEAF_OUTLINE, fold = 0.1, bend = 0): GeometryLike {
   const widest = Math.max(...outline.map(([x]) => x));
   const positions: number[] = [];
   const colors: number[] = [];
-  const fold = 0.1;
   const tone = (x: number, y: number): number[] => {
     const edge = Math.abs(x) / widest;
     const shade = 1.22 - 0.5 * edge - 0.18 * smoothstep(0.25, 0, y);
@@ -435,9 +439,10 @@ export function bladeGeometry(lit: LitLike, outline: readonly (readonly [number,
     const [x0, y0] = outline[index] ?? [0, 0];
     const [x1, y1] = outline[index + 1] ?? [0, 0];
     for (const side of [-1, 1]) {
-      const a = [0, y0, 0], d = [0, y1, 0];
-      const b = [side * x0, y0, (fold * x0) / widest];
-      const c = [side * x1, y1, (fold * x1) / widest];
+      // `bend` arches the blade along its length, its tip dropping away from its face.
+      const a = [0, y0, bend * y0 * y0], d = [0, y1, bend * y1 * y1];
+      const b = [side * x0, y0, (fold * x0) / widest + bend * y0 * y0];
+      const c = [side * x1, y1, (fold * x1) / widest + bend * y1 * y1];
       const quad = side > 0 ? [a, b, c, a, c, d] : [a, c, b, a, d, c];
       for (const point of quad) {
         positions.push(...point);
@@ -556,8 +561,17 @@ export function needleGeometry(lit: LitLike, kind: NeedleKind): GeometryLike {
 const NEEDLE_KINDS: Readonly<Record<string, NeedleKind>> = { pine: "pine", spruce: "spruce", redwood: "redwood" };
 const needleCache = new WeakMap<LitLike, Map<NeedleKind, GeometryLike>>();
 
-/** The blade a species grows: needles for the conifers, the broad leaf for everything else. */
+/** A palm leaflet: a long narrow strap, slim at its base, tapering to a point. */
+export const PALM_LEAFLET: readonly (readonly [number, number])[] = [[0, 0], [0.012, 0.04], [0.026, 0.18], [0.03, 0.4], [0.027, 0.62], [0.018, 0.82], [0.008, 0.94], [0, 1]];
+const palmCache = new WeakMap<LitLike, GeometryLike>();
+
+/** The blade a species grows: needles for the conifers, arched straps for a palm, the broad leaf for everything else. */
 export function speciesBlade(lit: LitLike, speciesId: string): GeometryLike {
+  if (speciesId === "palm") {
+    let strap = palmCache.get(lit);
+    if (!strap) palmCache.set(lit, (strap = bladeGeometry(lit, PALM_LEAFLET, 0.014, 0.24)));
+    return strap;
+  }
   const kind = NEEDLE_KINDS[speciesId];
   if (!kind) return treeShapes(lit).blade;
   let cache = needleCache.get(lit);
@@ -849,6 +863,8 @@ interface Tree {
   readonly blades: boolean;
   /** Conifer needles: each sprig lies along its twig, stiff, instead of hanging off it like a leaf. */
   readonly needles: boolean;
+  /** A palm's leaflets, laid out in two rows down each frond. */
+  readonly fronds: FrondLayout | null;
   readonly skin: TreeSkin | null;
   readonly group: NodeLike;
   readonly meshes: TreeMeshes;
@@ -997,6 +1013,10 @@ const downwind = (pass: LeafPass, x: number, z: number): number => x * Math.cos(
 
 /** A blade grows from its twig: the stalk sits on the twig and the blade points out along its slot, so no leaf hangs in the air. */
 function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPass, leafSize: number, swing: number): void {
+  if (tree.fronds) {
+    poseLeaflet(tree, tree.fronds, frame, index, pass, leafSize, swing);
+    return;
+  }
   if (tree.needles) {
     poseSprig(tree, frame, index, pass, leafSize, swing);
     return;
@@ -1015,6 +1035,89 @@ function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
   const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, x, z));
   writeBlade(pass.array, index, [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4], n, leafSize * 1.9, motion);
+}
+
+/**
+ * A palm frond as its leaflets: two even rows down the rachis, one each side,
+ * short at the frond's base, longest a third of the way out and short again at
+ * its tip. Per leaflet: how far along its internode it grows, which side, and
+ * how far out along the whole frond that is.
+ */
+interface FrondLayout { readonly along: Float32Array; readonly side: Float32Array; readonly out: Float32Array; readonly pieces: Float32Array }
+
+/** Each frond internode's place along its frond (counted from the crown), its frond's first internode, and each frond's length in internodes. */
+function frondDepths(model: TreeModelLike, parent: ArrayLike<number>, order: ArrayLike<number>): { depth: Float32Array; base: Int32Array; pieces: Float32Array } {
+  const depth = new Float32Array(model.count);
+  const base = new Int32Array(model.count).fill(-1);
+  const pieces = new Float32Array(model.count);
+  for (let node = 0; node < model.count; node += 1) {
+    const up = at(parent, node);
+    if (at(order, node) === 0) continue;
+    const fromTrunk = up < 0 || at(order, up) === 0;
+    depth[node] = fromTrunk ? 0 : at(depth, up) + 1;
+    base[node] = fromTrunk ? node : at(base, up);
+    const root = at(base, node);
+    pieces[root] = Math.max(at(pieces, root), at(depth, node) + 1);
+  }
+  return { depth, base, pieces };
+}
+
+function frondLayout(model: TreeModelLike): FrondLayout | null {
+  const { parent, order } = model;
+  if (!model.species.palm || !parent || !order) return null;
+  const { depth, base, pieces } = frondDepths(model, parent, order);
+  const slots = model.leaves;
+  const layout: FrondLayout = { along: new Float32Array(slots.count), side: new Float32Array(slots.count), out: new Float32Array(slots.count), pieces: new Float32Array(slots.count) };
+  let first = 0;
+  for (let index = 1; index <= slots.count; index += 1) {
+    if (index < slots.count && at(slots.node, index) === at(slots.node, first)) continue;
+    const node = at(slots.node, first);
+    const length = Math.max(1, at(pieces, Math.max(0, at(base, node))));
+    const pairs = Math.ceil((index - first) / 2);
+    for (let k = 0; k < index - first; k += 1) {
+      const along = (Math.floor(k / 2) + 0.5 + (k % 2) * 0.2) / pairs;
+      layout.along[first + k] = along;
+      layout.side[first + k] = k % 2 === 0 ? 1 : -1;
+      layout.out[first + k] = (at(depth, node) + along) / length;
+      layout.pieces[first + k] = length;
+    }
+    first = index;
+  }
+  return layout;
+}
+
+/** One leaflet off its rachis: angled toward the frond's tip, dropping into a V, the outer ones drooping most, all of them shivering in the wind. */
+function poseLeaflet(tree: Tree, fronds: FrondLayout, frame: TreeFrameLike, index: number, pass: LeafPass, leafSize: number, swing: number): void {
+  const slots = tree.model.leaves;
+  const node = at(slots.node, index);
+  const tip: V3 = [at(frame.x, node), at(frame.y, node), at(frame.z, node)];
+  const base: V3 = [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)];
+  const t = at(fronds.along, index);
+  const p: V3 = [base[0] + (tip[0] - base[0]) * t, base[1] + (tip[1] - base[1]) * t, base[2] + (tip[2] - base[2]) * t];
+  let fw: V3 = norm3(tip[0] - base[0], tip[1] - base[1], tip[2] - base[2]);
+  if (isZero(fw)) fw = UP;
+  let side: V3 = norm3(...cross3(fw, UP));
+  if (isZero(side)) side = [1, 0, 0];
+  const down: V3 = norm3(...cross3(fw, side));
+  const s = at(fronds.out, index);
+  const sign = at(fronds.side, index);
+  const rank = at(slots.rank, index);
+  const shiver = pass.wind * 0.35 * Math.sin(pass.elapsed * (6 + rank * 3) + rank * 40 + downwind(pass, p[0], p[2]) * 0.8);
+  const forward = 0.5 + 0.15 * s;
+  const vee = 0.3 + 0.45 * s + shiver * 0.5;
+  const n: V3 = [
+    sign * side[0] * Math.cos(forward) + fw[0] * Math.sin(forward) + down[0] * vee,
+    sign * side[1] * Math.cos(forward) + fw[1] * Math.sin(forward) + down[1] * vee,
+    sign * side[2] * Math.cos(forward) + fw[2] * Math.sin(forward) + down[2] * vee,
+  ];
+  // Leaflets reach a third of the frond's length at most, less toward its ends.
+  const piece = Math.hypot(tip[0] - base[0], tip[1] - base[1], tip[2] - base[2]);
+  const frond = piece * at(fronds.pieces, index);
+  const profile = Math.sin(Math.PI * (0.08 + 0.88 * s)) ** 0.7;
+  const grown = clamp(leafSize / Math.max(pass.size, 1e-6), 0, 1.4);
+  const length = frond * 0.3 * (0.25 + 0.75 * profile) * grown * (0.85 + 0.3 * at(slots.size, index));
+  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.wind, pass.height, pass.dir);
+  writeBlade(pass.array, index, [p[0] + tree.offset.x + swing, p[1], p[2] + tree.offset.z + swing * 0.4], norm3(...n), length, { droop: 0.04, twist: sign * 0.35 + shiver * 0.6, nod: 0 });
 }
 
 /** Where a conifer sprig sits: somewhere along its twig, pointing the way the twig grows, a little off it. */
@@ -1618,6 +1721,7 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     ground: options.ground ?? { y: 0, radius: 4.4 },
     blades: smooth,
     needles: smooth && !options.shapes?.blade && NEEDLE_KINDS[model.species.id] !== undefined,
+    fronds: smooth && !options.shapes?.blade ? frondLayout(model) : null,
     skin: options.skin ?? null,
     leafStride: Math.max(1, Math.ceil(model.leaves.count / limits.litter)),
     hidden: new Map(), fallers: [], random: seededRandom((options.seed ?? 1) ^ 0x51f7),

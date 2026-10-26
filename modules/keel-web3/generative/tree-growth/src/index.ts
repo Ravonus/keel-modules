@@ -188,7 +188,7 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   palm: {
     id: "palm", cycles: 30, height: 12.5, apical: 1, vigor: 1, maxShoot: 1, sideShoot: 0, angle: 0, divergence: 137.5, whorl: 0,
     straight: 1, light: 0, up: 1, lateralUp: 0, weep: 0, flat: 0, spread: 0.3, crownAt: 0, ceiling: Infinity, shed: 0,
-    leafSlots: 16, leafSpread: 0.62, hang: 0.4, flower: { kind: "spadix", on: "spur", perNode: 2, window: [100, 128, 150, 176], from: 5 }, fruit: { kind: "coconut", on: "spur", perNode: 3, window: [60, 61, 400, 424], from: 6 },
+    leafSlots: 24, leafSpread: 0.62, hang: 0.4, flower: { kind: "spadix", on: "spur", perNode: 2, window: [100, 128, 150, 176], from: 5 }, fruit: { kind: "coconut", on: "spur", perNode: 3, window: [60, 61, 400, 424], from: 6 },
     evergreen: true, palm: { fronds: 4, frond: 17, frondLife: 2.6, trunk: 0.24, lean: 0.45 }, radiusTip: 0.02, pipe: 2.5,
     phenology: { leaf: [60, 61], color: [300, 330], drop: [300, 340], dropMax: 0.08, flush: [120, 170], marcescent: 0 },
   },
@@ -897,10 +897,52 @@ export function growTree(input: GrowInput): TreeModel {
   return model;
 }
 
-/** The growth cycle at an age: a fresh sprout at birth, dead at the end of its life. */
+/**
+ * How a species spends its life, as shares of the lifespan: by `prime` it is
+ * full grown, getting there fastest while young (`quick` front-loads it); it
+ * then fills out slowly until `old`, when the decline begins.
+ */
+export interface Pace {
+  readonly prime: number;
+  readonly quick: number;
+  readonly old: number;
+}
+
+export const PACE: Readonly<Record<SpeciesId, Pace>> = {
+  willow: { prime: 0.22, quick: 3.8, old: 0.75 },
+  birch: { prime: 0.28, quick: 3.4, old: 0.75 },
+  acacia: { prime: 0.25, quick: 3.4, old: 0.8 },
+  jacaranda: { prime: 0.28, quick: 3.4, old: 0.8 },
+  cherry: { prime: 0.3, quick: 3, old: 0.8 },
+  maple: { prime: 0.38, quick: 2.8, old: 0.85 },
+  palm: { prime: 0.4, quick: 2.4, old: 0.85 },
+  pine: { prime: 0.45, quick: 2.6, old: 0.85 },
+  spruce: { prime: 0.5, quick: 2.4, old: 0.86 },
+  oak: { prime: 0.55, quick: 2.2, old: 0.88 },
+  baobab: { prime: 0.65, quick: 1.6, old: 0.92 },
+  redwood: { prime: 0.7, quick: 1.8, old: 0.92 },
+};
+
+/** Cycles a prime tree still adds, slowly, between full grown and old. */
+const PRIME_CYCLES = 1.5;
+const SPROUT = 0.32;
+
+/**
+ * The share of its growing done `u` of the way to its prime: a Chapman–Richards
+ * curve, settling in for a moment, then fast, then slowing as it fills out.
+ */
+function grownShare(u: number, quick: number): number {
+  return ((1 - Math.exp(-quick * u)) / (1 - Math.exp(-quick))) ** 1.25;
+}
+
+/** The growth cycle at an age: a fresh sprout at birth, quick when young, slow in its prime, dead at the end. */
 export function cycleAt(model: TreeModel, ageYears: number, lifespanYears: number): number {
   const life = clamp01(ageYears / Math.max(lifespanYears, 1e-6));
-  return 0.32 + (model.cycles - 0.32) * life;
+  const pace = PACE[model.species.id];
+  const grownAt = Math.max(SPROUT, model.matureAt - PRIME_CYCLES);
+  if (life < pace.prime) return SPROUT + (grownAt - SPROUT) * grownShare(life / pace.prime, pace.quick);
+  if (life < pace.old) return grownAt + (model.matureAt - grownAt) * ((life - pace.prime) / (pace.old - pace.prime));
+  return model.matureAt + (model.cycles - model.matureAt) * ((life - pace.old) / (1 - pace.old));
 }
 
 // ---------------------------------------------------------------- posing one moment

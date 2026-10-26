@@ -122,8 +122,10 @@ export type RegionId = "rockies" | "atlantic" | "alps" | "tokyo" | "sydney" | "n
 export type WorldKey = "nature" | "beach" | "city" | "synth" | "vapor" | "crystal" | "cosmic" | "voxel";
 export type Season = "spring" | "summer" | "autumn" | "winter";
 /** What a capsule is made of; a palette turns each into a colour. */
-export type Role = "coat" | "alt" | "belly" | "dark" | "eye" | "nose" | "accent" | "glow" | "horn" | "shell";
-export type Palette = Readonly<Record<Role, string>>;
+/** The pupil and the spark of light in an eye; every creature's palette has them, a craft's need not. */
+export type EyeRole = "pupil" | "shine";
+export type Role = "coat" | "alt" | "belly" | "dark" | "eye" | "nose" | "accent" | "glow" | "horn" | "shell" | EyeRole;
+export type Palette = Readonly<Record<Exclude<Role, EyeRole>, string>> & Readonly<Partial<Record<EyeRole, string>>>;
 
 export type Action =
   | "stand" | "look" | "sniff" | "graze" | "groom" | "scratch" | "sit" | "lie" | "sleep" | "stretch" | "shake"
@@ -452,6 +454,9 @@ export interface Perch {
   readonly path?: readonly Wood[] | undefined;
 }
 
+/** A surface root, as a capsule lying on the ground: animals step or hop over it, and can stand on it. */
+export interface Root { readonly a: Vec; readonly b: Vec; readonly r: number }
+
 /** What the scene gives the animals each frame: the ground they walk, the trunk they climb, the branches they sit in. */
 export interface Stage {
   /** Walkable radius of the ground around the origin. */
@@ -463,12 +468,31 @@ export interface Stage {
   /** The trunk: a straight run from base to top, or its real spine in `path` when it leans or bends. */
   readonly trunk?: { readonly base: Vec; readonly top: Vec; readonly r: number; readonly path?: readonly Wood[] | undefined } | null | undefined;
   readonly perches?: readonly Perch[] | undefined;
+  /** Roots on the ground, which raise it where they lie. */
+  readonly roots?: readonly Root[] | undefined;
   readonly night?: boolean | undefined;
 }
 
 interface Anchor { readonly p: Vec; readonly up: Vec; readonly along: Vec | null }
 
-const groundY = (stage: Stage, x: number, z: number): number => stage.ground?.(x, z) ?? stage.top;
+const bareY = (stage: Stage, x: number, z: number): number => stage.ground?.(x, z) ?? stage.top;
+
+/** The top of whatever root lies under a point, or -Infinity where none does. */
+function rootTop(stage: Stage, x: number, z: number): number {
+  let top = -Infinity;
+  for (const root of stage.roots ?? []) {
+    const dx = root.b[0] - root.a[0];
+    const dz = root.b[2] - root.a[2];
+    const span = dx * dx + dz * dz;
+    const t = span > 1e-9 ? clamp(((x - root.a[0]) * dx + (z - root.a[2]) * dz) / span, 0, 1) : 0;
+    const gap = Math.hypot(x - (root.a[0] + dx * t), z - (root.a[2] + dz * t));
+    if (gap < root.r) top = Math.max(top, mix(root.a[1], root.b[1], t) + Math.sqrt(root.r * root.r - gap * gap));
+  }
+  return top;
+}
+
+/** The ground's height at a point, roots included. */
+const groundY = (stage: Stage, x: number, z: number): number => Math.max(bareY(stage, x, z), rootTop(stage, x, z));
 const perchOf = (stage: Stage, i: number): Perch | undefined => {
   const list = stage.perches ?? [];
   return list.length > 0 ? list[((i % list.length) + list.length) % list.length] : undefined;
@@ -550,21 +574,106 @@ function clearOfTrunk(stage: Stage, p: Vec, size: number): Vec {
   return [p[0] * k, groundY(stage, p[0] * k, p[2] * k), p[2] * k];
 }
 
-function walkPath(a: Anchor, b: Anchor, stage: Stage, size: number): PathPoint[] {
-  const out: PathPoint[] = [];
-  for (let i = 0; i <= 8; i += 1) out.push({ p: clearOfTrunk(stage, lerpV(a.p, b.p, i / 8), size), up: UP });
-  return out;
+/**
+ * Over the ground, round the trunk, and up and over the roots: the way
+ * follows the ground's real height closely enough to find every root, and
+ * where one crosses it the body rises before it and comes down after, in an
+ * arc. A springy animal (`spring` near 1: a bird, a rabbit) hops it with room
+ * to spare; a heavy one steps over.
+ */
+function walkPath(a: Anchor, b: Anchor, stage: Stage, size: number, spring = 0): PathPoint[] {
+  const span = Math.hypot(b.p[0] - a.p[0], b.p[2] - a.p[2]);
+  const steps = clamp(Math.ceil(span / Math.max(0.03, size * 0.2)), 8, 96);
+  const points: Vec[] = [];
+  const bare: number[] = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const q = clearOfTrunk(stage, lerpV(a.p, b.p, i / steps), size);
+    points.push([q[0], groundY(stage, q[0], q[2]), q[2]]);
+    bare.push(bareY(stage, q[0], q[2]));
+  }
+  const over = (i: number): number => (points[i]?.[1] ?? 0) - (bare[i] ?? 0);
+  if (points.every((_, i) => over(i) < 0.004)) return points.map((p) => ({ p, up: UP }));
+  const reach = size * (0.45 + spring * 0.5);
+  const spare = size * spring * 0.3;
+  const stride = span / steps;
+  const lifted = points.map((p, i): Vec => {
+    let y = p[1];
+    for (let j = 0; j < points.length; j += 1) {
+      const d = Math.abs(i - j) * stride;
+      if (d >= reach || over(j) < 0.004) continue;
+      y = Math.max(y, (bare[i] ?? 0) + (over(j) + spare) * (1 - (d / reach) ** 2));
+    }
+    return [p[0], y, p[2]];
+  });
+  return lifted.map((p) => ({ p, up: UP }));
 }
 
-function flyPath(a: Anchor, b: Anchor): PathPoint[] {
-  const span = length(sub(b.p, a.p));
-  const top = add(lerpV(a.p, b.p, 0.5), [0, 0.4 + span * 0.35, 0]);
-  const out: PathPoint[] = [];
-  for (let i = 0; i <= 12; i += 1) {
-    const u = i / 12;
-    out.push({ p: add(add(scale(a.p, (1 - u) * (1 - u)), scale(top, 2 * u * (1 - u))), scale(b.p, u * u)), up: UP });
+/**
+ * Which way a flight leaves one end (or comes into the other): toward the
+ * far end when that is well off to the side, but out from the trunk when the
+ * way is short or all but straight up, so a bird swings out and comes back
+ * in instead of rising like a lift.
+ */
+function flightHeading(p: Vec, other: Vec, span: number, reach: number): Vec {
+  const radial = unit([p[0], 0, p[2]], [0, 0, 1]);
+  const way = unit([other[0] - p[0], 0, other[2] - p[2]], radial);
+  return unit(lerpV(radial, way, clamp(span / (reach * 1.5), 0, 1)), radial);
+}
+
+/** A point on a Catmull-Rom curve through four points. */
+function catmull(p0: Vec, p1: Vec, p2: Vec, p3: Vec, u: number): Vec {
+  const u2 = u * u;
+  const u3 = u2 * u;
+  return [0, 1, 2].map((i) => {
+    const [a, b, c, d] = [p0[i] ?? 0, p1[i] ?? 0, p2[i] ?? 0, p3[i] ?? 0];
+    return 0.5 * (2 * b + (c - a) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (3 * b - a - 3 * c + d) * u3);
+  }) as unknown as Vec;
+}
+
+/** Out of the trunk's way, sideways, keeping its height. */
+function roundTrunk(p: Vec, clear: number): Vec {
+  const off = Math.hypot(p[0], p[2]);
+  if (off >= clear) return p;
+  const k = clear / Math.max(off, 1e-3);
+  return off < 1e-3 ? [clear, p[1], 0] : [p[0] * k, p[1], p[2] * k];
+}
+
+/**
+ * A flight as a bird flies one. A bird climbs or drops at a slant, never
+ * straight up, so a way with more height in it than ground under it becomes
+ * a loop: out from the tree, round, and back in. It springs off and climbs
+ * out, crosses, and comes in on a long glide, from a little below a branch
+ * to swoop up onto it, or from above the ground to drop onto it.
+ */
+function flyPath(a: Anchor, b: Anchor, stage: Stage, size: number, onWood: boolean): PathPoint[] {
+  const span = Math.hypot(b.p[0] - a.p[0], b.p[2] - a.p[2]);
+  const rise = b.p[1] - a.p[1];
+  const needed = Math.abs(rise) * 1.4 + 0.6;
+  const loop = clamp((needed - span) / needed, 0, 1);
+  const reach = Math.max(0.3, (needed - span) / 2.4);
+  const out = flightHeading(a.p, b.p, span, reach);
+  const into = scale(flightHeading(b.p, a.p, span, reach), -1);
+  const turn = (Math.floor(Math.abs(a.p[0] + a.p[2]) * 7) % 2) * 2 - 1;
+  const side: Vec = [out[2] * turn, 0, -out[0] * turn];
+  const clear = trunkClear(stage, size) * 1.4;
+  const climbed = madd(madd(a.p, out, reach * 0.8), side, reach * 0.45 * loop);
+  // Into a branch from a little below it; onto the ground on a shallow glide from above.
+  const drop = onWood ? -0.22 : 0.2 + Math.max(-rise, 0) * 0.1;
+  const coming = madd(madd(b.p, into, -Math.max(reach * 0.8, onWood ? 0 : 0.3 + drop * 1.8)), side, -reach * 0.45 * loop);
+  const leave = roundTrunk([climbed[0], a.p[1] + 0.15 + Math.max(rise, 0) * 0.55, climbed[2]], clear);
+  const near = roundTrunk([coming[0], b.p[1] + drop, coming[2]], clear);
+  const keys = [a.p, a.p, leave, near, b.p, b.p];
+  const legs = keys.length - 3;
+  const points: PathPoint[] = [];
+  for (let i = 0; i <= legs * 10; i += 1) {
+    const leg = Math.min(legs - 1, Math.floor(i / 10));
+    const p = catmull(keys[leg] ?? a.p, keys[leg + 1] ?? a.p, keys[leg + 2] ?? b.p, keys[leg + 3] ?? b.p, i / 10 - leg);
+    // Never through the ground on the way, only off it and onto it at the ends.
+    const g = i / (legs * 10);
+    const lift = size * 0.3 * Math.min(1, g / 0.15, (1 - g) / 0.15);
+    points.push({ p: [p[0], Math.max(p[1], bareY(stage, p[0], p[2]) + lift), p[2]], up: UP });
   }
-  return out;
+  return points;
 }
 
 /** The height on the trunk and the side of it a place is reached by. */
@@ -609,7 +718,7 @@ function sameLimb(from: BranchWay | null, to: BranchWay | null): PathPoint[] | n
  * along that one. Two perches on the same limb meet where their branches part.
  */
 function climbPath(from: Place, to: Place, a: Anchor, b: Anchor, stage: Stage, size: number): PathPoint[] {
-  if (!stage.trunk || (from.on === "ground" && to.on === "ground")) return walkPath(a, b, stage, size);
+  if (!stage.trunk || (from.on === "ground" && to.on === "ground")) return walkPath(a, b, stage, size, 0);
   const out: PathPoint[] = [{ p: a.p, up: a.up }];
   const fromWay = branchWay(from, stage);
   const toWay = branchWay(to, stage);
@@ -726,12 +835,20 @@ function modeFor(actor: Actor, act: Action, from: Place, to: Place): MoveMode {
   return "walk";
 }
 
-function pathFor(mode: MoveMode, from: Place, to: Place, scene: Scene, size: number): PathPoint[] {
+function pathFor(mode: MoveMode, from: Place, to: Place, scene: Scene, size: number, spring = 0): PathPoint[] {
   const a = anchorOf(from, scene.stage, scene.backs);
   const b = anchorOf(to, scene.stage, scene.backs);
-  if (mode === "fly") return flyPath(a, b);
+  if (mode === "fly") return flyPath(a, b, scene.stage, size, to.on === "perch" || to.on === "trunk");
   if (mode === "climb") return climbPath(from, to, a, b, scene.stage, size);
-  return walkPath(a, b, scene.stage, size);
+  return walkPath(a, b, scene.stage, size, spring);
+}
+
+/** How readily an animal hops what is in its way: birds and hoppers spring, small things skip, big ones step. */
+function springOf(who: Who): number {
+  if (who.spec.plan === "bird") return 1;
+  if (HOPPERS.has(who.member.species)) return 0.8;
+  if (who.spec.plan === "bug" || who.spec.plan === "serpent") return 0;
+  return who.member.size < 0.35 ? 0.5 : 0;
 }
 
 const PACE: Partial<Record<Action, number>> = { run: 3.2, hop: 1.4, fly: 4, climb: 0.8 };
@@ -769,7 +886,7 @@ function trunkSide(actor: Actor, to: Place, scene: Scene): Place | null {
 function leg(actor: Actor, there: Place, act: Action, scene: Scene, hurry: number): void {
   const to: Place = there.on === "ground" ? onGround(scene.stage, actor.member.size, there.x, there.z) : there;
   const mode = modeFor(actor, act, actor.place, to);
-  const path = pathFor(mode, actor.place, to, scene, actor.member.size);
+  const path = pathFor(mode, actor.place, to, scene, actor.member.size, springOf(actor));
   const pace = actor.spec.speed * (PACE[act] ?? 1) * hurry * (mode === "fly" ? 2.5 : 1);
   const duration = Math.max(0.5, pathLength(path) / Math.max(0.02, pace * actor.member.size));
   const end = alongPath(path, 1);
@@ -782,14 +899,33 @@ function leg(actor: Actor, there: Place, act: Action, scene: Scene, hurry: numbe
 }
 
 const perchCount = (scene: Scene): number => scene.stage.perches?.length ?? 0;
-/** A branch to sit on, thick enough to take the animal: a monkey keeps off the twigs a songbird uses. */
+/** Whether a spot on a branch is far enough out from the trunk that the animal's body and tail keep out of the bark. */
+function perchRoom(stage: Stage, i: number, size: number): boolean {
+  const perch = perchOf(stage, i);
+  const trunk = stage.trunk;
+  if (!perch || !trunk) return true;
+  const axis = trunkAxis(trunk, trunkShare(trunk, perch.p[1]));
+  return Math.hypot(perch.p[0] - axis.p[0], perch.p[2] - axis.p[2]) >= axis.r + size * 0.7;
+}
+
+/** A branch to sit on, thick enough to take the animal (a monkey keeps off the twigs a songbird uses) and out from the trunk. */
 function randomPerch(actor: Actor, scene: Scene): Place {
+  const size = actor.member.size;
   let i = 0;
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
     i = Math.floor(actor.rand() * 9973);
-    if ((perchOf(scene.stage, i)?.r ?? 1) >= actor.member.size * 0.12) break;
+    if ((perchOf(scene.stage, i)?.r ?? 1) >= size * 0.12 && perchRoom(scene.stage, i, size)) break;
   }
   return { on: "perch", i };
+}
+
+/** The branch spot nearest `i` in the list that has room for the animal, or `i` when none does. */
+function roomyPerch(stage: Stage, i: number, size: number): number {
+  const count = stage.perches?.length ?? 0;
+  for (let k = 0; k < count; k += 1) {
+    for (const j of [i + k, i - k]) if (perchRoom(stage, j, size)) return j;
+  }
+  return i;
 }
 
 /** Where a move action takes this animal from where it is. */
@@ -830,7 +966,7 @@ function soloStep(actor: Actor, scene: Scene): void {
   const act = nextAction(matrix, actor.last, actor.rand);
   if (MOVES.has(act)) {
     const to = destination(actor, act, scene);
-    if (to) { travel(actor, to, act, scene); return; }
+    if (to) { travel(actor, to, to.on === "ground" && actor.place.on === "ground" && actor.spec.plan === "bird" ? groundMove(actor, to, scene) : act, scene); return; }
     stay(actor, "look", between(actor.rand, SPAN.look));
     return;
   }
@@ -1232,6 +1368,8 @@ function segmentAt(actor: Actor, t: number): { segment: Segment; prev: Segment |
 
 const turnToward = (from: number, to: number, k: number): number => from + Math.atan2(Math.sin(to - from), Math.cos(to - from)) * k;
 const flat = (v: Vec): Vec => unit([v[0], 0, v[2]], [0, 0, 1]);
+/** A flier's heading: it climbs and dives at a slant, never nose to the sky. */
+const level = (v: Vec): Vec => dirOf(Math.atan2(v[0], v[2]), clamp(Math.asin(clamp(v[1], -1, 1)), -0.5, 0.45));
 
 const TURN_TIME = 0.4;
 /** How far the body travels in one gait cycle; a foot planted for `duty` of it moves back `duty` of this. */
@@ -1239,7 +1377,7 @@ const bodyStride = (who: Who): number => who.member.size * Math.max(0.5, who.spe
 
 function movingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, from = segment.yaw): { frame: Frame; phase: number; moving: number } {
   const mode = segment.mode ?? "walk";
-  const path = pathFor(mode, segment.from, segment.to, scene, actor.member.size);
+  const path = pathFor(mode, segment.from, segment.to, scene, actor.member.size, springOf(actor));
   const d = Math.max(0.01, segment.t1 - segment.t0);
   const u = clamp((t - segment.t0) / d, 0, 1);
   const stride = bodyStride(actor);
@@ -1255,11 +1393,27 @@ function movingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, fr
   const at = alongPath(path, share);
   // Climbing, it follows the wood's slope; walking, it keeps level, and it
   // turns onto its way over its first steps instead of all at once.
-  let fw = mode === "fly" || mode === "climb" ? at.fw : flat(at.fw);
+  let fw = mode === "climb" ? at.fw : mode === "fly" ? level(at.fw) : flat(at.fw);
   const turning = (t - segment.t0) / TURN_TIME;
   if (mode !== "climb" && turning < 1) fw = dirOf(turnToward(from, Math.atan2(fw[0], fw[2]), smooth(turning)), Math.asin(clamp(fw[1], -1, 1)));
-  const moving = Math.min(1, (t - segment.t0) / 0.25, (segment.t1 - t) / 0.25);
-  return { frame: frameOf(at.p, fw, mode === "fly" ? UP : at.up), phase: at.travelled / stride, moving: clamp(moving, 0, 1) };
+  const moving = clamp(Math.min(1, (t - segment.t0) / 0.25, (segment.t1 - t) / 0.25), 0, 1);
+  const p = add(at.p, [0, hopLift(actor, segment, mode, at.travelled) * moving, 0]);
+  return { frame: frameOf(p, fw, mode === "fly" ? UP : at.up), phase: at.travelled / stride, moving };
+}
+
+/** A bird going a little way on the ground goes in hops, not a glide. */
+function hopLift(actor: Actor, segment: Segment, mode: MoveMode, travelled: number): number {
+  if (mode !== "walk" || segment.act !== "hop" || actor.spec.plan !== "bird") return 0;
+  const size = actor.member.size;
+  return size * 0.22 * Math.abs(Math.sin((Math.PI * travelled) / (size * 0.8)));
+}
+
+/** Which way an animal sits on a branch: a bird across it, gripping it, facing the side it came in on; others along it. */
+function perchYaw(actor: Actor, along: Vec, came: number): number {
+  const yaw = Math.atan2(along[0], along[2]);
+  if (actor.spec.plan !== "bird") return yaw;
+  const left = yaw + Math.PI / 2;
+  return Math.cos(left - came) >= 0 ? left : yaw - Math.PI / 2;
 }
 
 function restingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, partners: readonly Actor[], turn = segment.turn): Frame {
@@ -1267,7 +1421,7 @@ function restingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, p
   if (segment.to.on === "trunk") {
     return segment.act === "drum" || actor.spec.plan === "bird" ? frameOf(madd(anchor.p, anchor.up, actor.member.size * 0.15), scale(anchor.up, -1), UP) : frameOf(anchor.p, UP, anchor.up);
   }
-  let yaw = anchor.along ? Math.atan2(anchor.along[0], anchor.along[2]) : segment.yaw;
+  let yaw = anchor.along ? perchYaw(actor, anchor.along, segment.yaw) : segment.yaw;
   const partner = segment.face >= 0 ? partners[segment.face] : undefined;
   if (partner) yaw = turnToward(turn ?? segment.yaw, yawFrom(anchor.p, partner.pos), smooth((t - segment.t0) / 0.6));
   else if (turn !== undefined && !anchor.along) yaw = turnToward(turn, segment.yaw, smooth((t - segment.t0) / (TURN_TIME * 2)));
@@ -1303,7 +1457,7 @@ interface Kit {
 const rolled = (kit: Kit, v: Vec): Vec => (kit.roll === 0 ? v : add(rollV(sub(v, kit.pivot), kit.roll), kit.pivot));
 
 function cap(kit: Kit, part: string, role: Role, a: Vec, b: Vec, r: number, flatness = 1, up: Vec = UP): void {
-  if (!(r > 0.0005)) return;
+  if (!(r > 0.0002)) return;
   const upRolled = kit.roll === 0 ? up : rollV(up, kit.roll);
   kit.out.push({ a: toWorld(kit.f, rolled(kit, a)), b: toWorld(kit.f, rolled(kit, b)), r, role, part, flat: flatness, up: unit(dirToWorld(kit.f, upRolled), kit.f.y), fw: kit.f.z });
 }
@@ -1460,6 +1614,23 @@ function earsOf(kit: Kit, kind: Ears, h: Head, back: number): void {
   }
 }
 
+/**
+ * An eye that reads at a glance: the iris set proud of the head, a dark
+ * pupil on it and a spark of light; shut, just a dark lid. It sits on the
+ * head's surface where `toward` points from the head's middle.
+ */
+function eyeOf(kit: Kit, part: string, h: Head, toward: Vec, r: number, open: boolean): void {
+  const n = unit(sub(toward, h.c), h.d);
+  const at = madd(h.c, n, h.r * 0.92);
+  if (!open) {
+    ball(kit, part, "dark", at, r, 0.3, n);
+    return;
+  }
+  ball(kit, part, "eye", at, r);
+  ball(kit, `${part}.pupil`, "pupil", madd(at, n, r * 0.78), r * 0.5, 0.55, n);
+  ball(kit, `${part}.shine`, "shine", madd(madd(at, n, r * 0.98), h.u, r * 0.3), r * 0.16);
+}
+
 function faceOf(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
   const b = actor.spec.build;
   const snout = b.snout * actor.member.size;
@@ -1469,7 +1640,7 @@ function faceOf(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
   const jawTip = madd(madd(at3(h, 0.3, 0, -0.32), h.d, snout * 0.95), h.u, -(snout + h.r) * q.mouth * 0.45);
   cap(kit, "jaw", "belly", at3(h, 0.3, 0, -0.32), jawTip, h.r * 0.36);
   ball(kit, "nose", "nose", tip, h.r * (b.extras.includes("bignose") ? 0.42 : 0.22));
-  for (const x of [-1, 1]) ball(kit, `eye.${x < 0 ? "L" : "R"}`, asleep ? "dark" : "eye", at3(h, 0.62, x * 0.5, 0.28), h.r * 0.17, asleep ? 0.3 : 1, h.u);
+  for (const x of [-1, 1]) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.62, x * 0.5, 0.28), h.r * 0.21, !asleep);
   if (b.extras.includes("mask")) cap(kit, "mask", "dark", at3(h, 0.55, -0.55, 0.22), at3(h, 0.55, 0.55, 0.22), h.r * 0.24, 0.6);
   if (b.extras.includes("cheeks")) for (const x of [-1, 1]) ball(kit, "cheek", "accent", at3(h, 0.45, x * 0.55, -0.15), h.r * 0.3);
   if (actor.member.horned && b.extras.includes("antlers")) antlersOf(kit, h, actor.member.size);
@@ -1632,7 +1803,7 @@ function primateHead(kit: Kit, who: Who, body: PrimateBody, m: Moment): Vec {
   const h: Head = { c: head, d: hd, ...headAxes(hd, q.headRoll), r: hr };
   ball(kit, "head", "coat", head, hr);
   ball(kit, "face", "accent", at3(h, 0.55, 0, -0.1), hr * 0.62, 0.7, hd);
-  for (const x of [-1, 1]) ball(kit, `eye.${x < 0 ? "L" : "R"}`, m.segment.act === "sleep" ? "dark" : "eye", at3(h, 0.95, x * 0.32, 0.12), hr * 0.15);
+  for (const x of [-1, 1]) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.95, x * 0.34, 0.14), hr * 0.17, m.segment.act !== "sleep");
   if (b.extras.includes("mask")) cap(kit, "mask", "dark", at3(h, 0.8, -0.6, 0.12), at3(h, 0.8, 0.6, 0.12), hr * 0.18, 0.6);
   earsOf(kit, b.ears, h, 0);
   return head;
@@ -1674,7 +1845,23 @@ function posePrimate(kit: Kit, who: Who, m: Moment): void {
 const BEAKS: Partial<Record<SpeciesId, string>> = { songbird: "#3a2a1a", crow: "#141414", owl: "#5a4a30", parrot: "#2a2a2a", gull: "#f0c030", peacock: "#8a8a80", crane: "#c8c0a0", woodpecker: "#2a2a2a" };
 const FLAP_RATE: Partial<Record<SpeciesId, number>> = { songbird: 26, woodpecker: 22, parrot: 16, crow: 13, owl: 9, gull: 8, peacock: 10, crane: 6 };
 
-interface BirdBody { readonly C: Vec; readonly K: Vec; readonly T: Vec; readonly r: number; readonly pitch: number; readonly flying: boolean }
+interface BirdBody { readonly C: Vec; readonly K: Vec; readonly T: Vec; readonly r: number; readonly pitch: number; readonly flying: boolean; readonly flight: Flight }
+
+/**
+ * Where a bird is in its flight: beating hard to climb off, gliding in on
+ * spread wings, then flaring, its body tipped up and its feet thrown forward,
+ * to kill its speed and land.
+ */
+interface Flight { readonly launch: number; readonly glide: number; readonly flare: number }
+
+const ON_FOOT: Flight = { launch: 0, glide: 0, flare: 0 };
+
+function flightOf(m: Moment): Flight {
+  if (m.mode !== "fly") return ON_FOOT;
+  const u = clamp((m.t - m.segment.t0) / Math.max(0.01, m.segment.t1 - m.segment.t0), 0, 1);
+  const flare = smooth((u - 0.84) / 0.14);
+  return { launch: 1 - smooth(u / 0.18), glide: smooth((u - 0.55) / 0.12) * (1 - flare), flare };
+}
 
 function birdSpine(who: Who, m: Moment): BirdBody {
   const q = m.pose;
@@ -1682,15 +1869,16 @@ function birdSpine(who: Who, m: Moment): BirdBody {
   const size = who.member.size;
   const r = b.body * size;
   const flying = m.mode === "fly";
+  const flight = flightOf(m);
   const drum = m.segment.act === "drum";
-  let pitch = flying ? 0.05 : drum ? 1.35 : 0.2 + b.rise * 0.5;
+  let pitch = flying ? 0.05 + flight.launch * 0.3 + flight.flare * 0.8 : drum ? 1.35 : 0.2 + b.rise * 0.5;
   pitch -= q.peck * (drum ? 0.15 : 0.6);
   const legH = b.leg * size;
   const along = dirOf(0, pitch);
   // Standing or asleep, the low end of the body (its tail end, as it leans up) stays on top of the ground.
   const rest = Math.max(legH + r * 0.9 + q.hop * size * 0.3 - (m.segment.act === "sleep" ? r * 0.3 : 0), r * 0.85 + Math.max(0, along[1]) * size * 0.26);
   const C: Vec = flying ? [0, 0, 0] : drum ? [0, 0, -r * 0.4] : [0, rest, 0];
-  return { C, K: madd(C, along, size * 0.22), T: madd(C, along, -size * 0.26), r: r * 0.85, pitch, flying };
+  return { C, K: madd(C, along, size * 0.22), T: madd(C, along, -size * 0.26), r: r * 0.85, pitch, flying, flight };
 }
 
 function birdHead(kit: Kit, who: Who, body: BirdBody, m: Moment): Head {
@@ -1719,7 +1907,7 @@ function birdFace(kit: Kit, who: Who, h: Head, m: Moment): void {
   if (m.pose.mouth > 0.05) cap(kit, "beak.lower", "horn", at3(h, 0.6, 0, -0.15), madd(madd(at3(h, 0.6, 0, -0.15), h.d, beak * 0.85), h.u, -beak * 0.5 * m.pose.mouth), h.r * 0.2);
   for (const x of [-1, 1]) {
     const eye = owl ? at3(h, 0.7, x * 0.38, 0.1) : at3(h, 0.35, x * 0.62, 0.2);
-    ball(kit, `eye.${x < 0 ? "L" : "R"}`, m.segment.act === "sleep" ? "dark" : "eye", eye, h.r * (owl ? 0.3 : 0.17), owl ? 0.6 : 1, owl ? h.d : h.s);
+    eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, eye, h.r * (owl ? 0.3 : 0.2), m.segment.act !== "sleep");
   }
   if (owl) ball(kit, "disc", "belly", at3(h, 0.45, 0, 0), h.r * 0.82, 0.45, h.d);
   birdCrest(kit, who, h);
@@ -1735,13 +1923,19 @@ function birdCrest(kit: Kit, who: Who, h: Head): void {
   if (b.ears === "tuft") earsOf(kit, "tuft", h, 0);
 }
 
+/** The wings' beat in the air: deep and quick off the ground, held out to glide in, short fast strokes as it flares. */
+function flyingBeat(who: Who, flight: Flight, t: number, rate: number): number {
+  const cruising = Math.sin(t * 0.37 + who.member.size * 31) > 0.55 ? 0.12 : Math.sin(t * rate);
+  const air = mix(cruising, Math.sin(t * rate * 1.25) * 1.1, flight.launch);
+  return mix(mix(air, 0.15 + 0.05 * Math.sin(t * 3), flight.glide), 0.3 + 0.6 * Math.sin(t * rate * 1.4), flight.flare);
+}
+
 function wingOf(kit: Kit, who: Who, body: BirdBody, x: number, m: Moment): void {
   const q = m.pose;
   const size = who.member.size;
   const open = body.flying ? 1 : clamp(q.wing, 0, 1);
   const rate = FLAP_RATE[who.member.species] ?? 14;
-  const glide = body.flying && Math.sin(m.t * 0.37 + who.member.size * 31) > 0.55;
-  const beat = glide ? 0.12 : body.flying ? Math.sin(m.t * rate) : q.flap;
+  const beat = body.flying ? flyingBeat(who, body.flight, m.t, rate) : q.flap;
   const a = 0.25 + 0.75 * beat;
   const span = size * (who.spec.size > 0.25 ? 0.72 : 0.55);
   const side: Vec = [x, 0, 0];
@@ -1792,7 +1986,13 @@ function poseBird(kit: Kit, who: Who, m: Moment): void {
   const legH = b.leg * size;
   for (const x of [-1, 1]) {
     const hip = add(body.C, [x * body.r * 0.35, -body.r * 0.6, 0]);
-    if (body.flying) { cap(kit, "leg", "horn", hip, add(hip, [0, -body.r * 0.2, -body.r * 1.1]), body.r * 0.12); continue; }
+    if (body.flying) {
+      // Tucked back in flight; thrown down and forward to meet the perch as it lands.
+      const tucked: Vec = [0, -body.r * 0.2, -body.r * 1.1];
+      const reaching: Vec = [x * body.r * 0.2, -legH - body.r * 0.3, body.r * 0.5];
+      cap(kit, "leg", "horn", hip, add(hip, lerpV(tucked, reaching, body.flight.flare)), body.r * 0.12);
+      continue;
+    }
     const step = m.moving > 0 ? footCycle(m.phase - (m.segment.act === "hop" ? 0 : x < 0 ? 0 : 0.5), 0.5, 0.5 * bodyStride(who) * m.moving, legH * 0.35 * m.moving) : { z: 0, y: 0 };
     const foot: Vec = m.segment.act === "drum" ? [x * body.r * 0.5, -size * 0.12, 0] : [x * body.r * 0.45, step.y, step.z];
     limb(kit, `leg.${x < 0 ? "L" : "R"}`, "horn", hip, foot, [legH * 0.55, legH * 0.55], Math.max(0.006, body.r * 0.12), [0, 0, 1], "horn");
@@ -1850,7 +2050,7 @@ function serpentHead(kit: Kit, who: Who, points: readonly Vec[], m: Moment): voi
   const hd = unit(sub(head, points[1] ?? [0, r0, -1]));
   const h: Head = { c: madd(head, hd, b.head * size * 0.4), d: hd, ...headAxes(hd, 0), r: b.head * size };
   ball(kit, "head", "coat", h.c, h.r, 0.75);
-  for (const x of [-1, 1]) ball(kit, `eye.${x < 0 ? "L" : "R"}`, "eye", at3(h, 0.3, x * 0.6, 0.35), h.r * 0.22);
+  for (const x of [-1, 1]) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.3, x * 0.6, 0.35), h.r * 0.24, true);
   if (m.pose.mouth > 0.2 && m.segment.act === "flick") cap(kit, "tongue", "accent", at3(h, 1, 0, -0.1), madd(at3(h, 1, 0, -0.1), hd, h.r * 1.4 * m.pose.mouth), h.r * 0.08);
 }
 
@@ -1926,7 +2126,8 @@ function poseCrab(kit: Kit, who: Who, m: Moment): void {
   for (const x of [-1, 1]) {
     const stalk = add(C, [x * r * 0.35, r * 0.3, r * 0.7]);
     cap(kit, "eyestalk", "coat", stalk, add(stalk, [0, r * 0.45, 0]), r * 0.08);
-    ball(kit, "eye", "eye", add(stalk, [0, r * 0.5, 0]), r * 0.12);
+    ball(kit, "eye", "pupil", add(stalk, [0, r * 0.5, 0]), r * 0.12);
+    ball(kit, "eye.shine", "shine", add(stalk, [0, r * 0.58, r * 0.06]), r * 0.035);
     for (let i = 0; i < 3; i += 1) {
       const z = (i - 1) * r * 0.55;
       const step = footCycle(m.phase - i / 3 - (x > 0 ? 0.5 : 0), 0.5, 0.5 * bodyStride(who) * m.moving, legLen * 0.3);
@@ -1943,27 +2144,87 @@ function poseCrab(kit: Kit, who: Who, m: Moment): void {
 
 // ---------------------------------------------------------------- coats and rare morphs
 
-export type Morph = "normal" | "albino" | "melanistic" | "golden" | "spirit";
-export const MORPHS: Readonly<Record<Morph, { readonly label: string; readonly rarity: Rarity; readonly glow: number }>> = {
+/**
+ * Special skins. The natural ones turn up anywhere, rarely: no pigment, too
+ * much, patches, pale, red. The themed ones belong to their worlds: neon in
+ * synth, pastel in vapor, crystal in crystal, spirit in the cosmos.
+ */
+export type Morph = "normal" | "albino" | "melanistic" | "golden" | "spirit" | "piebald" | "leucistic" | "erythristic" | "neon" | "pastel" | "crystal";
+export const MORPHS: Readonly<Record<Morph, { readonly label: string; readonly rarity: Rarity; readonly glow: number; readonly lit?: readonly Role[] }>> = {
   normal: { label: "", rarity: "common", glow: 0 },
   albino: { label: "albino", rarity: "epic", glow: 0 },
   melanistic: { label: "black", rarity: "epic", glow: 0 },
   golden: { label: "golden", rarity: "legendary", glow: 0.45 },
-  spirit: { label: "spirit", rarity: "epic", glow: 1 },
+  spirit: { label: "spirit", rarity: "epic", glow: 0.35, lit: ["eye", "glow"] },
+  piebald: { label: "piebald", rarity: "rare", glow: 0 },
+  leucistic: { label: "pale", rarity: "rare", glow: 0 },
+  erythristic: { label: "red-phase", rarity: "epic", glow: 0 },
+  neon: { label: "neon", rarity: "rare", glow: 0, lit: ["accent", "eye", "glow"] },
+  pastel: { label: "pastel", rarity: "rare", glow: 0.1 },
+  crystal: { label: "crystal", rarity: "rare", glow: 0.3, lit: ["eye"] },
+};
+
+/** The odds of each skin in a world: themed worlds favour their own. */
+const WORLD_SKINS: Partial<Record<WorldKey, readonly (readonly [Morph, number])[]>> = {
+  synth: [["neon", 0.12]],
+  vapor: [["pastel", 0.12]],
+  crystal: [["crystal", 0.14], ["spirit", 0.02]],
+  cosmic: [["spirit", 0.1]],
+};
+const WILD_SKINS: readonly (readonly [Morph, number])[] = [
+  ["albino", 0.012], ["melanistic", 0.015], ["piebald", 0.02], ["leucistic", 0.012], ["erythristic", 0.008], ["golden", 0.003], ["spirit", 0.004],
+];
+
+/** Iris colours: dark brown unless the species is known for other eyes. */
+const IRIS: Partial<Record<SpeciesId, string>> = {
+  fox: "#c8861c", wolf: "#d8a22a", cat: "#a8b830", owl: "#f0a820", gull: "#e8d878", parrot: "#e8d070",
+  crow: "#2a2420", snake: "#d8b040", gecko: "#c8a038", raccoon: "#2a1a10", crane: "#d84a20", peacock: "#3a2414",
+  macaque: "#8a5a2a", monkey: "#8a5a2a", koala: "#3a2a1a", kangaroo: "#3a2414", woodpecker: "#5a2418", crab: "#1a1410",
 };
 
 const hexRgb = (hex: string): [number, number, number] => { const v = Number.parseInt(hex.slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
 const rgbHex = (rgb: readonly number[]): string => `#${rgb.map((c) => Math.round(clamp(c, 0, 255)).toString(16).padStart(2, "0")).join("")}`;
 const mixColor = (a: string, b: string, k: number): string => { const x = hexRgb(a); const y = hexRgb(b); return rgbHex(x.map((c, i) => mix(c, y[i] ?? c, k))); };
 
-function paletteOf(id: SpeciesId, colors: readonly [string, string, string, string, string], morph: Morph): Palette {
+type CoatColors = readonly [string, string, string, string, string];
+
+/**
+ * No two animals quite alike: each one's coat is a touch lighter or darker,
+ * warmer or cooler than the breed's, and a young one's is softer.
+ */
+function varied(colors: CoatColors, rand: () => number, young: boolean): CoatColors {
+  const shade = (rand() - 0.5) * 0.24;
+  const warmth = (rand() - 0.5) * 0.16;
+  const tone = (hex: string, depth: number): string => {
+    const lit = shade > 0 ? mixColor(hex, "#ffffff", shade * depth) : mixColor(hex, "#000000", -shade * depth);
+    const warm = warmth > 0 ? mixColor(lit, "#c87a3a", warmth * depth) : mixColor(lit, "#7a8ab0", -warmth * depth);
+    return young ? mixColor(warm, "#f4ece0", 0.12) : warm;
+  };
   const [coat, alt, belly, dark, accent] = colors;
-  const base: Palette = { coat, alt, belly, dark, accent, eye: id === "owl" ? "#f0a820" : "#0e0c0c", nose: dark, glow: accent, horn: BEAKS[id] ?? "#cbb38c", shell: alt };
-  if (morph === "albino") return { ...base, coat: "#f6f3ee", alt: "#e9e4dc", belly: "#ffffff", eye: "#e05a6a", nose: "#e8a0a8", shell: "#efe8de" };
-  if (morph === "melanistic") return { ...base, coat: mixColor(coat, "#0c0a0a", 0.75), alt: mixColor(alt, "#0c0a0a", 0.7), belly: mixColor(belly, "#1a1616", 0.65), eye: "#e8c040" };
-  if (morph === "golden") return { ...base, coat: "#e8b830", alt: "#c08a18", belly: "#f8e088", accent: "#fff0a0", glow: "#ffe060", horn: "#f8d050", shell: "#d8a020" };
-  if (morph === "spirit") return { ...base, coat: mixColor(coat, "#bff6ff", 0.75), alt: mixColor(alt, "#7fe0ff", 0.7), belly: "#f0ffff", glow: "#9ff4ff", eye: "#ffffff", accent: mixColor(accent, "#ffffff", 0.5) };
-  return base;
+  return [tone(coat, 1), tone(alt, 1), tone(belly, 0.5), tone(dark, 0.4), accent];
+}
+
+function skinOf(base: Palette, morph: Morph): Palette {
+  const { coat, alt, belly, accent } = base;
+  switch (morph) {
+    case "albino": return { ...base, coat: "#f6f3ee", alt: "#e9e4dc", belly: "#ffffff", eye: "#e05a6a", pupil: "#a02a3a", nose: "#e8a0a8", shell: "#efe8de" };
+    case "melanistic": return { ...base, coat: mixColor(coat, "#0c0a0a", 0.75), alt: mixColor(alt, "#0c0a0a", 0.7), belly: mixColor(belly, "#1a1616", 0.65), eye: "#e8c040" };
+    case "golden": return { ...base, coat: "#e8b830", alt: "#c08a18", belly: "#f8e088", accent: "#fff0a0", glow: "#ffe060", horn: "#f8d050", shell: "#d8a020" };
+    case "spirit": return { ...base, coat: mixColor(coat, "#bff6ff", 0.75), alt: mixColor(alt, "#7fe0ff", 0.7), belly: "#f0ffff", glow: "#9ff4ff", eye: "#ffffff", pupil: "#5ad8ff", accent: mixColor(accent, "#ffffff", 0.5) };
+    case "piebald": return { ...base, alt: "#f6f2ea", belly: "#ffffff", shell: "#f6f2ea" };
+    case "leucistic": return { ...base, coat: mixColor(coat, "#f4ecdc", 0.72), alt: mixColor(alt, "#e8dcc8", 0.65), belly: mixColor(belly, "#ffffff", 0.6) };
+    case "erythristic": return { ...base, coat: mixColor(coat, "#b8482a", 0.55), alt: mixColor(alt, "#8a3018", 0.5), belly: mixColor(belly, "#e8b8a0", 0.4) };
+    case "neon": return { ...base, coat: mixColor(coat, "#16122a", 0.82), alt: mixColor(alt, "#241c44", 0.8), belly: "#2e2650", dark: "#0a0816", accent: "#ff3ad8", glow: "#3af0ff", eye: "#3af0ff", pupil: "#0a0816", horn: "#ff3ad8" };
+    case "pastel": return { ...base, coat: mixColor(coat, "#f6c6de", 0.6), alt: mixColor(alt, "#b8d4ff", 0.55), belly: "#fff2f8", accent: "#a8f0dc", horn: mixColor(base.horn, "#f6c6de", 0.5) };
+    case "crystal": return { ...base, coat: mixColor(coat, "#d4ecff", 0.65), alt: mixColor(alt, "#9ab4ff", 0.6), belly: "#f4faff", glow: "#e8f4ff", eye: "#9ff4ff", pupil: "#3a6ad8", shell: "#c8dcff" };
+    default: return base;
+  }
+}
+
+function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph): Palette {
+  const [coat, alt, belly, dark, accent] = colors;
+  const base: Palette = { coat, alt, belly, dark, accent, eye: IRIS[id] ?? "#4a2a16", pupil: "#070505", shine: "#ffffff", nose: dark, glow: accent, horn: BEAKS[id] ?? "#cbb38c", shell: alt };
+  return skinOf(base, morph);
 }
 
 // ---------------------------------------------------------------- casting
@@ -2084,15 +2345,17 @@ function memberOf(rand: () => number, id: SpeciesId, coat: string, young: boolea
   const colors = spec.coats.find(([name]) => name === coat)?.[1] ?? spec.coats[0]?.[1] ?? ["#888888", "#666666", "#cccccc", "#222222", "#ffffff"];
   const ctx = contextOf(input);
   const forced = Object.hasOwn(MORPHS, input.morph ?? "") ? (input.morph as Morph) : null;
-  const spirited = ctx.world === "crystal" || ctx.world === "cosmic" ? 0.6 : 0.004;
-  const morph: Morph = forced ?? pick(rand, [["normal", 1 - spirited - 0.033], ["albino", 0.015], ["melanistic", 0.015], ["golden", 0.003], ["spirit", spirited]]);
+  const skins = [...(WORLD_SKINS[ctx.world] ?? []), ...WILD_SKINS];
+  const rare = skins.reduce((sum, [, odds]) => sum + odds, 0);
+  const morph: Morph = forced ?? pick(rand, [["normal", Math.max(0, 1 - rare)], ...skins]);
   const size = spec.size * between(rand, [0.88, 1.12]) * (young ? 0.55 : 1);
-  return { species: id, label: spec.label, size, coat, palette: paletteOf(id, colors, morph), morph, young, horned: !young && rand() < 0.5 };
+  return { species: id, label: spec.label, size, coat, palette: paletteOf(id, varied(colors, rand, young), morph), morph, young, horned: !young && rand() < 0.5 };
 }
 
 function groupOf(rand: () => number, id: SpeciesId, kind: GroupKind, input: CastInput): CastGroup {
   const spec = speciesOf(id);
-  const coats = spec.coats.map(([name]) => [name, 1] as const);
+  // The first coat is the species' own; the others are rarer variants.
+  const coats = spec.coats.map(([name], i) => [name, i === 0 ? 5 : 1] as const);
   const coat = pick(rand, coats);
   const count = kind === "solo" ? 1 : kind === "pair" ? 2 : kind === "family" ? 1 + intBetween(rand, 1, 2) : intBetween(rand, spec.pack[0], spec.pack[1]);
   const members = Array.from({ length: count }, (_, i) => memberOf(rand, id, rand() < 0.15 ? pick(rand, coats) : coat, kind === "family" && i > 0, input));
@@ -2260,6 +2523,8 @@ export interface Body {
   readonly palette: Palette;
   /** How brightly it glows (a spirit animal, a golden one, a saucer's lights). */
   readonly glow: number;
+  /** Colours that light themselves (a neon skin's markings). */
+  readonly lit?: readonly Role[];
   /** Where it bears on the tree (a branch it sits on, wood it climbs), or null on the ground and in the air. */
   readonly contact?: Vec | null;
   /** Its weight, to bend the wood it bears on: a bird is light for its size, a bear is not. */
@@ -2295,7 +2560,7 @@ const weightOf = (who: Who): number => who.member.size ** 3 * (who.spec.plan ===
 function bodyOf(id: string, who: Who, m: Moment, capsules: readonly Capsule[], scene?: Scene): Body {
   return {
     id, kind: who.member.species, label: who.member.label, action: m.segment.act, morph: who.member.morph,
-    at: m.frame.o, front: m.frame.z, capsules, palette: who.member.palette, glow: MORPHS[who.member.morph].glow,
+    at: m.frame.o, front: m.frame.z, capsules, palette: who.member.palette, glow: MORPHS[who.member.morph].glow, lit: MORPHS[who.member.morph].lit ?? [],
     contact: scene ? contactOf(m, scene) : null, weight: weightOf(who),
   };
 }
@@ -2763,10 +3028,21 @@ function onGround(stage: Stage, size: number, x: number, z: number): Place {
 function groundMove(actor: Actor, place: Place, scene: Scene): Action {
   const { spec } = actor;
   if (actor.place.on !== "ground") return spec.flies ? "fly" : "climb";
-  const far = length(sub(placeTop(place, scene), placeTop(actor.place, scene))) > scene.stage.radius * 0.6;
+  const span = length(sub(placeTop(place, scene), placeTop(actor.place, scene)));
   if (spec.plan === "bug") return "fly";
-  if (spec.plan === "bird") return far ? "fly" : "hop";
-  return far && can(actor, "run") ? "run" : "wander";
+  if (spec.plan === "bird") return birdGait(actor, span, scene.stage.radius);
+  return span > scene.stage.radius * 0.6 && can(actor, "run") ? "run" : "wander";
+}
+
+/**
+ * How a bird crosses the ground: a step or two it walks, a little way it
+ * mostly hops (a big bird walks it), and anything farther it flies.
+ */
+function birdGait(actor: Actor, span: number, radius: number): Action {
+  const size = actor.member.size;
+  if (actor.spec.flies && span > Math.max(size * 9, radius * 0.45)) return "fly";
+  if (span < size * 2.5 || size > 0.45) return "wander";
+  return actor.rand() < 0.7 ? "hop" : "wander";
 }
 
 /** Go where told, the animal's own way, then look about. */
@@ -2774,7 +3050,7 @@ function obey(actor: Actor, to: Order["to"], scene: Scene, spot: number): void {
   const size = actor.member.size;
   const { spec } = actor;
   if (to.on === "perch" && perchCount(scene) > 0 && (spec.flies || spec.climbs)) {
-    travel(actor, { on: "perch", i: to.i + spot }, spec.flies ? "fly" : "climb", scene);
+    travel(actor, { on: "perch", i: roomyPerch(scene.stage, to.i + spot, size) }, spec.flies ? "fly" : "climb", scene);
   } else {
     // A branch it cannot climb: it comes to stand under it and looks up.
     const target = to.on === "perch" ? anchorOf({ on: "perch", i: to.i }, scene.stage, scene.backs).p : [to.x, 0, to.z] as Vec;

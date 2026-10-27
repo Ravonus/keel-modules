@@ -12,7 +12,8 @@
 
 // ---------------------------------------------------------------- species
 
-export type SpeciesId = "cherry" | "oak" | "pine" | "birch" | "willow" | "acacia" | "palm" | "spruce" | "redwood" | "maple" | "jacaranda" | "baobab";
+export type SpeciesId = "cherry" | "oak" | "pine" | "birch" | "willow" | "acacia" | "palm" | "spruce" | "redwood" | "maple" | "jacaranda" | "baobab"
+  | "apple" | "pear" | "peach" | "plum" | "orange" | "lemon" | "fig" | "mango";
 export type Hemisphere = "north" | "south" | "equatorial";
 
 /**
@@ -34,7 +35,8 @@ export interface PhenologySpec {
   readonly marcescent: number;
 }
 
-export type OrnamentKind = "blossom" | "catkin" | "candle" | "puff" | "spadix" | "cherry" | "acorn" | "cone" | "pod" | "coconut" | "samara" | "bell" | "gourd";
+export type OrnamentKind = "blossom" | "catkin" | "candle" | "puff" | "spadix" | "cherry" | "acorn" | "cone" | "pod" | "coconut" | "samara" | "bell" | "gourd"
+  | "apple" | "pear" | "peach" | "plum" | "orange" | "lemon" | "fig" | "mango";
 
 /** Flowers or fruit: what they are, where they grow and when. */
 export interface OrnamentSpec {
@@ -141,6 +143,9 @@ const DECIDUOUS: PhenologySpec = {
   flush: [104, 160],
 };
 
+/** Citrus and mango: evergreen, shedding a few old leaves as the new flush comes. */
+const BROADLEAF_EVERGREEN: PhenologySpec = { leaf: [60, 61], color: [300, 330], drop: [300, 340], dropMax: 0.08, flush: [110, 160], marcescent: 0 };
+
 export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   cherry: {
     id: "cherry", cycles: 26, height: 8.6, apical: 0.5, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 44, divergence: 137.5, whorl: 0,
@@ -231,6 +236,70 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
     leafSlots: 3, leafSpread: 0.32, hang: 0, flower: { kind: "bell", on: "tip", perNode: 1, window: [128, 142, 150, 166], from: 6 }, fruit: { kind: "gourd", on: "tip", perNode: 1, window: [150, 230, 340, 420], from: 8 },
     evergreen: false, palm: null, radiusTip: 0.03, pipe: 2.05,
     phenology: { ...DECIDUOUS, leaf: [122, 150], color: [252, 282], drop: [262, 296] },
+  },
+  // Apple: a low, spreading crown on fruiting spurs, pink-white blossom after the leaves break, red apples bowing the limbs.
+  apple: {
+    id: "apple", cycles: 26, height: 7, apical: 0.44, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 52, divergence: 137.5, whorl: 0,
+    straight: 0.9, light: 0.4, up: 0.38, lateralUp: 0.06, weep: 0.06, flat: 0.22, spread: 0.6, crownAt: 0.3, ceiling: Infinity, shed: 0.2,
+    leafSlots: 4, leafSpread: 0.34, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [112, 122, 128, 142], from: 4 }, fruit: { kind: "apple", on: "spur", perNode: 1, window: [150, 240, 262, 300], from: 5 },
+    evergreen: false, palm: null, radiusTip: 0.026, pipe: 2.6,
+    phenology: { ...DECIDUOUS, leaf: [108, 136] },
+  },
+  // Pear: tall and upright, white blossom early, pears hanging from spurs; the leaves go red late.
+  pear: {
+    id: "pear", cycles: 28, height: 9, apical: 0.5, vigor: 2.2, maxShoot: 3, sideShoot: 3, angle: 38, divergence: 137.5, whorl: 0,
+    straight: 1, light: 0.4, up: 0.5, lateralUp: 0.18, weep: 0.02, flat: 0.06, spread: 0.46, crownAt: 0.26, ceiling: Infinity, shed: 0.16,
+    leafSlots: 4, leafSpread: 0.32, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [100, 110, 116, 130], from: 5 }, fruit: { kind: "pear", on: "spur", perNode: 1, window: [150, 230, 252, 280], from: 6 },
+    evergreen: false, palm: null, radiusTip: 0.025, pipe: 2.7,
+    phenology: { ...DECIDUOUS, leaf: [104, 132], color: [270, 300], drop: [288, 322] },
+  },
+  // Peach: small, open and wide, deep pink blossom on bare twigs, fuzzy peaches by midsummer; short-lived.
+  peach: {
+    id: "peach", cycles: 20, height: 5.8, apical: 0.38, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 50, divergence: 137.5, whorl: 0,
+    straight: 0.9, light: 0.4, up: 0.45, lateralUp: 0.24, weep: 0.02, flat: 0.2, spread: 0.66, crownAt: 0.26, ceiling: 16, shed: 0.2,
+    leafSlots: 5, leafSpread: 0.3, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 2, window: [84, 94, 100, 112], from: 3 }, fruit: { kind: "peach", on: "tip", perNode: 1, window: [150, 190, 206, 224], from: 3 },
+    evergreen: false, palm: null, radiusTip: 0.024, pipe: 2.6,
+    phenology: { ...DECIDUOUS, leaf: [100, 128] },
+  },
+  // Plum: a cherry's cousin, white blossom first of all, dusky purple plums in late summer.
+  plum: {
+    id: "plum", cycles: 24, height: 6.8, apical: 0.5, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 42, divergence: 137.5, whorl: 0,
+    straight: 1, light: 0.4, up: 0.5, lateralUp: 0.14, weep: 0.04, flat: 0.12, spread: 0.5, crownAt: 0.3, ceiling: Infinity, shed: 0.2,
+    leafSlots: 4, leafSpread: 0.32, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [80, 90, 95, 108], from: 3 }, fruit: { kind: "plum", on: "spur", perNode: 2, window: [160, 205, 222, 244], from: 4 },
+    evergreen: false, palm: null, radiusTip: 0.024, pipe: 2.7,
+    phenology: { ...DECIDUOUS, leaf: [98, 128] },
+  },
+  // Orange: a dense evergreen dome to the ground, white blossom in spring, oranges that hang on into the next year.
+  orange: {
+    id: "orange", cycles: 26, height: 6.6, apical: 0.42, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 46, divergence: 137.5, whorl: 0,
+    straight: 0.9, light: 0.36, up: 0.4, lateralUp: 0.1, weep: 0.05, flat: 0.1, spread: 0.56, crownAt: 0.14, ceiling: Infinity, shed: 0.08,
+    leafSlots: 5, leafSpread: 0.32, hang: 0, flower: { kind: "blossom", on: "tip", perNode: 2, window: [90, 104, 116, 132], from: 4 }, fruit: { kind: "orange", on: "tip", perNode: 1, window: [160, 300, 400, 424], from: 5 },
+    evergreen: true, palm: null, radiusTip: 0.024, pipe: 2.6,
+    phenology: BROADLEAF_EVERGREEN,
+  },
+  // Lemon: a smaller, looser citrus that flowers early and holds lemons most of the year.
+  lemon: {
+    id: "lemon", cycles: 24, height: 5.6, apical: 0.4, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 50, divergence: 137.5, whorl: 0,
+    straight: 0.85, light: 0.38, up: 0.42, lateralUp: 0.16, weep: 0.06, flat: 0.12, spread: 0.56, crownAt: 0.18, ceiling: Infinity, shed: 0.12,
+    leafSlots: 5, leafSpread: 0.3, hang: 0, flower: { kind: "blossom", on: "tip", perNode: 2, window: [70, 84, 100, 120], from: 3 }, fruit: { kind: "lemon", on: "tip", perNode: 1, window: [140, 240, 380, 422], from: 4 },
+    evergreen: true, palm: null, radiusTip: 0.023, pipe: 2.6,
+    phenology: BROADLEAF_EVERGREEN,
+  },
+  // Fig: low and sprawling under few, huge leaves; no flowers to see (they bloom inside the fruit), figs in late summer.
+  fig: {
+    id: "fig", cycles: 24, height: 6.4, apical: 0.36, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 54, divergence: 137.5, whorl: 0,
+    straight: 0.85, light: 0.36, up: 0.4, lateralUp: 0.2, weep: 0, flat: 0.3, spread: 0.7, crownAt: 0.2, ceiling: 14, shed: 0.18,
+    leafSlots: 3, leafSpread: 0.46, hang: 0, flower: null, fruit: { kind: "fig", on: "tip", perNode: 2, window: [160, 200, 220, 240], from: 3 },
+    evergreen: false, palm: null, radiusTip: 0.03, pipe: 2.4,
+    phenology: { ...DECIDUOUS, leaf: [110, 140], color: [268, 296], drop: [282, 316] },
+  },
+  // Mango: a big evergreen dome, cream flower plumes in late winter, mangoes swinging on long stalks.
+  mango: {
+    id: "mango", cycles: 30, height: 10, apical: 0.45, vigor: 2.2, maxShoot: 3, sideShoot: 3, angle: 48, divergence: 137.5, whorl: 0,
+    straight: 0.9, light: 0.38, up: 0.45, lateralUp: 0.08, weep: 0.06, flat: 0.14, spread: 0.6, crownAt: 0.26, ceiling: Infinity, shed: 0.1,
+    leafSlots: 5, leafSpread: 0.36, hang: 0.1, flower: { kind: "puff", on: "tip", perNode: 2, window: [64, 80, 92, 108], from: 5 }, fruit: { kind: "mango", on: "tip", perNode: 1, window: [130, 170, 190, 212], from: 6 },
+    evergreen: true, palm: null, radiusTip: 0.026, pipe: 2.55,
+    phenology: BROADLEAF_EVERGREEN,
   },
 };
 
@@ -1098,6 +1167,14 @@ export const PACE: Readonly<Record<SpeciesId, Pace>> = {
   oak: { prime: 0.55, quick: 2.9, old: 0.94 },
   baobab: { prime: 0.65, quick: 2.1, old: 0.96 },
   redwood: { prime: 0.7, quick: 2.3, old: 0.96 },
+  peach: { prime: 0.22, quick: 4.6, old: 0.875 },
+  plum: { prime: 0.26, quick: 4.2, old: 0.89 },
+  fig: { prime: 0.25, quick: 4.4, old: 0.9 },
+  apple: { prime: 0.3, quick: 3.9, old: 0.9 },
+  lemon: { prime: 0.3, quick: 3.9, old: 0.9 },
+  pear: { prime: 0.35, quick: 3.6, old: 0.92 },
+  orange: { prime: 0.35, quick: 3.6, old: 0.92 },
+  mango: { prime: 0.45, quick: 3.2, old: 0.93 },
 };
 
 const SPROUT = 0.32;
@@ -1188,6 +1265,14 @@ export const GRAND: Readonly<Record<SpeciesId, { readonly up: number; readonly o
   maple: { up: 2.1, out: 2.6 },
   jacaranda: { up: 1.8, out: 2.8 },
   baobab: { up: 1.8, out: 2.5 },
+  apple: { up: 1.8, out: 2.6 },
+  pear: { up: 2.3, out: 1.8 },
+  peach: { up: 1.6, out: 2.6 },
+  plum: { up: 1.9, out: 2.3 },
+  orange: { up: 1.8, out: 2.4 },
+  lemon: { up: 1.7, out: 2.2 },
+  fig: { up: 1.7, out: 2.8 },
+  mango: { up: 2.3, out: 2.8 },
 };
 
 interface Grandeur { readonly up: number; readonly out: number; readonly girth: number }

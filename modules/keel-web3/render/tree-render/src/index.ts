@@ -733,6 +733,16 @@ export const ORNAMENTS: Readonly<Record<string, OrnamentLook>> = {
   bell: { size: [0.85, 0.95, 0.85], lift: -1.1, colors: ["#f6f1e2", "#efe6cc", "#fbf8ee"], fall: 0.8 },
   // Baobab fruit: a velvety grey-green gourd on a cord.
   gourd: { size: [0.8, 1.4, 0.8], lift: -1.6, colors: ["#9c9474", "#8c8466", "#aaa282"], green: "#83905c", fall: 3 },
+  // Orchard fruit: each sets green and ripens to its own colour, big enough to read from across the plot.
+  apple: { size: [1.0, 0.95, 1.0], lift: -0.6, colors: ["#c8202a", "#e0402c", "#a81c26"], green: "#9ab84c", fall: 2.6 },
+  pear: { size: [0.85, 1.2, 0.85], lift: -0.75, colors: ["#c8c040", "#d8cf5a", "#b0a838"], green: "#8fb04a", fall: 2.6 },
+  peach: { size: [0.95, 0.95, 0.95], lift: -0.5, colors: ["#f0905a", "#f6b070", "#e0604a"], green: "#a8b860", fall: 2.4 },
+  plum: { size: [0.85, 0.95, 0.85], lift: -0.65, colors: ["#8a3aa8", "#a85ac4", "#6e2c8c"], green: "#8aa04a", fall: 2.4 },
+  orange: { size: [1.0, 1.0, 1.0], lift: -0.5, colors: ["#f08a14", "#f8a020", "#e07410"], green: "#6a9a3a", fall: 2.6 },
+  lemon: { size: [0.85, 1.05, 0.85], lift: -0.55, colors: ["#f2dc2c", "#f8e85a", "#e0c41c"], green: "#7aa03e", fall: 2.6 },
+  fig: { size: [0.95, 1.1, 0.95], lift: -0.4, colors: ["#7a4a7a", "#94608e", "#5e3a60"], green: "#a8b86a", fall: 2.2 },
+  // Mangoes swing on long stalks, blushing from green through gold to red.
+  mango: { size: [0.9, 1.3, 0.9], lift: -0.95, colors: ["#f0a020", "#e8602a", "#c8c03a"], green: "#6a9a3a", fall: 3 },
 };
 // Pussy-willow catkins stand up silver along the twig instead of hanging.
 const WILLOW_CATKIN: OrnamentLook = { size: [0.28, 0.85, 0.28], lift: 0.45, colors: ["#e9e6cf", "#f2edb0", "#d8d4b8"], fall: 0.9 };

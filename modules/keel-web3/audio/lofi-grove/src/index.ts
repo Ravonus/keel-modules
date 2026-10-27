@@ -163,6 +163,22 @@ export const SPECIES_MOTIFS: Readonly<Record<string, readonly MotifNote[]>> = {
   jacaranda: [[0, 3, 3], [3, 4, 3], [6, 5, 2], [8, 4, 4], [14, 3, 2], [16, 2, 3], [19, 3, 3], [22, 1, 2], [24, 0, 8]],
   // Deep and bouncy, with wide leaps from the root.
   baobab: [[0, 0, 2], [2, 5, 2], [6, 0, 2], [8, 4, 4], [14, 2, 2], [16, 0, 2], [18, 5, 2], [22, 4, 2], [24, 2, 8]],
+  // Round and homely, a step that settles where it began.
+  apple: [[0, 2, 2], [2, 4, 2], [4, 5, 4], [10, 4, 2], [12, 2, 4], [18, 3, 2], [20, 1, 2], [22, 2, 8]],
+  // Tall and leaning, a line that climbs and hangs.
+  pear: [[0, 1, 4], [4, 3, 2], [6, 5, 6], [14, 4, 2], [16, 3, 4], [22, 2, 8]],
+  // Soft and quick, pink and over too soon.
+  peach: [[0, 5, 1], [1, 6, 1], [2, 5, 2], [6, 3, 2], [8, 4, 2], [12, 2, 4], [18, 3, 2], [20, 2, 2], [22, 0, 8]],
+  // Dusky, low and sweet.
+  plum: [[0, 1, 3], [3, 2, 1], [4, 3, 4], [10, 2, 2], [12, 0, 4], [18, 1, 2], [20, 2, 2], [22, 1, 8]],
+  // Bright and sunny, bouncing on the off-beat.
+  orange: [[0, 4, 2], [3, 5, 1], [4, 7, 3], [8, 5, 2], [11, 4, 1], [12, 2, 4], [18, 4, 2], [21, 5, 1], [22, 4, 8]],
+  // Sharp little leaps, a sour twist at the end.
+  lemon: [[0, 7, 1], [2, 5, 1], [3, 7, 2], [6, 4, 2], [10, 6, 2], [12, 3, 4], [18, 5, 2], [20, 6, 1], [22, 4, 8]],
+  // Broad and lazy, a long afternoon.
+  fig: [[0, 0, 4], [4, 3, 4], [8, 2, 2], [10, 4, 6], [16, 2, 4], [20, 1, 2], [22, 0, 8]],
+  // Lush and swinging, heavy with fruit.
+  mango: [[0, 2, 3], [3, 4, 3], [6, 6, 2], [8, 5, 4], [14, 3, 2], [16, 4, 3], [19, 2, 3], [22, 1, 2], [24, 0, 8]],
 };
 
 /** Keys comping per bar: [16th step, length in 16ths, velocity]. The last comp, `ARPEGGIO`, breaks the chord into eighths. */

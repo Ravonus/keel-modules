@@ -13,8 +13,9 @@ moment choose among it, and the arrangement grows with the tree.
   organ, nylon guitar) and lead (kalimba, music box, wooden flute,
   vibraphone). Every two songs differ in at least three of these.
 - **Species phrases.** One two-bar lead phrase per species: cherry, oak,
-  pine, birch, willow, acacia, palm, spruce, redwood, maple, jacaranda and
-  baobab.
+  pine, birch, willow, acacia, palm, spruce, redwood, maple, jacaranda,
+  baobab, and the orchard's apple, pear, peach, plum, orange, lemon, fig and
+  mango.
 - **Seeded picks.** The seed fixes the key (F, E♭, D, C, B♭, G or A), which of
   the season's four songs plays, and a nudge of up to ±2 BPM on its tempo,
   for the tree's whole life.

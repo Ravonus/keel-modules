@@ -149,7 +149,15 @@ export default [
       const cherryJune = day(api, 165, 'north', 'cherry');
       return [kinds.join(' '), oakJanuary.withered && oakJanuary.leaf > 0, birchJanuary.withered, cherryJune.fruit > 0.5];
     },
-    expect: ['blossom/cherry catkin/acorn candle/cone catkin/- catkin/- puff/pod spadix/coconut candle/cone -/cone puff/samara blossom/pod bell/gourd', true, false, true],
+    expect: ['blossom/cherry catkin/acorn candle/cone catkin/- catkin/- puff/pod spadix/coconut candle/cone -/cone puff/samara blossom/pod bell/gourd blossom/apple blossom/pear blossom/peach blossom/plum blossom/orange blossom/lemon -/fig puff/mango', true, false, true],
+  },
+  {
+    name: 'fruit trees ripen on their own calendars: peaches in July, apples in September, oranges hang through winter',
+    run: (api) => {
+      const ripe = (species, d) => { const year = day(api, d, 'north', species); return year.fruit > 0.5 && year.fruitDrop < 0.5; };
+      return [ripe('peach', 195), ripe('apple', 245), ripe('orange', 40), ripe('apple', 40), day(api, 15, 'north', 'orange').leaf > 0, day(api, 15, 'north', 'fig').leaf > 0];
+    },
+    expect: [true, true, true, false, true, false],
   },
   {
     name: 'a spruce closes to a spire, a redwood stands bare below, a baobab swells at the foot',

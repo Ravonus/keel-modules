@@ -50,6 +50,14 @@ and any day of the year. Deterministic, dependency-free, no renderer.
 | `maple` | full round | gold tufts, before the leaves | winged keys, summer to autumn | paired buds |
 | `jacaranda` | open vase | violet bells, late spring | seed pods | thins in late winter |
 | `baobab` | bottle trunk, flat crown | big white hanging bells | velvet gourds | stubby limbs |
+| `apple` | low, spreading | pink-white blossom on spurs | red apples, early autumn | |
+| `pear` | tall, upright | white blossom, early | pears, late summer | leaves go red late |
+| `peach` | small open vase | deep pink blossom on bare twigs | peaches, midsummer | short-lived |
+| `plum` | round | white blossom, first of all | purple plums, late summer | |
+| `orange` | dense dome to the ground | white blossom | oranges, hanging into the next spring | evergreen |
+| `lemon` | small, loose | white blossom, early | lemons most of the year | evergreen |
+| `fig` | low, sprawling, big leaves | — (inside the fig) | figs, late summer | |
+| `mango` | big dome | cream plumes, late winter | mangoes on long stalks | evergreen |
 
 `cone` narrows the crown's reach toward the top, closing it to a spire.
 

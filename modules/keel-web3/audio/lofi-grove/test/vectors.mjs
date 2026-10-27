@@ -66,7 +66,7 @@ export default [
   {
     name: 'each species sings its own phrase; an unknown species sings the cherry',
     run: ({ lofiScore, SPECIES_MOTIFS }) => [Object.keys(SPECIES_MOTIFS).sort().join(' '), lofiScore({ ...base, species: 'sequoia' }).species],
-    expect: ['acacia baobab birch cherry jacaranda maple oak palm pine redwood spruce willow', 'cherry'],
+    expect: ['acacia apple baobab birch cherry fig jacaranda lemon mango maple oak orange palm peach pear pine plum redwood spruce willow', 'cherry'],
   },
   {
     name: 'keys voicings are rootless and voice-led: neighbouring chords move by small steps',

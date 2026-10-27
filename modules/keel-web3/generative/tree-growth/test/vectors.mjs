@@ -42,13 +42,13 @@ export default [
     expect: [true, true, true],
   },
   {
-    name: 'a tree starts as one tiny sprout, grows taller while young and never shrinks in its prime',
+    name: 'a tree starts as one tiny sprout and grows taller every year it lives, into old age',
     run: (api) => {
       const tree = api.growTree({ species: 'cherry', seed: 7 });
       const sprout = frameAt(api, tree, 0);
-      const heights = [0.02, 0.05, 0.1, 0.2, 0.5, 0.7].map((share) => frameAt(api, tree, share).height);
-      const rising = heights.every((height, index) => index === 0 || height > heights[index - 1] || (index > 3 && height >= heights[index - 1]));
-      return [sprout.visible, sprout.height < 0.2, rising, heights[3] > 6];
+      const heights = [0.02, 0.05, 0.1, 0.2, 0.5, 0.7, 0.9, 0.97].map((share) => frameAt(api, tree, share).height);
+      const rising = heights.every((height, index) => index === 0 || height > heights[index - 1]);
+      return [sprout.visible, sprout.height < 0.2, rising, heights[3] > 4.5];
     },
     expect: [1, true, true, true],
   },
@@ -80,10 +80,10 @@ export default [
     expect: [true, true, true],
   },
   {
-    name: 'old age is a slow decline: the crown thins, then everything is dead at the end',
+    name: 'old age comes only near the end: the crown thins, then everything is dead at the end',
     run: (api) => {
       const tree = api.growTree({ species: 'cherry', seed: 7 });
-      const [mature, old, ancient, end] = [0.6, 0.85, 0.95, 1].map((share) => census(tree, frameAt(api, tree, share)));
+      const [mature, old, ancient, end] = [0.8, 0.97, 0.99, 1].map((share) => census(tree, frameAt(api, tree, share)));
       return [old.living < mature.living, ancient.living < old.living, ancient.living > 0, end.living];
     },
     expect: [true, true, true, 0],
@@ -217,6 +217,16 @@ export default [
         redwood.height > redwood.reach * 4 && acacia.reach > acacia.height,
       ];
     },
+    expect: [true, true, true, true],
+  },
+  {
+    name: 'a grand tree never levels off: taller every decade to the end, slowing, with no spurt as it dies',
+    run: (api) => ['cherry', 'oak', 'redwood', 'pine'].map((species) => {
+      const tree = api.growTree({ species, seed: 2 });
+      const heights = [20, 30, 40, 50, 60, 70, 80, 90, 95, 99].map((age) => api.treeFrame(tree, api.cycleAt(tree, age, 100), { ground: 0, grand: true }).height);
+      const gains = heights.slice(1).map((height, index) => height - heights[index]);
+      return gains.every((gain) => gain > 0) && gains[gains.length - 1] < gains[0] && gains[6] > gains[0] * 0.2;
+    }),
     expect: [true, true, true, true],
   },
   {

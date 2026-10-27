@@ -905,8 +905,9 @@ export function growTree(input: GrowInput): TreeModel {
 
 /**
  * How a species spends its life, as shares of the lifespan: by `prime` it is
- * full grown, getting there fastest while young (`quick` front-loads it); it
- * then fills out slowly until `old`, when the decline begins.
+ * most of its way grown, getting there fastest while young (`quick`
+ * front-loads it); it then keeps growing, more slowly, until `old`, near the
+ * very end, when the decline begins.
  */
 export interface Pace {
   readonly prime: number;
@@ -915,18 +916,18 @@ export interface Pace {
 }
 
 export const PACE: Readonly<Record<SpeciesId, Pace>> = {
-  willow: { prime: 0.22, quick: 4.9, old: 0.75 },
-  birch: { prime: 0.28, quick: 4.4, old: 0.75 },
-  acacia: { prime: 0.25, quick: 4.4, old: 0.8 },
-  jacaranda: { prime: 0.28, quick: 4.4, old: 0.8 },
-  cherry: { prime: 0.3, quick: 3.9, old: 0.8 },
-  maple: { prime: 0.38, quick: 3.6, old: 0.85 },
-  palm: { prime: 0.4, quick: 3.1, old: 0.85 },
-  pine: { prime: 0.45, quick: 3.4, old: 0.85 },
-  spruce: { prime: 0.5, quick: 3.1, old: 0.86 },
-  oak: { prime: 0.55, quick: 2.9, old: 0.88 },
-  baobab: { prime: 0.65, quick: 2.1, old: 0.92 },
-  redwood: { prime: 0.7, quick: 2.3, old: 0.92 },
+  willow: { prime: 0.22, quick: 4.9, old: 0.875 },
+  birch: { prime: 0.28, quick: 4.4, old: 0.875 },
+  acacia: { prime: 0.25, quick: 4.4, old: 0.9 },
+  jacaranda: { prime: 0.28, quick: 4.4, old: 0.9 },
+  cherry: { prime: 0.3, quick: 3.9, old: 0.9 },
+  maple: { prime: 0.38, quick: 3.6, old: 0.925 },
+  palm: { prime: 0.4, quick: 3.1, old: 0.925 },
+  pine: { prime: 0.45, quick: 3.4, old: 0.925 },
+  spruce: { prime: 0.5, quick: 3.1, old: 0.93 },
+  oak: { prime: 0.55, quick: 2.9, old: 0.94 },
+  baobab: { prime: 0.65, quick: 2.1, old: 0.96 },
+  redwood: { prime: 0.7, quick: 2.3, old: 0.96 },
 };
 
 const SPROUT = 0.32;
@@ -934,11 +935,16 @@ const SPROUT = 0.32;
 /**
  * The share of its growing done `u` of the way to old age: a Chapman–Richards
  * curve, settling in for a moment, then fast, then slowing as it fills out,
- * but still growing right up to old age.
+ * with a steady share on top so it never flattens: still growing every year
+ * right up to old age.
  */
 function grownShare(u: number, quick: number): number {
-  return ((1 - Math.exp(-quick * u)) / (1 - Math.exp(-quick))) ** 1.25;
+  const curve = ((1 - Math.exp(-quick * u)) / (1 - Math.exp(-quick))) ** 1.25;
+  return curve * (1 - STEADY_GROWTH) + u * STEADY_GROWTH;
 }
+
+/** The share of a tree's growing that comes on steadily, year after year, rather than early. */
+const STEADY_GROWTH = 0.3;
 
 /**
  * The growth cycle at an age: a fresh sprout at birth, quick when young, then
@@ -1016,17 +1022,59 @@ export const GRAND: Readonly<Record<SpeciesId, { readonly up: number; readonly o
 
 interface Grandeur { readonly up: number; readonly out: number; readonly girth: number }
 
+const naturalSizes = new WeakMap<TreeModel, Float32Array>();
+
+/** How tall and how wide the natural tree's wood has grown by `cycle`, from its grown positions; measured once per whole cycle and blended between. */
+function naturalSize(model: TreeModel, cycle: number): [number, number] {
+  let sizes = naturalSizes.get(model);
+  if (sizes === undefined) {
+    sizes = new Float32Array((model.cycles + 1) * 2);
+    for (let node = 0; node < model.count; node += 1) {
+      const from = Math.max(0, Math.ceil(at(model.birth, node) + at(model.span, node)));
+      const tall = at(model.y, node);
+      const wide = Math.hypot(at(model.x, node), at(model.z, node));
+      for (let whole = from; whole <= model.cycles; whole += 1) {
+        sizes[whole * 2] = Math.max(at(sizes, whole * 2), tall);
+        sizes[whole * 2 + 1] = Math.max(at(sizes, whole * 2 + 1), wide);
+      }
+    }
+    naturalSizes.set(model, sizes);
+  }
+  const low = Math.max(0, Math.min(model.cycles, Math.floor(cycle)));
+  const high = Math.min(model.cycles, low + 1);
+  const blend = clamp01(cycle - low);
+  return [0, 1].map((axis) => at(sizes, low * 2 + axis) + (at(sizes, high * 2 + axis) - at(sizes, low * 2 + axis)) * blend) as [number, number];
+}
+
+/** The share of its life a tree has lived when it reaches `cycle`: `cycleAt` run backwards. */
+function lifeAt(model: TreeModel, cycle: number): number {
+  let low = 0;
+  let high = 1;
+  for (let step = 0; step < 32; step += 1) {
+    const middle = (low + high) / 2;
+    if (cycleAt(model, middle, 1) < cycle) low = middle;
+    else high = middle;
+  }
+  return (low + high) / 2;
+}
+
 /**
- * A grand tree's size at a cycle: natural while a sapling, then growing on a
- * slowing curve for the rest of its life, never quite stopping before death.
+ * A grand tree's size at a cycle: natural while a sapling, then growing by
+ * age on a slowing curve for the rest of its life. It never levels off: an
+ * old tree still gains a little every year, right up to its death.
  */
 export function grandAt(model: TreeModel, cycle: number, grand: boolean | number = true): Grandeur {
   const reach = grand === false ? 0 : grand === true ? 1 : Math.max(0, grand);
-  const start = model.matureAt * 0.25;
-  const share = 1 - (1 - clamp01((cycle - start) / Math.max(model.cycles - start, 1e-6))) ** 1.6;
+  const share = clamp01((lifeAt(model, cycle) - 0.04) / 0.96) ** 0.75;
   const measure = GRAND[model.species.id];
-  const up = 1 + (measure.up - 1) * reach * share;
-  const out = 1 + (measure.out - 1) * reach * share;
+  // The few decline cycles pass in a tree's last years; what the natural tree
+  // still gains in them would come as a sudden spurt, so a grand tree grows on
+  // from its prime size by age alone.
+  const prime = Math.min(cycle, model.matureAt);
+  const [tall, wide] = naturalSize(model, cycle);
+  const [primeTall, primeWide] = naturalSize(model, prime);
+  const up = (1 + (measure.up - 1) * reach * share) * (reach > 0 && tall > 0 ? primeTall / tall : 1);
+  const out = (1 + (measure.out - 1) * reach * share) * (reach > 0 && wide > 0 ? primeWide / wide : 1);
   // Old wood thickens with the load it carries: the trunk widens with the crown and the height.
   return { up, out, girth: (up * out) ** 0.6 };
 }

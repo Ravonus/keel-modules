@@ -28,7 +28,10 @@ and any day of the year. Deterministic, dependency-free, no renderer.
 - **Old age still grows.** Part of the internode budget is kept back for old
   age: a declining tree keeps adding wood each cycle while anything of it
   lives, less every cycle on a tapering curve, until the very end.
-- **Old age.** After about 72% of its life vigor fades, the leader dies back
+- **Old age, only near the end.** Growth never levels off before it: a share
+  of each year's growing comes on steadily, so a tree is still taller and
+  wider every year into old age. Only in the last few years of its life
+  (from 88% for a willow to 96% for a redwood, `PACE.old`) does vigor fade: the leader dies back
   (stag-headed), the weakest limbs die a growing share each cycle, dead limbs
   fall and lie flat on the ground inside the plot (no twig is left standing in
   the air), rot away, and at the end the whole tree stands as a snag.
@@ -96,7 +99,7 @@ for (let index = 0; index < tree.leaves.count; index += 1) {
 ### Grand trees
 
 Pass `grand: true` to `treeFrame` for a world tree: natural as a sapling, it
-keeps growing all its life on a slowing curve, until it stands about `GRAND`
+keeps growing all its life on a slowing curve that never levels off, by age, until it stands about `GRAND`
 times bigger than life, in its species' own way. Redwoods, pines and
 spruces tower, acacias, oaks and willows spread wide, a palm only climbs
 and a baobab's trunk swells. A number scales how far past life it goes

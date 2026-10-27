@@ -1244,12 +1244,19 @@ const SPROUT = 0.32;
  * right up to old age.
  */
 function grownShare(u: number, quick: number): number {
-  const curve = ((1 - Math.exp(-quick * u)) / (1 - Math.exp(-quick))) ** 1.25;
+  const q = quick * YOUTH;
+  const curve = ((1 - Math.exp(-q * u)) / (1 - Math.exp(-q))) ** 1.25;
   return curve * (1 - STEADY_GROWTH) + u * STEADY_GROWTH;
 }
 
+/**
+ * How much faster the early curve runs over a life measured to old age: a young tree puts on most of its
+ * crown in its first years (a 6-year cherry stands about 3.5 m, as a nursery tree does), then fills out slowly.
+ */
+const YOUTH = 2.8;
+
 /** The share of a tree's growing that comes on steadily, year after year, rather than early. */
-const STEADY_GROWTH = 0.3;
+const STEADY_GROWTH = 0.4;
 
 /**
  * The growth cycle at an age: a fresh sprout at birth, quick when young, then

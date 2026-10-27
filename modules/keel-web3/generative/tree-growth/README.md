@@ -93,6 +93,21 @@ for (let index = 0; index < tree.leaves.count; index += 1) {
 }
 ```
 
+### Grand trees
+
+Pass `grand: true` to `treeFrame` for a world tree: natural as a sapling, it
+keeps growing all its life on a slowing curve, until it stands about `GRAND`
+times bigger than life, in its species' own way. Redwoods, pines and
+spruces tower, acacias, oaks and willows spread wide, a palm only climbs
+and a baobab's trunk swells. A number scales how far past life it goes
+(`grand: 0.5` is halfway). The frame's `scale` says how much bigger than life
+the tree has grown; a renderer grows its leaf clumps with it so the crown
+stays full (tree-render does). Without `grand`, frames are the natural tree.
+
+```ts
+const frame = treeFrame(tree, cycleAt(tree, ageYears, lifespanYears), { ground: 0, grand: true });
+```
+
 The model is flat typed arrays ordered parents first, so one forward pass
 can pose it. Re-pose only when the cycle moves; colour only when the year
 does.

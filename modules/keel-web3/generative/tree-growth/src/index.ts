@@ -203,7 +203,7 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   // Redwood: a towering straight column, bare below, short drooping limbs that turn up at the tips.
   redwood: {
     id: "redwood", cycles: 34, height: 15, apical: 0.9, vigor: 2.5, maxShoot: 3, sideShoot: 2, angle: 82, divergence: 137.5, whorl: 0,
-    straight: 1.2, light: 0.16, up: 1.7, lateralUp: -0.22, weep: -0.16, flat: 0.3, spread: 0.16, cone: 0.7, crownAt: 0.42, lift: 0.4, ceiling: Infinity, shed: 0.16,
+    straight: 1.2, light: 0.16, up: 1.7, lateralUp: -0.22, weep: -0.16, flat: 0.3, spread: 0.28, cone: 0.7, crownAt: 0.42, lift: 0.4, ceiling: Infinity, shed: 0.16,
     leafSlots: 6, leafSpread: 0.24, hang: 0, flower: null, fruit: { kind: "cone", on: "tip", perNode: 1, window: [120, 230, 300, 380], from: 8 },
     evergreen: true, palm: null, radiusTip: 0.03, pipe: 1.85,
     phenology: { leaf: [60, 61], color: [262, 300], drop: [270, 310], dropMax: 0.12, flush: [128, 176], marcescent: 0 },
@@ -978,11 +978,57 @@ export interface TreeFrame {
   /** How many internodes are visible. */
   readonly visible: number;
   readonly height: number;
+  /** How much bigger than life a grand tree has grown by now (the mean of taller and wider); 1 for a natural tree. Renderers grow leaf clumps with it. */
+  readonly scale: number;
 }
 
 export interface FrameOptions {
   /** World y of the ground where shed limbs come to rest. */
   readonly ground?: number;
+  /**
+   * Grow a grand tree, a world tree: it keeps getting bigger all its life,
+   * slowing with age, until it stands GRAND times taller and wider than the
+   * natural tree, in its own species' way. `true` uses the species' own
+   * measure; a number scales how far past life it goes (1 is that measure).
+   */
+  readonly grand?: boolean | number;
+}
+
+/**
+ * How much bigger a grand tree of each kind grows than the natural one, upward
+ * and outward. Conifers and redwoods tower; acacias, oaks and willows spread
+ * wide; a palm only climbs; a baobab swells.
+ */
+export const GRAND: Readonly<Record<SpeciesId, { readonly up: number; readonly out: number }>> = {
+  cherry: { up: 1.9, out: 2.4 },
+  oak: { up: 2.2, out: 3.0 },
+  pine: { up: 2.7, out: 1.5 },
+  birch: { up: 2.3, out: 1.7 },
+  willow: { up: 1.8, out: 2.8 },
+  acacia: { up: 1.6, out: 3.2 },
+  palm: { up: 2.5, out: 1.1 },
+  spruce: { up: 2.6, out: 1.5 },
+  redwood: { up: 3.2, out: 1.6 },
+  maple: { up: 2.1, out: 2.6 },
+  jacaranda: { up: 1.8, out: 2.8 },
+  baobab: { up: 1.8, out: 2.5 },
+};
+
+interface Grandeur { readonly up: number; readonly out: number; readonly girth: number }
+
+/**
+ * A grand tree's size at a cycle: natural while a sapling, then growing on a
+ * slowing curve for the rest of its life, never quite stopping before death.
+ */
+export function grandAt(model: TreeModel, cycle: number, grand: boolean | number = true): Grandeur {
+  const reach = grand === false ? 0 : grand === true ? 1 : Math.max(0, grand);
+  const start = model.matureAt * 0.25;
+  const share = 1 - (1 - clamp01((cycle - start) / Math.max(model.cycles - start, 1e-6))) ** 1.6;
+  const measure = GRAND[model.species.id];
+  const up = 1 + (measure.up - 1) * reach * share;
+  const out = 1 + (measure.out - 1) * reach * share;
+  // Old wood thickens with the load it carries: the trunk widens with the crown and the height.
+  return { up, out, girth: (up * out) ** 0.6 };
 }
 
 const FALL_CYCLES = 0.08;
@@ -1035,10 +1081,10 @@ function lifePass(model: TreeModel, cycle: number, frame: TreeFrame, shedRoot: I
 interface FallPose { readonly pivot: Vec; readonly axis: Vec; readonly angle: number; readonly drop: Vec }
 
 /** A shed limb swings down about its base and comes to rest flat, pointing out from the trunk. */
-function fallPose(model: TreeModel, root: number, ground: number, random: () => number): FallPose {
+function fallPose(model: TreeModel, root: number, ground: number, random: () => number, size: Grandeur): FallPose {
   const parent = at(model.parent, root);
-  const pivot = vec(at(model.x, parent), at(model.y, parent), at(model.z, parent));
-  const tip = vec(at(model.x, root), at(model.y, root), at(model.z, root));
+  const pivot = restAt(model, parent, size);
+  const tip = restAt(model, root, size);
   const heading = normalize(add(tip, pivot, -1));
   const out = normalize(vec(heading.x + pivot.x * 0.3, 0, heading.z + pivot.z * 0.3), normalize(vec(random() - 0.5, 0, random() - 0.5), vec(1, 0, 0)));
   const axis = normalize(cross(heading, out), perpendicular(heading));
@@ -1047,10 +1093,13 @@ function fallPose(model: TreeModel, root: number, ground: number, random: () => 
   return { pivot, axis, angle, drop: add(rest, pivot, -1) };
 }
 
-function poseFor(model: TreeModel, poses: Map<number, FallPose>, root: number, ground: number): FallPose {
+/** Where a node grows, at a grand tree's size. */
+const restAt = (model: TreeModel, node: number, size: Grandeur): Vec => vec(at(model.x, node) * size.out, at(model.y, node) * size.up, at(model.z, node) * size.out);
+
+function poseFor(model: TreeModel, poses: Map<number, FallPose>, root: number, ground: number, size: Grandeur): FallPose {
   let pose = poses.get(root);
   if (pose === undefined) {
-    pose = fallPose(model, root, ground, createRandom(model.seed ^ root));
+    pose = fallPose(model, root, ground, createRandom(model.seed ^ root), size);
     poses.set(root, pose);
   }
   return pose;
@@ -1069,17 +1118,17 @@ function fallen(point: Vec, pose: FallPose, progress: number, ground: number): V
   return vec(moved.x * pull, ground + 0.04 + Math.max(0, moved.y - ground - 0.04) * (1 - 0.95 * eased), moved.z * pull);
 }
 
-function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, ground: number): void {
+function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, ground: number, size: Grandeur): void {
   const poses = new Map<number, FallPose>();
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);
-    const restBase = parent >= 0 ? vec(at(model.x, parent), at(model.y, parent), at(model.z, parent)) : vec(0, 0, 0);
-    const restEnd = add(restBase, add(vec(at(model.x, node), at(model.y, node), at(model.z, node)), restBase, -1), at(frame.grow, node));
+    const restBase = parent >= 0 ? restAt(model, parent, size) : vec(0, 0, 0);
+    const restEnd = add(restBase, add(restAt(model, node, size), restBase, -1), at(frame.grow, node));
     const root = at(shedRoot, node);
     let base = parent >= 0 ? vec(at(frame.x, parent), at(frame.y, parent), at(frame.z, parent)) : vec(0, 0, 0);
     let end = restEnd;
     if (root >= 0) {
-      const pose = poseFor(model, poses, root, ground);
+      const pose = poseFor(model, poses, root, ground, size);
       const progress = at(frame.fall, node);
       end = fallen(restEnd, pose, progress, ground);
       if (root === node) base = fallen(restBase, pose, progress, ground);
@@ -1096,12 +1145,14 @@ export function treeFrame(model: TreeModel, cycle: number, options: FrameOptions
   const array = (): Float32Array => new Float32Array(count);
   const frame: TreeFrame = {
     cycle: at01, grow: array(), radius: array(), dead: array(), fall: array(), rot: array(), tips: array(),
-    x: array(), y: array(), z: array(), baseX: array(), baseY: array(), baseZ: array(), visible: 0, height: 0,
+    x: array(), y: array(), z: array(), baseX: array(), baseY: array(), baseZ: array(), visible: 0, height: 0, scale: 1,
   };
   const shedRoot = new Int32Array(count).fill(-1);
+  const size = options.grand === undefined || options.grand === false ? { up: 1, out: 1, girth: 1 } : grandAt(model, at01, options.grand);
   growthPass(model, at01, frame);
+  if (size.girth !== 1) for (let node = 0; node < count; node += 1) frame.radius[node] = at(frame.radius, node) * size.girth;
   lifePass(model, at01, frame, shedRoot);
-  posePass(model, frame, shedRoot, options.ground ?? 0);
+  posePass(model, frame, shedRoot, options.ground ?? 0, size);
   let visible = 0;
   let height = 0;
   for (let node = 0; node < count; node += 1) {
@@ -1109,7 +1160,7 @@ export function treeFrame(model: TreeModel, cycle: number, options: FrameOptions
     visible += 1;
     if (at(frame.fall, node) === 0) height = Math.max(height, at(frame.y, node));
   }
-  return { ...frame, visible, height };
+  return { ...frame, visible, height, scale: Math.sqrt(size.up * size.out) };
 }
 
 // ---------------------------------------------------------------- bending

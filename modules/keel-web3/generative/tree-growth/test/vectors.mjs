@@ -195,6 +195,31 @@ export default [
     expect: [true, true, true],
   },
   {
+    name: 'a grand tree keeps growing all its life, slowing, in its own species\' way; a natural frame is unchanged',
+    run: (api) => {
+      const size = (species, age) => {
+        const tree = api.growTree({ species, seed: 2 });
+        const frame = api.treeFrame(tree, api.cycleAt(tree, age, 100), { ground: 0, grand: true });
+        let reach = 0;
+        for (let node = 0; node < tree.count; node += 1) if (frame.grow[node] > 0 && frame.fall[node] === 0) reach = Math.max(reach, Math.hypot(frame.x[node], frame.z[node]));
+        return { height: frame.height, reach, scale: frame.scale };
+      };
+      const [young, middle, old, ancient] = [10, 40, 70, 90].map((age) => size('oak', age));
+      const tree = api.growTree({ species: 'cherry', seed: 2 });
+      const cycle = api.cycleAt(tree, 50, 100);
+      const natural = api.treeFrame(tree, cycle, { ground: 0 });
+      const off = api.treeFrame(tree, cycle, { ground: 0, grand: false });
+      const redwood = size('redwood', 90), acacia = size('acacia', 90);
+      return [
+        old.height > middle.height && middle.height > young.height && ancient.reach > old.reach && old.reach > middle.reach,
+        ancient.reach - old.reach < middle.reach - young.reach,
+        natural.scale === 1 && off.x.every((value, index) => value === natural.x[index]),
+        redwood.height > redwood.reach * 4 && acacia.reach > acacia.height,
+      ];
+    },
+    expect: [true, true, true, true],
+  },
+  {
     name: 'old trees keep growing through their decline, less each cycle, until the end',
     run: ({ growTree }) => ['cherry', 'oak', 'palm'].map((species) => {
       const tree = growTree({ species, seed: 4 });

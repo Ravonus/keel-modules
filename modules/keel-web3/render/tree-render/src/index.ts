@@ -82,6 +82,8 @@ export interface TreeFrameLike {
   readonly baseZ: ArrayLike<number>;
   readonly visible: number;
   readonly height: number;
+  /** How much bigger than life a grand tree has grown (tree-growth's `grand` frames); leaf clumps grow with it. */
+  readonly scale?: number;
 }
 
 export interface YearLike {
@@ -1174,10 +1176,12 @@ function leafShows(tree: Tree, frame: TreeFrameLike, year: YearLike, index: numb
 function leafPass(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): LeafPass {
   const bare = year.leaf <= 0;
   const seedling = frame.visible <= 4;
+  // A grand tree is bigger than life but has the same twigs, so each clump fills more of its crown.
+  const grand = Math.max(1, frame.scale ?? 1) ** 0.75;
   return {
     array: mesh.instanceMatrix.array, height: Math.max(frame.height, 0.5), bare,
-    size: tree.colors.leafScale * (seedling ? 0.8 : 1) * (tree.skin?.leafSize ?? 1),
-    spread: bare ? 0.15 : 0.35 + 0.65 * year.leaf, wind: tree.features.sway ? motion.wind : 0, dir: motion.windDir ?? 0, elapsed: motion.elapsed,
+    size: tree.colors.leafScale * (seedling ? 0.8 : 1) * (tree.skin?.leafSize ?? 1) * grand,
+    spread: (bare ? 0.15 : 0.35 + 0.65 * year.leaf) * grand, wind: tree.features.sway ? motion.wind : 0, dir: motion.windDir ?? 0, elapsed: motion.elapsed,
     field: tree.features.sway ? motion.wind * (motion.field ?? 1) : 0,
   };
 }

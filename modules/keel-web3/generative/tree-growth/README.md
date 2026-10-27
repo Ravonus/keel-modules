@@ -111,6 +111,25 @@ stays full (tree-render does). Without `grand`, frames are the natural tree.
 const frame = treeFrame(tree, cycleAt(tree, ageYears, lifespanYears), { ground: 0, grand: true });
 ```
 
+### Hybrids
+
+Pass `mix` (species id → share) to `growTree` for a cross: `blendSpecies(mix)`
+grows a form between its kinds, every measure the shares' weighted mean, with
+what has no middle from the major share (palm, whorls, flowers, fruit,
+evergreen). A clean bole takes the hardest-pruning kind's `lift`, and shoot
+lengths stay with the major kind when the branching habits differ.
+
+`sectors(model, shares)` then gives each kind whole main limbs, by leaf-years
+carried, so an 80/20 tree shows a fifth of its crown as the minor kind. Only
+limbs that live into maturity count (a self-pruned limb would carry its kind
+as bare sticks); each minor kind takes the limbs that bring it closest to its
+share, and even a tiny share gets one limb. The trunk stays with the first.
+
+```ts
+const tree = growTree({ species: "cherry", seed, mix: { cherry: 0.8, oak: 0.2 } });
+const strainOf = sectors(tree, mixShares({ cherry: 0.8, oak: 0.2 }).map(([, share]) => share));
+```
+
 The model is flat typed arrays ordered parents first, so one forward pass
 can pose it. Re-pose only when the cycle moves; colour only when the year
 does.

@@ -709,6 +709,64 @@ export interface GrowInput {
   readonly species: string;
   readonly seed: number;
   readonly maxNodes?: number;
+  /**
+   * A hybrid: each species' share of the tree's makeup (any positive weights;
+   * they are normalised). The tree grows a form between them by share; the
+   * largest share decides what cannot be halved (a palm's way of growing,
+   * whorls, flowers, fruit, evergreen). `species` is ignored when it is set.
+   */
+  readonly mix?: Readonly<Record<string, number>>;
+}
+
+/** The species' shares in a mix, largest first, unknown ids and non-positive weights dropped, summing to 1. */
+export function mixShares(mix: Readonly<Record<string, number>>): [SpeciesId, number][] {
+  const known = Object.entries(mix).filter(([id, weight]) => Object.hasOwn(SPECIES, id) && weight > 0) as [SpeciesId, number][];
+  const total = known.reduce((sum, [, weight]) => sum + weight, 0);
+  if (total <= 0) return [["cherry", 1]];
+  return known.map(([id, weight]) => [id, weight / total] as [SpeciesId, number]).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+}
+
+/** Past this many internodes a leader's ceiling never comes into play, so an unbounded one blends as this. */
+const OPEN_CEILING = 60;
+
+const blendNumber = (shares: readonly [SpeciesId, number][], pick: (species: Species) => number): number => {
+  const mean = shares.reduce((sum, [id, share]) => sum + Math.min(pick(SPECIES[id]), OPEN_CEILING) * share, 0);
+  return shares.some(([id]) => pick(SPECIES[id]) === Infinity) && mean >= OPEN_CEILING * 0.95 ? Infinity : mean;
+};
+
+/**
+ * A hybrid species: every measure of form is the shares' weighted mean (an
+ * 80/20 cherry-oak is mostly a cherry's crown with an oak's broader reach and
+ * flatter limbs); what has no middle comes from the major share.
+ */
+export function blendSpecies(mix: Readonly<Record<string, number>>): Species {
+  const shares = mixShares(mix);
+  const major = SPECIES[shares[0]![0]];
+  if (shares.length === 1 || major.palm !== null) return major;
+  const mean = (pick: (species: Species) => number): number => blendNumber(shares, pick);
+  const round = (pick: (species: Species) => number): number => Math.max(1, Math.round(mean(pick)));
+  const window = (pick: (species: Species) => readonly [number, number]): [number, number] => [mean((species) => pick(species)[0]), mean((species) => pick(species)[1])];
+  // A clean bole has no middle either: the kind that prunes its low limbs hardest keeps the trunk bare (lift).
+  // Shoot lengths go with the branching habit: a whorled kind buds only at a shoot's end, so a pine
+  // given a willow's long side shoots would grow bare whips. Across habits they come from the major share.
+  const sameHabit = shares.every(([id]) => (SPECIES[id].whorl > 0) === (major.whorl > 0));
+  const shoot = (pick: (species: Species) => number): number => (sameHabit ? round(pick) : pick(major));
+  return {
+    ...major,
+    cycles: round((species) => species.cycles), height: mean((species) => species.height), apical: mean((species) => species.apical), vigor: mean((species) => species.vigor),
+    maxShoot: shoot((species) => species.maxShoot), sideShoot: shoot((species) => species.sideShoot), angle: mean((species) => species.angle),
+    straight: mean((species) => species.straight), light: mean((species) => species.light), up: mean((species) => species.up), lateralUp: mean((species) => species.lateralUp),
+    weep: mean((species) => species.weep), flat: mean((species) => species.flat), crownAt: mean((species) => species.crownAt), lift: Math.max(...shares.map(([id]) => SPECIES[id].lift ?? 0)),
+    spread: mean((species) => species.spread), cone: mean((species) => species.cone ?? 0), ceiling: mean((species) => species.ceiling), shed: mean((species) => species.shed),
+    leafSlots: round((species) => species.leafSlots), leafSpread: mean((species) => species.leafSpread), hang: mean((species) => species.hang),
+    radiusTip: mean((species) => species.radiusTip), pipe: mean((species) => species.pipe),
+    phenology: {
+      ...major.phenology,
+      marcescent: mean((species) => species.phenology.marcescent), dropMax: mean((species) => species.phenology.dropMax),
+      leaf: window((species) => species.phenology.leaf), color: window((species) => species.phenology.color),
+      drop: window((species) => species.phenology.drop), flush: window((species) => species.phenology.flush),
+    },
+  };
 }
 
 /**
@@ -876,7 +934,7 @@ function leafEligible(sim: Sim, node: number): boolean {
 
 /** Grows one tree from its seed. The same species and seed always give the same tree. */
 export function growTree(input: GrowInput): TreeModel {
-  const species = speciesOf(input.species);
+  const species = input.mix ? blendSpecies(input.mix) : speciesOf(input.species);
   const seed = input.seed >>> 0;
   const sim = simulate(species, seed, Math.max(64, Math.min(input.maxNodes ?? 4800, 6000)));
   const count = sim.pos.length;
@@ -901,6 +959,74 @@ export function growTree(input: GrowInput): TreeModel {
     roots: Array.from({ length: rootCount }, (_, index) => ({ angle: (index / rootCount) * Math.PI * 2 + random() * 0.6, reach: 0.7 + random() * 0.6 })),
   };
   return model;
+}
+
+/**
+ * Splits a grown tree into sectors, the way a chimera plant carries whole
+ * limbs of different tissue: each main limb (and everything it carries) goes
+ * to one strain, so that each strain's share of the crown's leaves is close
+ * to its share in `shares`. Strain 0, the first, keeps the trunk. Returns the
+ * strain of every internode. A strain with too small a share for any limb
+ * still gets the smallest one, so a trace of hidden makeup always shows.
+ */
+export function sectors(model: TreeModel, shares: readonly number[], seed = model.seed): Uint8Array {
+  const strain = new Uint8Array(model.count);
+  if (shares.length <= 1) return strain;
+  const order = model.order;
+  // Leaf-years each internode carries, counted up from the twigs (parents come first, so walk backwards):
+  // a shoot that is shaded out young counts for little.
+  const carried = new Float64Array(model.count);
+  for (let index = 0; index < model.leaves.count; index += 1) {
+    const node = at(model.leaves.node, index);
+    const held = Math.max(0, Math.min(at(model.deadAt, node), model.cycles) - at(model.birth, node)) / model.cycles;
+    carried[node] = at(carried, node) + held;
+  }
+  for (let node = model.count - 1; node > 0; node -= 1) {
+    const parent = at(model.parent, node);
+    if (parent >= 0) carried[parent] = at(carried, parent) + at(carried, node);
+  }
+  // Main limbs that live into maturity: a self-pruned lower limb would carry its strain as bare sticks.
+  const main: number[] = [];
+  for (let node = 0; node < model.count; node += 1) {
+    const parent = at(model.parent, node);
+    if (at(order, node) > 0 && (parent < 0 || at(order, parent) === 0) && at(carried, node) > 0) main.push(node);
+  }
+  const lasting = main.filter((node) => at(model.deadAt, node) >= model.matureAt);
+  const limbs = lasting.length >= shares.length ? lasting : main;
+  const total = limbs.reduce((sum, node) => sum + at(carried, node), 0);
+  const random = createRandom(seed ^ 0x5ec7);
+  // Shuffle so the sectors fall round the crown, not in growth order.
+  for (let index = limbs.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [limbs[index], limbs[other]] = [limbs[other]!, limbs[index]!];
+  }
+  const sum = shares.reduce((acc, share) => acc + Math.max(0, share), 0) || 1;
+  const want = shares.map((share) => (Math.max(0, share) / sum) * total);
+  const have = new Float64Array(shares.length);
+  const owner = new Map<number, number>();
+  // The minor strains pick first, each taking whichever limb brings it closest to its share while that helps
+  // (a strain with none takes its closest limb anyway); the first strain takes what is left.
+  for (let index = shares.length - 1; index > 0; index -= 1) {
+    const goal = want[index] ?? 0;
+    if (goal <= 0) continue;
+    for (;;) {
+      let best = -1;
+      let gap = at(have, index) === 0 ? Infinity : Math.abs(goal - at(have, index));
+      for (const limb of limbs) {
+        if (owner.has(limb)) continue;
+        const off = Math.abs(goal - at(have, index) - at(carried, limb));
+        if (off < gap) { gap = off; best = limb; }
+      }
+      if (best < 0) break;
+      owner.set(best, index);
+      have[index] = at(have, index) + at(carried, best);
+    }
+  }
+  for (let node = 0; node < model.count; node += 1) {
+    const parent = at(model.parent, node);
+    strain[node] = owner.get(node) ?? (parent >= 0 ? at(strain, parent) : 0);
+  }
+  return strain;
 }
 
 /**

@@ -142,14 +142,14 @@ const STONE = {
 
 export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   earth: {
-    label: "Earth", family: "earth", palettes: [["meadow", ["#739e61", "#b9c979", "#6d4d39", "#5a3f2e", "#6f4b35", "#8fbf58"]]],
+    label: "Earth", family: "earth", palettes: [["meadow", ["#739e61", "#a3b46e", "#6d4d39", "#5a3f2e", "#6f4b35", "#7fa856"]]],
     patterns: ["turf"], effects: ["none"], decor: ["none", "rocks"], decorCount: [0, 4], underside: ["cone"], trim: ["none"],
     shine: 0, glow: 0, sparkle: 0, veins: [0, 0], alpha: 1, drift: 0, worlds: ["nature", "beach", "city", "crystal", "voxel"],
   },
   gold: {
     label: "Polished gold", family: "metal", patterns: ["ingot", "hammered", "brushed", "coins"], effects: ["sweep", "sweep", "sparkle"],
     decor: ["ingots", "coins", "nuggets"], decorCount: [4, 12], underside: ["slab", "cone", "spire"], trim: ["gold", "chrome", "studs"],
-    palettes: [["yellow gold", ["#d89a18", "#ffd040", "#8a5a0c", "#5a3a06", "#ffc830", "#fff0b0"]], ["rose gold", ["#c86a50", "#f0a080", "#8a4838", "#5e2e24", "#e89078", "#ffe0d0"]], ["24 karat", ["#e08a08", "#ffc820", "#8a4a04", "#5a3002", "#ffb810", "#fff0a0"]], ["white gold", ["#d8d2c0", "#f4efe0", "#a8a290", "#7c7666", "#e8e2d0", "#fffdf4"]], ["old gold", ["#b88c30", "#e8c460", "#7a5818", "#4e360c", "#d0a038", "#fff0b8"]]],
+    palettes: [["yellow gold", ["#d89a18", "#ffd040", "#b8860b", "#6b4a0e", "#f2c14e", "#fff4c2"]], ["rose gold", ["#c86a50", "#f0a080", "#8a4838", "#5e2e24", "#e89078", "#ffe0d0"]], ["24 karat", ["#e08a08", "#ffc820", "#8a4a04", "#5a3002", "#ffb810", "#fff0a0"]], ["white gold", ["#d8d2c0", "#f4efe0", "#a8a290", "#7c7666", "#e8e2d0", "#fffdf4"]], ["old gold", ["#b88c30", "#e8c460", "#7a5818", "#4e360c", "#d0a038", "#fff0b8"]]],
     shine: 1, glow: 0.05, sparkle: 0.35, veins: [0, 0], alpha: 1, drift: 4, worlds: ["nature", "city", "crystal", "cosmic", "vapor"],
   },
   goldOre: {
@@ -340,9 +340,10 @@ const BLOCK_SURFACE: Readonly<Record<Pattern, Surface>> = {
   magma: "speckle", frost: "crystal", mirror: "slab", circuit: "panel", grid: "grid", checker: "tile", tile: "tile", scan: "grid", flake: "tile", stars: "speckle",
 };
 
-function resolvePlanter(id: PlanterId, random: () => number, form: PlanterForm): PlanterLook {
+function resolvePlanter(id: PlanterId, random: () => number, form: PlanterForm, pinned?: number): PlanterLook {
   const recipe = PLANTERS[id];
-  const [paletteName, palette] = pick(recipe.palettes, random);
+  const rolled = pick(recipe.palettes, random);
+  const [paletteName, palette] = pinned !== undefined && recipe.palettes[pinned] ? recipe.palettes[pinned] : rolled;
   const hue = (random() * 2 - 1) * recipe.drift;
   const tint = (hex: string): string => (hue === 0 ? hex : shiftHue(hex, hue));
   const [top, top2, body, body2, rim, accent] = palette.map(tint) as unknown as PlanterPalette;
@@ -606,6 +607,11 @@ function resolveTree(id: TreeSkinId, random: () => number): TreeLook {
   };
 }
 
+/** One skin's look on its own, for a tree that carries it on only some limbs (a chimera). An unknown id is natural. */
+export function treeLook(id: string, seed: number): TreeLook {
+  return resolveTree(Object.hasOwn(TREE_SKINS, id) ? (id as TreeSkinId) : "natural", createRandom(seed ^ 0x5c1d));
+}
+
 // ---------------------------------------------------------------- signal glitch
 
 /** The parts of the scene a glitch can hit. It never takes the whole frame unless it hits all three. */
@@ -714,6 +720,8 @@ export interface ThemeInput {
   readonly tree?: string;
   /** "clean", "full", a part to tear ("planter", "tree", "world"), or "seed" to roll each part: most are clean, a full glitch is the rarest. */
   readonly glitch?: string;
+  /** Pin the planter's palette to this one of its recipe's (0 is the material's signature look: lava is basalt and fire); left out, the seed picks. */
+  readonly planterPalette?: number;
   readonly seed: number;
 }
 
@@ -737,7 +745,7 @@ export function themeFor(input: ThemeInput): Theme {
   const planterId = Object.hasOwn(PLANTERS, input.planter ?? "") ? (input.planter as PlanterId) : seededPlanter(random);
   // The shape and size roll on their own stream, apart from the material.
   const form = resolveForm(input.form, createRandom((input.seed >>> 0) ^ 0x5ca1e));
-  const planter = resolvePlanter(planterId, random, form);
+  const planter = resolvePlanter(planterId, random, form, input.planterPalette);
   const worldId = Object.hasOwn(WORLDS, input.world ?? "") ? (input.world as WorldId) : pick(PLANTERS[planterId].worlds, random);
   const world = resolveWorld(worldId, random);
   const planterName = planter.variant === "" ? planter.label : `${planter.label} · ${planter.variant}`;

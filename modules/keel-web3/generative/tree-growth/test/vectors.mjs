@@ -230,6 +230,38 @@ export default [
     expect: [true, true, true, true],
   },
   {
+    name: 'a hybrid grows a form between its kinds, and its sectors give each kind its share of the leaves, on limbs that last',
+    run: (api) => {
+      const reach = (mix) => {
+        const tree = api.growTree({ species: 'cherry', seed: 3, mix });
+        const frame = api.treeFrame(tree, api.cycleAt(tree, 60, 100), { ground: 0 });
+        let most = 0;
+        for (let node = 0; node < tree.count; node += 1) if (frame.grow[node] > 0) most = Math.max(most, Math.hypot(frame.x[node], frame.z[node]));
+        return most;
+      };
+      const cherry = reach({ cherry: 1 }), oak = reach({ oak: 1 }), half = reach({ cherry: 0.5, oak: 0.5 });
+      const tree = api.growTree({ species: 'cherry', seed: 3, mix: { cherry: 0.8, oak: 0.2 } });
+      const shares = api.mixShares({ cherry: 0.8, oak: 0.2 }).map(([, share]) => share);
+      const strain = api.sectors(tree, shares);
+      // Shares are of leaf-years: a leaf counts for as long as its shoot lives.
+      let oakLeaves = 0, allLeaves = 0;
+      for (let index = 0; index < tree.leaves.count; index += 1) {
+        const node = tree.leaves.node[index];
+        const held = Math.max(0, Math.min(tree.deadAt[node], tree.cycles) - tree.birth[node]);
+        allLeaves += held;
+        if (strain[node] === 1) oakLeaves += held;
+      }
+      const trace = api.sectors(tree, [0.97, 0.03]);
+      return [
+        half > Math.min(cherry, oak) && half < Math.max(cherry, oak),
+        tree.species.id === 'cherry' && Math.abs(oakLeaves / allLeaves - 0.2) < 0.06,
+        trace.some((value) => value === 1) && strain[0] === 0,
+        api.sectors(tree, shares).every((value, index) => value === strain[index]),
+      ];
+    },
+    expect: [true, true, true, true],
+  },
+  {
     name: 'old trees keep growing through their decline, less each cycle, until the end',
     run: ({ growTree }) => ['cherry', 'oak', 'palm'].map((species) => {
       const tree = growTree({ species, seed: 4 });

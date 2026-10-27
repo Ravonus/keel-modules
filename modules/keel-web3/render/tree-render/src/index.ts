@@ -132,6 +132,27 @@ export interface TreeSkin {
   readonly leafSize?: number;
 }
 
+/**
+ * Another strain in a hybrid or chimera tree: the limbs `strainOf` gives it
+ * take these colours and this skin instead of the tree's own. `colors` left
+ * out keeps the tree's; `skin` left out keeps the tree's skin, `null` drops it
+ * (a natural limb on a crystal tree).
+ */
+export interface TreeStrain {
+  readonly colors?: TreeColors;
+  readonly skin?: TreeSkin | null;
+  /** False when the strain's own kind would not flower or fruit like the tree (an oak limb on a cherry stays green in blossom time). */
+  readonly bears?: boolean;
+  /** Bark colours for the strain's wood, darkest first (a skin's own bark); left out, the strain's `colors.trunk`. */
+  readonly bark?: readonly string[];
+}
+
+/** One blossom colour in a mixed bloom: this share of the flowers opens in these colours. */
+export interface TreeBloom {
+  readonly colors: readonly string[];
+  readonly share: number;
+}
+
 // ---------------------------------------------------------------- the parts of keel/lit used
 
 interface ColorLike {
@@ -791,6 +812,12 @@ export interface TreeRenderOptions {
   readonly skin?: TreeSkin | null;
   readonly limits?: TreeLimits;
   readonly seed?: number;
+  /** Strains of a hybrid or chimera, by number; strain 0 is the tree's own colours and skin, so `strains[0]` is not read. */
+  readonly strains?: readonly TreeStrain[];
+  /** Each internode's strain (tree-growth's `sectors`); its leaves, flowers, fruit and bark take that strain's look. */
+  readonly strainOf?: ArrayLike<number>;
+  /** A mixed bloom: each blossom opens in one of these colours, by share (codominant flower colour). Left out, blossoms take the strain's spring colours. */
+  readonly blooms?: readonly TreeBloom[];
 }
 
 /** What moves the tree this frame. `snow` 0..1 lies along the limbs; `snowed` hides litter under fresh snow. */
@@ -809,6 +836,13 @@ export interface TreeMotion {
    * leaves still flutter and hanging fruit still swings on its stalk.
    */
   readonly field?: number;
+  /**
+   * Each strain's own year (tree-growth `yearState` for its species), so its
+   * limbs leaf out, blossom and turn on their own calendar: an oak limb on a
+   * cherry is still in bud while the cherry blooms. Strain 0, and any left
+   * out, follow the tree's year.
+   */
+  readonly strainYears?: readonly (YearLike | undefined)[];
 }
 
 export interface TreeMeshes {
@@ -874,6 +908,10 @@ interface Tree {
   /** A palm's leaflets, laid out in two rows down each frond. */
   readonly fronds: FrondLayout | null;
   readonly skin: TreeSkin | null;
+  readonly strains: readonly TreeStrain[];
+  readonly strainOf: ArrayLike<number> | null;
+  readonly blooms: readonly TreeBloom[];
+  strainYears: readonly (YearLike | undefined)[];
   readonly group: NodeLike;
   readonly meshes: TreeMeshes;
   readonly flowers: OrnamentSet | null;
@@ -924,6 +962,7 @@ function leafyNode(frame: TreeFrameLike, node: number, tipLimit: number): boolea
 
 function bearingNode(tree: Tree, frame: TreeFrameLike, spec: OrnamentSpecLike, node: number): boolean {
   if (frame.cycle < spec.from || at(frame.fall, node) > 0 || at(frame.dead, node) >= 0.2) return false;
+  if (tree.strainOf && tree.strains[at(tree.strainOf, node)]?.bears === false) return false;
   if (spec.on === "tip") return leafyNode(frame, node, tree.model.species.evergreen ? 7 : 2.6);
   return at(frame.grow, node) >= 1 && at(frame.tips, node) <= 9 && frame.cycle - at(tree.model.birth, node) > 1.2;
 }
@@ -977,8 +1016,28 @@ function poseRoots(tree: Tree, frame: TreeFrameLike, array: Float32Array): void 
   }
 }
 
+/** The colours an internode's strain wears (the tree's own for strain 0, or when there are no strains). */
+function strainColors(tree: Tree, node: number): TreeColors {
+  const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
+  return (strain > 0 ? tree.strains[strain]?.colors : undefined) ?? tree.colors;
+}
+
+/** The skin an internode's strain wears: the tree's own unless its strain sets one or drops it. */
+function strainSkin(tree: Tree, node: number): TreeSkin | null {
+  const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
+  const own = strain > 0 ? tree.strains[strain] : undefined;
+  return own && own.skin !== undefined ? own.skin : tree.skin;
+}
+
+/** The year an internode's limbs live by: its strain's own, or the tree's. */
+function strainYear(tree: Tree, node: number, year: YearLike): YearLike {
+  if (!tree.strainOf || tree.strainYears.length === 0 || node >= tree.model.count) return year;
+  return tree.strainYears[at(tree.strainOf, node)] ?? year;
+}
+
 function barkTone(tree: Tree, frame: TreeFrameLike, node: number): string {
-  const { trunk } = tree.colors;
+  const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
+  const trunk = (strain > 0 ? tree.strains[strain]?.bark : undefined) ?? strainColors(tree, node).trunk;
   const isRoot = node >= tree.model.count;
   const radius = isRoot ? 1 : at(frame.radius, node);
   const hash = hash32(node * 2654435761) % 100;
@@ -993,7 +1052,7 @@ function paintWood(tree: Tree, frame: TreeFrameLike, dead: boolean): void {
     a.set(barkTone(tree, frame, node));
     if (node < model.count) {
       const fresh = at(frame.grow, node) < 1 || frame.cycle - at(model.birth, node) < 1;
-      if (fresh && !dead) a.lerp(b.set(colors.leaves[0] ?? "#6c9a54"), 0.45);
+      if (fresh && !dead) a.lerp(b.set(strainColors(tree, node).leaves[0] ?? colors.leaves[0] ?? "#6c9a54"), 0.45);
       a.lerp(b.set("#8e897f"), at(frame.dead, node) * 0.85);
       if (at(frame.fall, node) > 0) a.lerp(b.set("#4a3b2f"), 0.55 + at(frame.rot, node) * 0.35);
     }
@@ -1197,8 +1256,10 @@ function poseLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year:
   for (let index = 0; index < slots.count; index += 1) {
     const node = at(slots.node, index);
     // In winter only a few closed buds show; the rest of the twig is bare.
-    if (!leafShows(tree, frame, year, index, seedling || leafyNode(frame, node, tipLimit)) || (bare && index % 4 !== 0)) { clearSlot(pass.array, index); continue; }
-    const leafSize = bare ? pass.size * 0.24 : pass.size * at(slots.size, index) * (0.2 + 0.8 * year.leaf) * (0.45 + 0.55 * at(frame.grow, node));
+    const own = strainYear(tree, node, year);
+    const resting = own.leaf <= 0;
+    if (!leafShows(tree, frame, own, index, seedling || leafyNode(frame, node, tipLimit)) || (resting && index % 4 !== 0)) { clearSlot(pass.array, index); continue; }
+    const leafSize = resting ? pass.size * 0.24 : pass.size * at(slots.size, index) * (0.2 + 0.8 * own.leaf) * (0.45 + 0.55 * at(frame.grow, node));
     // Hanging strands swing from their twig: the lower the leaf, the wider the swing.
     const swing = Math.max(0, -at(slots.dy, index)) * pass.wind * 0.35 * Math.sin(pass.elapsed * 1.4 + at(model.phase, node));
     if (tree.blades) poseBlade(tree, frame, index, pass, leafSize, swing);
@@ -1247,8 +1308,8 @@ function skinLeafColor(tree: Tree, skin: TreeSkin, frame: TreeFrameLike, index: 
 }
 
 /** Spring flush and the autumn turn: old needles of an evergreen never turn. */
-function seasonLeafColor(tree: Tree, year: YearLike, tone: number, rank: number): ColorLike {
-  const { model, colors, a, b } = tree;
+function seasonLeafColor(tree: Tree, year: YearLike, tone: number, rank: number, colors: TreeColors = tree.colors): ColorLike {
+  const { model, a, b } = tree;
   a.set(colors.leaves[tone] ?? "#6c9a54");
   if (year.flush > 0) a.lerp(b.set((colors.blossom === true ? colors.leaves[2] : colors.spring[tone]) ?? "#a6ce6f"), year.flush * 0.7);
   const oldNeedles = model.species.evergreen ? model.species.phenology.dropMax * 1.4 : 2;
@@ -1260,11 +1321,15 @@ function seasonLeafColor(tree: Tree, year: YearLike, tone: number, rank: number)
 
 /** One leaf's colour for the year: bud, flush, turn, withered, dying, snow on needles. */
 function leafColor(tree: Tree, frame: TreeFrameLike, year: YearLike, index: number, snow: number): ColorLike {
-  const { model, colors, a, b } = tree;
+  const { model, a, b } = tree;
   const slots = model.leaves;
-  if (tree.skin) return skinLeafColor(tree, tree.skin, frame, index);
+  const node = at(slots.node, index);
+  const skin = strainSkin(tree, node);
+  if (skin) return skinLeafColor(tree, skin, frame, index);
+  const colors = strainColors(tree, node);
+  year = strainYear(tree, node, year);
   if (year.leaf <= 0) return a.set(colors.trunk[2] ?? "#9a6946").lerp(b.set(colors.leaves[0] ?? "#6c9a54"), 0.25);
-  seasonLeafColor(tree, year, at(slots.tone, index), at(slots.rank, index));
+  seasonLeafColor(tree, year, at(slots.tone, index), at(slots.rank, index), colors);
   const dead = at(frame.dead, at(slots.node, index));
   if (dead > 0.05) a.lerp(b.set("#8a6b45"), clamp(dead * 4, 0, 1));
   // Evergreen needles hold snow on their upper side.
@@ -1274,10 +1339,10 @@ function leafColor(tree: Tree, frame: TreeFrameLike, year: YearLike, index: numb
 
 function paintLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: YearLike, snow: number): void {
   const slots = tree.model.leaves;
-  const shade = tree.smooth && tree.features.crownShade && !tree.skin ? crownShade(frame, slots) : null;
+  const shade = tree.smooth && tree.features.crownShade && (!tree.skin || tree.strains.length > 1) ? crownShade(frame, slots) : null;
   for (let index = 0; index < slots.count; index += 1) {
     const color = leafColor(tree, frame, year, index, snow);
-    if (shade && year.leaf > 0) color.multiplyScalar(at(shade, index));
+    if (shade && year.leaf > 0 && !strainSkin(tree, at(slots.node, index))) color.multiplyScalar(at(shade, index));
     mesh.setColorAt(index, color);
   }
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -1329,13 +1394,37 @@ function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year:
   mesh.instanceMatrix.needsUpdate = true;
 }
 
+/**
+ * Which colours a blossom opens in: one of the mixed blooms by share, else
+ * its strain's spring colours. Colours go by twig cluster, so each spray opens
+ * in one colour and a mixed tree reads as sprays of each, not speckle.
+ */
+function bloomColors(tree: Tree, index: number, colors: TreeColors, node: number): readonly string[] {
+  if (tree.blooms.length === 0) return colors.spring;
+  const total = tree.blooms.reduce((sum, bloom) => sum + bloom.share, 0);
+  // A colour holds for a whole branch (three steps up from the flower), so blooms read as clusters, not confetti.
+  let spray = node;
+  for (let step = 0; step < 3 && tree.model.parent; step += 1) {
+    const up = at(tree.model.parent, spray);
+    if (up < 0) break;
+    spray = up;
+  }
+  let roll = ((hash32(spray * 2246822519 + 7) % 10000) / 10000) * total;
+  for (const bloom of tree.blooms) if ((roll -= bloom.share) < 0) return bloom.colors;
+  return tree.blooms[tree.blooms.length - 1]?.colors ?? colors.spring;
+}
+
 function ornamentColor(tree: Tree, set: OrnamentSet, index: number, year: YearLike): ColorLike {
-  const { a, b, colors } = tree;
+  const { a, b } = tree;
+  const node = at(set.slots.node, index);
+  const colors = strainColors(tree, node);
+  const skin = strainSkin(tree, node);
   const tone = at(set.slots.tone, index);
   const rank = at(set.slots.rank, index);
   if (set.spec.kind === "blossom") {
     const fade = clamp((year.petals - rank + 0.25) * 3, 0, 1);
-    a.set(colors.spring[tone] ?? "#f6bacb").lerp(b.set("#fff4f6"), fade * 0.6);
+    const petals = bloomColors(tree, index, colors, node);
+    a.set(petals[tone % petals.length] ?? "#f6bacb").lerp(b.set("#fff4f6"), fade * 0.6);
   } else {
     const palette = set.look.colors ?? ["#ffffff"];
     a.set(palette[tone % palette.length] ?? "#ffffff");
@@ -1343,7 +1432,7 @@ function ornamentColor(tree: Tree, set: OrnamentSet, index: number, year: YearLi
     if (set.look.green !== undefined) a.lerp(b.set(set.look.green), 1 - clamp(year.fruit * 1.8 - 0.7 - rank * 0.3, 0, 1));
   }
   // A skinned tree's flowers and fruit take its material: a golden tree bears golden cherries.
-  if (tree.skin) a.lerp(b.set(tree.skin.leaves[(index + 1) % tree.skin.leaves.length] ?? "#ffffff"), 0.82);
+  if (skin) a.lerp(b.set(skin.leaves[(index + 1) % skin.leaves.length] ?? "#ffffff"), 0.82);
   return a;
 }
 
@@ -1649,7 +1738,8 @@ function paintKeyOf(year: YearLike, motion: TreeMotion): string {
 }
 
 function update(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
-  const key = paintKeyOf(year, motion);
+  tree.strainYears = motion.strainYears ?? [];
+  const key = [year, ...tree.strainYears.filter((own): own is YearLike => own !== undefined)].map((own) => paintKeyOf(own, motion)).join("|");
   if (frame !== tree.lastFrame || key !== tree.paintKey) {
     paintAll(tree, frame, year, motion);
     tree.paintKey = key;
@@ -1736,6 +1826,7 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     needles: smooth && !options.shapes?.blade && NEEDLE_KINDS[model.species.id] !== undefined,
     fronds: smooth && !options.shapes?.blade ? frondLayout(model) : null,
     skin: options.skin ?? null,
+    strains: options.strains ?? [], strainOf: options.strainOf ?? null, strainYears: [], blooms: (options.blooms ?? []).filter((bloom) => bloom.share > 0 && bloom.colors.length > 0),
     leafStride: Math.max(1, Math.ceil(model.leaves.count / limits.litter)),
     hidden: new Map(), fallers: [], random: seededRandom((options.seed ?? 1) ^ 0x51f7),
     a: new lit.Color(), b: new lit.Color(), offset: { x: 0, z: 0 },

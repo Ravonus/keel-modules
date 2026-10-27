@@ -718,13 +718,19 @@ export interface GrowInput {
  */
 function growthAllowance(sim: Sim, cycle: number, matureAt: number): number {
   const life = Math.min(1, cycle / matureAt);
-  // A share of the budget is kept back for old age, which still grows.
-  const budget = sim.maxNodes * OLD_AGE_KEEP;
-  const target = budget * (0.08 + 0.92 * (1 - (1 - life) ** 1.8));
-  return Math.max(target - sim.pos.length, Math.min(sim.pos.length * 0.015, budget - sim.pos.length));
+  // The curve is of living wood: twigs that starve in the shade are replaced,
+  // so the crown keeps filling out instead of peaking young and thinning.
+  let living = 0;
+  for (const value of sim.deadAt) if (value === Infinity) living += 1;
+  const target = sim.maxNodes * LIVING_AT_PRIME * (0.08 + 0.92 * life);
+  // A share of the whole budget, dead wood included, is kept back for old age, which still grows.
+  const room = sim.maxNodes * OLD_AGE_KEEP - sim.pos.length;
+  return Math.min(room, Math.max(target - living, living * 0.015));
 }
 
 const OLD_AGE_KEEP = 0.84;
+/** Living internodes at maturity, as a share of the budget; the rest is wood the crown shed on the way. */
+const LIVING_AT_PRIME = 0.5;
 
 /**
  * Old trees keep growing while anything of them lives: far less each cycle,
@@ -872,7 +878,7 @@ function leafEligible(sim: Sim, node: number): boolean {
 export function growTree(input: GrowInput): TreeModel {
   const species = speciesOf(input.species);
   const seed = input.seed >>> 0;
-  const sim = simulate(species, seed, Math.max(64, Math.min(input.maxNodes ?? 3200, 6000)));
+  const sim = simulate(species, seed, Math.max(64, Math.min(input.maxNodes ?? 4800, 6000)));
   const count = sim.pos.length;
   const scale = species.height / Math.max(sim.height, 1);
   const random = createRandom(seed ^ 0x51ab);
@@ -909,40 +915,42 @@ export interface Pace {
 }
 
 export const PACE: Readonly<Record<SpeciesId, Pace>> = {
-  willow: { prime: 0.22, quick: 3.8, old: 0.75 },
-  birch: { prime: 0.28, quick: 3.4, old: 0.75 },
-  acacia: { prime: 0.25, quick: 3.4, old: 0.8 },
-  jacaranda: { prime: 0.28, quick: 3.4, old: 0.8 },
-  cherry: { prime: 0.3, quick: 3, old: 0.8 },
-  maple: { prime: 0.38, quick: 2.8, old: 0.85 },
-  palm: { prime: 0.4, quick: 2.4, old: 0.85 },
-  pine: { prime: 0.45, quick: 2.6, old: 0.85 },
-  spruce: { prime: 0.5, quick: 2.4, old: 0.86 },
-  oak: { prime: 0.55, quick: 2.2, old: 0.88 },
-  baobab: { prime: 0.65, quick: 1.6, old: 0.92 },
-  redwood: { prime: 0.7, quick: 1.8, old: 0.92 },
+  willow: { prime: 0.22, quick: 4.9, old: 0.75 },
+  birch: { prime: 0.28, quick: 4.4, old: 0.75 },
+  acacia: { prime: 0.25, quick: 4.4, old: 0.8 },
+  jacaranda: { prime: 0.28, quick: 4.4, old: 0.8 },
+  cherry: { prime: 0.3, quick: 3.9, old: 0.8 },
+  maple: { prime: 0.38, quick: 3.6, old: 0.85 },
+  palm: { prime: 0.4, quick: 3.1, old: 0.85 },
+  pine: { prime: 0.45, quick: 3.4, old: 0.85 },
+  spruce: { prime: 0.5, quick: 3.1, old: 0.86 },
+  oak: { prime: 0.55, quick: 2.9, old: 0.88 },
+  baobab: { prime: 0.65, quick: 2.1, old: 0.92 },
+  redwood: { prime: 0.7, quick: 2.3, old: 0.92 },
 };
 
-/** Cycles a prime tree still adds, slowly, between full grown and old. */
-const PRIME_CYCLES = 1.5;
 const SPROUT = 0.32;
 
 /**
- * The share of its growing done `u` of the way to its prime: a Chapman–Richards
- * curve, settling in for a moment, then fast, then slowing as it fills out.
+ * The share of its growing done `u` of the way to old age: a Chapman–Richards
+ * curve, settling in for a moment, then fast, then slowing as it fills out,
+ * but still growing right up to old age.
  */
 function grownShare(u: number, quick: number): number {
   return ((1 - Math.exp(-quick * u)) / (1 - Math.exp(-quick))) ** 1.25;
 }
 
-/** The growth cycle at an age: a fresh sprout at birth, quick when young, slow in its prime, dead at the end. */
+/**
+ * The growth cycle at an age: a fresh sprout at birth, quick when young, then
+ * less and less each year on one curve until old age, then the decline to death.
+ * By `prime` most of the crown is there; it never stops filling out before `old`.
+ */
 export function cycleAt(model: TreeModel, ageYears: number, lifespanYears: number): number {
   const life = clamp01(ageYears / Math.max(lifespanYears, 1e-6));
   const pace = PACE[model.species.id];
-  const grownAt = Math.max(SPROUT, model.matureAt - PRIME_CYCLES);
-  if (life < pace.prime) return SPROUT + (grownAt - SPROUT) * grownShare(life / pace.prime, pace.quick);
-  if (life < pace.old) return grownAt + (model.matureAt - grownAt) * ((life - pace.prime) / (pace.old - pace.prime));
-  return model.matureAt + (model.cycles - model.matureAt) * ((life - pace.old) / (1 - pace.old));
+  if (life < pace.old) return SPROUT + (model.matureAt - SPROUT) * grownShare(life / pace.old, pace.quick);
+  // Old age starts slowly: a few limbs a year at first, most of the crown only near the end.
+  return model.matureAt + (model.cycles - model.matureAt) * ((life - pace.old) / (1 - pace.old)) ** 1.5;
 }
 
 // ---------------------------------------------------------------- posing one moment

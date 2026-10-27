@@ -176,6 +176,25 @@ export default [
     expect: [true, true, true],
   },
   {
+    name: 'the crown keeps leafing out over the whole life: fuller at forty and seventy than at twelve, gone only at the end',
+    run: (api) => ['cherry', 'oak', 'willow'].map((species) => {
+      const tree = api.growTree({ species, seed: 1 });
+      // Outer living twigs carry the leaves; a crown that starves in the shade has fewer of them.
+      const leafy = (age) => {
+        const frame = api.treeFrame(tree, api.cycleAt(tree, age, 100), { ground: 0 });
+        let count = 0;
+        for (let index = 0; index < tree.leaves.count; index += 1) {
+          const node = tree.leaves.node[index];
+          if (frame.grow[node] > 0.25 && frame.dead[node] < 0.25 && frame.fall[node] === 0 && frame.tips[node] <= 2.6) count += 1;
+        }
+        return count;
+      };
+      const [twelve, forty, seventy, ninety] = [12, 40, 70, 90].map(leafy);
+      return forty > twelve * 1.5 && seventy > forty && ninety > seventy * 0.5;
+    }),
+    expect: [true, true, true],
+  },
+  {
     name: 'old trees keep growing through their decline, less each cycle, until the end',
     run: ({ growTree }) => ['cherry', 'oak', 'palm'].map((species) => {
       const tree = growTree({ species, seed: 4 });

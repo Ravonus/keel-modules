@@ -22,6 +22,6 @@
       { "value": "jacaranda", "label": "Jacaranda" },
       { "value": "baobab", "label": "Baobab" }
     ], "default": "cherry" },
-    { "key": "maxNodes", "label": "Internode budget", "type": "number", "required": false, "placement": "advanced", "min": 64, "max": 6000, "step": 100, "control": "slider", "help": "More internodes make a finer crown and cost more to grow and draw.", "default": 3200 }
+    { "key": "maxNodes", "label": "Internode budget", "type": "number", "required": false, "placement": "advanced", "min": 64, "max": 6000, "step": 100, "control": "slider", "help": "More internodes make a finer crown and cost more to grow and draw.", "default": 4800 }
   ]
 }

@@ -292,4 +292,43 @@ export default [
     },
     expect: [true, true, true],
   },
+  {
+    name: 'fruit eaters go and eat the fruit on the stage, each fruit once, and report every meal once',
+    run: ({ castFor, createHerd }) => {
+      const food = [
+        { key: 'fruit:1', p: [1.6, 0.05, 0.4] },
+        { key: 'fruit:2', p: [-1.2, 0.05, -1.1] },
+        { key: 'fruit:3', p: [0.8, 2.15, 0], perch: 0 },
+      ];
+      const eat = (species, foodFor) => {
+        const herd = createHerd(castFor({ seed: 4, region: 'rockies', world: 'nature', radius: 3, species, group: 'solo' }));
+        const eaten = [];
+        let near = Infinity;
+        for (let t = 0; t < 600; t += 0.25) {
+          const left = foodFor.filter((item) => !eaten.includes(item.key));
+          const bodies = herd.at(t, { ...stage(), food: left });
+          for (const body of bodies) {
+            const item = foodFor.find((each) => each.key === body.meal);
+            // How close its mouth comes to the fruit it eats.
+            for (const c of item ? body.capsules.filter((each) => /head|muzzle|snout|beak|jaw|mouth/.test(each.part)) : []) {
+              for (const q of [c.a, c.b]) near = Math.min(near, Math.hypot(...q.map((v, j) => v - item.p[j])));
+            }
+          }
+          eaten.push(...herd.eaten(t));
+        }
+        return { eaten, near };
+      };
+      const squirrel = eat('squirrel', food);
+      const deer = eat('deer', food);
+      const wolf = eat('wolf', food);
+      return [
+        squirrel.eaten.length === 3 && new Set(squirrel.eaten).size === 3,
+        deer.eaten.length === 2 && !deer.eaten.includes('fruit:3'),
+        deer.near < 0.3,
+        squirrel.near < 0.3,
+        wolf.eaten.length,
+      ];
+    },
+    expect: [true, true, true, true, 0],
+  },
 ];

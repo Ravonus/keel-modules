@@ -470,8 +470,31 @@ export interface Stage {
   readonly perches?: readonly Perch[] | undefined;
   /** Roots on the ground, which raise it where they lie. */
   readonly roots?: readonly Root[] | undefined;
+  /** Fruit to eat, on the branches and on the ground. */
+  readonly food?: readonly Food[] | undefined;
   readonly night?: boolean | undefined;
 }
+
+/** Something to eat: a fruit up in the tree (reached from a perch) or lying on the ground. */
+export interface Food {
+  /** Holds while it hangs, falls and lies, so two animals never go for the same one. */
+  readonly key: string;
+  readonly p: Vec;
+  /** The perch (an index into `Stage.perches`) it is eaten from; left out, it lies on the ground. */
+  readonly perch?: number | undefined;
+}
+
+/**
+ * Who eats fruit, and where it gets it: "tree" off the branch (it must climb
+ * or fly), "ground" only what has fallen, "both" either.
+ */
+export const FRUIT_EATERS: Readonly<Partial<Record<SpeciesId, "tree" | "ground" | "both">>> = {
+  rabbit: "ground", fox: "ground", deer: "ground", bear: "ground", raccoon: "both", hedgehog: "ground", mouse: "ground",
+  capybara: "ground", tortoise: "ground", squirrel: "both", redpanda: "both", macaque: "both", monkey: "both", sloth: "tree",
+  songbird: "both", crow: "both", parrot: "both", peacock: "ground",
+};
+/** How often an eater with fruit in reach goes to eat instead of idling. */
+const APPETITE = 0.3;
 
 interface Anchor { readonly p: Vec; readonly up: Vec; readonly along: Vec | null }
 
@@ -783,6 +806,8 @@ interface Segment {
   readonly pace: number;
   /** The heading it turns from as it settles, when that is not `yaw`. */
   readonly turn?: number;
+  /** The food it eats while it stays (a `Food.key`). */
+  readonly meal?: string;
 }
 
 interface Actor {
@@ -803,7 +828,12 @@ interface Actor {
   back: Anchor | null;
   /** Its troupe, itself included, to keep out of each other's way. */
   mates: readonly Actor[];
+  /** The whole herd's meals, so no fruit is eaten twice. */
+  readonly pantry: Pantry;
 }
+
+/** Fruit claimed for eating, by key: when the meal ends and who eats it. */
+type Pantry = Map<string, { readonly t: number; readonly by: Actor }>;
 
 /** Where the rest of its troupe stands or is headed on the ground. */
 const takenBy = (actor: Actor, scene: Scene): Spot[] =>
@@ -960,8 +990,80 @@ function prepare(actor: Actor, act: Action, scene: Scene): Action {
   return act;
 }
 
+/** The fruit an eater goes for: the nearest it can reach that no one else has claimed, give or take. */
+function pickFood(actor: Actor, scene: Scene): Food | null {
+  const reach = FRUIT_EATERS[actor.member.species];
+  const food = scene.stage.food ?? [];
+  if (!reach || food.length === 0) return null;
+  const size = actor.member.size;
+  const up = reach !== "ground" && (actor.spec.climbs || actor.spec.flies) && perchCount(scene) > 0;
+  const here = placeTop(actor.place, scene);
+  let best: Food | null = null;
+  let nearest = Infinity;
+  for (const item of food) {
+    const perch = item.perch;
+    if (perch === undefined ? reach === "tree" : !up || (perchOf(scene.stage, perch)?.r ?? 0) < size * 0.12 || !perchRoom(scene.stage, perch, size)) continue;
+    if ((actor.pantry.get(item.key)?.t ?? -Infinity) > actor.until) continue;
+    const d = length(sub(item.p, here)) * (0.75 + actor.rand() * 0.5);
+    if (d < nearest) { nearest = d; best = item; }
+  }
+  return best;
+}
+
+const MOUTHS = new Map<string, number>();
+/** How far ahead of where it stands an animal's mouth comes down when it eats this way, read off its own pose. */
+function mouthReach(actor: Actor, act: Action): number {
+  const id = actor.member.species;
+  const key = `${id}.${act}`;
+  let reach = MOUTHS.get(key);
+  if (reach === undefined) {
+    let low = Infinity;
+    reach = 0;
+    for (const t of [0.5, 1.5, 2.5, 3.5]) {
+      for (const c of poseSpecies(id, act, t).capsules) {
+        if (!/head|muzzle|snout|beak|jaw|mouth/.test(c.part)) continue;
+        for (const p of [c.a, c.b]) if (p[1] < low) { low = p[1]; reach = p[2]; }
+      }
+    }
+    reach /= actor.spec.size;
+    MOUTHS.set(key, reach);
+  }
+  return reach * actor.member.size;
+}
+
+/**
+ * Go and eat a fruit, now and then, when there is one in reach and it is the
+ * animal's waking hours: up to the branch it hangs from, or over to where it
+ * lies, then a while eating it facing it. The meal goes in the pantry.
+ */
+function forage(actor: Actor, scene: Scene): boolean {
+  if (!FRUIT_EATERS[actor.member.species] || (scene.stage.food?.length ?? 0) === 0) return false;
+  if (actor.spec.active === (scene.stage.night === true ? "day" : "night") || actor.rand() >= APPETITE) return false;
+  const item = pickFood(actor, scene);
+  if (!item) return false;
+  const size = actor.member.size;
+  const act: Action = actor.spec.plan === "bird" ? "peck" : actor.spec.plan === "primate" || can(actor, "eat") ? "eat" : "graze";
+  if (item.perch !== undefined) {
+    if (actor.place.on !== "perch" || actor.place.i !== item.perch) travel(actor, { on: "perch", i: item.perch }, actor.spec.flies ? "fly" : "climb", scene);
+  } else {
+    // It comes up to the fruit from its own side and stops with its mouth over it.
+    const from = placeTop(actor.place, scene);
+    const side = Math.atan2(from[0] - item.p[0], from[2] - item.p[2]);
+    const gap = Math.max(size * 0.15, mouthReach(actor, act));
+    const spot = onGround(scene.stage, size, item.p[0] + Math.sin(side) * gap, item.p[2] + Math.cos(side) * gap);
+    travel(actor, spot, groundMove(actor, spot, scene), scene);
+  }
+  stay(actor, act, between(actor.rand, [3, 7]) * tempo(actor), -1, yawFrom(placeTop(actor.place, scene), item.p));
+  const last = actor.segments.length - 1;
+  const segment = actor.segments[last];
+  if (segment) actor.segments[last] = { ...segment, meal: item.key };
+  actor.pantry.set(item.key, { t: actor.until, by: actor });
+  return true;
+}
+
 /** One link of an animal's own chain of idle actions. */
 function soloStep(actor: Actor, scene: Scene): void {
+  if (forage(actor, scene)) return;
   const matrix = scene.stage.night === true ? actor.night : actor.day;
   const act = nextAction(matrix, actor.last, actor.rand);
   if (MOVES.has(act)) {
@@ -2529,6 +2631,8 @@ export interface Body {
   readonly contact?: Vec | null;
   /** Its weight, to bend the wood it bears on: a bird is light for its size, a bear is not. */
   readonly weight?: number;
+  /** The food it is eating (a `Food.key`), while it eats. */
+  readonly meal?: string;
 }
 
 const POSERS: Readonly<Record<Plan, (kit: Kit, who: Who, m: Moment) => void>> = {
@@ -2562,6 +2666,7 @@ function bodyOf(id: string, who: Who, m: Moment, capsules: readonly Capsule[], s
     id, kind: who.member.species, label: who.member.label, action: m.segment.act, morph: who.member.morph,
     at: m.frame.o, front: m.frame.z, capsules, palette: who.member.palette, glow: MORPHS[who.member.morph].glow, lit: MORPHS[who.member.morph].lit ?? [],
     contact: scene ? contactOf(m, scene) : null, weight: weightOf(who),
+    ...(m.segment.meal === undefined ? {} : { meal: m.segment.meal }),
   };
 }
 
@@ -2943,6 +3048,8 @@ export interface Herd {
    * and look about before carrying on. Returns the ids that went.
    */
   command(t: number, order: Order, stage: Stage): string[];
+  /** The food eaten by `t`, each key reported once: take it out of the scene (tree-render's `eat`). */
+  eaten(t: number): string[];
 }
 
 /** Where to send animals: a spot on the ground or a branch, for one animal (`id`) or all of them. */
@@ -2951,20 +3058,20 @@ export interface Order {
   readonly to: { readonly on: "ground"; readonly x: number; readonly z: number } | { readonly on: "perch"; readonly i: number };
 }
 
-function actorOf(member: CastMember, index: number, seed: number, centre: Place, stage: Stage, taken: readonly Spot[]): Actor {
+function actorOf(member: CastMember, index: number, seed: number, centre: Place, stage: Stage, taken: readonly Spot[], pantry: Pantry): Actor {
   const rand = streamOf(seed, `fauna.actor.${index}.${member.species}`);
   const spec = speciesOf(member.species);
   const near = anchorOf(centre, stage, []).p;
   const arboreal = (spec.climbs || spec.flies) && (stage.perches?.length ?? 0) > 0 && rand() < (spec.temper.hang !== undefined || member.species === "koala" || member.species === "owl" ? 0.85 : 0.3);
   const place: Place = arboreal && spec.plan !== "bug" ? { on: "perch", i: Math.floor(rand() * 9973) } : groundSpot(rand, stage, member.size, near, member.size * 3 + 0.3, taken);
-  const actor: Actor = { index, member, spec, rand, day: idleMatrix(member.species), night: idleMatrix(member.species, { night: true }), segments: [], until: 0, place, yaw: rand() * TAU, last: "stand", pos: anchorOf(place, stage, []).p, back: null, mates: [] };
+  const actor: Actor = { index, member, spec, rand, day: idleMatrix(member.species), night: idleMatrix(member.species, { night: true }), segments: [], until: 0, place, yaw: rand() * TAU, last: "stand", pos: anchorOf(place, stage, []).p, back: null, mates: [], pantry };
   stay(actor, spec.plan === "bug" ? "hover" : "stand", 0.3 + rand() * 1.5);
   return actor;
 }
 
 const COHESION: Readonly<Record<CastGroup["kind"], number>> = { solo: 0, pair: 0.22, family: 0.26, pack: 0.24, mixed: 0.3 };
 
-function troupesOf(cast: Cast, stage: Stage): Troupe[] {
+function troupesOf(cast: Cast, stage: Stage, pantry: Pantry): Troupe[] {
   return cast.groups.map((group, g) => {
     const rand = streamOf(cast.seed, `fauna.troupe.${g}`);
     const first = group.members[0];
@@ -2972,7 +3079,7 @@ function troupesOf(cast: Cast, stage: Stage): Troupe[] {
     const actors: Actor[] = [];
     group.members.forEach((member, i) => {
       const taken = actors.filter((actor) => actor.place.on === "ground").map((actor) => ({ p: anchorOf(actor.place, stage, []).p, size: actor.member.size }));
-      actors.push(actorOf(member, i, cast.seed + g * 101, centre, stage, taken));
+      actors.push(actorOf(member, i, cast.seed + g * 101, centre, stage, taken, pantry));
     });
     for (const actor of actors) actor.mates = actors;
     return { kind: group.kind, actors, rand, cohesion: COHESION[group.kind] };
@@ -2991,6 +3098,8 @@ function prune(actor: Actor, t: number): void {
  * trunk or stop in the air) runs out first. Everything planned after is dropped.
  */
 function interrupt(actor: Actor, t: number, scene: Scene): void {
+  // A meal it has not finished is left for someone else.
+  for (const [key, meal] of actor.pantry) if (meal.by === actor && meal.t > t) actor.pantry.delete(key);
   const list = actor.segments;
   let index = list.length - 1;
   while (index > 0 && (list[index]?.t0 ?? 0) > t) index -= 1;
@@ -3081,6 +3190,7 @@ function commandTroupes(troupes: readonly Troupe[], t: number, order: Order, sta
 /** The scene's living cast: call `at` every frame with the stage, and `sky` for what flies over. */
 export function createHerd(cast: Cast): Herd {
   let troupes: Troupe[] | null = null;
+  const pantry: Pantry = new Map();
   const passes: Pass[] = [];
   const clock = { last: 0 };
   const skyRand = streamOf(cast.seed, "fauna.sky.passes");
@@ -3096,7 +3206,7 @@ export function createHerd(cast: Cast): Herd {
   return {
     cast,
     at(t: number, stage: Stage): Body[] {
-      troupes ??= troupesOf(cast, stage);
+      troupes ??= troupesOf(cast, stage, pantry);
       const out: Body[] = [];
       troupes.forEach((troupe, g) => {
         extend(troupe, t + 1, { stage, backs: troupe.actors.map((actor) => actor.back) });
@@ -3124,8 +3234,13 @@ export function createHerd(cast: Cast): Herd {
       return passes.filter((pass) => t >= pass.start && t < pass.end).flatMap((pass) => drawPass(pass, t));
     },
     command(t: number, order: Order, stage: Stage): string[] {
-      troupes ??= troupesOf(cast, stage);
+      troupes ??= troupesOf(cast, stage, pantry);
       return commandTroupes(troupes, t, order, stage);
+    },
+    eaten(t: number): string[] {
+      const done: string[] = [];
+      for (const [key, meal] of pantry) if (meal.t <= t) { done.push(key); pantry.delete(key); }
+      return done;
     },
   };
 }

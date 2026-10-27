@@ -46,6 +46,12 @@ There are two forms:
 `tree.meshes` exposes each instanced mesh, so a host can restyle them.
 `tree.fallers` lists the falling pieces, so a 2D fallback can draw them.
 
+`tree.fruit()` lists the ripe fruit as of the last update, both hanging and
+lying under the tree. Each entry has a `key`, its `kind`, its position, its
+size, and whether it is hanging. `tree.eat(key)` takes one away, on the
+branch and on the ground, until the next crop. Pair it with fauna's
+`Stage.food` and `herd.eaten(t)` to let animals eat the fruit.
+
 ## Switches
 
 Every part is on by default, and any part can be turned off: `roots`,

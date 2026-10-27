@@ -48,6 +48,17 @@ Force a scene with `species` (or `"none"`) and `group` (`solo`, `pair`,
 - **Together.** A director runs joint scenes for groups: groom, nuzzle,
   chase, follow, chorus, huddle, dance, feed, ride and climb. Poses cross-fade
   between actions.
+- **Fruit.** Pass ripe fruit as `stage.food`: `{ key, p, perch? }`, where
+  `perch` is the branch it is eaten from and a fruit without one lies on the
+  ground. `FRUIT_EATERS` says who eats fruit and where:
+  - squirrels, monkeys and songbirds take it off the branch or the ground;
+  - deer, bears and rabbits only take what has fallen;
+  - wolves and owls leave it alone.
+
+  Now and then an eater goes to a fruit no one else has claimed. It eats with
+  its mouth over the fruit, using its own pose's reach. While it eats, its
+  body carries `meal`. `herd.eaten(t)` returns each finished meal once, so
+  the scene can take that fruit away.
 - **Gaits and reach.** Gaits walk, trot or bound with planted feet. Legs and
   arms use two-bone IK (`solveTwoBone`).
 

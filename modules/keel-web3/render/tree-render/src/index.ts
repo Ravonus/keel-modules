@@ -734,15 +734,16 @@ export const ORNAMENTS: Readonly<Record<string, OrnamentLook>> = {
   // Baobab fruit: a velvety grey-green gourd on a cord.
   gourd: { size: [0.8, 1.4, 0.8], lift: -1.6, colors: ["#9c9474", "#8c8466", "#aaa282"], green: "#83905c", fall: 3 },
   // Orchard fruit: each sets green and ripens to its own colour, big enough to read from across the plot.
-  apple: { size: [1.0, 0.95, 1.0], lift: -0.6, colors: ["#c8202a", "#e0402c", "#a81c26"], green: "#9ab84c", fall: 2.6 },
-  pear: { size: [0.85, 1.2, 0.85], lift: -0.75, colors: ["#c8c040", "#d8cf5a", "#b0a838"], green: "#8fb04a", fall: 2.6 },
-  peach: { size: [0.95, 0.95, 0.95], lift: -0.5, colors: ["#f0905a", "#f6b070", "#e0604a"], green: "#a8b860", fall: 2.4 },
-  plum: { size: [0.85, 0.95, 0.85], lift: -0.65, colors: ["#8a3aa8", "#a85ac4", "#6e2c8c"], green: "#8aa04a", fall: 2.4 },
-  orange: { size: [1.0, 1.0, 1.0], lift: -0.5, colors: ["#f08a14", "#f8a020", "#e07410"], green: "#6a9a3a", fall: 2.6 },
-  lemon: { size: [0.85, 1.05, 0.85], lift: -0.55, colors: ["#f2dc2c", "#f8e85a", "#e0c41c"], green: "#7aa03e", fall: 2.6 },
-  fig: { size: [0.95, 1.1, 0.95], lift: -0.4, colors: ["#7a4a7a", "#94608e", "#5e3a60"], green: "#a8b86a", fall: 2.2 },
+  apple: { size: [1.4, 1.35, 1.4], lift: -0.6, colors: ["#c8202a", "#e0402c", "#a81c26"], green: "#9ab84c", fall: 2.6 },
+  // Each fruit keeps its own hue so a grove reads at a glance: green-gold pear, deep orange, pale lemon.
+  pear: { size: [1.1, 1.6, 1.1], lift: -0.75, colors: ["#c8d84a", "#d8e060", "#a8b838"], green: "#8fb04a", fall: 2.6 },
+  peach: { size: [1.35, 1.35, 1.35], lift: -0.5, colors: ["#f29a5c", "#f8b878", "#e8604a"], green: "#a8b860", fall: 2.4 },
+  plum: { size: [1.2, 1.35, 1.2], lift: -0.65, colors: ["#7b3fa0", "#b77ad1", "#5e2c80"], green: "#8aa04a", fall: 2.4 },
+  orange: { size: [1.4, 1.4, 1.4], lift: -0.5, colors: ["#ff8a00", "#ff9e1a", "#f07000"], green: "#6a9a3a", fall: 2.6 },
+  lemon: { size: [1.15, 1.5, 1.15], lift: -0.55, colors: ["#fff23a", "#fff680", "#f0dc20"], green: "#7aa03e", fall: 2.6 },
+  fig: { size: [1.3, 1.5, 1.3], lift: -0.4, colors: ["#5a2a4a", "#7a3c64", "#46203a"], green: "#a8b86a", fall: 2.2 },
   // Mangoes swing on long stalks, blushing from green through gold to red.
-  mango: { size: [0.9, 1.3, 0.9], lift: -0.95, colors: ["#f0a020", "#e8602a", "#c8c03a"], green: "#6a9a3a", fall: 3 },
+  mango: { size: [1.25, 1.8, 1.25], lift: -0.95, colors: ["#f0a020", "#e8602a", "#c8c03a"], green: "#6a9a3a", fall: 3 },
 };
 // Pussy-willow catkins stand up silver along the twig instead of hanging.
 const WILLOW_CATKIN: OrnamentLook = { size: [0.28, 0.85, 0.28], lift: 0.45, colors: ["#e9e6cf", "#f2edb0", "#d8d4b8"], fall: 0.9 };
@@ -895,9 +896,27 @@ export interface TreeRender {
   update(frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void;
   /** Leaves, petals and fruit falling or lying where they landed, for a host's own drawing (a canvas fallback). */
   readonly fallers: readonly Readonly<Pick<Faller, "x" | "y" | "z" | "size" | "color" | "landed" | "kind">>[];
+  /** The ripe fruit as of the last update, hanging on the tree or lying under it, for animals to eat. */
+  fruit(): TreeFruit[];
+  /** Take a fruit (by its `TreeFruit.key`) off the tree or the ground until next year's crop. False when there was none. */
+  eat(key: string): boolean;
   /** Repaint on the next update (after a material swap, say). */
   repaint(): void;
   dispose(): void;
+}
+
+/** A ripe fruit, where it hangs or lies. Its `key` holds while it ripens, falls and lies. */
+export interface TreeFruit {
+  readonly key: string;
+  /** The ornament kind: "apple", "acorn", "cherry" and so on. */
+  readonly kind: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  /** Its size across, in scene units. */
+  readonly size: number;
+  /** On the tree (true) or on the ground under it. */
+  readonly hanging: boolean;
 }
 
 interface OrnamentSet {
@@ -950,6 +969,10 @@ interface Tree {
   readonly limits: Required<TreeLimits>;
   readonly leafStride: number;
   readonly hidden: Map<string, { readonly rank: number; readonly kind: Faller["kind"] }>;
+  /** Fruit animals have eaten this year, by set ("fruit", or "kind<n>" for a minor kind's) and slot. */
+  readonly eaten: Map<string, Set<number>>;
+  lastYear: YearLike | null;
+  lastMotion: TreeMotion | null;
   readonly fallers: Faller[];
   readonly random: () => number;
   readonly a: ColorLike;
@@ -1433,6 +1456,70 @@ function hangSwing(lift: number, wind: number, motion: TreeMotion, rank: number)
   return { x: swing * Math.cos(dir), z: swing * Math.sin(dir) };
 }
 
+// ---------------------------------------------------------------- fruit to eat
+
+/** The name a fruit set goes by in keys: the tree's own "fruit", or "kind<n>" for a minor kind's. */
+const setName = (tree: Tree, set: OrnamentSet): string => (set === tree.fruits ? "fruit" : set === tree.flowers ? "flowers" : `kind${String(tree.kinds.indexOf(set))}`);
+const eatenSlot = (tree: Tree, set: OrnamentSet, index: number): boolean => set.name === "fruit" && tree.eaten.get(setName(tree, set))?.has(index) === true;
+const fruitSets = (tree: Tree): OrnamentSet[] => [tree.fruits, ...tree.kinds].filter((set): set is OrnamentSet => set !== null && set.name === "fruit");
+
+/** A new crop starts clean: once a set has no fruit open, last year's eaten slots are forgotten. */
+function forgetEaten(tree: Tree, year: YearLike): void {
+  for (const set of fruitSets(tree)) if (ornamentState(set, kindYear(tree, set, year)).open <= 0) tree.eaten.delete(setName(tree, set));
+}
+
+/** Where a fruit hangs, still (the wind's sway left out): under its twig, by its own lift. */
+function hangingSpot(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year: YearLike, index: number): { x: number; y: number; z: number; unit: number } {
+  const node = at(set.slots.node, index);
+  const unit = tree.colors.leafScale * at(set.slots.size, index) * (0.35 + 0.65 * clamp((ornamentState(set, year).open - at(set.slots.rank, index)) * 8, 0, 1));
+  return { x: at(frame.x, node) + at(set.slots.dx, index), y: at(frame.y, node) + at(set.slots.dy, index) * 0.5 + set.look.lift * unit, z: at(frame.z, node) + at(set.slots.dz, index), unit };
+}
+
+function ripeFruit(tree: Tree): TreeFruit[] {
+  const frame = tree.lastFrame;
+  const year0 = tree.lastYear;
+  const motion = tree.lastMotion;
+  if (!frame || !year0 || !motion || motion.dead === true) return [];
+  const out: TreeFruit[] = [];
+  for (const set of fruitSets(tree)) {
+    const year = kindYear(tree, set, year0);
+    const { open, fallen } = ornamentState(set, year);
+    if (open <= 0 || frame.cycle < set.spec.from) continue;
+    const name = setName(tree, set);
+    const kind = set.spec.kind;
+    for (let index = 0; index < set.slots.count; index += 1) {
+      const rank = at(set.slots.rank, index);
+      if (rank >= open || rank < fallen || tree.hidden.has(`${set.name}:${String(index)}`) || eatenSlot(tree, set, index) || ripeness(set, index, year) < 0.7) continue;
+      if (!bearingNode(tree, frame, set.spec, at(set.slots.node, index), set.strain >= 0)) continue;
+      const spot = hangingSpot(tree, set, frame, year, index);
+      out.push({ key: `${name}:${String(index)}`, kind, x: spot.x, y: spot.y, z: spot.z, size: spot.unit * set.look.size[0], hanging: true });
+    }
+    // Only the tree's own fruit lies under it (a minor kind's drops with it, unseen).
+    if (set !== tree.fruits || !tree.meshes.litter || !ornamentsLying(set, year, motion)) continue;
+    for (let slot = 0; slot < set.litterLimit; slot += 1) {
+      const index = slot * set.stride;
+      if (!soundBearer(set, frame, index) || at(set.slots.rank, index) >= fallen || eatenSlot(tree, set, index)) continue;
+      const spot = litterSpot(tree, frame, set.slots, index, 0.45);
+      const unit = tree.colors.leafScale * at(set.slots.size, index);
+      out.push({ key: `${name}:${String(index)}`, kind, x: spot.x, y: tree.ground.y + 0.02 + unit * set.look.size[2] * 0.5, z: spot.z, size: unit * set.look.size[0], hanging: false });
+    }
+  }
+  return out;
+}
+
+function eatFruit(tree: Tree, key: string): boolean {
+  const cut = key.lastIndexOf(":");
+  const name = key.slice(0, cut);
+  const index = Number(key.slice(cut + 1));
+  const set = fruitSets(tree).find((each) => setName(tree, each) === name);
+  if (!set || !Number.isInteger(index) || index < 0 || index >= set.slots.count) return false;
+  const eaten = tree.eaten.get(name) ?? new Set<number>();
+  if (eaten.has(index)) return false;
+  eaten.add(index);
+  tree.eaten.set(name, eaten);
+  return true;
+}
+
 function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
   const { spec, slots, mesh, look } = set;
   const { open, fallen } = ornamentState(set, year);
@@ -1444,7 +1531,7 @@ function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year:
   for (let index = 0; index < slots.count; index += 1) {
     const node = at(slots.node, index);
     const rank = at(slots.rank, index);
-    if (rank >= open || rank < fallen || tree.hidden.has(`${set.name}:${String(index)}`) || !bearingNode(tree, frame, spec, node, set.strain >= 0)) { clearSlot(array, index); continue; }
+    if (rank >= open || rank < fallen || tree.hidden.has(`${set.name}:${String(index)}`) || eatenSlot(tree, set, index) || !bearingNode(tree, frame, spec, node, set.strain >= 0)) { clearSlot(array, index); continue; }
     const unit = tree.colors.leafScale * at(slots.size, index) * (0.35 + 0.65 * clamp((open - rank) * 8, 0, 1));
     const x = at(frame.x, node) + at(slots.dx, index);
     const z = at(frame.z, node) + at(slots.dz, index);
@@ -1475,6 +1562,10 @@ function bloomColors(tree: Tree, index: number, colors: TreeColors, node: number
   return tree.blooms[tree.blooms.length - 1]?.colors ?? colors.spring;
 }
 
+/** How ripe a fruit is, 0 (green) to 1: each sets green and colours at its own pace. A fruit with no green look is ripe as it opens. */
+const ripeness = (set: OrnamentSet, index: number, year: YearLike): number =>
+  set.look.green === undefined ? 1 : clamp(year.fruit * 1.8 - 0.7 - at(set.slots.rank, index) * 0.3, 0, 1);
+
 function ornamentColor(tree: Tree, set: OrnamentSet, index: number, year: YearLike): ColorLike {
   const { a, b } = tree;
   const node = at(set.slots.node, index);
@@ -1490,7 +1581,7 @@ function ornamentColor(tree: Tree, set: OrnamentSet, index: number, year: YearLi
     const palette = set.look.colors ?? ["#ffffff"];
     a.set(palette[tone % palette.length] ?? "#ffffff");
     // Fruit sets green and ripens to colour, each one at its own pace.
-    if (set.look.green !== undefined) a.lerp(b.set(set.look.green), 1 - clamp(year.fruit * 1.8 - 0.7 - rank * 0.3, 0, 1));
+    if (set.look.green !== undefined) a.lerp(b.set(set.look.green), 1 - ripeness(set, index, year));
   }
   // A skinned tree's flowers and fruit take its material: a golden tree bears golden cherries.
   if (skin) a.lerp(b.set(skin.leaves[(index + 1) % skin.leaves.length] ?? "#ffffff"), 0.82);
@@ -1559,7 +1650,7 @@ function poseOrnamentLitter(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, 
   for (let slot = 0; slot < set.litterLimit; slot += 1) {
     const index = slot * set.stride;
     const target = set.litterStart + slot;
-    if (!lying || !soundBearer(set, frame, index) || at(set.slots.rank, index) >= fallen) { clearSlot(array, target); continue; }
+    if (!lying || !soundBearer(set, frame, index) || at(set.slots.rank, index) >= fallen || eatenSlot(tree, set, index)) { clearSlot(array, target); continue; }
     const spot = litterSpot(tree, frame, set.slots, index, set.name === "fruit" ? 0.45 : 1);
     const unit = tree.colors.leafScale * at(set.slots.size, index);
     const flat = set.name === "fruit" ? 1 : 0.2;
@@ -1801,6 +1892,9 @@ function paintKeyOf(year: YearLike, motion: TreeMotion): string {
 
 function update(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
   tree.strainYears = motion.strainYears ?? [];
+  tree.lastYear = year;
+  tree.lastMotion = motion;
+  forgetEaten(tree, year);
   const key = [year, ...tree.strainYears.filter((own): own is YearLike => own !== undefined)].map((own) => paintKeyOf(own, motion)).join("|");
   if (frame !== tree.lastFrame || key !== tree.paintKey) {
     paintAll(tree, frame, year, motion);
@@ -1892,13 +1986,15 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     skin: options.skin ?? null,
     strains: options.strains ?? [], strainOf: options.strainOf ?? null, strainYears: [], blooms: (options.blooms ?? []).filter((bloom) => bloom.share > 0 && bloom.colors.length > 0),
     leafStride: Math.max(1, Math.ceil(model.leaves.count / limits.litter)),
-    hidden: new Map(), fallers: [], random: seededRandom((options.seed ?? 1) ^ 0x51f7),
+    hidden: new Map(), eaten: new Map(), lastYear: null, lastMotion: null, fallers: [], random: seededRandom((options.seed ?? 1) ^ 0x51f7),
     a: new lit.Color(), b: new lit.Color(), offset: { x: 0, z: 0 },
     spawnClock: 0, paintKey: "", lastFrame: null,
   };
   return {
     group, features, meshes, fallers: tree.fallers, kinds: kinds.map((set) => set.mesh),
     update: (frame, year, motion) => { update(tree, frame, year, motion); },
+    fruit: () => ripeFruit(tree),
+    eat: (key) => eatFruit(tree, key),
     repaint: () => { tree.paintKey = ""; },
     dispose: () => {
       for (const mesh of [...(Object.values(meshes) as (InstancedLike | null)[]), ...kinds.map((set) => set.mesh)]) {

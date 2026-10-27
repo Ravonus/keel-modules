@@ -249,7 +249,7 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   pear: {
     id: "pear", cycles: 28, height: 9, apical: 0.5, vigor: 2.2, maxShoot: 3, sideShoot: 3, angle: 38, divergence: 137.5, whorl: 0,
     straight: 1, light: 0.4, up: 0.5, lateralUp: 0.18, weep: 0.02, flat: 0.06, spread: 0.46, crownAt: 0.26, ceiling: Infinity, shed: 0.16,
-    leafSlots: 4, leafSpread: 0.32, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [100, 110, 116, 130], from: 5 }, fruit: { kind: "pear", on: "spur", perNode: 1, window: [150, 230, 252, 280], from: 6 },
+    leafSlots: 4, leafSpread: 0.32, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [88, 96, 104, 118], from: 5 }, fruit: { kind: "pear", on: "spur", perNode: 1, window: [150, 230, 252, 280], from: 6 },
     evergreen: false, palm: null, radiusTip: 0.025, pipe: 2.7,
     phenology: { ...DECIDUOUS, leaf: [104, 132], color: [270, 300], drop: [288, 322] },
   },
@@ -257,7 +257,7 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   peach: {
     id: "peach", cycles: 20, height: 5.8, apical: 0.38, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 50, divergence: 137.5, whorl: 0,
     straight: 0.9, light: 0.4, up: 0.45, lateralUp: 0.24, weep: 0.02, flat: 0.2, spread: 0.66, crownAt: 0.26, ceiling: 16, shed: 0.2,
-    leafSlots: 5, leafSpread: 0.3, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 2, window: [84, 94, 100, 112], from: 3 }, fruit: { kind: "peach", on: "tip", perNode: 1, window: [150, 190, 206, 224], from: 3 },
+    leafSlots: 5, leafSpread: 0.3, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 2, window: [84, 94, 100, 112], from: 3 }, fruit: { kind: "peach", on: "tip", perNode: 1, window: [150, 196, 230, 250], from: 3 },
     evergreen: false, palm: null, radiusTip: 0.024, pipe: 2.6,
     phenology: { ...DECIDUOUS, leaf: [100, 128] },
   },
@@ -265,7 +265,7 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   plum: {
     id: "plum", cycles: 24, height: 6.8, apical: 0.5, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 42, divergence: 137.5, whorl: 0,
     straight: 1, light: 0.4, up: 0.5, lateralUp: 0.14, weep: 0.04, flat: 0.12, spread: 0.5, crownAt: 0.3, ceiling: Infinity, shed: 0.2,
-    leafSlots: 4, leafSpread: 0.32, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [80, 90, 95, 108], from: 3 }, fruit: { kind: "plum", on: "spur", perNode: 2, window: [160, 205, 222, 244], from: 4 },
+    leafSlots: 4, leafSpread: 0.32, hang: 0, flower: { kind: "blossom", on: "spur", perNode: 3, window: [80, 90, 95, 108], from: 3 }, fruit: { kind: "plum", on: "spur", perNode: 2, window: [160, 208, 236, 258], from: 4 },
     evergreen: false, palm: null, radiusTip: 0.024, pipe: 2.7,
     phenology: { ...DECIDUOUS, leaf: [98, 128] },
   },
@@ -289,7 +289,7 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   fig: {
     id: "fig", cycles: 24, height: 6.4, apical: 0.36, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 54, divergence: 137.5, whorl: 0,
     straight: 0.85, light: 0.36, up: 0.4, lateralUp: 0.2, weep: 0, flat: 0.3, spread: 0.7, crownAt: 0.2, ceiling: 14, shed: 0.18,
-    leafSlots: 3, leafSpread: 0.46, hang: 0, flower: null, fruit: { kind: "fig", on: "tip", perNode: 2, window: [160, 200, 220, 240], from: 3 },
+    leafSlots: 3, leafSpread: 0.46, hang: 0, flower: null, fruit: { kind: "fig", on: "tip", perNode: 2, window: [160, 206, 238, 260], from: 3 },
     evergreen: false, palm: null, radiusTip: 0.03, pipe: 2.4,
     phenology: { ...DECIDUOUS, leaf: [110, 140], color: [268, 296], drop: [282, 316] },
   },
@@ -297,7 +297,7 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
   mango: {
     id: "mango", cycles: 30, height: 10, apical: 0.45, vigor: 2.2, maxShoot: 3, sideShoot: 3, angle: 48, divergence: 137.5, whorl: 0,
     straight: 0.9, light: 0.38, up: 0.45, lateralUp: 0.08, weep: 0.06, flat: 0.14, spread: 0.6, crownAt: 0.26, ceiling: Infinity, shed: 0.1,
-    leafSlots: 5, leafSpread: 0.36, hang: 0.1, flower: { kind: "puff", on: "tip", perNode: 2, window: [64, 80, 92, 108], from: 5 }, fruit: { kind: "mango", on: "tip", perNode: 1, window: [130, 170, 190, 212], from: 6 },
+    leafSlots: 5, leafSpread: 0.36, hang: 0.1, flower: { kind: "puff", on: "tip", perNode: 2, window: [64, 80, 92, 108], from: 5 }, fruit: { kind: "mango", on: "tip", perNode: 1, window: [130, 176, 232, 254], from: 6 },
     evergreen: true, palm: null, radiusTip: 0.026, pipe: 2.55,
     phenology: BROADLEAF_EVERGREEN,
   },

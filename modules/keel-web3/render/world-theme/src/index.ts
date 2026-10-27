@@ -149,7 +149,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   gold: {
     label: "Polished gold", family: "metal", patterns: ["ingot", "hammered", "brushed", "coins"], effects: ["sweep", "sweep", "sparkle"],
     decor: ["ingots", "coins", "nuggets"], decorCount: [4, 12], underside: ["slab", "cone", "spire"], trim: ["gold", "chrome", "studs"],
-    palettes: [["yellow gold", ["#d89a18", "#ffd040", "#b8860b", "#6b4a0e", "#f2c14e", "#fff4c2"]], ["rose gold", ["#c86a50", "#f0a080", "#8a4838", "#5e2e24", "#e89078", "#ffe0d0"]], ["24 karat", ["#e08a08", "#ffc820", "#8a4a04", "#5a3002", "#ffb810", "#fff0a0"]], ["white gold", ["#d8d2c0", "#f4efe0", "#a8a290", "#7c7666", "#e8e2d0", "#fffdf4"]], ["old gold", ["#b88c30", "#e8c460", "#7a5818", "#4e360c", "#d0a038", "#fff0b8"]]],
+    palettes: [["yellow gold", ["#f2c14e", "#ffd040", "#d8a020", "#b8860b", "#f2c14e", "#fff4c2"]], ["rose gold", ["#c86a50", "#f0a080", "#8a4838", "#5e2e24", "#e89078", "#ffe0d0"]], ["24 karat", ["#e08a08", "#ffc820", "#8a4a04", "#5a3002", "#ffb810", "#fff0a0"]], ["white gold", ["#d8d2c0", "#f4efe0", "#a8a290", "#7c7666", "#e8e2d0", "#fffdf4"]], ["old gold", ["#b88c30", "#e8c460", "#7a5818", "#4e360c", "#d0a038", "#fff0b8"]]],
     shine: 1, glow: 0.05, sparkle: 0.35, veins: [0, 0], alpha: 1, drift: 4, worlds: ["nature", "city", "crystal", "cosmic", "vapor"],
   },
   goldOre: {
@@ -173,7 +173,7 @@ export const PLANTERS: Readonly<Record<PlanterId, PlanterRecipe>> = {
   lava: {
     label: "Lava", family: "molten", patterns: ["magma"], effects: ["flow", "breathe"], decor: ["rocks", "vents"], decorCount: [3, 8],
     underside: ["drip", "cone", "spire"], trim: ["none"],
-    palettes: [["basalt", ["#2a2220", "#3a2e2a", "#1a1412", "#100c0a", "#241c1a", "#ff5a14"]], ["blue fire", ["#1e2028", "#2a2e38", "#121418", "#0a0c10", "#1c1e26", "#3ac8ff"]], ["magma", ["#3a1e14", "#4a2a1c", "#22100a", "#140806", "#301810", "#ffb020"]]],
+    palettes: [["basalt", ["#2e2a2c", "#4a4246", "#1e1a1c", "#1e1a1c", "#2e2a2c", "#ff5a1f"]], ["blue fire", ["#1e2028", "#2a2e38", "#121418", "#0a0c10", "#1c1e26", "#3ac8ff"]], ["magma", ["#3a1e14", "#4a2a1c", "#22100a", "#140806", "#301810", "#ffb020"]]],
     shine: 0.3, glow: 1, sparkle: 0.05, veins: [0.18, 0.32], alpha: 1, drift: 6, worlds: ["nature", "cosmic", "synth", "voxel"],
   },
   ice: {

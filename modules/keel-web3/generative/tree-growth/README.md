@@ -52,7 +52,7 @@ and any day of the year. Deterministic, dependency-free, no renderer.
 | `baobab` | bottle trunk, flat crown | big white hanging bells | velvet gourds | stubby limbs |
 | `apple` | low, spreading | pink-white blossom on spurs | red apples, early autumn | |
 | `pear` | tall, upright | white blossom, early | pears, late summer | leaves go red late |
-| `peach` | small open vase | deep pink blossom on bare twigs | peaches, midsummer | short-lived |
+| `peach` | small open vase | deep pink blossom on bare twigs | peaches, late summer | short-lived |
 | `plum` | round | white blossom, first of all | purple plums, late summer | |
 | `orange` | dense dome to the ground | white blossom | oranges, hanging into the next spring | evergreen |
 | `lemon` | small, loose | white blossom, early | lemons most of the year | evergreen |

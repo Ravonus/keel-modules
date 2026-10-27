@@ -262,6 +262,18 @@ export default [
     expect: [true, true, true, true],
   },
   {
+    name: 'a minor kind bears its own flowers and fruit, only on the limbs it holds',
+    run: (api) => {
+      const tree = api.growTree({ species: 'oak', seed: 5, mix: { oak: 0.8, cherry: 0.2 } });
+      const kinds = api.sectors(tree, [0.8, 0.2]);
+      const cherry = api.kindOrnaments(tree, 'cherry', kinds, 1);
+      const onKind = (slots) => slots.count > 0 && Array.from(slots.node).every((node) => kinds[node] === 1);
+      const birch = api.kindOrnaments(tree, 'birch', kinds, 1);
+      return [cherry.flower?.spec.kind, cherry.fruit?.spec.kind, onKind(cherry.flower.slots) && onKind(cherry.fruit.slots), birch.fruit];
+    },
+    expect: ['blossom', 'cherry', true, null],
+  },
+  {
     name: 'old trees keep growing through their decline, less each cycle, until the end',
     run: ({ growTree }) => ['cherry', 'oak', 'palm'].map((species) => {
       const tree = growTree({ species, seed: 4 });

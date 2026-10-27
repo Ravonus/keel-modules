@@ -879,15 +879,24 @@ function simulate(species: Species, seed: number, maxNodes: number): Sim {
   return sim;
 }
 
-function leafSlots(sim: Sim, perNode: number, spread: number, hang: number, seed: number, eligible: (node: number) => boolean): LeafSlots {
+/** What slots hang from: how many nodes, each one's heading, and whether the tree is a palm. */
+interface SlotSource {
+  readonly count: number;
+  readonly palm: boolean;
+  heading(node: number): Vec;
+}
+
+const simSource = (sim: Sim): SlotSource => ({ count: sim.pos.length, palm: sim.species.palm !== null, heading: (node) => sim.dir[node] ?? vec(0, 1, 0) });
+
+function leafSlots(source: SlotSource, perNode: number, spread: number, hang: number, seed: number, eligible: (node: number) => boolean): LeafSlots {
   const random = createRandom(seed);
   const nodes: number[] = [];
-  for (let node = 0; node < sim.pos.length; node += 1) if (eligible(node)) for (let index = 0; index < perNode; index += 1) nodes.push(node);
+  for (let node = 0; node < source.count; node += 1) if (eligible(node)) for (let index = 0; index < perNode; index += 1) nodes.push(node);
   const count = nodes.length;
   const slots = { count, node: Int32Array.from(nodes), dx: new Float32Array(count), dy: new Float32Array(count), dz: new Float32Array(count), rank: new Float32Array(count), size: new Float32Array(count), tone: new Uint8Array(count) };
   for (let index = 0; index < count; index += 1) {
-    const heading = sim.dir[at(slots.node, index)] ?? vec(0, 1, 0);
-    if (sim.species.palm !== null && hang > 0) { leaflet(slots, index, heading, spread, hang, random); continue; }
+    const heading = source.heading(at(slots.node, index));
+    if (source.palm && hang > 0) { leaflet(slots, index, heading, spread, hang, random); continue; }
     const theta = random() * Math.PI * 2;
     const lift = random() * 2 - 1;
     const ring = Math.sqrt(1 - lift * lift) * Math.cbrt(random());
@@ -921,10 +930,10 @@ function leaflet(slots: LeafSlots & { dx: Float32Array; dy: Float32Array; dz: Fl
 }
 
 function ornamentSlots(sim: Sim, spec: OrnamentSpec | null, spread: number, seed: number): LeafSlots {
-  if (spec === null) return leafSlots(sim, 0, 0, 0, 0, () => false);
+  if (spec === null) return leafSlots(simSource(sim), 0, 0, 0, 0, () => false);
   const palm = sim.species.palm !== null;
   const floor = (spec.above ?? 0) * sim.height;
-  return leafSlots(sim, spec.perNode, spread, 0, seed, (node) => (palm ? frondBase(sim, node) : at(sim.order, node) > 0 && (sim.pos[node]?.y ?? 0) >= floor));
+  return leafSlots(simSource(sim), spec.perNode, spread, 0, seed, (node) => (palm ? frondBase(sim, node) : at(sim.order, node) > 0 && (sim.pos[node]?.y ?? 0) >= floor));
 }
 
 function leafEligible(sim: Sim, node: number): boolean {
@@ -953,7 +962,7 @@ export function growTree(input: GrowInput): TreeModel {
     deadAt: Float32Array.from(sim.deadAt),
     shedAt: Float32Array.from(sim.shedAt, (value) => (value === Infinity ? 1e9 : value)),
     phase: Float32Array.from(sim.pos, () => random() * Math.PI * 2),
-    leaves: leafSlots(sim, species.leafSlots, species.leafSpread, species.hang, seed ^ 0x1eaf, (node) => leafEligible(sim, node)),
+    leaves: leafSlots(simSource(sim), species.leafSlots, species.leafSpread, species.hang, seed ^ 0x1eaf, (node) => leafEligible(sim, node)),
     blossoms: ornamentSlots(sim, species.flower, species.leafSpread * 0.8, seed ^ 0xb105),
     fruit: ornamentSlots(sim, species.fruit, species.leafSpread * 0.7, seed ^ 0xf2017),
     roots: Array.from({ length: rootCount }, (_, index) => ({ angle: (index / rootCount) * Math.PI * 2 + random() * 0.6, reach: 0.7 + random() * 0.6 })),
@@ -1027,6 +1036,38 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
     strain[node] = owner.get(node) ?? (parent >= 0 ? at(strain, parent) : 0);
   }
   return strain;
+}
+
+/** One kind's flowers or fruit: what they are and where they hang. */
+export interface KindOrnament {
+  readonly spec: OrnamentSpec;
+  readonly slots: LeafSlots;
+}
+
+/**
+ * A hybrid's minor kind bears its own flowers and fruit on the limbs it holds
+ * (`kinds` from `sectors`): cherry limbs on an oak blossom though the oak only
+ * hangs catkins. Places follow the kind's own spec; a renderer opens them on
+ * that kind's calendar. Null where the kind has none.
+ */
+export function kindOrnaments(model: TreeModel, species: string, kinds: ArrayLike<number>, kind: number): { readonly flower: KindOrnament | null; readonly fruit: KindOrnament | null } {
+  const own = speciesOf(species);
+  const top = model.y.reduce((most, y) => Math.max(most, y), 0);
+  const source: SlotSource = {
+    count: model.count,
+    palm: false,
+    heading: (node) => {
+      const parent = at(model.parent, node);
+      return parent < 0 ? vec(0, 1, 0) : normalize(vec(at(model.x, node) - at(model.x, parent), at(model.y, node) - at(model.y, parent), at(model.z, node) - at(model.z, parent)));
+    },
+  };
+  const grow = (spec: OrnamentSpec | null, spread: number, salt: number): KindOrnament | null => {
+    if (spec === null) return null;
+    const floor = (spec.above ?? 0) * top;
+    const slots = leafSlots(source, spec.perNode, spread, 0, (model.seed ^ salt ^ (kind * 0x9e37)) >>> 0, (node) => at(kinds, node) === kind && at(model.order, node) > 0 && at(model.y, node) >= floor);
+    return slots.count > 0 ? { spec, slots } : null;
+  };
+  return { flower: grow(own.flower, own.leafSpread * 0.8, 0xb105), fruit: grow(own.fruit, own.leafSpread * 0.7, 0xf2017) };
 }
 
 /**

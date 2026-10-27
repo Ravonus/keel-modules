@@ -147,6 +147,16 @@ export interface TreeStrain {
   readonly bark?: readonly string[];
 }
 
+/** A hybrid's minor kind's own flowers and fruit, hanging on its limbs (tree-growth `kindOrnaments`). */
+export interface TreeKindOrnaments {
+  /** The kind's species id, for the look of its flowers and fruit. */
+  readonly species: string;
+  /** The strain whose year (`TreeMotion.strainYears`) opens and drops them. */
+  readonly strain: number;
+  readonly flower?: { readonly spec: OrnamentSpecLike; readonly slots: SlotsLike } | null;
+  readonly fruit?: { readonly spec: OrnamentSpecLike; readonly slots: SlotsLike } | null;
+}
+
 /** One blossom colour in a mixed bloom: this share of the flowers opens in these colours. */
 export interface TreeBloom {
   readonly colors: readonly string[];
@@ -818,6 +828,8 @@ export interface TreeRenderOptions {
   readonly strainOf?: ArrayLike<number>;
   /** A mixed bloom: each blossom opens in one of these colours, by share (codominant flower colour). Left out, blossoms take the strain's spring colours. */
   readonly blooms?: readonly TreeBloom[];
+  /** Minor kinds' own flowers and fruit: cherry limbs on an oak blossom though the oak only hangs catkins. */
+  readonly kinds?: readonly TreeKindOrnaments[];
 }
 
 /** What moves the tree this frame. `snow` 0..1 lies along the limbs; `snowed` hides litter under fresh snow. */
@@ -863,6 +875,8 @@ export interface TreeRender {
   readonly features: TreeFeatures;
   /** The instanced meshes, for a host that swaps materials (skins) or adds effects (night glow). Off parts are null. */
   readonly meshes: TreeMeshes;
+  /** Minor kinds' own flowers and fruit, one mesh per set (see `TreeRenderOptions.kinds`). */
+  readonly kinds: readonly InstancedLike[];
   /** Pose and, when the season or frame changed, repaint. Call every frame. */
   update(frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void;
   /** Leaves, petals and fruit falling or lying where they landed, for a host's own drawing (a canvas fallback). */
@@ -874,6 +888,8 @@ export interface TreeRender {
 
 interface OrnamentSet {
   readonly name: "flowers" | "fruit";
+  /** A minor kind's set opens on this strain's year and ignores the tree's own bearing rules; -1 is the tree's own. */
+  readonly strain: number;
   readonly spec: OrnamentSpecLike;
   readonly look: OrnamentLook;
   readonly slots: SlotsLike;
@@ -916,6 +932,7 @@ interface Tree {
   readonly meshes: TreeMeshes;
   readonly flowers: OrnamentSet | null;
   readonly fruits: OrnamentSet | null;
+  readonly kinds: readonly OrnamentSet[];
   readonly limits: Required<TreeLimits>;
   readonly leafStride: number;
   readonly hidden: Map<string, { readonly rank: number; readonly kind: Faller["kind"] }>;
@@ -960,11 +977,12 @@ function leafyNode(frame: TreeFrameLike, node: number, tipLimit: number): boolea
   return at(frame.grow, node) > 0.25 && at(frame.dead, node) < 0.25 && at(frame.fall, node) === 0 && at(frame.tips, node) <= tipLimit;
 }
 
-function bearingNode(tree: Tree, frame: TreeFrameLike, spec: OrnamentSpecLike, node: number): boolean {
+function bearingNode(tree: Tree, frame: TreeFrameLike, spec: OrnamentSpecLike, node: number, own = false): boolean {
   if (frame.cycle < spec.from || at(frame.fall, node) > 0 || at(frame.dead, node) >= 0.2) return false;
-  if (tree.strainOf && tree.strains[at(tree.strainOf, node)]?.bears === false) return false;
+  if (tree.strainOf && tree.strains[at(tree.strainOf, node)]?.bears === false && !own) return false;
   if (spec.on === "tip") return leafyNode(frame, node, tree.model.species.evergreen ? 7 : 2.6);
-  return at(frame.grow, node) >= 1 && at(frame.tips, node) <= 9 && frame.cycle - at(tree.model.birth, node) > 1.2;
+  // Spurs form on wood a couple of years old (half a growth cycle), so a tree in full bloom reads as a cloud.
+  return at(frame.grow, node) >= 1 && at(frame.tips, node) <= 9 && frame.cycle - at(tree.model.birth, node) > 0.5;
 }
 
 // ---------------------------------------------------------------- wood
@@ -1355,12 +1373,26 @@ function ornamentSet(tree: Pick<Tree, "lit" | "group" | "model" | "features">, n
   const slots = name === "fruit" ? tree.model.fruit : tree.model.blossoms;
   if (spec === null || slots.count === 0 || !tree.features[name]) return null;
   return {
-    name, spec, slots, litterStart, litterLimit,
+    name, spec, slots, litterStart, litterLimit, strain: -1,
     look: ornamentLook(spec, tree.model.species.id),
     mesh: makeMesh(tree, slots.count, name === "fruit" ? 0.62 : 0.7, tree.features.shadows, shape),
     stride: Math.max(1, Math.ceil(slots.count / Math.max(litterLimit, 1))),
   };
 }
+
+/** A minor kind's flowers or fruit as a set of their own (no litter: they fall with the tree's own). */
+function kindSet(tree: Pick<Tree, "lit" | "group" | "model" | "features">, kind: TreeKindOrnaments, name: OrnamentSet["name"], shape: GeometryLike): OrnamentSet | null {
+  const grown = name === "fruit" ? kind.fruit : kind.flower;
+  if (!grown || grown.slots.count === 0 || !tree.features[name]) return null;
+  return {
+    name, spec: grown.spec, slots: grown.slots, litterStart: 0, litterLimit: 0, strain: kind.strain, stride: 1,
+    look: ornamentLook(grown.spec, kind.species),
+    mesh: makeMesh(tree, grown.slots.count, name === "fruit" ? 0.62 : 0.7, tree.features.shadows, shape),
+  };
+}
+
+/** The year a set keeps: a minor kind's own calendar, else the tree's. */
+const kindYear = (tree: Tree, set: OrnamentSet, year: YearLike): YearLike => (set.strain >= 0 ? tree.strainYears[set.strain] ?? year : year);
 
 // Flowers and fruit hang from the nodes that bear them, open or ripen each in
 // its own turn, and fall in rank order like the leaves.
@@ -1382,7 +1414,7 @@ function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year:
   for (let index = 0; index < slots.count; index += 1) {
     const node = at(slots.node, index);
     const rank = at(slots.rank, index);
-    if (rank >= open || rank < fallen || tree.hidden.has(`${set.name}:${String(index)}`) || !bearingNode(tree, frame, spec, node)) { clearSlot(array, index); continue; }
+    if (rank >= open || rank < fallen || tree.hidden.has(`${set.name}:${String(index)}`) || !bearingNode(tree, frame, spec, node, set.strain >= 0)) { clearSlot(array, index); continue; }
     const unit = tree.colors.leafScale * at(slots.size, index) * (0.35 + 0.65 * clamp((open - rank) * 8, 0, 1));
     const x = at(frame.x, node) + at(slots.dx, index);
     const z = at(frame.z, node) + at(slots.dz, index);
@@ -1729,6 +1761,7 @@ function paintAll(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: Tree
   paintWood(tree, frame, dead);
   if (tree.meshes.leaves) paintLeaves(tree, tree.meshes.leaves, frame, year, motion.snow ?? 0);
   for (const set of [tree.flowers, tree.fruits]) if (set) paintOrnaments(tree, set, year);
+  for (const set of tree.kinds) paintOrnaments(tree, set, kindYear(tree, set, year));
   paintLitter(tree, year);
 }
 
@@ -1749,6 +1782,7 @@ function update(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMo
   poseWood(tree, frame, motion);
   if (meshes.leaves) poseLeaves(tree, meshes.leaves, frame, year, motion);
   for (const set of [tree.flowers, tree.fruits]) if (set) poseOrnaments(tree, set, frame, year, motion);
+  for (const set of tree.kinds) poseOrnaments(tree, set, frame, kindYear(tree, set, year), motion);
   poseLitter(tree, frame, year, motion);
   if (meshes.snow) poseSnow(tree, meshes.snow, frame, motion);
   if (meshes.falling && meshes.fallingLeaves) {
@@ -1787,7 +1821,7 @@ function woodMesh(build: Build, shape: GeometryLike, groundY: number): Instanced
   return wood;
 }
 
-function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMeshes; flowers: OrnamentSet | null; fruits: OrnamentSet | null } {
+function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMeshes; flowers: OrnamentSet | null; fruits: OrnamentSet | null; kinds: OrnamentSet[] } {
   const { model, features, limits } = build;
   const shapes = shapesFor(build, options);
   const leafShape = shapes.blade;
@@ -1808,7 +1842,8 @@ function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMe
   meshes.snow?.material.color.set("#f4f8ff");
   const flowers = ornamentSet(build, "flowers", build.smooth ? shapes.leaf : shapes.wood, limits.litter, limits.flowerLitter);
   const fruits = ornamentSet(build, "fruit", build.smooth ? shapes.bud : shapes.wood, limits.litter + limits.flowerLitter, limits.fruitLitter);
-  return { meshes: { ...meshes, flowers: flowers?.mesh ?? null, fruit: fruits?.mesh ?? null }, flowers, fruits };
+  const kinds = (options.kinds ?? []).flatMap((kind) => [kindSet(build, kind, "flowers", build.smooth ? shapes.leaf : shapes.wood), kindSet(build, kind, "fruit", build.smooth ? shapes.bud : shapes.wood)]).filter((set): set is OrnamentSet => set !== null);
+  return { meshes: { ...meshes, flowers: flowers?.mesh ?? null, fruit: fruits?.mesh ?? null }, flowers, fruits, kinds };
 }
 
 /** One grown tree as live instanced meshes. Build once per model; call `update` every frame. */
@@ -1818,9 +1853,9 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
   const smooth = options.form !== "voxel";
   const group = new lit.Group();
   const build: Build = { lit, group, model, features, limits, smooth };
-  const { meshes, flowers, fruits } = buildMeshes(build, options);
+  const { meshes, flowers, fruits, kinds } = buildMeshes(build, options);
   const tree: Tree = {
-    lit, model, colors: options.colors, features, smooth, group, meshes, flowers, fruits, limits,
+    lit, model, colors: options.colors, features, smooth, group, meshes, flowers, fruits, kinds, limits,
     ground: options.ground ?? { y: 0, radius: 4.4 },
     blades: smooth,
     needles: smooth && !options.shapes?.blade && NEEDLE_KINDS[model.species.id] !== undefined,
@@ -1833,11 +1868,11 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     spawnClock: 0, paintKey: "", lastFrame: null,
   };
   return {
-    group, features, meshes, fallers: tree.fallers,
+    group, features, meshes, fallers: tree.fallers, kinds: kinds.map((set) => set.mesh),
     update: (frame, year, motion) => { update(tree, frame, year, motion); },
     repaint: () => { tree.paintKey = ""; },
     dispose: () => {
-      for (const mesh of Object.values(meshes) as (InstancedLike | null)[]) {
+      for (const mesh of [...(Object.values(meshes) as (InstancedLike | null)[]), ...kinds.map((set) => set.mesh)]) {
         if (!mesh) continue;
         mesh.material.dispose();
         mesh.dispose();

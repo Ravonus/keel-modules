@@ -132,7 +132,11 @@ carried, so an 80/20 tree shows a fifth of its crown as the minor kind at
 every age: limbs are dealt out in the order they grow, each to the kind
 furthest behind its share. Only limbs that live a quarter of the life count
 (a limb shaded out young would carry its kind as bare sticks), and even a
-tiny share gets one limb. The trunk stays with the first.
+tiny share gets one limb. The trunk stays with the first. Whole limbs come in
+big lumps, so a second pass counts the leaves on the tree through the middle
+of its life. Any kind left short (often the third kind of three) then takes
+side branches off the kinds over their share, the biggest that still fit
+first.
 
 `kindOrnaments(model, species, kinds, kind)` grows that kind's own flowers and
 fruit on its limbs, so cherry limbs on an oak blossom and set cherries.

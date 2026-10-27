@@ -434,8 +434,8 @@ type V3 = readonly [number, number, number];
 const cross3 = (a: V3, b: V3): [number, number, number] => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const isZero = (v: V3): boolean => v[0] === 0 && v[1] === 0 && v[2] === 0;
 
-/** One leaf blade at its stalk, pointing along (nx, ny, nz), drooped, twisted and nodded by `motion`. */
-export function writeBlade(array: Float32Array, index: number, p: V3, n: V3, size: number, motion: Flutter): void {
+/** One leaf blade at its stalk, pointing along (nx, ny, nz), drooped, twisted and nodded by `motion`; `long` draws it that much longer than wide. */
+export function writeBlade(array: Float32Array, index: number, p: V3, n: V3, size: number, motion: Flutter, long = 1): void {
   // Leaves droop from their heading toward the ground, more so the heavier the rank.
   let y: V3 = norm3(n[0], n[1] - motion.droop, n[2]);
   if (isZero(y)) y = UP;
@@ -445,7 +445,7 @@ export function writeBlade(array: Float32Array, index: number, p: V3, n: V3, siz
   const c = Math.cos(motion.twist);
   const s = Math.sin(motion.twist);
   const w = size * 1.05;
-  const l = size * (1 + motion.nod * 0.15);
+  const l = size * long * (1 + motion.nod * 0.15);
   writeColumns(array, index, [
     (x[0] * c + z[0] * s) * w, (x[1] * c + z[1] * s) * w, (x[2] * c + z[2] * s) * w, 0,
     y[0] * l, y[1] * l, y[2] * l, 0,
@@ -739,7 +739,8 @@ export const ORNAMENTS: Readonly<Record<string, OrnamentLook>> = {
   pear: { size: [1.1, 1.6, 1.1], lift: -0.75, colors: ["#c8d84a", "#d8e060", "#a8b838"], green: "#8fb04a", fall: 2.6 },
   peach: { size: [1.35, 1.35, 1.35], lift: -0.5, colors: ["#f29a5c", "#f8b878", "#e8604a"], green: "#a8b860", fall: 2.4 },
   plum: { size: [1.2, 1.35, 1.2], lift: -0.65, colors: ["#7b3fa0", "#b77ad1", "#5e2c80"], green: "#8aa04a", fall: 2.4 },
-  orange: { size: [1.4, 1.4, 1.4], lift: -0.5, colors: ["#ff8a00", "#ff9e1a", "#f07000"], green: "#6a9a3a", fall: 2.6 },
+  // Oranges hang green all summer: a pale green, so they still read against the leaves.
+  orange: { size: [1.4, 1.4, 1.4], lift: -0.5, colors: ["#ff8a00", "#ff9e1a", "#f07000"], green: "#b8d468", fall: 2.6 },
   lemon: { size: [1.15, 1.5, 1.15], lift: -0.55, colors: ["#fff23a", "#fff680", "#f0dc20"], green: "#7aa03e", fall: 2.6 },
   fig: { size: [1.3, 1.5, 1.3], lift: -0.4, colors: ["#5a2a4a", "#7a3c64", "#46203a"], green: "#a8b86a", fall: 2.2 },
   // Mangoes swing on long stalks, blushing from green through gold to red.
@@ -1167,14 +1168,18 @@ function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const reach = Math.hypot(dx, dy, dz) * pass.spread;
   const out = Math.min(reach * 0.3, 0.22);
   const scale = reach / pass.spread || 1;
-  const n: [number, number, number] = [dx / scale, dy / scale, dz / scale];
-  const x = at(frame.x, node) + n[0] * out;
+  // A weeping strain's leaves hang straight down in long strands, so its limbs read as a curtain on any tree.
+  const weeps = (strainAt(tree, node)?.hang ?? 0) > 0;
+  const n: [number, number, number] = weeps ? [dx / scale * 0.25, -1, dz / scale * 0.25] : [dx / scale, dy / scale, dz / scale];
+  // Strands start out past the host's foliage, so a willow limb in a pine hangs clear of the needles.
+  const clear = weeps ? 0.55 : 0;
+  const x = at(frame.x, node) + n[0] * out + (dx / scale) * clear;
   const y = at(frame.y, node) + n[1] * out - strainDrop(tree, node, index);
-  const z = at(frame.z, node) + n[2] * out;
+  const z = at(frame.z, node) + n[2] * out + (dz / scale) * clear;
   sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
   const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, x, z));
-  writeBlade(pass.array, index, [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4], n, leafSize * 1.9, motion);
+  writeBlade(pass.array, index, [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4], n, leafSize * (weeps ? 1.5 : 1.9), motion, weeps ? 2.4 : 1);
 }
 
 /**

@@ -1047,6 +1047,12 @@ export function growTree(input: GrowInput): TreeModel {
  * strain of every internode. A strain with too small a share for any limb
  * still gets the smallest one, so a trace of hidden makeup always shows.
  */
+/** Whether `node` grows from `limb` (anywhere out along it). */
+function isBelow(model: TreeModel, node: number, limb: number): boolean {
+  for (let up = at(model.parent, node); up >= 0; up = at(model.parent, up)) if (up === limb) return true;
+  return false;
+}
+
 export function sectors(model: TreeModel, shares: readonly number[], seed = model.seed): Uint8Array {
   const strain = new Uint8Array(model.count);
   if (shares.length <= 1) return strain;
@@ -1106,6 +1112,58 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);
     strain[node] = owner.get(node) ?? (parent >= 0 ? at(strain, parent) : 0);
+  }
+  // Whole limbs come in big lumps, and old low limbs that carried leaves for years may hold few now, so a
+  // strain can end well short in the grown crown (the third kind gets what is left). Counting the leaves
+  // on the tree through the middle of its life, it takes side branches off the strains over their share, the biggest that
+  // still fit first, so a quarter share shows as about a quarter of the grown crown.
+  const prime = (node: number): number => [0.35, 0.5, 0.65].filter((t) => at(model.birth, node) <= model.cycles * t && at(model.deadAt, node) > model.cycles * t).length;
+  const alive = new Float64Array(model.count);
+  for (let index = 0; index < model.leaves.count; index += 1) {
+    const node = at(model.leaves.node, index);
+    alive[node] = at(alive, node) + prime(node);
+  }
+  for (let node = model.count - 1; node > 0; node -= 1) {
+    const parent = at(model.parent, node);
+    if (parent >= 0) alive[parent] = at(alive, parent) + at(alive, node);
+  }
+  const now = new Float64Array(shares.length);
+  for (let index = 0; index < model.leaves.count; index += 1) {
+    const node = at(model.leaves.node, index);
+    now[at(strain, node)] = at(now, at(strain, node)) + prime(node);
+  }
+  const total = now.reduce((acc, count) => acc + count, 0);
+  const taken = new Set<number>();
+  const takenAbove = (node: number): boolean => {
+    for (let up = at(model.parent, node); up >= 0; up = at(model.parent, up)) if (taken.has(up)) return true;
+    return false;
+  };
+  // The strain furthest short goes first, the main kind included (an oak limb can outgrow the cherry it is on).
+  const needy = shares.map((_, index) => index).sort((a, b) => ((want[b] ?? 0) * total - at(now, b)) - ((want[a] ?? 0) * total - at(now, a)));
+  for (const index of needy) {
+    let short = (want[index] ?? 0) * total - at(now, index);
+    if (short <= total * 0.03) continue;
+    const side: number[] = [];
+    for (let node = 0; node < model.count; node += 1) {
+      const parent = at(model.parent, node);
+      if (parent < 0 || at(order, parent) === 0 || at(order, node) <= at(order, parent) || at(strain, node) === index || at(alive, node) <= 0) continue;
+      side.push(node);
+    }
+    side.sort((a, b) => at(alive, b) - at(alive, a));
+    for (const node of side) {
+      if (short <= total * 0.03) break;
+      const from = at(strain, node);
+      const load = at(alive, node);
+      const spare = at(now, from) - (want[from] ?? 0) * total;
+      if (from === index || load > short * 1.25 || load > spare || takenAbove(node)) continue;
+      taken.add(node);
+      now[from] = at(now, from) - load;
+      now[index] = at(now, index) + load;
+      short -= load;
+      for (let child = node; child < model.count; child += 1) {
+        if (child === node || isBelow(model, child, node)) strain[child] = index;
+      }
+    }
   }
   return strain;
 }

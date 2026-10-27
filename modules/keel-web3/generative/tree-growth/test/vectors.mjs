@@ -238,6 +238,27 @@ export default [
     expect: [true, true, true, true],
   },
   {
+    name: 'a three-kind hybrid shows each kind near its share of the crown through the middle of its life, the third kind included',
+    run: (api) => {
+      const mix = { cherry: 0.5, oak: 0.25, maple: 0.25 };
+      const shares = api.mixShares(mix).map(([, share]) => share);
+      const worst = [3, 11, 29].map((seed) => {
+        const tree = api.growTree({ species: 'cherry', seed, mix });
+        const strain = api.sectors(tree, shares);
+        const count = shares.map(() => 0);
+        let all = 0;
+        for (let index = 0; index < tree.leaves.count; index += 1) {
+          const node = tree.leaves.node[index];
+          const t = tree.cycles * 0.5;
+          if (tree.birth[node] <= t && tree.deadAt[node] > t) { count[strain[node]] += 1; all += 1; }
+        }
+        return Math.max(...shares.map((share, index) => Math.abs(count[index] / all - share)));
+      });
+      return [worst.every((gap) => gap < 0.08)];
+    },
+    expect: [true],
+  },
+  {
     name: 'a hybrid grows a form between its kinds, and its sectors give each kind its share of the leaves, on limbs that last',
     run: (api) => {
       const reach = (mix) => {

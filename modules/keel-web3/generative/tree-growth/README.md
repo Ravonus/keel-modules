@@ -120,10 +120,14 @@ evergreen). A clean bole takes the hardest-pruning kind's `lift`, and shoot
 lengths stay with the major kind when the branching habits differ.
 
 `sectors(model, shares)` then gives each kind whole main limbs, by leaf-years
-carried, so an 80/20 tree shows a fifth of its crown as the minor kind. Only
-limbs that live into maturity count (a self-pruned limb would carry its kind
-as bare sticks); each minor kind takes the limbs that bring it closest to its
-share, and even a tiny share gets one limb. The trunk stays with the first.
+carried, so an 80/20 tree shows a fifth of its crown as the minor kind at
+every age: limbs are dealt out in the order they grow, each to the kind
+furthest behind its share. Only limbs that live a quarter of the life count
+(a limb shaded out young would carry its kind as bare sticks), and even a
+tiny share gets one limb. The trunk stays with the first.
+
+`kindOrnaments(model, species, kinds, kind)` grows that kind's own flowers and
+fruit on its limbs, so cherry limbs on an oak blossom and set cherries.
 
 ```ts
 const tree = growTree({ species: "cherry", seed, mix: { cherry: 0.8, oak: 0.2 } });

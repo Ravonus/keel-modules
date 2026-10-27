@@ -145,6 +145,10 @@ export interface TreeStrain {
   readonly bears?: boolean;
   /** Bark colours for the strain's wood, darkest first (a skin's own bark); left out, the strain's `colors.trunk`. */
   readonly bark?: readonly string[];
+  /** The strain's own kind: a broadleaf limb on a conifer keeps broad leaves, not needles. */
+  readonly species?: string;
+  /** Its leaves hang in strands this long below the twig, world units (a willow's limbs weep on any tree). */
+  readonly hang?: number;
 }
 
 /** A hybrid's minor kind's own flowers and fruit, hanging on its limbs (tree-growth `kindOrnaments`). */
@@ -718,7 +722,7 @@ export const ORNAMENTS: Readonly<Record<string, OrnamentLook>> = {
   candle: { size: [0.4, 1.2, 0.4], lift: 0.65, colors: ["#e2e8b0", "#d0daa0", "#eef0c8"], fall: 0 },
   puff: { size: [0.5, 0.5, 0.5], lift: 0.1, colors: ["#f2d33c", "#f7e26e", "#e6bf27"], fall: 0.6 },
   spadix: { size: [0.4, 1.2, 0.4], lift: -0.55, colors: ["#efe2a6", "#e6d48a", "#f4ecc4"], fall: 0.7 },
-  cherry: { size: [0.6, 0.6, 0.6], lift: -0.7, colors: ["#8e1f2e", "#a8283a", "#6d1624"], green: "#86a24c", fall: 2.4 },
+  cherry: { size: [0.85, 0.85, 0.85], lift: -0.7, colors: ["#c8102e", "#a8102a", "#e0303e"], green: "#86a24c", fall: 2.4 },
   acorn: { size: [0.5, 0.65, 0.5], lift: -0.45, colors: ["#7a5a2a", "#8c6a32", "#6b4f22"], green: "#7f9a4a", fall: 2.6 },
   cone: { size: [0.5, 0.85, 0.5], lift: -0.6, colors: ["#7b5733", "#6a4a2a", "#8a6640"], green: "#6d8a4c", fall: 2.4 },
   coconut: { size: [1.0, 1.1, 1.0], lift: -0.7, colors: ["#7c9a36", "#6b8a2e", "#6a5230"], green: "#86ab3e", fall: 3.2 },
@@ -1040,6 +1044,22 @@ function strainColors(tree: Tree, node: number): TreeColors {
   return (strain > 0 ? tree.strains[strain]?.colors : undefined) ?? tree.colors;
 }
 
+/** The strain an internode belongs to, if the tree has strains. */
+const strainAt = (tree: Tree, node: number): TreeStrain | undefined => (tree.strainOf && node < tree.model.count ? tree.strains[at(tree.strainOf, node)] : undefined);
+
+/** How far a leaf hangs below its twig on a weeping strain: strands of uneven length. */
+function strainDrop(tree: Tree, node: number, index: number): number {
+  const hang = strainAt(tree, node)?.hang ?? 0;
+  return hang > 0 ? hang * (0.25 + ((index * 7) % 8) / 8) : 0;
+}
+
+/** Does this leaf grow as a needle sprig? The tree's own habit, unless its strain is a broadleaf kind. */
+function needleLeaf(tree: Tree, node: number): boolean {
+  if (!tree.needles) return false;
+  const kind = strainAt(tree, node)?.species;
+  return kind === undefined || NEEDLE_KINDS[kind] !== undefined;
+}
+
 /** The skin an internode's strain wears: the tree's own unless its strain sets one or drops it. */
 function strainSkin(tree: Tree, node: number): TreeSkin | null {
   const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
@@ -1104,7 +1124,7 @@ function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
     poseLeaflet(tree, tree.fronds, frame, index, pass, leafSize, swing);
     return;
   }
-  if (tree.needles) {
+  if (needleLeaf(tree, at(tree.model.leaves.node, index))) {
     poseSprig(tree, frame, index, pass, leafSize, swing);
     return;
   }
@@ -1116,7 +1136,7 @@ function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const scale = reach / pass.spread || 1;
   const n: [number, number, number] = [dx / scale, dy / scale, dz / scale];
   const x = at(frame.x, node) + n[0] * out;
-  const y = at(frame.y, node) + n[1] * out;
+  const y = at(frame.y, node) + n[1] * out - strainDrop(tree, node, index);
   const z = at(frame.z, node) + n[2] * out;
   sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
@@ -1236,7 +1256,7 @@ function poseLump(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPas
   const node = at(slots.node, index);
   const rank = at(slots.rank, index);
   const x = at(frame.x, node) + at(slots.dx, index) * pass.spread;
-  const y = at(frame.y, node) + at(slots.dy, index) * pass.spread;
+  const y = at(frame.y, node) + at(slots.dy, index) * pass.spread - strainDrop(tree, node, index);
   const z = at(frame.z, node) + at(slots.dz, index) * pass.spread;
   sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
   const flutter = pass.wind * 0.012 * Math.sin(pass.elapsed * 6.3 + rank * 40);
@@ -1434,12 +1454,11 @@ function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year:
 function bloomColors(tree: Tree, index: number, colors: TreeColors, node: number): readonly string[] {
   if (tree.blooms.length === 0) return colors.spring;
   const total = tree.blooms.reduce((sum, bloom) => sum + bloom.share, 0);
-  // A colour holds for a whole branch (three steps up from the flower), so blooms read as clusters, not confetti.
+  // A colour holds for a whole main limb (up to where it leaves the trunk), so each limb opens in one colour.
   let spray = node;
-  for (let step = 0; step < 3 && tree.model.parent; step += 1) {
-    const up = at(tree.model.parent, spray);
-    if (up < 0) break;
-    spray = up;
+  const { parent, order } = tree.model;
+  if (parent && order) {
+    for (let up = at(parent, spray); up >= 0 && at(order, up) > 0; up = at(parent, spray)) spray = up;
   }
   let roll = ((hash32(spray * 2246822519 + 7) % 10000) / 10000) * total;
   for (const bloom of tree.blooms) if ((roll -= bloom.share) < 0) return bloom.colors;

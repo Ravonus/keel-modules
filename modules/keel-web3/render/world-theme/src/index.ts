@@ -596,9 +596,10 @@ function rollSkin(random: () => number): TreeSkinId {
   return "natural";
 }
 
-function resolveTree(id: TreeSkinId, random: () => number): TreeLook {
+function resolveTree(id: TreeSkinId, random: () => number, pinned?: number): TreeLook {
   const recipe = TREE_SKINS[id];
-  const [variant, palette] = pick(recipe.palettes, random);
+  const rolled = pick(recipe.palettes, random);
+  const [variant, palette] = pinned !== undefined && recipe.palettes[pinned] ? recipe.palettes[pinned] : rolled;
   const [bark, bark2, leaf, leaf2, leaf3, accent] = palette;
   return {
     id, label: recipe.label, rarity: recipe.rarity, variant, leaf: recipe.leaf, bark: recipe.bark, effect: recipe.effect,
@@ -607,9 +608,12 @@ function resolveTree(id: TreeSkinId, random: () => number): TreeLook {
   };
 }
 
-/** One skin's look on its own, for a tree that carries it on only some limbs (a chimera). An unknown id is natural. */
-export function treeLook(id: string, seed: number): TreeLook {
-  return resolveTree(Object.hasOwn(TREE_SKINS, id) ? (id as TreeSkinId) : "natural", createRandom(seed ^ 0x5c1d));
+/**
+ * One skin's look on its own, for a tree that carries it on only some limbs (a chimera). An unknown id is natural.
+ * `palette` pins one of the skin's palettes (0 is its signature: ember burns orange, crystal is ice blue); left out, the seed picks.
+ */
+export function treeLook(id: string, seed: number, palette?: number): TreeLook {
+  return resolveTree(Object.hasOwn(TREE_SKINS, id) ? (id as TreeSkinId) : "natural", createRandom(seed ^ 0x5c1d), palette);
 }
 
 // ---------------------------------------------------------------- signal glitch

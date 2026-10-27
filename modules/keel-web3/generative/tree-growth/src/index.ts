@@ -994,42 +994,45 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
     const parent = at(model.parent, node);
     if (parent >= 0) carried[parent] = at(carried, parent) + at(carried, node);
   }
-  // Main limbs that live into maturity: a self-pruned lower limb would carry its strain as bare sticks.
+  // Main limbs that live a good while (a quarter of the life): a limb shaded out young would carry its strain as bare sticks.
   const main: number[] = [];
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);
     if (at(order, node) > 0 && (parent < 0 || at(order, parent) === 0) && at(carried, node) > 0) main.push(node);
   }
-  const lasting = main.filter((node) => at(model.deadAt, node) >= model.matureAt);
+  const lasting = main.filter((node) => Math.min(at(model.deadAt, node), model.cycles) - at(model.birth, node) >= model.cycles * 0.25);
   const limbs = lasting.length >= shares.length ? lasting : main;
-  const total = limbs.reduce((sum, node) => sum + at(carried, node), 0);
   const random = createRandom(seed ^ 0x5ec7);
-  // Shuffle so the sectors fall round the crown, not in growth order.
+  // Shuffle first so limbs born together (a whorl) fall to different strains, then walk them in the order
+  // they grow: each goes to the strain furthest behind its share, so every age of the tree shows each strain
+  // at its share, not only the old tree.
   for (let index = limbs.length - 1; index > 0; index -= 1) {
     const other = Math.floor(random() * (index + 1));
     [limbs[index], limbs[other]] = [limbs[other]!, limbs[index]!];
   }
+  limbs.sort((a, b) => Math.round(at(model.birth, a) * 2) - Math.round(at(model.birth, b) * 2));
   const sum = shares.reduce((acc, share) => acc + Math.max(0, share), 0) || 1;
-  const want = shares.map((share) => (Math.max(0, share) / sum) * total);
+  const want = shares.map((share) => Math.max(0, share) / sum);
   const have = new Float64Array(shares.length);
   const owner = new Map<number, number>();
-  // The minor strains pick first, each taking whichever limb brings it closest to its share while that helps
-  // (a strain with none takes its closest limb anyway); the first strain takes what is left.
-  for (let index = shares.length - 1; index > 0; index -= 1) {
-    const goal = want[index] ?? 0;
-    if (goal <= 0) continue;
-    for (;;) {
-      let best = -1;
-      let gap = at(have, index) === 0 ? Infinity : Math.abs(goal - at(have, index));
-      for (const limb of limbs) {
-        if (owner.has(limb)) continue;
-        const off = Math.abs(goal - at(have, index) - at(carried, limb));
-        if (off < gap) { gap = off; best = limb; }
-      }
-      if (best < 0) break;
-      owner.set(best, index);
-      have[index] = at(have, index) + at(carried, best);
+  let walked = 0;
+  for (const limb of limbs) {
+    walked += at(carried, limb);
+    let pick = 0;
+    let behind = -Infinity;
+    for (let index = 0; index < shares.length; index += 1) {
+      const short = (want[index] ?? 0) * walked - at(have, index);
+      if ((want[index] ?? 0) > 0 && short > behind) { behind = short; pick = index; }
     }
+    owner.set(limb, pick);
+    have[pick] = at(have, pick) + at(carried, limb);
+  }
+  // Even a tiny share holds a limb: the smallest one, taken from the first strain.
+  for (let index = 1; index < shares.length; index += 1) {
+    if ((want[index] ?? 0) <= 0 || at(have, index) > 0) continue;
+    let small = -1;
+    for (const limb of limbs) if (owner.get(limb) === 0 && (small < 0 || at(carried, limb) < at(carried, small))) small = limb;
+    if (small >= 0) { owner.set(small, index); have[index] = at(carried, small); }
   }
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);

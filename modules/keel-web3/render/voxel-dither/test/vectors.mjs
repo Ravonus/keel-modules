@@ -8,6 +8,16 @@ export default [
     expect: ['smart', 'auto', 16, 0, null, ['#abcdef'], [40, 40]],
   },
   {
+    name: 'spot inks and the sky push are bounded, and pocket and chunky carry them',
+    run: ({ ditherSettings }) => {
+      const wild = ditherSettings({ accent: ['#FF0000', 'pink', '#00ff00', '#0000ff', '#ffffff', '#000000'], skySaturation: 9 });
+      const pocket = ditherSettings({ style: 'pocket' });
+      const chunky = ditherSettings({ style: 'chunky' });
+      return [wild.accent, wild.skySaturation, ditherSettings().accent, ditherSettings().skySaturation, pocket.accent.length, chunky.skySaturation > 1];
+    },
+    expect: [['#ff0000', '#00ff00', '#0000ff', '#ffffff'], 3, [], 1, 2, true],
+  },
+  {
     name: 'a style is a preset and a setting beside it overrides it',
     run: ({ ditherSettings }) => {
       const chunky = ditherSettings({ style: 'chunky' });

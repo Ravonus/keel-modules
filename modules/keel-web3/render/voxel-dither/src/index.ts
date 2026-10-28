@@ -55,6 +55,14 @@ export interface DitherSettings {
   readonly color: ColorMode;
   /** Up to 32 #rrggbb entries; when set, every pixel is one of them. */
   readonly palette: readonly string[];
+  /**
+   * Up to 4 spot inks beside the palette. A pixel takes one only when it is
+   * already clearly of that ink's hue (never the sky), so a four-tone palette
+   * can keep a pink blossom without turning a pale sky pink.
+   */
+  readonly accent: readonly string[];
+  /** 0 to 3: the sky and far band's saturation, and how much their hue outweighs lightness when it picks a palette entry, so a fixed palette finds its blue instead of greys. */
+  readonly skySaturation: number;
   /** How much of the screen's spread is used, 0 (posterized) to 1. */
   readonly amount: number;
   /**
@@ -116,10 +124,10 @@ export const DITHER_STYLES = {
   soft: { label: "Soft ordered", screen: "bayer8", pixel: 3, levels: 5, lift: 0.12, clump: 0.4, ramp: 0.3, color: "luma", shading: "smooth", outline: 0.5, crease: 0.2, contrast: 0.92, saturation: 0.95 },
   halftone: { label: "Riso print", screen: "halftone", pixel: 2, palette: RISO_10, shading: "smooth", outline: 0.7, outlineColor: "#3e4597", crease: 0, contrast: 1.15, saturation: 1.3 },
   engraving: { label: "Engraving", screen: "hatch", pixel: 2, levels: 3, color: "luma", shading: "smooth", outline: 1, outlineColor: "#1d1a24", crease: 0.3, saturation: 0.55, rays: 1.3 },
-  chunky: { label: "Chunky 8-bit", screen: "bayer2", pixel: 6, palette: PICO_16, clump: 0.5, shading: "cel", bands: 3, outline: 1, crease: 0.4, contrast: 1.15, saturation: 1.3 },
+  chunky: { label: "Chunky 8-bit", screen: "bayer2", pixel: 6, palette: PICO_16, amount: 0.4, skySaturation: 2, clump: 0.85, shading: "cel", bands: 3, outline: 1, crease: 0.4, contrast: 1.15, saturation: 1.3 },
   grain: { label: "Film grain", screen: "ign", pixel: 2, levels: 6, lift: 0.14, ramp: 1, color: "luma", shading: "smooth", outline: 0.4, crease: 0.1, contrast: 1.2, saturation: 0.8 },
   blossom: { label: "Blossom 16", screen: "bayer4", pixel: 3, palette: BLOSSOM_16, shading: "cel", bands: 4, outline: 0.9, crease: 0.3 },
-  pocket: { label: "Pocket green", screen: "bayer4", pixel: 4, palette: ["#0f2a1d", "#2f5a35", "#7a9a4a", "#cddc8a"], shading: "cel", bands: 3, outline: 0, crease: 0, saturation: 1, rays: 0.6 },
+  pocket: { label: "Pocket green", screen: "bayer4", pixel: 4, palette: ["#0f2a1d", "#2f5a35", "#7a9a4a", "#cddc8a"], accent: ["#e8a6b8", "#a85a76"], shading: "cel", bands: 3, outline: 0, crease: 0, saturation: 1, rays: 0.6 },
   clean: { label: "Clean cel", screen: "none", pixel: 3, levels: 5, clump: 1, lift: 0.05, color: "luma", shading: "cel", bands: 3, outline: 1, outlineColor: "#241a2e", crease: 0.5, contrast: 1.15, saturation: 1.35 },
   crt: { label: "CRT painted", screen: "bayer8", pixel: 2, levels: 7, snap: 0.75, color: "luma", shading: "smooth", outline: 1, outlineColor: "#0b0d22", crease: 0.15, contrast: 1.3, saturation: 1.55, scanlines: 0.55, chroma: 0.5 },
 } as const satisfies Readonly<Record<string, StyleFields>>;
@@ -133,6 +141,8 @@ export const DEFAULT_DITHER_SETTINGS: DitherSettings = {
   levels: 6,
   color: "luma",
   palette: [],
+  accent: [],
+  skySaturation: 1,
   amount: 1,
   snap: 0,
   lift: 0,
@@ -188,11 +198,13 @@ function presetOf(style: StyleId): DitherSettings {
   return { ...DEFAULT_DITHER_SETTINGS, ...fields, style };
 }
 
-function toneFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "levels" | "color" | "palette" | "amount" | "snap" | "lift" | "clump" | "ramp" | "contrast" | "saturation"> {
+function toneFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "levels" | "color" | "palette" | "accent" | "skySaturation" | "amount" | "snap" | "lift" | "clump" | "ramp" | "contrast" | "saturation"> {
   return {
     levels: Math.round(bounded(value.levels, 2, 16, base.levels)),
     color: oneOf(value.color, ["rgb", "luma"], base.color),
     palette: paletteOf(value.palette, base.palette),
+    accent: paletteOf(value.accent, base.accent).slice(0, 4),
+    skySaturation: bounded(value.skySaturation, 0, 3, base.skySaturation),
     amount: bounded(value.amount, 0, 1, base.amount),
     snap: bounded(value.snap, 0, 0.9, base.snap),
     lift: bounded(value.lift, 0, 0.3, base.lift),
@@ -444,6 +456,10 @@ uniform float uClump;
 uniform float uRamp;
 uniform float uLuma;
 uniform int uPaletteSize;
+uniform int uAccentSize;
+uniform vec3 uAccent[4];
+uniform vec3 uAccentLab[4];
+uniform float uSkySaturation;
 uniform vec3 uPalette[32];
 uniform vec3 uPaletteLab[32];
 uniform float uOutline;
@@ -536,14 +552,28 @@ vec3 okLab(vec3 c) {
   vec3 lms = pow(max(mat3(0.4122, 0.2119, 0.0883, 0.5363, 0.6807, 0.2817, 0.0514, 0.1074, 0.63) * c, 0.0), vec3(1.0 / 3.0));
   return mat3(0.2105, 1.978, 0.0259, 0.7936, -2.4286, 0.7828, -0.0041, 0.4506, -0.8087) * lms;
 }
-vec3 stepPalette(vec3 c, float t) {
+vec3 stepPalette(vec3 c, float t, bool spot, float hueWeight) {
   vec3 best = c; vec3 next = c; vec3 bl = c; vec3 nl = c;
   float bd = 1e9; float nd = 1e9;
   vec3 lab = okLab(c);
+  // Spot inks: taken only by a pixel already clearly of the ink's hue, dithering between the inks alone.
+  if (spot && uAccentSize > 0 && length(lab.yz) > 0.028) {
+    float hue = atan(lab.z, lab.y);
+    for (int i = 0; i < 4; i++) {
+      if (i >= uAccentSize) break;
+      vec3 al = uAccentLab[i];
+      if (abs(mod(atan(al.z, al.y) - hue + 3.14159, 6.28318) - 3.14159) > 0.35) continue;
+      vec3 e = (al - lab) * vec3(1.0, 1.6, 1.6);
+      float d = dot(e, e);
+      if (d < bd) { nd = bd; next = best; bd = d; best = uAccent[i]; }
+      else if (d < nd) { nd = d; next = uAccent[i]; }
+    }
+    if (bd < 1e8) return t < sqrt(bd) / max(1e-5, sqrt(bd) + sqrt(nd)) && nd < 1e8 ? next : best;
+  }
   for (int i = 0; i < 32; i++) {
     if (i >= uPaletteSize) break;
     // Hue outweighs lightness: a pale sky picks a pale blue, not a grey.
-    vec3 e = (uPaletteLab[i] - lab) * vec3(1.0, 1.6, 1.6);
+    vec3 e = (uPaletteLab[i] - lab) * vec3(1.0, hueWeight, hueWeight);
     float d = dot(e, e);
     if (d < bd) { nd = bd; next = best; nl = bl; bd = d; best = uPalette[i]; bl = uPaletteLab[i]; }
     else if (d < nd) { nd = d; next = uPalette[i]; nl = uPaletteLab[i]; }
@@ -750,7 +780,9 @@ void main() {
   c = mix(0.1 * exp(c * 10.0 - 1.0), c, step(0.1, c));
   float lo = 1.0 - clamp(lumaOf(c), 0.0, 1.0);
   c += uLift * lo * lo * lo * vec3(0.8, 0.9, 1.3) + (sky ? 0.0 : uRamp) * 0.09 * (0.55 - lo) * vec3(1.0, 0.3, -0.9);
-  c = mix(vec3(lumaOf(c)), c, uSaturation);
+  // Only a light far band is pushed: a night or blue-hour sky keeps its depth.
+  float farPush = band == 2 ? mix(1.0, uSkySaturation, smoothstep(0.3, 0.6, lumaOf(c))) : 1.0;
+  c = mix(vec3(lumaOf(c)), c, uSaturation * farPush);
   // Outlines thin out with distance, so a far skyline is a soft edge, not a wire.
   float outline = uOutline * (band == 0 ? 1.0 : band == 1 ? 0.7 : 0.3);
   vec3 ink = uOutlineColor.a > 0.5 ? uOutlineColor.rgb : c * vec3(0.36, 0.33, 0.46);
@@ -765,7 +797,7 @@ void main() {
   if (sky && uPaletteSize > 0) amount *= 0.35;
   float t = 0.5 + (screenAt(screen, floor(cell / scale)) - 0.5) * amount * (1.0 - edge * outline);
   // Alpha carries this pixel's scanline strength to the blit.
-  gl_FragColor = vec4(uPaletteSize > 0 ? stepPalette(c, t) : stepTones(c, t), signal.x);
+  gl_FragColor = vec4(uPaletteSize > 0 ? stepPalette(c, t, !sky, 1.6 * farPush) : stepTones(c, t), signal.x);
 }
 `;
 
@@ -1105,6 +1137,7 @@ function createUniforms(): Record<string, Uniform> {
     tColor: { value: null }, tDepth: { value: null }, uGrid: { value: [1, 1] }, uPixel: { value: 1 }, uOrigin: { value: [0, 0] },
     uScreen: { value: [2, 3, 8] }, uScale: { value: [1, 1, 1] },
     uAmount: { value: [1, 1, 1] }, uBands: { value: [18, 30] }, uLevels: { value: 6 }, uSnap: { value: 0 }, uLift: { value: 0 }, uClump: { value: 0 }, uRamp: { value: 0 }, uLuma: { value: 1 }, uPaletteSize: { value: 0 },
+    uAccentSize: { value: 0 }, uAccent: { value: new Float32Array(12) }, uAccentLab: { value: new Float32Array(12) }, uSkySaturation: { value: 1 },
     uPalette: { value: new Float32Array(96) }, uPaletteLab: { value: new Float32Array(96) }, uOutline: { value: 0.9 }, uOutlineColor: { value: [0, 0, 0, 0] }, uCrease: { value: 0.35 },
     uContrast: { value: 1 }, uSaturation: { value: 1 }, uSkyFrom: { value: 100 }, uRaySource: { value: [0.5, 0.5] }, uRayColor: { value: [1, 1, 1] },
     uRayStrength: { value: 0 }, uRayDecay: { value: 0.95 }, uRayDensity: { value: 0.8 }, tLook: { value: null },
@@ -1130,6 +1163,11 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
   set("uPalette", palette.data);
   set("uPaletteLab", palette.lab);
   set("uPaletteSize", palette.size);
+  const accent = paletteUniform(settings.accent);
+  set("uAccent", accent.data.subarray(0, 12));
+  set("uAccentLab", accent.lab.subarray(0, 12));
+  set("uAccentSize", accent.size);
+  set("uSkySaturation", settings.skySaturation);
   set("uOutline", settings.outline);
   set("uOutlineColor", settings.outlineColor === null ? [0, 0, 0, 0] : [...hexChannels(settings.outlineColor), 1]);
   set("uCrease", settings.crease);

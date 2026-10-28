@@ -24,7 +24,12 @@ What it does, per art pixel:
   (a pale sky, a night navy) keeps its hue. A `palette` (up to 32 colours,
   matched in OKLab with hue weighted over lightness) replaces both; only
   neighbouring entries on a ramp dither, so far-apart colours meet in a clean
-  edge. A dark sky bands flat instead of dotting.
+  edge. A dark sky bands flat instead of dotting. `accent` adds up to 4 spot
+  inks beside the palette: a pixel takes one only when it is already clearly
+  of that ink's hue and is not sky, so `pocket`'s four greens keep a pink
+  blossom without pinking the sky or a red maple. `skySaturation` (0 to 3)
+  pushes a light far band's saturation and hue weight, so a fixed palette
+  finds its blue instead of greys; a night or blue-hour sky is left alone.
 - **Shadow lift, clump and hue ramps.** `lift` raises the darkest tones toward
   a cool blue so night never crushes to black (contrast already runs into
   black through a soft knee); `clump` gathers sub-pixel speckle (leaves,
@@ -46,8 +51,8 @@ never outlined.
 
 `smart` (the default), `pixel` (3D pixel art: big art pixels, a hard
 Bayer screen on every channel and three cel bands, for smooth low-poly scenes), `bayer` (DawnBringer's 32),
-`soft` (pastel, milky shadows), `halftone` (risograph inks on cream), `engraving`, `chunky` (PICO-8's 16),
-`grain` (film: fine noise, lifted blacks, warm lights), `blossom` (a 16-colour palette), `pocket` (4 greens), `clean`
+`soft` (pastel, milky shadows), `halftone` (risograph inks on cream), `engraving`, `chunky` (PICO-8's 16, a light dither and a pushed sky),
+`grain` (film: fine noise, lifted blacks, warm lights), `blossom` (a 16-colour palette), `pocket` (4 greens and two blossom-pink spot inks), `clean`
 (posterized cel with plum ink, no dither) and `crt` (painted 3D pixel art: fine pixels,
 smooth light, dark ink outlines, rich colour, scanlines and a colour fringe). A setting passed with `style` overrides the
 preset's. `snap` (0 to 0.9) keeps flat in-between tones clean: most of each

@@ -48,6 +48,8 @@
     { "key": "scanlines", "label": "Scanlines", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
     { "key": "chroma", "label": "Colour fringe", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider" },
     { "key": "glitch", "label": "Glitch", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "control": "slider", "help": "Signal bursts that tear rows and drop blocks of the frame. Timed by setTime." },
-    { "key": "palette", "label": "Palette", "type": "palette", "required": false, "placement": "advanced", "help": "Up to 32 colors. When set, every pixel is one of them.", "minItems": 0, "maxItems": 32 }
+    { "key": "palette", "label": "Palette", "type": "palette", "required": false, "placement": "advanced", "help": "Up to 32 colors. When set, every pixel is one of them.", "minItems": 0, "maxItems": 32 },
+    { "key": "accent", "label": "Spot inks", "type": "palette", "required": false, "placement": "advanced", "help": "Up to 4 colors beside the palette. A pixel takes one only when it is already clearly of that hue and is not sky.", "minItems": 0, "maxItems": 4 },
+    { "key": "skySaturation", "label": "Sky push", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 3, "step": 0.1, "control": "slider", "help": "Pushes a light far band's saturation, so a fixed palette finds its blue instead of greys. Night skies are left alone." }
   ]
 }

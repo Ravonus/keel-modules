@@ -1217,7 +1217,8 @@ export const PACE: Readonly<Record<SpeciesId, Pace>> = {
   birch: { prime: 0.28, quick: 4.4, old: 0.875 },
   acacia: { prime: 0.25, quick: 4.4, old: 0.9 },
   jacaranda: { prime: 0.28, quick: 4.4, old: 0.9 },
-  cherry: { prime: 0.3, quick: 3.9, old: 0.9 },
+  // Cherries are quick growers: a nursery tree is well over head height by its sixth year.
+  cherry: { prime: 0.3, quick: 4.9, old: 0.9 },
   maple: { prime: 0.38, quick: 3.6, old: 0.925 },
   palm: { prime: 0.4, quick: 3.1, old: 0.925 },
   pine: { prime: 0.45, quick: 3.4, old: 0.925 },
@@ -1251,12 +1252,12 @@ function grownShare(u: number, quick: number): number {
 
 /**
  * How much faster the early curve runs over a life measured to old age: a young tree puts on most of its
- * crown in its first years (a 6-year cherry stands about 3.5 m, as a nursery tree does), then fills out slowly.
+ * crown in its first years (a 6-year cherry stands about 4.5 m), then fills out slowly.
  */
-const YOUTH = 2.8;
+const YOUTH = 3.2;
 
 /** The share of a tree's growing that comes on steadily, year after year, rather than early. */
-const STEADY_GROWTH = 0.4;
+const STEADY_GROWTH = 0.42;
 
 /**
  * The growth cycle at an age: a fresh sprout at birth, quick when young, then

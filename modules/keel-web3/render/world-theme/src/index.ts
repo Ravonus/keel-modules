@@ -621,8 +621,19 @@ export function treeLook(id: string, seed: number, palette?: number): TreeLook {
 /** The parts of the scene a glitch can hit. It never takes the whole frame unless it hits all three. */
 export type GlitchPart = "planter" | "tree" | "world";
 export const GLITCH_PARTS: readonly GlitchPart[] = ["planter", "tree", "world"];
-/** How badly one part misbehaves. */
-export type GlitchKind = "clean" | "scanlines" | "fringe" | "flicker" | "tear";
+/**
+ * How one part misbehaves. The first five roll from a seed; the rest (and "full") are only ever
+ * given, as a genome's signal alleles, and wear one of the voxel-dither look's part filters.
+ */
+export type GlitchKind =
+  | "clean" | "scanlines" | "fringe" | "flicker" | "tear"
+  | "snow" | "film" | "mosaic" | "cga" | "negative" | "glow" | "vhs" | "bleed" | "wave" | "nightvision" | "sparkle"
+  | "thermal" | "neon" | "rainbow" | "slitscan" | "pixelsort" | "datamosh" | "holo" | "full";
+
+/** The voxel-dither part filters a signal can wear (the look's `SIGNAL_FILTERS`, less "none"). */
+export type SignalFilterId =
+  | "snow" | "film" | "mosaic" | "cga" | "negative" | "glow" | "vhs" | "bleed" | "wave" | "nightvision" | "sparkle"
+  | "thermal" | "neon" | "rainbow" | "slitscan" | "pixelsort" | "datamosh" | "holo";
 
 interface GlitchRecipe {
   readonly label: string;
@@ -633,6 +644,9 @@ interface GlitchRecipe {
   readonly scanlines: number;
   readonly chroma: number;
   readonly glitch: number;
+  /** A part filter and its amount (0 to 1). */
+  readonly filter?: SignalFilterId;
+  readonly amount?: number;
 }
 
 export const GLITCH_KINDS: Readonly<Record<GlitchKind, GlitchRecipe>> = {
@@ -641,6 +655,25 @@ export const GLITCH_KINDS: Readonly<Record<GlitchKind, GlitchRecipe>> = {
   fringe: { label: "Colour fringe", rarity: "uncommon", weight: 50, scanlines: 0.3, chroma: 0.8, glitch: 0 },
   flicker: { label: "Flicker", rarity: "rare", weight: 25, scanlines: 0.5, chroma: 0.5, glitch: 0.35 },
   tear: { label: "Torn signal", rarity: "epic", weight: 15, scanlines: 0.65, chroma: 0.7, glitch: 0.75 },
+  snow: { label: "Static snow", rarity: "uncommon", weight: 0, scanlines: 0.2, chroma: 0, glitch: 0, filter: "snow", amount: 0.8 },
+  film: { label: "Old film", rarity: "uncommon", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "film", amount: 1 },
+  mosaic: { label: "Mosaic", rarity: "uncommon", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "mosaic", amount: 0.6 },
+  cga: { label: "CGA colour", rarity: "uncommon", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "cga", amount: 1 },
+  negative: { label: "Negative", rarity: "rare", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "negative", amount: 1 },
+  glow: { label: "Glow", rarity: "rare", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "glow", amount: 0.8 },
+  vhs: { label: "VHS tracking", rarity: "rare", weight: 0, scanlines: 0.45, chroma: 0.4, glitch: 0.15, filter: "vhs", amount: 0.9 },
+  bleed: { label: "Colour bleed", rarity: "rare", weight: 0, scanlines: 0, chroma: 0.5, glitch: 0, filter: "bleed", amount: 1 },
+  wave: { label: "Heat wave", rarity: "rare", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "wave", amount: 0.8 },
+  nightvision: { label: "Night vision", rarity: "rare", weight: 0, scanlines: 0.5, chroma: 0, glitch: 0, filter: "nightvision", amount: 1 },
+  sparkle: { label: "Sparkle", rarity: "rare", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "sparkle", amount: 1 },
+  thermal: { label: "Thermal", rarity: "epic", weight: 0, scanlines: 0.2, chroma: 0, glitch: 0, filter: "thermal", amount: 1 },
+  neon: { label: "Neon", rarity: "epic", weight: 0, scanlines: 0, chroma: 0.3, glitch: 0, filter: "neon", amount: 1 },
+  rainbow: { label: "Rainbow", rarity: "epic", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "rainbow", amount: 0.9 },
+  slitscan: { label: "Slit-scan", rarity: "epic", weight: 0, scanlines: 0, chroma: 0, glitch: 0, filter: "slitscan", amount: 1 },
+  pixelsort: { label: "Pixel sort", rarity: "legendary", weight: 0, scanlines: 0, chroma: 0, glitch: 0.2, filter: "pixelsort", amount: 1 },
+  datamosh: { label: "Datamosh", rarity: "legendary", weight: 0, scanlines: 0.3, chroma: 0.6, glitch: 0.5, filter: "datamosh", amount: 1 },
+  holo: { label: "Hologram", rarity: "legendary", weight: 0, scanlines: 0.4, chroma: 0, glitch: 0, filter: "holo", amount: 1 },
+  full: { label: "Full glitch", rarity: "legendary", weight: 0, scanlines: 0.8, chroma: 1, glitch: 1 },
 };
 const GLITCH_KIND_IDS = Object.keys(GLITCH_KINDS) as GlitchKind[];
 /** Draws out of 1000 for a full glitch: every part torn at full strength. */
@@ -651,6 +684,8 @@ export interface PartGlitch {
   readonly scanlines: number;
   readonly chroma: number;
   readonly glitch: number;
+  readonly filter?: SignalFilterId;
+  readonly amount?: number;
 }
 
 export interface GlitchLook {
@@ -703,6 +738,30 @@ function resolveGlitch(forced: string | undefined, random: () => number): Glitch
   return { id: full ? "full" : hit.length === 0 ? "clean" : hit.join("+"), rarity: full ? "legendary" : worst, full, parts };
 }
 
+/**
+ * A genome's signals: each part's kind given, nothing rolled. `strength` (0 to 1) scales every
+ * effect, so a plain tree wears its signal faintly and a refined one wears it fully. "full" on any
+ * part tears all three.
+ */
+function givenGlitch(signals: SignalInput, strength: number): GlitchLook {
+  const kindOf = (part: GlitchPart): GlitchKind => (Object.hasOwn(GLITCH_KINDS, signals[part] ?? "") ? (signals[part] as GlitchKind) : "clean");
+  const full = GLITCH_PARTS.some((part) => kindOf(part) === "full");
+  const scale = Math.min(1, Math.max(0, strength));
+  const at = (value: number): number => Math.round(value * scale * 100) / 100;
+  const parts = Object.fromEntries(GLITCH_PARTS.map((part) => {
+    const kind = full ? "full" : kindOf(part);
+    const recipe = GLITCH_KINDS[kind];
+    const filter = recipe.filter === undefined ? {} : { filter: recipe.filter, amount: at(recipe.amount ?? 1) };
+    return [part, { kind, scanlines: at(recipe.scanlines), chroma: at(recipe.chroma), glitch: at(recipe.glitch), ...filter }];
+  })) as Record<GlitchPart, PartGlitch>;
+  const hit = GLITCH_PARTS.filter((part) => parts[part].kind !== "clean");
+  const worst = hit.reduce<Rarity>((rarest, part) => {
+    const rarity = GLITCH_KINDS[parts[part].kind].rarity;
+    return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(rarest) ? rarity : rarest;
+  }, "common");
+  return { id: full ? "full" : hit.length === 0 ? "clean" : hit.join("+"), rarity: full ? "legendary" : worst, full, parts };
+}
+
 function glitchName(glitch: GlitchLook): string {
   if (glitch.full) return " · legendary full glitch";
   const hit = GLITCH_PARTS.filter((part) => glitch.parts[part].kind !== "clean");
@@ -712,6 +771,13 @@ function glitchName(glitch: GlitchLook): string {
 }
 
 // ---------------------------------------------------------------- the theme
+
+/** A signal kind for each part, as a genome gives them; a part left out is clean. */
+export interface SignalInput {
+  readonly planter?: string;
+  readonly tree?: string;
+  readonly world?: string;
+}
 
 export interface ThemeInput {
   /** A planter id, or "seed" (or anything unknown) to let the seed choose. */
@@ -724,6 +790,10 @@ export interface ThemeInput {
   readonly tree?: string;
   /** "clean", "full", a part to tear ("planter", "tree", "world"), or "seed" to roll each part: most are clean, a full glitch is the rarest. */
   readonly glitch?: string;
+  /** Each part's signal kind (any of `GLITCH_KINDS`), overriding `glitch`: nothing is rolled. */
+  readonly signals?: SignalInput;
+  /** How strongly given `signals` apply, 0 to 1 (default 1). */
+  readonly signalStrength?: number;
   /** Pin the planter's palette to this one of its recipe's (0 is the material's signature look: lava is basalt and fire); left out, the seed picks. */
   readonly planterPalette?: number;
   readonly seed: number;
@@ -743,6 +813,13 @@ function seededPlanter(random: () => number): PlanterId {
   return roll < 0.22 ? "earth" : pick(PLANTER_IDS.filter((id) => id !== "earth"), random);
 }
 
+/** The theme's signal: the genome's when it gives one, else rolled on the glitch stream. */
+function themeGlitch(input: ThemeInput): GlitchLook {
+  if (input.signals !== undefined) return givenGlitch(input.signals, input.signalStrength ?? 1);
+  const forced = ["clean", "full", ...GLITCH_PARTS].includes(input.glitch ?? "") ? input.glitch : undefined;
+  return resolveGlitch(forced, createRandom((input.seed >>> 0) ^ 0x611c4));
+}
+
 /** Resolves a theme: the same input always gives the same look. */
 export function themeFor(input: ThemeInput): Theme {
   const random = createRandom((input.seed >>> 0) ^ 0x7e3a11);
@@ -757,8 +834,6 @@ export function themeFor(input: ThemeInput): Theme {
   const treeRandom = createRandom((input.seed >>> 0) ^ 0x5eed7a);
   const tree = resolveTree(Object.hasOwn(TREE_SKINS, input.tree ?? "") ? (input.tree as TreeSkinId) : rollSkin(treeRandom), treeRandom);
   const treeName = tree.natural ? "" : ` · ${tree.rarity} ${tree.label.toLowerCase()} tree (${tree.variant})`;
-  const glitchRandom = createRandom((input.seed >>> 0) ^ 0x611c4);
-  const forced = ["clean", "full", ...GLITCH_PARTS].includes(input.glitch ?? "") ? input.glitch : undefined;
-  const glitch = resolveGlitch(forced, glitchRandom);
+  const glitch = themeGlitch(input);
   return { planter, world, tree, glitch, name: `${planterName} over ${world.label} · ${world.variant}${treeName}${glitchName(glitch)}` };
 }

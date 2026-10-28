@@ -431,6 +431,8 @@ uniform float uGlitch;
 uniform float uTime;
 // Per-part signals: x scanlines, y chroma, z glitch, for the parts tagged 1, 2 and 3.
 uniform vec3 uSignal[3];
+// Per-part filters: x the filter's number in SIGNAL_FILTERS, y its amount.
+uniform vec2 uFilter[3];
 ${SCREEN_GLSL}
 vec2 cellUv(vec2 cell) { return (clamp(cell, vec2(0.0), uGrid - 1.0) + 0.5) / uGrid; }
 float distanceAt(vec2 cell) {
@@ -545,11 +547,104 @@ vec2 glitchCell(vec2 cell, int part) {
   }
   return cell;
 }
+vec2 filterOf(int part) { return part == 1 ? uFilter[0] : part == 2 ? uFilter[1] : part == 3 ? uFilter[2] : vec2(0.0); }
+bool isFilter(vec2 f, float id) { return f.y > 0.0 && abs(f.x - id) < 0.5; }
+vec3 rgbAt(vec2 cell) { return toSrgb(texture2D(tColor, cellUv(cell)).rgb); }
+float lumaOf(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+vec3 hueOf(float h) { return clamp(abs(fract(h + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0); }
+// Filters that move pixels: where a filtered part reads from. Every offset is a
+// whole art pixel, so a filter never smears the grid.
+vec2 filterCell(vec2 cell, vec2 f, int part) {
+  float a = f.y;
+  // mosaic: the part is drawn in blocks of 2 to 4 art pixels
+  if (isFilter(f, 3.0)) { float k = 2.0 + floor(a * 2.0); cell = floor(cell / k) * k + floor(k * 0.5); }
+  // vhs: rows wobble, and a band of tracking noise rolls up the frame
+  if (isFilter(f, 7.0)) {
+    float band = 1.0 - smoothstep(0.0, 5.0, abs(cell.y - fract(uTime * 0.06) * uGrid.y));
+    cell.x += floor(sin(cell.y * 0.37 + uTime * 2.7) * a * 1.4 + band * a * 7.0 * (signalHash(vec2(cell.y, floor(uTime * 12.0))) - 0.5));
+  }
+  // wave: heat haze, rows sway on a slow sine
+  if (isFilter(f, 9.0)) cell.x += floor(sin(cell.y * 0.22 + uTime * 2.1) * (1.0 + 2.5 * a) + 0.5);
+  // slitscan: each row shows the part at its own moment, so the part shears and unshears
+  if (isFilter(f, 15.0)) cell.x += floor(sin(cell.y * 0.045 - uTime * 0.9) * uGrid.x * 0.035 * a + 0.5);
+  // datamosh: blocks of the part jump and stick for half a second
+  if (isFilter(f, 17.0)) {
+    vec2 block = floor(cell / 6.0);
+    float slot = floor(uTime * 2.0);
+    if (signalHash(block + slot * 7.31) > 1.0 - 0.32 * a) cell += floor((vec2(signalHash(block + slot), signalHash(block - slot + 3.0)) - 0.5) * 14.0 * a);
+  }
+  // pixel sort: bright runs of the part drip down over darker pixels below them
+  if (isFilter(f, 16.0)) {
+    vec2 pick = cell;
+    float best = 0.42;
+    for (int k = 1; k <= 14; k++) {
+      if (float(k) > 14.0 * a) break;
+      vec2 p = clamp(cell + vec2(0.0, float(k)), vec2(0.0), uGrid - 1.0);
+      if (partAt(p) != part) break;
+      float l = lumaOf(rgbAt(p));
+      if (l > best + 0.03) { best = l; pick = p; }
+    }
+    cell = pick;
+  }
+  return clamp(cell, vec2(0.0), uGrid - 1.0);
+}
+// Filters that change colour, applied before the tones are stepped, so a
+// filtered part is still dithered pixel art.
+vec3 filterColor(vec3 c, vec2 cell, vec2 f, float edge) {
+  if (f.y <= 0.0) return c;
+  float a = clamp(f.y, 0.0, 1.0);
+  float l = lumaOf(c);
+  float frame = floor(uTime * 12.0);
+  vec3 o = c;
+  // snow: static speckles
+  if (isFilter(f, 1.0)) o = mix(c, vec3(signalHash(cell + frame * 1.37)), step(1.0 - 0.22 * a, signalHash(cell * 1.31 + frame)));
+  // film: sepia, a little grain, and the gate's flicker
+  if (isFilter(f, 2.0)) o = vec3(l * 1.07 + 0.05, l * 0.9 + 0.03, l * 0.68) * (0.93 + 0.07 * signalHash(vec2(frame, 2.0))) + (signalHash(cell + frame) - 0.5) * 0.08;
+  // cga: the four-colour 1981 palette
+  if (isFilter(f, 4.0)) o = l < 0.2 ? vec3(0.0) : l < 0.5 ? vec3(0.33, 1.0, 1.0) * (0.55 + l) : l < 0.78 ? vec3(1.0, 0.33, 1.0) : vec3(1.0);
+  // negative
+  if (isFilter(f, 5.0)) o = 1.0 - c;
+  // glow: bright pixels bloom into their neighbours
+  if (isFilter(f, 6.0) || isFilter(f, 13.0)) {
+    vec3 sum = vec3(0.0);
+    for (int k = 0; k < 8; k++) {
+      float t = float(k) * 0.785398;
+      vec3 s = rgbAt(cell + floor(vec2(cos(t), sin(t)) * 2.5 + 0.5));
+      sum += s * smoothstep(0.45, 0.9, lumaOf(s));
+    }
+    o = c + sum * 0.22;
+    // neon: dark bodies, glowing rims in a cycling hue
+    if (isFilter(f, 13.0)) o = edge > 0.5 ? hueOf(fract(cell.y * 0.01 + uTime * 0.12)) * 1.2 : c * 0.22 + sum * 0.12;
+  }
+  // bleed: colour smears to the right of where it belongs, as on a worn tape
+  if (isFilter(f, 8.0)) {
+    vec3 smear = (rgbAt(cell - vec2(1.0, 0.0)) + rgbAt(cell - vec2(2.0, 0.0)) + rgbAt(cell - vec2(3.0, 0.0))) / 3.0;
+    o = vec3(l) + (smear - vec3(lumaOf(smear))) * 1.3;
+  }
+  // night vision: green phosphor and noise
+  if (isFilter(f, 10.0)) o = vec3(0.12, 1.0, 0.28) * (l * 1.35 + 0.06) + (signalHash(cell + frame) - 0.5) * 0.12;
+  // sparkle: bright pixels twinkle white
+  if (isFilter(f, 11.0)) o = c + step(0.5, l) * step(1.0 - 0.07 * a, signalHash(cell + floor(uTime * 6.0) * 2.17)) * vec3(0.9);
+  // thermal: black, blue, magenta, red, yellow, white by brightness
+  if (isFilter(f, 12.0)) {
+    float h = clamp(l * 1.15, 0.0, 1.0);
+    o = h < 0.25 ? mix(vec3(0.02, 0.0, 0.1), vec3(0.15, 0.1, 0.9), h * 4.0) : h < 0.5 ? mix(vec3(0.15, 0.1, 0.9), vec3(0.9, 0.1, 0.7), h * 4.0 - 1.0) : h < 0.75 ? mix(vec3(0.9, 0.1, 0.7), vec3(1.0, 0.55, 0.0), h * 4.0 - 2.0) : mix(vec3(1.0, 0.55, 0.0), vec3(1.0, 1.0, 0.85), h * 4.0 - 3.0);
+  }
+  // rainbow: colours cycle through the hues
+  if (isFilter(f, 14.0)) o = hueOf(fract(l * 1.4 + cell.y * 0.008 + uTime * 0.18)) * (0.35 + 0.85 * l);
+  // holo: iridescent foil that shifts across the part, with a sweeping sheen
+  if (isFilter(f, 18.0)) {
+    float sheen = smoothstep(0.92, 1.0, fract((cell.x + cell.y) * 0.02 - uTime * 0.35));
+    o = mix(c, hueOf(fract(cell.x * 0.018 + cell.y * 0.012 + uTime * 0.2 + l * 0.6)) * (0.55 + 0.6 * l), 0.65) + sheen * 0.5;
+  }
+  return mix(c, clamp(o, 0.0, 1.0), isFilter(f, 1.0) || isFilter(f, 11.0) ? 1.0 : a);
+}
 void main() {
   vec2 home = clamp(floor(gl_FragCoord.xy), vec2(0.0), uGrid - 1.0);
   int part = partAt(home);
   vec3 signal = signalOf(part);
-  vec2 cell = glitchCell(home, part);
+  vec2 partFilter = filterOf(part);
+  vec2 cell = filterCell(glitchCell(home, part), partFilter, part);
   vec3 c = toSrgb(texture2D(tColor, cellUv(cell)).rgb);
   // Red and blue drift apart by whole art pixels around a fringed part, and
   // further while it bursts.
@@ -568,6 +663,7 @@ void main() {
   float edge = (!sky && max(max(dl, dr), max(du, dd)) - d0 > 0.06 * d0 + 0.08) ? 1.0 : 0.0;
   float lap = abs(dl + dr - 2.0 * d0) + abs(du + dd - 2.0 * d0);
   float crease = (!sky && edge < 0.5 && lap > 0.012 * d0 + 0.02) ? 1.0 : 0.0;
+  c = filterColor(c, cell, partFilter, edge);
 
   float jitter = (bayer8(cell + 3.0) - 0.5) * 0.18;
   float far = d0 * (1.0 + jitter);
@@ -817,11 +913,21 @@ function createCelShader(lit: LitLike, bands: number): CelShader {
 
 /** One of three scene parts a host can tag (say platform, tree, background) to give it its own signal. */
 export type SignalPart = 1 | 2 | 3;
-/** A part's own scanlines, colour fringe and glitch, each 0 to 1. */
+/**
+ * The filters a part can wear on top of its signal, in the shader's numbering. Some move pixels
+ * (mosaic, vhs, wave, slitscan, pixelsort, datamosh), the rest change colour before the tones are
+ * stepped, so a filtered part is still dithered pixel art.
+ */
+export const SIGNAL_FILTERS = ["none", "snow", "film", "mosaic", "cga", "negative", "glow", "vhs", "bleed", "wave", "nightvision", "sparkle", "thermal", "neon", "rainbow", "slitscan", "pixelsort", "datamosh", "holo"] as const;
+export type SignalFilter = (typeof SIGNAL_FILTERS)[number];
+
+/** A part's own scanlines, colour fringe and glitch, each 0 to 1, and an optional filter at `amount` (0 to 1, default 1). */
 export interface SignalSpec {
   readonly scanlines?: number;
   readonly chroma?: number;
   readonly glitch?: number;
+  readonly filter?: SignalFilter;
+  readonly amount?: number;
 }
 
 /** The alpha a tagged material writes into the scene target; untagged pixels keep 1. */
@@ -836,6 +942,19 @@ export function signalUniform(parts: readonly (SignalSpec | null | undefined)[])
     data[index * 3] = bounded(part.scanlines, 0, 1, 0);
     data[index * 3 + 1] = bounded(part.chroma, 0, 1, 0);
     data[index * 3 + 2] = bounded(part.glitch, 0, 1, 0);
+  }
+  return data;
+}
+
+/** Packs up to three part filters into the shader's uniform: each filter's number and amount, in part order. */
+export function filterUniform(parts: readonly (SignalSpec | null | undefined)[]): Float32Array {
+  const data = new Float32Array(6);
+  for (let index = 0; index < 3; index += 1) {
+    const part = parts[index];
+    const filter = part?.filter === undefined ? -1 : SIGNAL_FILTERS.indexOf(part.filter);
+    if (part === null || part === undefined || filter <= 0) continue;
+    data[index * 2] = filter;
+    data[index * 2 + 1] = bounded(part.amount, 0, 1, 1);
   }
   return data;
 }
@@ -909,7 +1028,7 @@ function createUniforms(): Record<string, Uniform> {
     uPalette: { value: new Float32Array(96) }, uOutline: { value: 0.9 }, uOutlineColor: { value: [0, 0, 0, 0] }, uCrease: { value: 0.35 },
     uContrast: { value: 1 }, uSaturation: { value: 1 }, uSkyFrom: { value: 100 }, uRaySource: { value: [0.5, 0.5] }, uRayColor: { value: [1, 1, 1] },
     uRayStrength: { value: 0 }, uRayDecay: { value: 0.95 }, uRayDensity: { value: 0.8 }, tLook: { value: null },
-    uScanlines: { value: 0 }, uChroma: { value: 0 }, uGlitch: { value: 0 }, uTime: { value: 0 }, uSignal: { value: new Float32Array(9) },
+    uScanlines: { value: 0 }, uChroma: { value: 0 }, uGlitch: { value: 0 }, uTime: { value: 0 }, uSignal: { value: new Float32Array(9) }, uFilter: { value: new Float32Array(6) },
   };
 }
 
@@ -1079,6 +1198,7 @@ export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: 
     },
     setSignals(parts) {
       Object.assign(uniforms.uSignal ?? {}, { value: signalUniform(parts) });
+      Object.assign(uniforms.uFilter ?? {}, { value: filterUniform(parts) });
     },
     render(scene, view) {
       pipeline.draw(renderer, scene, view, settings, rays);

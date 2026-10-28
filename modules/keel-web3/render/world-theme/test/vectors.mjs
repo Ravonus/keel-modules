@@ -110,4 +110,13 @@ export default [
     },
     expect: [true, true, true, 'tree', 'clean', 1, 'legendary'],
   },
+  {
+    name: 'given signals set each part, nothing rolled; strength scales them and full tears all three',
+    run: ({ themeFor }) => {
+      const given = themeFor({ seed: 9, signals: { tree: 'vhs', world: 'thermal' }, signalStrength: 0.5 }).glitch;
+      const full = themeFor({ seed: 9, signals: { planter: 'full' } }).glitch;
+      return [given.id, given.rarity, given.parts.tree.filter, given.parts.tree.amount, given.parts.tree.scanlines, given.parts.planter.kind, given.parts.world.filter, full.id, full.parts.world.glitch];
+    },
+    expect: ['tree+world', 'epic', 'vhs', 0.45, 0.23, 'clean', 'thermal', 'full', 1],
+  },
 ];

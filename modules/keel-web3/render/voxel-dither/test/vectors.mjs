@@ -98,4 +98,9 @@ export default [
     run: ({ signalUniform, SIGNAL_TAG_ALPHA }) => [Array.from(signalUniform([{ scanlines: 0.5 }, null, { chroma: 2, glitch: 0.25 }])), [SIGNAL_TAG_ALPHA[1], SIGNAL_TAG_ALPHA[2], SIGNAL_TAG_ALPHA[3]]],
     expect: [[0.5, 0, 0, 0, 0, 0, 0, 1, 0.25], [0.25, 0.5, 0.75]],
   },
+  {
+    name: 'part filters pack as their number and amount, and an unknown filter is none',
+    run: ({ filterUniform, SIGNAL_FILTERS }) => [Array.from(filterUniform([{ filter: 'vhs', amount: 0.5 }, { filter: 'nope' }, { filter: 'holo', amount: 3 }])), SIGNAL_FILTERS.length],
+    expect: [[7, 0.5, 0, 0, 18, 1], 19],
+  },
 ];

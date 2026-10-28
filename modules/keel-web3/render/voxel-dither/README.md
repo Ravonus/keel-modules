@@ -57,6 +57,14 @@ alpha, and `look.setSignals([platform, tree, background])` gives each part its
 neighbours and blocks of it show the sky above, while untagged pixels stay
 clean. Call `tagSignal` again after `shade`, which swaps materials.
 
+A part's signal can also wear one filter, `filter` with an `amount` (0 to 1):
+`snow`, `film`, `mosaic`, `cga`, `negative`, `glow`, `vhs`, `bleed`, `wave`,
+`nightvision`, `sparkle`, `thermal`, `neon`, `rainbow`, `slitscan`,
+`pixelsort`, `datamosh` or `holo` (`SIGNAL_FILTERS`). Filters that move
+pixels move them by whole art pixels; the rest change colour before the tones
+are stepped, so a filtered part stays dithered pixel art. Time-driven filters
+need `setTime` like the glitch.
+
 ## Injected dependencies
 
 The caller passes the keel/lit namespace (WebGL2), the renderer from

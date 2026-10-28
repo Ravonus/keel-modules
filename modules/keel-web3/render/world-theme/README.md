@@ -99,6 +99,16 @@ rarer draw.
 | Torn signal | epic | 15 |
 | Full glitch (every part) | legendary | 6 |
 
+A genome can give the parts their signals instead: `signals: { planter, tree,
+world }` names a kind for each part (a part left out is clean) and nothing is
+rolled. Given signals can be any kind, including those that never roll from a
+seed and wear one of the voxel-dither look's part filters: `snow`, `film`,
+`mosaic`, `cga`, `negative`, `glow`, `vhs`, `bleed`, `wave`, `nightvision`,
+`sparkle`, `thermal`, `neon`, `rainbow`, `slitscan`, `pixelsort`, `datamosh`
+and `holo`. A part's `filter` and `amount` pass straight to
+`look.setSignals`. `signalStrength` (0 to 1) scales every effect, and `full` on
+any part tears all three.
+
 ## Usage
 
 ```ts

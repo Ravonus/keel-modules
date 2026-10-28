@@ -63,6 +63,12 @@ export interface DitherSettings {
    * leaves a short dithered seam where one tone meets the next, as pixel art does.
    */
   readonly snap: number;
+  /** 0 to 0.3: lifts the darkest tones toward a cool blue, so night never crushes to black (ink stays dark). */
+  readonly lift: number;
+  /** 0 to 1: gathers sub-pixel speckle (leaves, blossom, turf) into masses of one tone; silhouettes stay sharp. */
+  readonly clump: number;
+  /** 0 to 1: hue-shifted ramps, as pixel artists paint them: lights lean warm, shadows cool. */
+  readonly ramp: number;
   readonly shading: Shading;
   /** Cel light steps, 2 to 8. */
   readonly bands: number;
@@ -94,21 +100,27 @@ export interface DitherSettings {
 
 type StyleFields = Partial<Omit<DitherSettings, "style">> & { readonly label: string };
 
+/** PICO-8's sixteen: the fantasy-console palette, bold and warm. */
+const PICO_16 = ["#000000", "#1d2b53", "#7e2553", "#008751", "#ab5236", "#5f574f", "#c2c3c7", "#fff1e8", "#ff004d", "#ffa300", "#ffec27", "#00e436", "#29adff", "#83769c", "#ff77a8", "#ffccaa"];
+/** DawnBringer's thirty-two, the classic pixel-art ramps. */
+const DB_32 = ["#000000", "#222034", "#45283c", "#663931", "#8f563b", "#df7126", "#d9a066", "#eec39a", "#fbf236", "#99e550", "#6abe30", "#37946e", "#4b692f", "#524b24", "#323c39", "#3f3f74", "#306082", "#5b6ee1", "#639bff", "#5fcde4", "#cbdbfc", "#ffffff", "#9badb7", "#847e87", "#696a6a", "#595652", "#76428a", "#ac3232", "#d95763", "#d77bba", "#8f974a", "#8a6f30"];
+/** Risograph inks on cream paper, with the light tints of pink and blue a riso screen gives. */
+const RISO_10 = ["#f3ead6", "#1e1c2a", "#2f8fc4", "#e2477d", "#f4c542", "#d9503f", "#3c9a63", "#3e4597", "#f4a8c6", "#a8cde4"];
 const BLOSSOM_16 = ["#1b1726", "#3a2d45", "#5c4363", "#8a5a78", "#c77d97", "#f0a8bd", "#ffd9e2", "#fff6ef", "#2e4a3c", "#4f7a52", "#8fb36a", "#d6e59a", "#6b4a3a", "#a0705a", "#7fa7c9", "#cfe3ef"];
 
 /** Named looks. A setting given alongside `style` overrides the preset's. */
 export const DITHER_STYLES = {
-  pixel: { label: "3D pixel art", screen: "bayer4", pixel: 4, levels: 5, snap: 0.6, color: "luma", shading: "cel", bands: 3, outline: 1, crease: 0.3, contrast: 1.25, saturation: 1.35 },
-  smart: { label: "Smart voxel", screen: "auto", pixel: 0, levels: 6, color: "luma", shading: "cel", bands: 4, outline: 0.9, crease: 0.35, contrast: 1.05, saturation: 1.1 },
-  bayer: { label: "Bayer cel", screen: "bayer4", pixel: 4, levels: 4, color: "rgb", shading: "cel", bands: 3, outline: 0.85, crease: 0.25 },
-  soft: { label: "Soft ordered", screen: "bayer8", pixel: 3, levels: 5, color: "luma", shading: "smooth", outline: 0.5, crease: 0.2 },
-  halftone: { label: "Halftone print", screen: "halftone", pixel: 2, levels: 3, color: "rgb", shading: "smooth", outline: 0.7, crease: 0, contrast: 1.1 },
+  pixel: { label: "3D pixel art", screen: "bayer4", pixel: 4, levels: 5, snap: 0.45, lift: 0.07, clump: 0.6, ramp: 0.6, color: "luma", shading: "cel", bands: 3, outline: 1, crease: 0.3, contrast: 1.25, saturation: 1.45 },
+  smart: { label: "Smart voxel", screen: "auto", pixel: 0, levels: 6, lift: 0.03, clump: 0.5, ramp: 0.35, color: "luma", shading: "cel", bands: 4, outline: 0.9, crease: 0.35, contrast: 1.05, saturation: 1.1 },
+  bayer: { label: "Bayer 32", screen: "bayer4", pixel: 4, palette: DB_32, lift: 0.04, shading: "cel", bands: 3, outline: 0.85, crease: 0.25, contrast: 1.1, saturation: 1.25 },
+  soft: { label: "Soft ordered", screen: "bayer8", pixel: 3, levels: 5, lift: 0.12, clump: 0.4, ramp: 0.3, color: "luma", shading: "smooth", outline: 0.5, crease: 0.2, contrast: 0.92, saturation: 0.95 },
+  halftone: { label: "Riso print", screen: "halftone", pixel: 2, palette: RISO_10, shading: "smooth", outline: 0.7, outlineColor: "#3e4597", crease: 0, contrast: 1.15, saturation: 1.3 },
   engraving: { label: "Engraving", screen: "hatch", pixel: 2, levels: 3, color: "luma", shading: "smooth", outline: 1, outlineColor: "#1d1a24", crease: 0.3, saturation: 0.55, rays: 1.3 },
-  chunky: { label: "Chunky 8-bit", screen: "bayer2", pixel: 6, levels: 4, color: "rgb", shading: "cel", bands: 3, outline: 1, crease: 0.4 },
-  grain: { label: "Noise grain", screen: "ign", pixel: 3, levels: 5, color: "luma", shading: "smooth", outline: 0.6, crease: 0.15 },
+  chunky: { label: "Chunky 8-bit", screen: "bayer2", pixel: 6, palette: PICO_16, clump: 0.5, shading: "cel", bands: 3, outline: 1, crease: 0.4, contrast: 1.15, saturation: 1.3 },
+  grain: { label: "Film grain", screen: "ign", pixel: 2, levels: 6, lift: 0.14, ramp: 1, color: "luma", shading: "smooth", outline: 0.4, crease: 0.1, contrast: 1.2, saturation: 0.8 },
   blossom: { label: "Blossom 16", screen: "bayer4", pixel: 3, palette: BLOSSOM_16, shading: "cel", bands: 4, outline: 0.9, crease: 0.3 },
   pocket: { label: "Pocket green", screen: "bayer4", pixel: 4, palette: ["#0f2a1d", "#2f5a35", "#7a9a4a", "#cddc8a"], shading: "cel", bands: 3, outline: 0, crease: 0, saturation: 1, rays: 0.6 },
-  clean: { label: "Clean cel", screen: "none", pixel: 3, levels: 8, color: "luma", shading: "cel", bands: 4, outline: 1, crease: 0.4 },
+  clean: { label: "Clean cel", screen: "none", pixel: 3, levels: 5, clump: 1, lift: 0.05, color: "luma", shading: "cel", bands: 3, outline: 1, outlineColor: "#241a2e", crease: 0.5, contrast: 1.15, saturation: 1.35 },
   crt: { label: "CRT painted", screen: "bayer8", pixel: 2, levels: 7, snap: 0.75, color: "luma", shading: "smooth", outline: 1, outlineColor: "#0b0d22", crease: 0.15, contrast: 1.3, saturation: 1.55, scanlines: 0.55, chroma: 0.5 },
 } as const satisfies Readonly<Record<string, StyleFields>>;
 export type StyleId = keyof typeof DITHER_STYLES;
@@ -123,6 +135,9 @@ export const DEFAULT_DITHER_SETTINGS: DitherSettings = {
   palette: [],
   amount: 1,
   snap: 0,
+  lift: 0,
+  clump: 0,
+  ramp: 0,
   shading: "cel",
   bands: 4,
   outline: 0.9,
@@ -173,13 +188,16 @@ function presetOf(style: StyleId): DitherSettings {
   return { ...DEFAULT_DITHER_SETTINGS, ...fields, style };
 }
 
-function toneFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "levels" | "color" | "palette" | "amount" | "snap" | "contrast" | "saturation"> {
+function toneFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "levels" | "color" | "palette" | "amount" | "snap" | "lift" | "clump" | "ramp" | "contrast" | "saturation"> {
   return {
     levels: Math.round(bounded(value.levels, 2, 16, base.levels)),
     color: oneOf(value.color, ["rgb", "luma"], base.color),
     palette: paletteOf(value.palette, base.palette),
     amount: bounded(value.amount, 0, 1, base.amount),
     snap: bounded(value.snap, 0, 0.9, base.snap),
+    lift: bounded(value.lift, 0, 0.3, base.lift),
+    clump: bounded(value.clump, 0, 1, base.clump),
+    ramp: bounded(value.ramp, 0, 1, base.ramp),
     contrast: bounded(value.contrast, 0.5, 2, base.contrast),
     saturation: bounded(value.saturation, 0, 2, base.saturation),
   };
@@ -352,12 +370,22 @@ function hexChannels(hex: string): readonly [number, number, number] {
   return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
 }
 
-/** A palette as the shader's flat vec3[32] (sRGB 0..1), plus its length. */
-export function paletteUniform(palette: readonly string[]): { readonly data: Float32Array; readonly size: number } {
+/** An sRGB colour (0..1) in OKLab: lightness, then green-red and blue-yellow. */
+export function okLab(rgb: readonly [number, number, number]): [number, number, number] {
+  const [r, g, b] = rgb.map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)) as [number, number, number];
+  const l = Math.cbrt(0.4122 * r + 0.5363 * g + 0.0514 * b);
+  const m = Math.cbrt(0.2119 * r + 0.6807 * g + 0.1074 * b);
+  const s = Math.cbrt(0.0883 * r + 0.2817 * g + 0.63 * b);
+  return [0.2105 * l + 0.7936 * m - 0.0041 * s, 1.978 * l - 2.4286 * m + 0.4506 * s, 0.0259 * l + 0.7828 * m - 0.8087 * s];
+}
+
+/** A palette as the shader's flat vec3[32] (sRGB 0..1) and the same entries in OKLab, plus its length. */
+export function paletteUniform(palette: readonly string[]): { readonly data: Float32Array; readonly lab: Float32Array; readonly size: number } {
   const data = new Float32Array(96);
+  const lab = new Float32Array(96);
   const entries = palette.slice(0, 32);
-  entries.forEach((hex, index) => { data.set(hexChannels(hex), index * 3); });
-  return { data, size: entries.length };
+  entries.forEach((hex, index) => { const rgb = hexChannels(hex); data.set(rgb, index * 3); lab.set(okLab(rgb), index * 3); });
+  return { data, lab, size: entries.length };
 }
 
 // ---------------------------------------------------------------- shader
@@ -411,9 +439,13 @@ uniform vec3 uAmount;
 uniform vec2 uBands;
 uniform float uLevels;
 uniform float uSnap;
+uniform float uLift;
+uniform float uClump;
+uniform float uRamp;
 uniform float uLuma;
 uniform int uPaletteSize;
 uniform vec3 uPalette[32];
+uniform vec3 uPaletteLab[32];
 uniform float uOutline;
 uniform vec4 uOutlineColor;
 uniform float uCrease;
@@ -473,36 +505,51 @@ float snapStep(float value, float t) {
   float share = clamp((value - base - 0.5) / max(1.0 - uSnap, 0.001) + 0.5, 0.0, 1.0);
   return base + step(1.0 - t, share);
 }
-vec3 snapStep3(vec3 value, float t) { return vec3(snapStep(value.x, t), snapStep(value.y, t), snapStep(value.z, t)); }
 vec3 stepTones(vec3 c, float t) {
   float steps = max(1.0, uLevels - 1.0);
-  if (uLuma < 0.5) return clamp(snapStep3(c * steps, t) / steps, 0.0, 1.0);
+  if (uLuma < 0.5) {
+    // Dither between two step colours only, never off-hue confetti.
+    vec3 q = floor(c * steps + 0.5);
+    vec3 e = c * steps - q;
+    vec3 a = abs(e);
+    vec3 lean = step(0.5 * max(a.x, max(a.y, a.z)) + 0.001, a);
+    float share = dot(a, lean) / max(1.0, dot(lean, vec3(1.0)));
+    share = clamp((share - 0.5) / max(1.0 - uSnap, 0.001) + 0.5, 0.0, 1.0);
+    return clamp((q + sign(e) * lean * step(1.0 - t, share)) / steps, 0.0, 1.0);
+  }
   // YCoCg: lightness gets twice the steps of colour, so shading reads as ramps.
   float y = dot(c, vec3(0.25, 0.5, 0.25));
   float co = 0.5 * (c.r - c.b);
   float cg = -0.25 * c.r + 0.5 * c.g - 0.25 * c.b;
-  // Colour steps finer and dithers gently: lightness carries the pattern, so
-  // dark greens never break into stray magenta. The colour grid is centred
-  // on zero, so a grey stays exactly grey.
+  // Colour dithers gently; warm-cool steps finely, so a pale sky or night navy keeps its hue. Grey stays grey.
   float ys = steps * 2.0;
   float cs = steps * 2.0 + 2.0;
   float tc = 0.5 + (t - 0.5) * 0.35;
   y = snapStep(y * ys, t) / ys;
-  co = snapStep(co * cs, tc) / cs;
+  co = snapStep(co * cs * 2.0, tc) / (cs * 2.0);
   cg = snapStep(cg * cs, tc) / cs;
   return clamp(vec3(y + co - cg, y + cg, y - co - cg), 0.0, 1.0);
 }
+// OKLab, so the nearest palette entry is the one that looks nearest.
+vec3 okLab(vec3 c) {
+  c = mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+  vec3 lms = pow(max(mat3(0.4122, 0.2119, 0.0883, 0.5363, 0.6807, 0.2817, 0.0514, 0.1074, 0.63) * c, 0.0), vec3(1.0 / 3.0));
+  return mat3(0.2105, 1.978, 0.0259, 0.7936, -2.4286, 0.7828, -0.0041, 0.4506, -0.8087) * lms;
+}
 vec3 stepPalette(vec3 c, float t) {
-  vec3 best = c; vec3 next = c;
+  vec3 best = c; vec3 next = c; vec3 bl = c; vec3 nl = c;
   float bd = 1e9; float nd = 1e9;
+  vec3 lab = okLab(c);
   for (int i = 0; i < 32; i++) {
     if (i >= uPaletteSize) break;
-    vec3 e = uPalette[i] - c;
-    float d = dot(e * e, vec3(0.3, 0.59, 0.11));
-    if (d < bd) { nd = bd; next = best; bd = d; best = uPalette[i]; }
-    else if (d < nd) { nd = d; next = uPalette[i]; }
+    // Hue outweighs lightness: a pale sky picks a pale blue, not a grey.
+    vec3 e = (uPaletteLab[i] - lab) * vec3(1.0, 1.6, 1.6);
+    float d = dot(e, e);
+    if (d < bd) { nd = bd; next = best; nl = bl; bd = d; best = uPalette[i]; bl = uPaletteLab[i]; }
+    else if (d < nd) { nd = d; next = uPalette[i]; nl = uPaletteLab[i]; }
   }
-  float m = sqrt(bd) / max(1e-5, sqrt(bd) + sqrt(nd));
+  // Only neighbours on a ramp dither; far-apart entries meet in a clean edge.
+  float m = sqrt(bd) / max(1e-5, sqrt(bd) + sqrt(nd)) * clamp(1.6 - 3.0 * length(bl - nl), 0.0, 1.0);
   return t < m ? next : best;
 }
 float signalHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -639,6 +686,27 @@ vec3 filterColor(vec3 c, vec2 cell, vec2 f, float edge) {
   }
   return mix(c, clamp(o, 0.0, 1.0), isFilter(f, 1.0) || isFilter(f, 11.0) ? 1.0 : a);
 }
+// Clump: a smooth Kuwahara filter gathers speckle into masses; what lies behind never bleeds in.
+vec3 clumpAt(vec2 cell, vec3 c, float d0, float gap) {
+  vec3 s[9];
+  for (int j = 0; j < 3; j++) for (int i = 0; i < 3; i++) {
+    vec2 at = cell + vec2(float(i) - 1.0, float(j) - 1.0);
+    s[j * 3 + i] = (i == 1 && j == 1) || distanceAt(at) - d0 > gap ? c : rgbAt(at);
+  }
+  vec3 sum = vec3(0.0);
+  float total = 0.0;
+  for (int q = 0; q < 4; q++) {
+    int ox = q - (q / 2) * 2;
+    int oy = q / 2;
+    vec3 a = s[oy * 3 + ox]; vec3 b = s[oy * 3 + ox + 1]; vec3 d = s[oy * 3 + ox + 3]; vec3 e = s[oy * 3 + ox + 4];
+    vec3 mean = (a + b + d + e) * 0.25;
+    vec3 va = a - mean; vec3 vb = b - mean; vec3 vd = d - mean; vec3 ve = e - mean;
+    float w = 1.0 / (0.004 + dot(va, va) + dot(vb, vb) + dot(vd, vd) + dot(ve, ve));
+    sum += mean * w * w;
+    total += w * w;
+  }
+  return sum / total;
+}
 void main() {
   vec2 home = clamp(floor(gl_FragCoord.xy), vec2(0.0), uGrid - 1.0);
   int part = partAt(home);
@@ -660,9 +728,13 @@ void main() {
   float dr = distanceAt(cell + vec2(1.0, 0.0));
   float dd = distanceAt(cell - vec2(0.0, 1.0));
   float du = distanceAt(cell + vec2(0.0, 1.0));
-  float edge = (!sky && max(max(dl, dr), max(du, dd)) - d0 > 0.06 * d0 + 0.08) ? 1.0 : 0.0;
+  float gap = 0.06 * d0 + 0.08;
+  float edge = (!sky && max(max(dl, dr), max(du, dd)) - d0 > gap) ? 1.0 : 0.0;
+  // Clumped, a leaf among leaves is not a silhouette.
+  if (uClump > 0.0 && d0 - min(min(dl, dr), min(du, dd)) > gap) edge = 0.0;
   float lap = abs(dl + dr - 2.0 * d0) + abs(du + dd - 2.0 * d0);
   float crease = (!sky && edge < 0.5 && lap > 0.012 * d0 + 0.02) ? 1.0 : 0.0;
+  if (uClump > 0.0 && !sky && split < 1.0) c = mix(c, clumpAt(cell, c, d0, gap), uClump);
   c = filterColor(c, cell, partFilter, edge);
 
   float jitter = (bayer8(cell + 3.0) - 0.5) * 0.18;
@@ -673,8 +745,12 @@ void main() {
   float amount = band == 0 ? uAmount.x : band == 1 ? uAmount.y : uAmount.z;
 
   c += godRays(cell) * (sky ? 0.6 : 1.0);
+  // Soft knee into black; lift the darkest toward cool blue; ramps lean lights warm, shadows cool.
   c = (c - 0.5) * uContrast + 0.5;
-  c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, uSaturation);
+  c = mix(0.1 * exp(c * 10.0 - 1.0), c, step(0.1, c));
+  float lo = 1.0 - clamp(lumaOf(c), 0.0, 1.0);
+  c += uLift * lo * lo * lo * vec3(0.8, 0.9, 1.3) + (sky ? 0.0 : uRamp) * 0.09 * (0.55 - lo) * vec3(1.0, 0.3, -0.9);
+  c = mix(vec3(lumaOf(c)), c, uSaturation);
   // Outlines thin out with distance, so a far skyline is a soft edge, not a wire.
   float outline = uOutline * (band == 0 ? 1.0 : band == 1 ? 0.7 : 0.3);
   vec3 ink = uOutlineColor.a > 0.5 ? uOutlineColor.rgb : c * vec3(0.36, 0.33, 0.46);
@@ -683,6 +759,10 @@ void main() {
   c = clamp(c, 0.0, 1.0);
 
   // A silhouette is a solid run of tone, never broken speckle.
+  // A dark sky bands, never a grid of dots.
+  if (sky) amount *= smoothstep(0.03, 0.2, lumaOf(c));
+  // On a fixed palette the sky keeps its hue and settles into bands rather than a checker of far-apart inks.
+  if (sky && uPaletteSize > 0) amount *= 0.35;
   float t = 0.5 + (screenAt(screen, floor(cell / scale)) - 0.5) * amount * (1.0 - edge * outline);
   // Alpha carries this pixel's scanline strength to the blit.
   gl_FragColor = vec4(uPaletteSize > 0 ? stepPalette(c, t) : stepTones(c, t), signal.x);
@@ -1024,8 +1104,8 @@ function createUniforms(): Record<string, Uniform> {
   return {
     tColor: { value: null }, tDepth: { value: null }, uGrid: { value: [1, 1] }, uPixel: { value: 1 }, uOrigin: { value: [0, 0] },
     uScreen: { value: [2, 3, 8] }, uScale: { value: [1, 1, 1] },
-    uAmount: { value: [1, 1, 1] }, uBands: { value: [18, 30] }, uLevels: { value: 6 }, uSnap: { value: 0 }, uLuma: { value: 1 }, uPaletteSize: { value: 0 },
-    uPalette: { value: new Float32Array(96) }, uOutline: { value: 0.9 }, uOutlineColor: { value: [0, 0, 0, 0] }, uCrease: { value: 0.35 },
+    uAmount: { value: [1, 1, 1] }, uBands: { value: [18, 30] }, uLevels: { value: 6 }, uSnap: { value: 0 }, uLift: { value: 0 }, uClump: { value: 0 }, uRamp: { value: 0 }, uLuma: { value: 1 }, uPaletteSize: { value: 0 },
+    uPalette: { value: new Float32Array(96) }, uPaletteLab: { value: new Float32Array(96) }, uOutline: { value: 0.9 }, uOutlineColor: { value: [0, 0, 0, 0] }, uCrease: { value: 0.35 },
     uContrast: { value: 1 }, uSaturation: { value: 1 }, uSkyFrom: { value: 100 }, uRaySource: { value: [0.5, 0.5] }, uRayColor: { value: [1, 1, 1] },
     uRayStrength: { value: 0 }, uRayDecay: { value: 0.95 }, uRayDensity: { value: 0.8 }, tLook: { value: null },
     uScanlines: { value: 0 }, uChroma: { value: 0 }, uGlitch: { value: 0 }, uTime: { value: 0 }, uSignal: { value: new Float32Array(9) }, uFilter: { value: new Float32Array(6) },
@@ -1043,8 +1123,12 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
   set("uBands", [...settings.depthBands]);
   set("uLevels", settings.levels);
   set("uSnap", settings.snap);
+  set("uLift", settings.lift);
+  set("uClump", settings.clump);
+  set("uRamp", settings.ramp);
   set("uLuma", settings.color === "luma" ? 1 : 0);
   set("uPalette", palette.data);
+  set("uPaletteLab", palette.lab);
   set("uPaletteSize", palette.size);
   set("uOutline", settings.outline);
   set("uOutlineColor", settings.outlineColor === null ? [0, 0, 0, 0] : [...hexChannels(settings.outlineColor), 1]);
@@ -1170,9 +1254,9 @@ export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: 
       return settings;
     },
     setDepthBands(near, far) {
-      settings = { ...settings, depthBands: depthBandsOf([near, far], settings.depthBands) };
-      const uniform = uniforms.uBands;
-      if (uniform !== undefined) uniform.value = [...settings.depthBands];
+      const [a, b] = depthBandsOf([near, far], settings.depthBands);
+      if (a !== settings.depthBands[0] || b !== settings.depthBands[1]) settings = { ...settings, depthBands: [a, b] };
+      Object.assign((uniforms.uBands?.value ?? []) as number[], [a, b]);
     },
     setSize(cssWidth, cssHeight, devicePixelRatio) {
       frame = { width: cssWidth, height: cssHeight, ratio: devicePixelRatio };
@@ -1191,7 +1275,7 @@ export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: 
       rays = next;
     },
     setTime(seconds) {
-      Object.assign(uniforms.uTime ?? {}, { value: Number.isFinite(seconds) ? seconds % 3600 : 0 });
+      if (uniforms.uTime !== undefined) uniforms.uTime.value = Number.isFinite(seconds) ? seconds % 3600 : 0;
     },
     tagSignal(root, part) {
       tagTree(root, part);

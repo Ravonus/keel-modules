@@ -27,7 +27,8 @@ It draws:
 
 - **Wood**, with surface roots. On a planter (`lip`, `wall`, or a carved
   `surface`), an old tree's longest roots roll over the lip and creep down the
-  wall.
+  wall, and with `rootBreak` the biggest crack the rim or burst out through
+  the side (`planter` gives the chunks their colours).
 - **Leaf blades** that grow from their twigs and flutter.
 - **Flowers and fruit** that open, ripen and fall.
 - **Litter** under the crown and **snow** along the limbs.
@@ -56,7 +57,41 @@ branch and on the ground, until the next crop. Pair it with fauna's
 
 Every part is on by default, and any part can be turned off: `roots`,
 `leaves`, `flowers`, `fruit`, `deadwood`, `litter`, `snow`, `fallers`,
-`sway`, `shadows`, `crownShade` and `bark`. Turn parts off in either of two
+`sway`, `shadows`, `crownShade` and `bark`. Four more switch the looks
+made for a few pixels per leaf:
+
+- `sprays`: a blossom tree opens in sprays, a few round flower heads per
+  shape, lit near white on top and a deeper rose underneath, one tone per
+  twig. A big crown draws every other blossom slot at twice the size, so it
+  reads as a pink cloud and poses half the instances. In full bloom a blossom
+  tree's new leaves stay small and grow as the petals fall.
+- `clumps`: a twig's leaves share one tone (its parent shoot's), with the odd
+  leaf catching the light, and turn in autumn together, so the crown reads as
+  lit and shaded masses, not a speckle. Blades get a soft margin, a
+  seedling's first leaves draw nearly twice their size, a hybrid's minor kind
+  keeps part of its own leaf colour under a skin, and fruit on a skinned tree
+  keeps half its own colour.
+- `rootSink`: surface roots dive under the soil where they thin below a
+  pixel and a half or pass the inner two fifths of the planter (an old tree's
+  thick roots still roll over the lip; a palm keeps a short flare), and moss
+  climbs only the upright trunk foot, so no hairline or green spoke crosses the
+  planter.
+- `rootBreak`: an old tree's big roots break its planter, more as the trunk
+  thickens (from a trunk radius of 0.45; young trees stay tidy). They heave
+  higher arches out of the soil and lever up the rim where they roll over
+  it, cracking off a couple of chunks. On a planter whose side can break,
+  five old trees in six (seeded) send a root or two out through the wall
+  instead: it dives under the soil short of the lip, punches out partway
+  down with a swelling, a dark break and a ring of pried-out chunks, a crack
+  up to the split rim, then creeps down the outside and dangles below the
+  foot. Metal and gem planters are only cracked at the rim. Roots below the
+  soil line keep bare bark (no moss on the wall). The chunks are one small
+  instanced mesh, `roots × 8` boxes, posed only when the trunk grows. A host
+  passes the planter's look as `ground.planter`: `colors` (darkest first;
+  left out, a weathered earth brown), `hard` (left out, a wall under half a
+  unit deep counts as hard) and `hang` (how far a burst root may dangle).
+
+Turn parts off in either of two
 ways:
 
 - **In code:** `{ roots: false }`.

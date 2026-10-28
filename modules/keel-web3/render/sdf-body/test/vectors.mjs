@@ -68,14 +68,39 @@ export default [
     expect: [2],
   },
   {
-    name: 'shadows: a proxy of spheres along every part, three per part',
+    name: 'shadows: a proxy of spheres along every part, three along a long part and one for a round one',
     run: ({ createSdfBodies }) => {
       const bodies = createSdfBodies(lit, { shadows: true });
       bodies.draw([body(0), body(1)], light);
       const proxy = bodies.group.children.find((c) => c instanceof Instanced);
       return [proxy.castShadow, proxy.count, proxy.instanceMatrix.needsUpdate];
     },
-    expect: [true, 24, true],
+    expect: [true, 3 + 1 + 1 + 3 + 3 + 1 + 1 + 3, true],
+  },
+  {
+    name: 'an ink line rings each body by default, with room for it in the box; ink: 0 turns it off',
+    run: ({ createSdfBodies }) => {
+      const inked = createSdfBodies(lit);
+      const plain = createSdfBodies(lit, { ink: 0 });
+      inked.draw([body()], light);
+      plain.draw([body()], light);
+      const [a] = slots(inked);
+      const [b] = slots(plain);
+      const shader = a.material.fragmentShader;
+      return [a.material.uniforms.uInk.value > 0, b.material.uniforms.uInk.value, a.scale.x > b.scale.x, shader.includes('fwidth')];
+    },
+    expect: [true, 0, true, true],
+  },
+  {
+    name: 'the march traces the surface alone and takes the colour once, at the hit',
+    run: ({ createSdfBodies }) => {
+      const bodies = createSdfBodies(lit);
+      bodies.draw([body()], light);
+      const shader = slots(bodies)[0].material.fragmentShader;
+      const loop = shader.slice(shader.indexOf('for (int s = 0;'), shader.indexOf('if (!hit &&'));
+      return [loop.includes('dist(') && !loop.includes('paint('), (shader.match(/paint\(p, /g) ?? []).length];
+    },
+    expect: [true, 2],
   },
   {
     name: 'the shader is built for the part budget and marches with true depth',

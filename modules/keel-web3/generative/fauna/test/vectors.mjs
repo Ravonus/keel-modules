@@ -316,7 +316,8 @@ export default [
           }
           eaten.push(...herd.eaten(t));
         }
-        return { eaten, near };
+        // (Animals are drawn at a toy scale, so how near is measured in the animal's own size.)
+        return { eaten, near: near / herd.cast.groups[0].members[0].size };
       };
       const squirrel = eat('squirrel', food);
       const deer = eat('deer', food);
@@ -324,11 +325,20 @@ export default [
       return [
         squirrel.eaten.length === 3 && new Set(squirrel.eaten).size === 3,
         deer.eaten.length === 2 && !deer.eaten.includes('fruit:3'),
-        deer.near < 0.3,
-        squirrel.near < 0.3,
+        deer.near < 0.35,
+        squirrel.near < 1,
         wolf.eaten.length,
       ];
     },
     expect: [true, true, true, true, 0],
+  },
+  {
+    name: 'toy scale: small animals lift, a snake keeps its true size, insects lift 1.6 times, none shrinks; a plain coat is muted',
+    run: ({ shownSize, castFor }) => {
+      const snake = castFor({ seed: 3, region: 'rockies', world: 'nature', season: 'summer', radius: 3, species: 'snake', morph: 'normal' }).groups[0].members[0];
+      const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(snake.palette.coat.slice(i, i + 2), 16));
+      return [shownSize('snake', 1.1), shownSize('butterfly', 0.1).toFixed(2), shownSize('mouse', 0.1) > 0.3, shownSize('deer', 1.2) >= 1.2, g - Math.min(r, b) < 0x9a - 0x3a];
+    },
+    expect: [1.1, '0.16', true, true, true],
   },
 ];

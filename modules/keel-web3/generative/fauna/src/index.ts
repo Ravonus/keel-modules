@@ -313,7 +313,7 @@ export const SPECIES = {
     coats: [["downy", ["#1e1e20", "#f4f4f0", "#f4f4f0", "#0e0e10", "#e02828"]], ["green", ["#6a8a3a", "#4a6a2a", "#c8d098", "#1a1a10", "#e02828"]]],
     temper: { drum: 4, look: 1.2, preen: 1, fly: 1.2, peck: 0, hop: 0, sing: 0 }, friends: ["squirrel"] }),
   snake: define({ label: "Snake", plan: "serpent", size: 1.1, rarity: "rare", weight: 9, regions: ["nairobi", "bali", "sydney", "rockies"], worlds: ["nature", "voxel", "beach"], speed: 0.35, winter: false, climbs: true,
-    build: { len: 1, leg: 0, body: 0.028, neck: 0, rise: 0, head: 0.04, snout: 0.03, ears: "none", tail: "thin", tailLen: 0.3 },
+    build: { len: 1, leg: 0, body: 0.034, neck: 0, rise: 0, head: 0.048, snout: 0.03, ears: "none", tail: "thin", tailLen: 0.3 },
     coats: [["green", ["#3a9a3a", "#1e6a22", "#c8e090", "#0e1a0a", "#e83030"]], ["corn", ["#e07a3a", "#b8401e", "#f4e0c0", "#2a120a", "#e83030"]], ["banded", ["#2a2a2a", "#f0e8d8", "#f0e8d8", "#0a0a0a", "#e83030"]]],
     temper: { bask: 2.6, coil: 2.2, flick: 2, climb: 1.4, look: 0.6, wander: 1 }, friends: [] }),
   gecko: define({ label: "Gecko", plan: "serpent", size: 0.16, rarity: "uncommon", weight: 18, regions: ["bali", "sydney", "nairobi"], worlds: ["nature", "voxel", "beach", "vapor", "synth"], speed: 1.2, winter: false, climbs: true, active: "any", groups: [6, 2, 1, 0],
@@ -473,6 +473,12 @@ export interface Stage {
   /** Fruit to eat, on the branches and on the ground. */
   readonly food?: readonly Food[] | undefined;
   readonly night?: boolean | undefined;
+  /**
+   * Toward the viewer, along the ground. Given, an animal choosing a spot
+   * leans toward the open side of the tree, where it can be seen, rather
+   * than behind the trunk.
+   */
+  readonly view?: Vec | undefined;
 }
 
 /** Something to eat: a fruit up in the tree (reached from a perch) or lying on the ground. */
@@ -566,12 +572,25 @@ interface Spot { readonly p: Vec; readonly size: number }
 /** How far from the trunk's middle an animal stands so its head and legs keep out of the bark. */
 const trunkClear = (stage: Stage, size: number): number => trunkR(stage) + size * 1.2 + 0.1;
 
+const turnTo = (a: number, b: number): number => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+/** A heading to look for a spot along: toward the viewer, when there is one, of three picks the nearest to it, so the far side is rarer, not barred. */
+function headingFor(rand: () => number, stage: Stage): number {
+  if (!stage.view) return rand() * TAU;
+  const view = Math.atan2(stage.view[2], stage.view[0]);
+  let best = rand() * TAU;
+  for (let i = 0; i < 2; i += 1) {
+    const a = rand() * TAU;
+    if (turnTo(a, view) < turnTo(best, view)) best = a;
+  }
+  return best;
+}
+
 /** A free spot on the ground, clear of the trunk, the rim and the others. */
 function groundSpot(rand: () => number, stage: Stage, size: number, near?: Vec, reach = 0, taken: readonly Spot[] = []): Place {
   const inner = trunkClear(stage, size);
   const outer = Math.max(inner + 0.2, stage.radius - size * 0.8);
   for (let attempt = 0; attempt < 12; attempt += 1) {
-    const a = rand() * TAU;
+    const a = headingFor(rand, stage);
     const r = near ? reach * Math.sqrt(rand()) : mix(inner, outer, Math.sqrt(rand()));
     const x = (near?.[0] ?? 0) + Math.cos(a) * r;
     const z = (near?.[2] ?? 0) + Math.sin(a) * r;
@@ -1025,7 +1044,7 @@ function mouthReach(actor: Actor, act: Action): number {
         for (const p of [c.a, c.b]) if (p[1] < low) { low = p[1]; reach = p[2]; }
       }
     }
-    reach /= actor.spec.size;
+    reach /= memberOf(createRandom(1), id, actor.spec.coats[0]?.[0] ?? "", false, {}).size;
     MOUTHS.set(key, reach);
   }
   return reach * actor.member.size;
@@ -1675,6 +1694,8 @@ function headAxes(hd: Vec, roll: number): { s: Vec; u: Vec } {
 }
 
 interface Head { readonly c: Vec; readonly d: Vec; readonly s: Vec; readonly u: Vec; readonly r: number }
+/** Heads a touch big for the body, as a toy's are: the face is what makes an animal read at a glance. */
+const CHARM = 1.18;
 
 function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose): Head {
   const b = actor.spec.build;
@@ -1690,7 +1711,7 @@ function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose): Head {
   const n1 = madd(n0, dirOf(yaw, np), Math.max(b.neck * size, r * 0.4));
   cap(kit, "neck", "coat", n0, n1, r * 0.62);
   const hd = dirOf(yaw * 1.8 + q.curl * 0.8, -0.15 + q.headPitch * 0.55 - down * 0.45 - q.curl * 0.4);
-  const hr = b.head * size;
+  const hr = b.head * size * CHARM;
   return { c: madd(n1, hd, hr * 0.55), d: hd, ...headAxes(hd, q.headRoll), r: hr };
 }
 
@@ -1706,9 +1727,10 @@ function earsOf(kit: Kit, kind: Ears, h: Head, back: number): void {
     } else if (kind === "round") {
       ball(kit, part, "coat", at3(h, -0.1, x * 0.68, 0.72), h.r * 0.32, 0.55, h.d);
     } else if (kind === "long") {
-      const root = at3(h, -0.15, x * 0.32, 0.7);
-      const dir = unit(add(add(scale(h.u, 1 - back * 0.7), scale(h.d, -(0.15 + back))), scale(h.s, x * 0.18)));
-      cap(kit, part, "coat", root, madd(root, dir, h.r * 2.2), h.r * 0.22, 0.45, h.d);
+      // (Splayed in a V, so the pair reads from behind as well as from the side.)
+      const root = at3(h, -0.15, x * 0.38, 0.7);
+      const dir = unit(add(add(scale(h.u, 1 - back * 0.7), scale(h.d, -(0.15 + back))), scale(h.s, x * 0.42)));
+      cap(kit, part, "coat", root, madd(root, dir, h.r * 2), h.r * 0.3, 0.5, h.d);
     } else if (kind === "flop") {
       const root = at3(h, -0.05, x * 0.7, 0.4);
       cap(kit, part, "alt", root, madd(root, unit(add(scale(h.s, x), scale(h.u, -1.2))), h.r * 0.9), h.r * 0.25, 0.4, h.s);
@@ -1742,7 +1764,7 @@ function faceOf(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
   const jawTip = madd(madd(at3(h, 0.3, 0, -0.32), h.d, snout * 0.95), h.u, -(snout + h.r) * q.mouth * 0.45);
   cap(kit, "jaw", "belly", at3(h, 0.3, 0, -0.32), jawTip, h.r * 0.36);
   ball(kit, "nose", "nose", tip, h.r * (b.extras.includes("bignose") ? 0.42 : 0.22));
-  for (const x of [-1, 1]) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.62, x * 0.5, 0.28), h.r * 0.21, !asleep);
+  for (const x of [-1, 1]) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.62, x * 0.5, 0.28), h.r * 0.25, !asleep);
   if (b.extras.includes("mask")) cap(kit, "mask", "dark", at3(h, 0.55, -0.55, 0.22), at3(h, 0.55, 0.55, 0.22), h.r * 0.24, 0.6);
   if (b.extras.includes("cheeks")) for (const x of [-1, 1]) ball(kit, "cheek", "accent", at3(h, 0.45, x * 0.55, -0.15), h.r * 0.3);
   if (actor.member.horned && b.extras.includes("antlers")) antlersOf(kit, h, actor.member.size);
@@ -1893,7 +1915,7 @@ function primateHead(kit: Kit, who: Who, body: PrimateBody, m: Moment): Vec {
   const b = who.spec.build;
   const size = who.member.size;
   const { hips, chest, tdir, r } = body;
-  const hr = b.head * size;
+  const hr = b.head * size * CHARM;
   const look = q.hang > 0.5 ? 0 : body.climbing || m.moving > 0.05 ? 0.9 : 0;
   const hd = dirOf(q.headYaw * 0.8, -0.1 + q.headPitch * 0.6 + look * 0.7);
   const neckTop = madd(chest, tdir, b.neck * size + r * 0.35);
@@ -1994,7 +2016,7 @@ function birdHead(kit: Kit, who: Who, body: BirdBody, m: Moment): Head {
   const neckTop = madd(neckBase, neckDir, Math.max(b.neck * size, body.r * 0.3) * (1 - tuck * 0.6));
   if (b.neck * size > body.r * 0.6) cap(kit, "neck", "coat", neckBase, neckTop, body.r * 0.38);
   const hd = dirOf(q.headYaw + tuck * 2.6, -0.1 + q.headPitch * 0.5 - q.peck * (drum ? 0.1 : 1.1) - (drum ? 1.2 : 0) + (body.flying ? 0.05 : 0));
-  const hr = b.head * size;
+  const hr = b.head * size * CHARM;
   const c = madd(madd(neckTop, hd, hr * 0.4), drum ? [0, 0, 1] : UP, drum ? q.peck * size * 0.12 : 0);
   return { c, d: hd, ...headAxes(hd, q.headRoll), r: hr };
 }
@@ -2114,13 +2136,16 @@ function serpentSpine(who: Who, m: Moment): Vec[] {
   const points: Vec[] = [];
   for (let i = 0; i <= n; i += 1) {
     const moving = m.moving * Math.sin(TAU * m.phase * 0.8 - i * 0.7) * size * 0.06 * (lizard ? 0.4 : 1) * Math.min(1, i / 3);
-    const rest = size * 0.07 * Math.sin(i * 0.55 + 0.2 * Math.sin(m.t * 0.3)) * (1 - m.moving);
+    // At rest a snake lies in a loose S, a lizard nearly straight.
+    const rest = size * (lizard ? 0.07 : 0.12) * Math.sin(i * (lizard ? 0.55 : 0.62) + 0.2 * Math.sin(m.t * 0.3)) * (1 - m.moving);
     const straight: Vec = [moving + rest, r0, -i * seg * 0.95];
-    const a = i * 0.8;
-    const ring = r0 * (6.5 - i * 0.38);
-    const coil: Vec = [Math.cos(a) * ring, r0 + (n - i) * r0 * 0.22, Math.sin(a) * ring - r0 * 6.5];
+    // Coiled, one loose turn (an open ring at a distance, not a disc), the head reared up in the middle.
+    const a = i * 0.55;
+    const ring = r0 * (8.5 - i * 0.42);
+    const coil: Vec = [Math.cos(a) * ring, r0 + (n - i) * r0 * 0.2, Math.sin(a) * ring - r0 * 8.5];
     const lift = Math.max(0, 3 - i) / 3;
-    points.push(add(lerpV(straight, coil, lizard ? 0 : q.curl), [0, lift * (q.headPitch * size * 0.08 + q.mouth * size * 0.02), 0]));
+    const rear = lizard ? 0 : q.curl * lift * size * 0.14;
+    points.push(add(lerpV(straight, coil, lizard ? 0 : q.curl), [0, rear + lift * (q.headPitch * size * 0.08 + q.mouth * size * 0.02), 0]));
   }
   return points;
 }
@@ -2138,10 +2163,20 @@ function poseSerpent(kit: Kit, who: Who, m: Moment): void {
     if (!a || !c) continue;
     const taper = 1 - Math.pow(i / n, 2) * 0.85;
     cap(kit, `body.${i}`, banded && i % 2 === 1 ? "alt" : "coat", a, c, r0 * taper, 0.8);
-    if (b.extras.includes("spots") && i % 2 === 0) ball(kit, "spot", "accent", add(lerpV(a, c, 0.5), [0, r0 * 0.6, 0]), r0 * 0.35, 0.5);
+    serpentMark(kit, who, lerpV(a, c, 0.5), r0 * taper, i, n);
   }
   serpentHead(kit, who, points, m);
   if (b.leg > 0) lizardLegs(kit, who, points, m);
+}
+
+/** A gecko's spots; down a plain snake's back, saddle marks, so it reads as a snake and not a root. */
+function serpentMark(kit: Kit, who: Who, at: Vec, r: number, i: number, n: number): void {
+  const b = who.spec.build;
+  if (b.extras.includes("spots")) {
+    if (i % 2 === 0) ball(kit, "spot", "accent", add(at, [0, r * 0.6, 0]), r * 0.35, 0.5);
+    return;
+  }
+  if (who.member.coat !== "banded" && b.leg === 0 && i % 2 === 1 && i < n - 2) ball(kit, "saddle", "alt", add(at, [0, r * 0.55, 0]), r * 0.78, 0.45);
 }
 
 function serpentHead(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void {
@@ -2323,8 +2358,12 @@ function skinOf(base: Palette, morph: Morph): Palette {
   }
 }
 
+/** Part way to its own grey: a plain coat sits in the scene's tones and leaves the loud colours to the tree. */
+const muted = (hex: string, k: number): string => { const [r, g, b] = hexRgb(hex); const y = r * 0.3 + g * 0.59 + b * 0.11; return rgbHex([r, g, b].map((c) => mix(c, y, k))); };
+
 function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph): Palette {
-  const [coat, alt, belly, dark, accent] = colors;
+  const plain = morph === "normal" ? 0.32 : 0;
+  const [coat, alt, belly, dark, accent] = colors.map((hex, i) => (i < 3 ? muted(hex, plain) : hex)) as unknown as CoatColors;
   const base: Palette = { coat, alt, belly, dark, accent, eye: IRIS[id] ?? "#4a2a16", pupil: "#070505", shine: "#ffffff", nose: dark, glow: accent, horn: BEAKS[id] ?? "#cbb38c", shell: alt };
   return skinOf(base, morph);
 }
@@ -2334,7 +2373,10 @@ function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph): Palette {
 export interface CastMember {
   readonly species: SpeciesId;
   readonly label: string;
+  /** How big it is drawn: its true size, lifted toward a toy scale so small animals read (see `shownSize`). */
   readonly size: number;
+  /** Its true size, before that lift: what it weighs on a branch goes by this. */
+  readonly heft: number;
   readonly coat: string;
   readonly palette: Palette;
   readonly morph: Morph;
@@ -2442,16 +2484,39 @@ export function fits(id: SpeciesId, input: CastInput): boolean {
   return span <= ctx.radius * 0.3;
 }
 
-function memberOf(rand: () => number, id: SpeciesId, coat: string, young: boolean, input: CastInput): CastMember {
+/**
+ * Animals share a scene with a whole tree, so drawn true to life a mouse or a
+ * songbird is a pixel or two. Each is drawn at a toy scale instead: small
+ * animals grow the most (a square-root curve), a deer hardly at all, and
+ * none shrinks. Casting, room and weight on a branch still go by the true
+ * size. Birds, at home in the sky as on a branch, grow at most 1.8 times
+ * (small ones 2.2); insects 1.6 times. A snake is long already and keeps
+ * its true size.
+ */
+const TOY = 1.2;
+export function shownSize(id: SpeciesId, size: number): number {
+  const plan = speciesOf(id).plan;
+  if (plan === "bug") return size * 1.6;
+  if (plan === "serpent") return size;
+  if (plan === "bird") return Math.max(size, Math.min(size * (size < 0.2 ? 2.2 : 1.8), TOY * Math.sqrt(size)));
+  return Math.max(size, TOY * Math.sqrt(size));
+}
+
+/** A special skin, or none: forced, or rolled on its own stream so the coat and size rolls never move it. */
+function morphFor(skin: () => number, input: CastInput): Morph {
+  if (Object.hasOwn(MORPHS, input.morph ?? "")) return input.morph as Morph;
+  const skins = [...(WORLD_SKINS[contextOf(input).world] ?? []), ...WILD_SKINS];
+  const rare = skins.reduce((sum, [, odds]) => sum + odds, 0);
+  return pick(skin, [["normal", Math.max(0, 1 - rare)], ...skins]);
+}
+
+function memberOf(rand: () => number, id: SpeciesId, coat: string, young: boolean, input: CastInput, skin: () => number = rand): CastMember {
   const spec = speciesOf(id);
   const colors = spec.coats.find(([name]) => name === coat)?.[1] ?? spec.coats[0]?.[1] ?? ["#888888", "#666666", "#cccccc", "#222222", "#ffffff"];
-  const ctx = contextOf(input);
-  const forced = Object.hasOwn(MORPHS, input.morph ?? "") ? (input.morph as Morph) : null;
-  const skins = [...(WORLD_SKINS[ctx.world] ?? []), ...WILD_SKINS];
-  const rare = skins.reduce((sum, [, odds]) => sum + odds, 0);
-  const morph: Morph = forced ?? pick(rand, [["normal", Math.max(0, 1 - rare)], ...skins]);
-  const size = spec.size * between(rand, [0.88, 1.12]) * (young ? 0.55 : 1);
-  return { species: id, label: spec.label, size, coat, palette: paletteOf(id, varied(colors, rand, young), morph), morph, young, horned: !young && rand() < 0.5 };
+  const morph = morphFor(skin, input);
+  const heft = spec.size * between(rand, [0.88, 1.12]) * (young ? 0.55 : 1);
+  const size = shownSize(id, heft / (young ? 0.55 : 1)) * (young ? 0.6 : 1);
+  return { species: id, label: spec.label, size, heft, coat, palette: paletteOf(id, varied(colors, rand, young), morph), morph, young, horned: !young && rand() < 0.5 };
 }
 
 function groupOf(rand: () => number, id: SpeciesId, kind: GroupKind, input: CastInput): CastGroup {
@@ -2460,7 +2525,8 @@ function groupOf(rand: () => number, id: SpeciesId, kind: GroupKind, input: Cast
   const coats = spec.coats.map(([name], i) => [name, i === 0 ? 5 : 1] as const);
   const coat = pick(rand, coats);
   const count = kind === "solo" ? 1 : kind === "pair" ? 2 : kind === "family" ? 1 + intBetween(rand, 1, 2) : intBetween(rand, spec.pack[0], spec.pack[1]);
-  const members = Array.from({ length: count }, (_, i) => memberOf(rand, id, rand() < 0.15 ? pick(rand, coats) : coat, kind === "family" && i > 0, input));
+  const skin = streamOf(numericSeed(input.seed), `fauna.skin.${id}`);
+  const members = Array.from({ length: count }, (_, i) => memberOf(rand, id, rand() < 0.15 ? pick(rand, coats) : coat, kind === "family" && i > 0, input, skin));
   return { kind, members };
 }
 
@@ -2659,7 +2725,7 @@ function contactOf(m: Moment, scene: Scene): Vec | null {
   return null;
 }
 
-const weightOf = (who: Who): number => who.member.size ** 3 * (who.spec.plan === "bird" || who.spec.plan === "bug" ? 0.3 : 1);
+const weightOf = (who: Who): number => who.member.heft ** 3 * (who.spec.plan === "bird" || who.spec.plan === "bug" ? 0.3 : 1);
 
 function bodyOf(id: string, who: Who, m: Moment, capsules: readonly Capsule[], scene?: Scene): Body {
   return {
@@ -3148,7 +3214,8 @@ function groundMove(actor: Actor, place: Place, scene: Scene): Action {
  * mostly hops (a big bird walks it), and anything farther it flies.
  */
 function birdGait(actor: Actor, span: number, radius: number): Action {
-  const size = actor.member.size;
+  // (By its true size: a toy-scaled crow still flies across the grove.)
+  const size = actor.member.heft;
   if (actor.spec.flies && span > Math.max(size * 9, radius * 0.45)) return "fly";
   if (span < size * 2.5 || size > 0.45) return "wander";
   return actor.rand() < 0.7 ? "hop" : "wander";

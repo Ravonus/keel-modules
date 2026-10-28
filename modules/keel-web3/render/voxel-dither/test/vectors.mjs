@@ -103,4 +103,23 @@ export default [
     run: ({ filterUniform, SIGNAL_FILTERS }) => [Array.from(filterUniform([{ filter: 'vhs', amount: 0.5 }, { filter: 'nope' }, { filter: 'holo', amount: 3 }])), SIGNAL_FILTERS.length],
     expect: [[7, 0.5, 0, 0, 18, 1], 19],
   },
+  {
+    name: 'lift, clump and ramp default off, clamp, and the canonical pixel look wears them',
+    run: ({ ditherSettings }) => {
+      const plain = ditherSettings({ style: 'engraving' });
+      const wild = ditherSettings({ style: 'engraving', lift: 2, clump: -1, ramp: 'x' });
+      const pixel = ditherSettings({ style: 'pixel' });
+      return [[plain.lift, plain.clump, plain.ramp], [wild.lift, wild.clump, wild.ramp], [pixel.lift > 0, pixel.clump > 0, pixel.ramp > 0, pixel.snap < 0.6]];
+    },
+    expect: [[0, 0, 0], [0.3, 0, 0], [true, true, true, true]],
+  },
+  {
+    name: 'a palette also packs as OKLab, so entries are matched by how near they look',
+    run: ({ paletteUniform, okLab }) => {
+      const round = (values) => Array.from(values, (v) => Math.round(v * 1000) / 1000 + 0);
+      const packed = paletteUniform(['#ffffff', '#000000']);
+      return [round(packed.lab.slice(0, 6)), packed.lab.length, round(okLab([1, 0, 0]))];
+    },
+    expect: [[1, 0, 0, 0, 0, 0], 96, [0.628, 0.225, 0.126]],
+  },
 ];

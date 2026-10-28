@@ -186,8 +186,8 @@ const SKY_STOPS: readonly SkyStop[] = [
   { at: -1, top: "#2d4b8e", horizon: "#e2775c", sun: "#ff6236", fill: "#8a789e", ground: "#2a2230", sunIntensity: 0.35, fillIntensity: 0.84 },
   { at: 3, top: "#4870b4", horizon: "#f2ac72", sun: "#ff9a4c", fill: "#b3aac0", ground: "#3d3a38", sunIntensity: 1.7, fillIntensity: 1.0 },
   { at: 10, top: "#5a8ed0", horizon: "#f5d4a2", sun: "#ffd192", fill: "#cfd5df", ground: "#4a4a40", sunIntensity: 2.5, fillIntensity: 1.24 },
-  { at: 25, top: "#4d8edc", horizon: "#bfe0f0", sun: "#fff0d8", fill: "#e4f0fb", ground: "#4f5a48", sunIntensity: 3.3, fillIntensity: 1.44 },
-  { at: 90, top: "#3a80dc", horizon: "#cde8f6", sun: "#fffaf0", fill: "#f2f8ff", ground: "#56634e", sunIntensity: 3.8, fillIntensity: 1.6 },
+  { at: 25, top: "#4a8ae0", horizon: "#aed6f0", sun: "#fff0d8", fill: "#e4f0fb", ground: "#4f5a48", sunIntensity: 3.3, fillIntensity: 1.44 },
+  { at: 90, top: "#357ae0", horizon: "#b8dcf4", sun: "#fffaf0", fill: "#f2f8ff", ground: "#56634e", sunIntensity: 3.8, fillIntensity: 1.6 },
 ];
 
 function stopAt(index: number): SkyStop {
@@ -252,8 +252,8 @@ const WEATHER: Readonly<Record<Weather, Mood>> = {
   snow: { top: ["#b8c4d0", 0.5], horizon: ["#dfe5ec", 0.5], sun: ["#eef2f8", 0.4], fill: ["#dfe6f0", 0.3], haze: 0.35, sunScale: 0.5, rays: 0.35 },
 };
 
-function applyMood(sky: SkyStop, mood: Mood): SkyStop {
-  const lean = (color: string, toward: readonly [string, number] | undefined): string => (toward === undefined ? color : mixHex(color, toward[0], toward[1]));
+function applyMood(sky: SkyStop, mood: Mood, weight = 1): SkyStop {
+  const lean = (color: string, toward: readonly [string, number] | undefined): string => (toward === undefined ? color : mixHex(color, toward[0], toward[1] * weight));
   return { ...sky, top: lean(sky.top, mood.top), horizon: lean(sky.horizon, mood.horizon), sun: lean(sky.sun, mood.sun), fill: lean(sky.fill, mood.fill), sunIntensity: sky.sunIntensity * mood.sunScale };
 }
 
@@ -344,10 +344,12 @@ function chooseRays(sun: LightSource, moon: WorldLight["moon"], haze: number, mo
 export function worldLight(input: WorldLightInput): WorldLight {
   const solar = solarPosition(input.timestamp, input.lat, input.lon);
   const moods = [SEASONS[input.season ?? ""] ?? CLIMATES.temperate, CLIMATES[input.climate ?? "temperate"], WEATHER[input.weather ?? "clear"]];
-  const sky = moods.reduce(applyMood, skyAt(solar.elevation));
+  const night = 1 - smooth(-14, -2, solar.elevation);
+  // A mood's tints are daylight colours (an overcast grey, a snow-sky white): after dark they fade, so a snowy
+  // midnight stays a dark sky over pale ground instead of a lit grey dome.
+  const sky = moods.reduce((stop, mood) => applyMood(stop, mood, 1 - 0.8 * night), skyAt(solar.elevation));
   const haze = clamp(0.06 + moods.reduce((sum, mood) => sum + mood.haze, 0) + mist(solar.hourAngle, solar.elevation), 0, 1);
   const moodRays = moods.reduce((product, mood) => product * mood.rays, 1);
-  const night = 1 - smooth(-14, -2, solar.elevation);
   const sun: LightSource = { direction: skyDirection(solar), elevation: solar.elevation, azimuth: solar.azimuth, color: sky.sun, intensity: sky.sunIntensity * smooth(-3, 1, solar.elevation) };
   const moon = moonLight(input.timestamp, input.lat, input.lon, night);
   return {

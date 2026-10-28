@@ -8,8 +8,14 @@
  *
  * Every part has a switch (`roots`, `leaves`, `flowers`, `fruit`, `deadwood`,
  * `litter`, `snow`, `fallers`, `sway`, `shadows`, `crownShade`, `bark`), set in
- * code or from a plugin string such as "-roots,-litter". A host decides the
+ * code or from a plugin string such as "-roots,-litter". Three more switch the
+ * pixel-scale looks: `sprays` (blossoms open as a few big two-tone sprays per
+ * twig, not a speckle of tiny flowers), `clumps` (a twig's leaves share one
+ * tone, so the crown reads as lit and shaded masses) and `rootSink` (roots
+ * dive under the soil where they thin out or leave the inner planter). A host decides the
  * ground: open soil, or a planter whose lip and wall the roots climb over.
+ * `rootBreak` lets an old tree's big roots heave the soil, crack the rim and
+ * now and then burst out through the planter's side.
  *
  * The same pieces draw a whole forest in the background (createForest): each
  * tree variant is baked once into merged geometry that keeps its season on the
@@ -124,6 +130,15 @@ export interface TreeGround {
   readonly lip?: (angle: number) => number;
   readonly wall?: { readonly depth: number; readonly flare: number };
   readonly surface?: (angle: number, y: number) => number;
+  /**
+   * The planter itself, for the chunks an old tree's roots break out of it
+   * (`rootBreak`). `colors` are its stone, darkest first (left out, a
+   * weathered grey); `hard` keeps roots from bursting its side (metal, gems:
+   * they only crack the rim; left out, a wall roots do not creep down, depth
+   * under half a unit, counts as hard); `hang` is how far below the wall's
+   * foot a burst root may dangle free (left out, a little more than the wall's depth).
+   */
+  readonly planter?: { readonly colors?: readonly string[]; readonly hard?: boolean; readonly hang?: number };
 }
 
 /** A material skin: the crown takes these colours instead of the species' own. */
@@ -241,7 +256,7 @@ export interface LitLike {
 
 // ---------------------------------------------------------------- switches
 
-export const TREE_FEATURES = ["roots", "leaves", "flowers", "fruit", "deadwood", "litter", "snow", "fallers", "sway", "shadows", "crownShade", "bark"] as const;
+export const TREE_FEATURES = ["roots", "leaves", "flowers", "fruit", "deadwood", "litter", "snow", "fallers", "sway", "shadows", "crownShade", "bark", "sprays", "clumps", "rootSink", "rootBreak"] as const;
 export type TreeFeature = (typeof TREE_FEATURES)[number];
 export type TreeFeatures = Readonly<Record<TreeFeature, boolean>>;
 
@@ -436,22 +451,28 @@ const isZero = (v: V3): boolean => v[0] === 0 && v[1] === 0 && v[2] === 0;
 
 /** One leaf blade at its stalk, pointing along (nx, ny, nz), drooped, twisted and nodded by `motion`; `long` draws it that much longer than wide. */
 export function writeBlade(array: Float32Array, index: number, p: V3, n: V3, size: number, motion: Flutter, long = 1): void {
-  // Leaves droop from their heading toward the ground, more so the heavier the rank.
-  let y: V3 = norm3(n[0], n[1] - motion.droop, n[2]);
-  if (isZero(y)) y = UP;
-  let x: V3 = norm3(...cross3(UP, y));
-  if (isZero(x)) x = [1, 0, 0];
-  const z = norm3(...cross3(x, y));
+  // Leaves droop from their heading toward the ground, more so the heavier the rank. Scalar
+  // locals throughout: this runs for every leaf every frame, so it allocates nothing.
+  let yx = n[0], yy = n[1] - motion.droop, yz = n[2];
+  let l2 = Math.hypot(yx, yy, yz);
+  if (l2 > 1e-6) { yx /= l2; yy /= l2; yz /= l2; } else { yx = 0; yy = 1; yz = 0; }
+  // x = up × y, normalised.
+  let xx = yz, xz = -yx;
+  l2 = Math.hypot(xx, xz);
+  if (l2 > 1e-6) { xx /= l2; xz /= l2; } else { xx = 1; xz = 0; }
+  // z = x × y (x has no y part), normalised.
+  let zx = -xz * yy, zy = xz * yx - xx * yz, zz = xx * yy;
+  l2 = Math.hypot(zx, zy, zz);
+  if (l2 > 1e-6) { zx /= l2; zy /= l2; zz /= l2; } else { zx = 0; zy = 0; zz = 0; }
   const c = Math.cos(motion.twist);
   const s = Math.sin(motion.twist);
   const w = size * 1.05;
   const l = size * long * (1 + motion.nod * 0.15);
-  writeColumns(array, index, [
-    (x[0] * c + z[0] * s) * w, (x[1] * c + z[1] * s) * w, (x[2] * c + z[2] * s) * w, 0,
-    y[0] * l, y[1] * l, y[2] * l, 0,
-    (z[0] * c - x[0] * s) * w, (z[1] * c - x[1] * s) * w, (z[2] * c - x[2] * s) * w, 0,
-  ]);
-  writeOrigin(array, index, p[0], p[1], p[2]);
+  const o = index * 16;
+  array[o] = (xx * c + zx * s) * w; array[o + 1] = zy * s * w; array[o + 2] = (xz * c + zz * s) * w; array[o + 3] = 0;
+  array[o + 4] = yx * l; array[o + 5] = yy * l; array[o + 6] = yz * l; array[o + 7] = 0;
+  array[o + 8] = (zx * c - xx * s) * w; array[o + 9] = zy * c * w; array[o + 10] = (zz * c - xz * s) * w; array[o + 11] = 0;
+  array[o + 12] = p[0]; array[o + 13] = p[1]; array[o + 14] = p[2]; array[o + 15] = 1;
 }
 
 // ---------------------------------------------------------------- shapes
@@ -464,12 +485,30 @@ export const LEAF_OUTLINE: readonly (readonly [number, number])[] = [[0, 0], [0.
  * pixels read as a leaf and not a dot. Colours are baked as vertex colours.
  */
 export function bladeGeometry(lit: LitLike, outline: readonly (readonly [number, number])[] = LEAF_OUTLINE, fold = 0.1, bend = 0): GeometryLike {
+  return bladeFrom(lit, outline, fold, bend, CRISP_BLADE);
+}
+
+/** A blade's tone: its midrib's brightness, how much darker its margin and its foot go. */
+type BladeTone = readonly [mid: number, margin: number, foot: number];
+const CRISP_BLADE: BladeTone = [1.22, 0.5, 0.18];
+/**
+ * Soft blades (the `clumps` look) keep the midrib but drop most of the margin's
+ * darkening: at a pixel or two per leaf that contrast only reads as speckle.
+ */
+const SOFT_BLADE: BladeTone = [1.08, 0.2, 0.08];
+
+/** The broad leaf blade with a soft margin (the `clumps` look). */
+export function softBladeGeometry(lit: LitLike): GeometryLike {
+  return bladeFrom(lit, LEAF_OUTLINE, 0.1, 0, SOFT_BLADE);
+}
+
+function bladeFrom(lit: LitLike, outline: readonly (readonly [number, number])[], fold: number, bend: number, [mid, margin, foot]: BladeTone): GeometryLike {
   const widest = Math.max(...outline.map(([x]) => x));
   const positions: number[] = [];
   const colors: number[] = [];
   const tone = (x: number, y: number): number[] => {
     const edge = Math.abs(x) / widest;
-    const shade = 1.22 - 0.5 * edge - 0.18 * smoothstep(0.25, 0, y);
+    const shade = mid - margin * edge - foot * smoothstep(0.25, 0, y);
     return [shade, shade * (1 + 0.04 * (1 - edge)), shade];
   };
   for (let index = 0; index < outline.length - 1; index += 1) {
@@ -500,6 +539,44 @@ export interface TreeShapes {
   readonly blade: GeometryLike;
   readonly bud: GeometryLike;
   readonly box: GeometryLike;
+  /** The broad blade with a soft margin (the `clumps` look). */
+  readonly softBlade: GeometryLike;
+  /** A blossom spray: a few round flower heads in a puff, lit on top and rose in its own shade (the `sprays` look). */
+  readonly spray: GeometryLike;
+}
+
+/** Each head of a spray: centre (x, y, z) and radius, in a unit about one flower head across. */
+const SPRAY_HEADS = [[0, 0.2, 0, 0.56], [0.5, -0.08, 0.12, 0.46], [-0.34, -0.04, 0.4, 0.44], [-0.16, -0.12, -0.46, 0.45], [0.12, -0.42, 0.04, 0.36]];
+
+/**
+ * A spray of blossom as one shape: a few flower heads bunched round the twig.
+ * Vertex colours carry two tones so the spray reads at a few pixels: the tops
+ * of the heads catch the light near white, the undersides sink to a deeper,
+ * rosier shade of the petal colour (red holds, green and blue drop).
+ */
+export function sprayGeometry(lit: LitLike): GeometryLike {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  // keel/lit's icosahedron is non-indexed: three corners per face.
+  // (Never drawn, so it holds no GPU buffer to dispose.)
+  const corners = lit.icosahedron(1, 0).attributes.position?.array ?? new Float32Array(0);
+  const h = (index: number): number => corners[index] ?? 0;
+  for (const [cx = 0, cy = 0, cz = 0, r = 0.5] of SPRAY_HEADS) {
+    for (let face = 0; face + 8 < corners.length; face += 9) {
+      // A face's tone follows how far up it faces and how high the head sits in the spray.
+      const light = clamp(0.5 + ((h(face + 1) + h(face + 4) + h(face + 7)) / 3) * 0.55 + cy * 0.6, 0, 1);
+      const k = 0.74 + 0.34 * light;
+      for (let corner = face; corner < face + 9; corner += 3) {
+        positions.push(cx + h(corner) * r, cy + h(corner + 1) * r, cz + h(corner + 2) * r);
+        colors.push(k, k * (0.8 + 0.2 * light), k * (0.88 + 0.12 * light));
+      }
+    }
+  }
+  const geometry = new lit.Geometry();
+  geometry.setAttribute("position", new lit.Attribute(new Float32Array(positions), 3));
+  geometry.setAttribute("color", new lit.Attribute(new Float32Array(colors), 3));
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 function needleStrip(positions: number[], colors: number[], from: V3, to: V3, across: V3, width: number, tone: (t: number) => V3, bend = 0): void {
@@ -630,6 +707,8 @@ export function treeShapes(lit: LitLike): TreeShapes {
       blade: bladeGeometry(lit),
       bud: lit.icosahedron(0.55, 1),
       box: lit.box(1, 1, 1),
+      softBlade: softBladeGeometry(lit),
+      spray: sprayGeometry(lit),
     };
     shapeCache.set(lit, shapes);
   }
@@ -646,10 +725,12 @@ export function treeShapes(lit: LitLike): TreeShapes {
 const BARK_VERTEX = /* glsl */ `
 varying vec3 vBark;
 varying vec3 vBarkWorld;
+varying float vBarkUp;
 `;
 const BARK_FRAGMENT = /* glsl */ `
 varying vec3 vBark;
 varying vec3 vBarkWorld;
+varying float vBarkUp;
 float barkHash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float barkNoise(vec3 p) {
   vec3 i = floor(p);
@@ -671,6 +752,14 @@ vec3 barkSurface(vec3 base) {
   float knot = smoothstep(0.88, 0.95, barkNoise(vec3(vBark.xy * 0.9, vBark.z * 0.5) + 11.0));
   c *= 1.0 - 0.45 * knot;
   float moss = smoothstep(1.6, 0.4, vBarkWorld.y - uBarkGround) * smoothstep(0.45, 0.65, barkNoise(vBarkWorld * 2.2));
+#ifdef BARK_UPRIGHT_MOSS
+  // Moss climbs the upright trunk foot, not the roots lying along the soil (green hairlines on a planter).
+  moss *= smoothstep(0.35, 0.75, vBarkUp);
+#endif
+#ifdef BARK_BARE_WALL
+  // Below the soil line the wood is a root on the planter's wall: bare bark, not a green vine.
+  moss *= smoothstep(uBarkGround - 0.3, uBarkGround + 0.05, vBarkWorld.y);
+#endif
   return mix(c, vec3(0.33, 0.46, 0.2) * (0.8 + 0.4 * plate), moss * 0.85);
 }
 `;
@@ -686,18 +775,19 @@ const BARK_BEGIN = /* glsl */ `#include <begin_vertex>
 #endif
   float barkAngle = atan(position.z, position.x);
   vBark = vec3(cos(barkAngle) * barkRadius, sin(barkAngle) * barkRadius, dot(barkWorld.xyz, barkAxis));
-  vBarkWorld = barkWorld.xyz;`;
+  vBarkWorld = barkWorld.xyz;
+  vBarkUp = abs(barkAxis.y);`;
 
-/** A standard material whose instances carry living bark. `ground` is the world y where moss gathers. */
-export function barkMaterial(lit: LitLike, ground = 0): MaterialLike {
+/** A standard material whose instances carry living bark. `ground` is the world y where moss gathers; `bareWall` keeps moss off roots below it (on a planter wall). */
+export function barkMaterial(lit: LitLike, ground = 0, uprightMoss = false, bareWall = false): MaterialLike {
   const material = new lit.LitMaterial({ color: "#ffffff", roughness: 0.92, metalness: 0 });
   material.userData.voxelDitherKeep = true;
   material.onCompile = (shader) => {
     shader.vertexShader = BARK_VERTEX + shader.vertexShader.replace("#include <begin_vertex>", BARK_BEGIN);
-    shader.fragmentShader = `uniform float uBarkGround;\n${BARK_FRAGMENT}${shader.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n  diffuseColor.rgb = barkSurface(diffuseColor.rgb);")}`;
+    shader.fragmentShader = `${uprightMoss ? "#define BARK_UPRIGHT_MOSS\n" : ""}${bareWall ? "#define BARK_BARE_WALL\n" : ""}uniform float uBarkGround;\n${BARK_FRAGMENT}${shader.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n  diffuseColor.rgb = barkSurface(diffuseColor.rgb);")}`;
     shader.uniforms.uBarkGround = { value: ground };
   };
-  material.customProgramCacheKey = () => "living-bark";
+  material.customProgramCacheKey = () => `living-bark${uprightMoss ? "-upright" : ""}${bareWall ? "-bare" : ""}`;
   return material;
 }
 
@@ -764,24 +854,79 @@ export const ROOT_SEGMENTS = 18;
 
 export interface RootPoint { readonly x: number; readonly y: number; readonly z: number; readonly radius: number; readonly gone: boolean }
 
-interface RootStep { readonly s: number; readonly reach: number; readonly angle: number; readonly radius: number; readonly phase: number; readonly trunk: number }
+interface RootStep { readonly s: number; readonly reach: number; readonly angle: number; readonly radius: number; readonly phase: number; readonly trunk: number; readonly heave: number }
 
-/** On the turf: weave, rising and sinking. Near the trunk and the lip a root stays proud of the soil, so it meets both. */
-function rootOnTop(ground: TreeGround, step: RootStep, lip: number, first: boolean): number {
-  if (first) return ground.y + step.trunk * 0.9;
-  const { s, reach, radius, phase } = step;
-  const weave = Math.sin(s * 2.1 + phase) * 0.7 + Math.sin(s * 4.7 + phase * 2.3) * 0.3;
-  const proud = Math.max(smoothstep(0.8, 0.1, s), smoothstep(lip - 0.7, lip - 0.1, reach));
-  return ground.y + radius * (0.15 + 1.1 * Math.max(weave, proud * 0.6)) - radius * 1.3 * (1 - proud) * Math.max(0, -weave);
+/**
+ * How one root of an old tree breaks its planter (`rootBreak`). `heave` (0 to 1)
+ * grows with the trunk: the root arches higher out of the soil and levers the
+ * rim up where it rolls over. `burst` is how far down the wall, as a share of
+ * its depth, the root punches out through the side instead (0: over the lip);
+ * `hang` is how far below the wall's foot it may then dangle.
+ */
+export interface RootBreak { readonly heave: number; readonly burst: number; readonly hang: number }
+
+export const NO_ROOT_BREAK: RootBreak = { heave: 0, burst: 0, hang: 0 };
+
+/** The trunk radius where roots begin to heave, and where they break at full strength. */
+const BREAK_FROM = 0.45;
+const BREAK_FULL = 0.85;
+/** How far inside the lip a bursting root dives, and how long it takes to punch out of the wall. */
+const BURST_DIVE = 0.7;
+const BURST_OUT = 0.42;
+/** The deepest a bursting root runs down a wall before it dangles (a tall sculpt is not followed to its foot). */
+const BURST_WALL = 2.4;
+
+const unit = (value: number): number => (value % 1000) / 1000;
+
+/**
+ * Plans every root's break for a tree of this trunk on this ground, seeded:
+ * an old tree's roots all heave; on a planter whose side they can break (not
+ * metal or gems, see `TreeGround.planter.hard`) most old trees, not all, send
+ * a root or two out through the wall, the longest first.
+ */
+export function rootBreaks(roots: readonly { readonly angle: number; readonly reach: number }[], trunk: number, ground: TreeGround, seed = 1): RootBreak[] {
+  const heave = smoothstep(BREAK_FROM, BREAK_FULL, trunk);
+  if (heave <= 0 || !ground.lip) return roots.map(() => NO_ROOT_BREAK);
+  const wall = ground.wall ?? { depth: 1, flare: 0 };
+  const hard = ground.planter?.hard ?? wall.depth < 0.5;
+  const hang = Math.max(0, ground.planter?.hang ?? wall.depth * 1.2);
+  const reach = ground.rootReach ?? ground.radius;
+  const tree = hash32((seed ^ 0x7f4a7c15) >>> 0);
+  // Five trees in six break a side; the rest only heave and crack the rim.
+  const breaker = !hard && heave > 0.15 && unit(tree) < 0.83;
+  const long = (root: { readonly reach: number }): boolean => (0.3 + trunk * 16) * root.reach >= reach * 0.92;
+  const picks = roots.map((root, index) => {
+    const h = hash32((seed ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0);
+    return { burst: breaker && long(root) && unit(h) < 0.12 + 0.2 * heave, depth: 0.28 + unit(h >>> 10) * 0.32 };
+  });
+  // A breaking tree always shows one: its longest root goes through the wall.
+  if (breaker && !picks.some((pick) => pick.burst)) {
+    let best = -1;
+    for (const [index, root] of roots.entries()) if (long(root) && (best < 0 || root.reach > (roots[best]?.reach ?? 0))) best = index;
+    const pick = picks[best];
+    if (pick) pick.burst = true;
+  }
+  return picks.map((pick) => ({ heave, burst: pick.burst ? pick.depth : 0, hang }));
 }
 
-/** Past the lip: roll over the bevel, then creep down the wall (or a carved surface) until it tucks under. */
+/** On the turf: weave, rising and sinking. Near the trunk and the lip a root stays proud of the soil, so it meets both. An old root heaves higher arches. */
+function rootOnTop(ground: TreeGround, step: RootStep, lip: number, first: boolean): number {
+  if (first) return ground.y + step.trunk * 0.9;
+  const { s, reach, radius, phase, heave } = step;
+  const weave = Math.sin(s * 2.1 + phase) * 0.7 + Math.sin(s * 4.7 + phase * 2.3) * 0.3;
+  const proud = Math.max(smoothstep(0.8, 0.1, s), smoothstep(lip - 0.7, lip - 0.1, reach));
+  const arch = 1.1 + 0.9 * heave;
+  return ground.y + radius * (0.15 + arch * Math.max(weave, proud * 0.6)) - radius * (1.3 + 0.4 * heave) * (1 - proud) * Math.max(0, -weave);
+}
+
+/** Past the lip: roll over the bevel, then creep down the wall (or a carved surface) until it tucks under. An old root levers up over the rim it cracks. */
 function rootOverLip(ground: TreeGround, step: RootStep, lip: number): { r: number; y: number; gone: boolean } {
   const wall = ground.wall ?? { depth: 1, flare: 0 };
   const over = step.reach - lip;
+  const lift = step.heave * step.radius * 0.7;
   if (over < 0.32) {
     const turn = (over / 0.32) * Math.PI * 0.5;
-    return { r: lip + Math.sin(turn) * 0.3 + step.radius * 0.6, y: ground.y + step.radius * 0.5 - (1 - Math.cos(turn)) * 0.3, gone: false };
+    return { r: lip + Math.sin(turn) * 0.3 + step.radius * 0.6, y: ground.y + step.radius * 0.5 + lift * Math.cos(turn) - (1 - Math.cos(turn)) * 0.3, gone: false };
   }
   const down = over - 0.32;
   const y = ground.y - 0.3 - down;
@@ -793,29 +938,160 @@ function rootOverLip(ground: TreeGround, step: RootStep, lip: number): { r: numb
   return { r: (lip + 0.3) * (1 + wall.flare * sink) + step.radius * 0.7, y, gone: down > wall.depth * 0.92 };
 }
 
+/** The planter's outer face at this angle and height: a carved surface, or the lip pushed out by the wall's flare. */
+function wallFace(ground: TreeGround, angle: number, lip: number, y: number): number {
+  const wall = ground.wall ?? { depth: 1, flare: 0 };
+  if (ground.surface) return ground.surface(angle, y);
+  // `lip` is the rim less 0.12; the bevelled wall stands a little proud of the rim line.
+  return (lip + 0.28) * (1 + wall.flare * clamp((ground.y - y) / Math.max(wall.depth, 0.1), 0, 1));
+}
+
+/**
+ * A root that bursts out of the side: it dives under the soil short of the lip,
+ * runs hidden inside the planter, punches out of the wall with a swelling
+ * where it broke through, creeps down the outside and dangles below the foot.
+ */
+function rootThroughWall(ground: TreeGround, step: RootStep, lip: number, plan: RootBreak): { r: number; y: number; gone: boolean; swell: number } {
+  const wall = ground.wall ?? { depth: 1, flare: 0 };
+  const depth = Math.min(wall.depth, BURST_WALL);
+  const out = ground.y - Math.max(0.3, depth * plan.burst);
+  const over = step.reach - (lip - BURST_DIVE);
+  if (over < BURST_DIVE) {
+    // Under the soil and inside the wall, so the planter hides it.
+    const t = smoothstep(0, 0.6, over / BURST_DIVE);
+    const under = ground.y - step.radius * 1.4 - 0.08;
+    const y = under + (Math.min(out, under) - under) * t;
+    return { r: Math.min(step.reach, wallFace(ground, step.angle, lip, y) - step.radius - 0.08), y, gone: false, swell: 0 };
+  }
+  if (over < BURST_DIVE + BURST_OUT) {
+    const u = (over - BURST_DIVE) / BURST_OUT;
+    const swell = Math.sin(u * Math.PI);
+    return { r: wallFace(ground, step.angle, lip, out) + step.radius * (0.35 + 0.45 * u) + 0.16 * swell, y: out + 0.08 * swell, gone: false, swell };
+  }
+  const down = over - BURST_DIVE - BURST_OUT;
+  const foot = ground.y - depth;
+  const y = out - down;
+  if (y > foot) {
+    const face = wallFace(ground, step.angle, lip, y);
+    // A carved surface that tucks in under the planter: hang free from where it turned.
+    if (!ground.surface || face > lip * 0.7) return { r: face + step.radius * 0.6, y, gone: false, swell: 0 };
+  }
+  const top = Math.max(y, foot);
+  const hangFrom = wallFace(ground, step.angle, lip, top) + step.radius * 0.6;
+  const below = Math.max(0, Math.min(foot, out) - y);
+  // Free of the wall it bows out a little, then hangs straight.
+  return { r: Math.max(hangFrom, lip * 0.7) + 0.18 * Math.sin(Math.min(below, 1.2) * 1.3), y, gone: below > plan.hang, swell: 0 };
+}
+
 /**
  * A surface root as ROOT_SEGMENTS + 1 points. It wanders out from the trunk
  * foot, diving under the turf and surfacing again, and on a planter an old
  * tree's longest roots roll over the lip and creep down the wall. Length grows
- * with the trunk, so saplings keep theirs short.
+ * with the trunk, so saplings keep theirs short. A `rootBreaks` plan heaves an
+ * old root higher, or sends it out through the planter's side.
  */
-export function rootPath(root: { readonly angle: number; readonly reach: number }, trunk: number, ground: TreeGround): RootPoint[] {
+export function rootPath(root: { readonly angle: number; readonly reach: number }, trunk: number, ground: TreeGround, plan: RootBreak = NO_ROOT_BREAK): RootPoint[] {
   const wall = ground.wall ?? { depth: 1, flare: 0 };
-  const length = Math.min((0.3 + trunk * 16) * root.reach, (ground.rootReach ?? ground.radius) + wall.depth * 1.4);
+  const burst = plan.burst > 0 && ground.lip !== undefined;
+  const reach = ground.rootReach ?? ground.radius;
+  const length = burst
+    ? Math.max(0.5, (ground.lip?.(root.angle) ?? reach) - 0.12 - trunk * 0.5) + BURST_OUT + Math.min(wall.depth, BURST_WALL) * (1 - plan.burst) + plan.hang
+    : Math.min((0.3 + trunk * 16) * root.reach, reach + wall.depth * 1.4);
   const phase = root.angle * 7.3;
   const points: RootPoint[] = [];
   for (let index = 0; index <= ROOT_SEGMENTS; index += 1) {
     const s = (length * index) / ROOT_SEGMENTS;
     const share = s / length;
-    // Thick most of the way, tapering hard only toward the tip, like a real root.
-    const radius = trunk * 0.5 * (1 - 0.55 * share) * (1 - share ** 3) + 0.03 * share ** 3;
+    // Thick most of the way, tapering hard only toward the tip, like a real root. One that breaks a wall stays thick to its end.
+    const radius = burst
+      ? trunk * 0.42 * (1 - 0.5 * share) * (1 - share ** 5) + 0.035
+      : trunk * 0.5 * (1 - 0.55 * share) * (1 - share ** 3) + 0.03 * share ** 3;
     const angle = root.angle + 0.3 * Math.sin(s * 0.7 + phase) + 0.06 * Math.sin(s * 2.1 + phase * 1.7);
-    const step: RootStep = { s, reach: trunk * 0.5 + s, angle, radius, phase, trunk };
+    const step: RootStep = { s, reach: trunk * 0.5 + s, angle, radius, phase, trunk, heave: plan.heave };
     const lip = (ground.lip?.(angle) ?? Infinity) - 0.12;
-    const place = step.reach < lip ? { r: step.reach, y: rootOnTop(ground, step, lip, index === 0), gone: false } : rootOverLip(ground, step, lip);
-    points.push({ x: Math.cos(angle) * place.r, y: place.y, z: Math.sin(angle) * place.r, radius: Math.max(radius, 0.022), gone: place.gone });
+    let swell = 0;
+    let place: { r: number; y: number; gone: boolean };
+    if (burst && step.reach >= lip - BURST_DIVE) ({ swell, ...place } = rootThroughWall(ground, step, lip, plan));
+    else if (step.reach < lip) place = { r: step.reach, y: rootOnTop(ground, step, burst ? lip + 9 : lip, index === 0), gone: false };
+    else place = rootOverLip(ground, step, lip);
+    points.push({ x: Math.cos(angle) * place.r, y: place.y, z: Math.sin(angle) * place.r, radius: Math.max(radius * (1 + 0.6 * swell), 0.022), gone: place.gone });
   }
   return points;
+}
+
+/** A chunk of planter an old root broke loose. */
+export interface RootShard { readonly x: number; readonly y: number; readonly z: number; readonly size: readonly [number, number, number]; readonly angle: number; readonly tilt: number; readonly roll: number; readonly tone: number }
+
+/** The most chunks one root breaks off; the shard mesh is this times the root count, fixed. */
+export const ROOT_SHARDS = 8;
+/** A shard tone past the planter's colours: the dark of a hole or crack in its wall. */
+const HOLE_TONE = 3;
+
+/**
+ * The chunks one root breaks out of its planter, seeded: where it rolls over
+ * the lip, two rim pieces levered up either side of it (a hard planter just
+ * cracks: smaller pieces); where it bursts through the side, a ring of broken
+ * wall round the hole, one fallen lower, and the rim above split.
+ */
+export function rootShards(root: { readonly angle: number; readonly reach: number }, index: number, trunk: number, ground: TreeGround, plan: RootBreak, seed = 1): RootShard[] {
+  if (plan.heave < 0.2 || !ground.lip) return [];
+  const random = seededRandom((hash32((seed ^ Math.imul(index + 7, 0x85ebca6b)) >>> 0) ^ 0x2545f491) >>> 0);
+  const wall = ground.wall ?? { depth: 1, flare: 0 };
+  const hard = ground.planter?.hard ?? wall.depth < 0.5;
+  const phase = root.angle * 7.3;
+  const angleAt = (s: number): number => root.angle + 0.3 * Math.sin(s * 0.7 + phase) + 0.06 * Math.sin(s * 2.1 + phase * 1.7);
+  const size = (0.2 + 0.2 * plan.heave) * (hard ? 0.7 : 1);
+  const thick = Math.max(trunk * 0.25, 0.1);
+  const shards: RootShard[] = [];
+  const add = (angle: number, r: number, y: number, side: number, scale: number, tilt: number): void => {
+    const s = size * scale * (0.75 + random() * 0.5);
+    const t = -Math.sin(angle), c = Math.cos(angle), n = Math.sin(angle);
+    shards.push({
+      x: c * r + t * side, y, z: n * r + c * side,
+      size: [s * (0.9 + random() * 0.45), s * (0.6 + random() * 0.35), s * (0.7 + random() * 0.35)],
+      angle, tilt: tilt + (random() - 0.5) * 0.3, roll: (random() - 0.5) * 0.9 + Math.sign(side) * 0.25, tone: 1 + Math.floor(random() * 2),
+    });
+  };
+  // Where it reaches the rim: the lip at the root's own angle there.
+  const rimS = Math.max(0.1, (ground.lip(root.angle) - 0.12) - trunk * 0.5);
+  const rimAngle = angleAt(rimS);
+  const lip = ground.lip(rimAngle) - 0.12;
+  if (plan.burst <= 0) {
+    if ((0.3 + trunk * 16) * root.reach < lip + 0.1) return [];
+    for (const side of [-1, 1]) add(rimAngle, lip + 0.08, ground.y + 0.06 + size * 0.2, side * (thick + 0.14 + random() * 0.08), 1, 0.35 + 0.35 * plan.heave);
+    if (!hard && plan.heave > 0.45) add(rimAngle, lip + 0.32, ground.y - 0.35 - random() * 0.4, (random() - 0.5) * 0.3, 0.7, 1.2);
+    return shards;
+  }
+  // The hole in the side, at the depth the root comes out: a dark break in the wall,
+  // a ring of chunks pried out round it, one knocked loose lower down, and a crack
+  // running up from the hole to the rim, which the root has split.
+  const depth = Math.min(wall.depth, BURST_WALL);
+  const out = ground.y - Math.max(0.3, depth * plan.burst);
+  const holeAngle = angleAt(rimS + BURST_OUT * 0.5);
+  const holeLip = ground.lip(holeAngle) - 0.12;
+  const face = wallFace(ground, holeAngle, holeLip, out);
+  const ring = Math.min(thick, 0.22) + 0.12;
+  const flat = (y: number, side: number, width: number, height: number, roll: number, tone: number, push = 0.02): void => {
+    const t = -Math.sin(holeAngle), c = Math.cos(holeAngle), n = Math.sin(holeAngle);
+    const r = wallFace(ground, holeAngle, holeLip, y) + push;
+    shards.push({ x: c * r + t * side, y, z: n * r + c * side, size: [width, height, 0.05], angle: holeAngle, tilt: 0, roll, tone });
+  };
+  flat(out, 0, ring * 1.9, ring * 1.7, (random() - 0.5) * 0.6, HOLE_TONE);
+  add(holeAngle, face + 0.1, out + ring * 0.95, (random() - 0.5) * 0.25, 1.4, 1.0);
+  add(holeAngle, face + 0.1, out - ring * 0.15, -ring * 1.1, 1.2, 0.85);
+  add(holeAngle, face + 0.1, out - ring * 0.05, ring * 1.1, 1.2, 0.85);
+  add(holeAngle, wallFace(ground, holeAngle, holeLip, out - 0.6) + 0.14, out - ring - 0.45, (random() - 0.5) * 0.6, 0.9, 1.35);
+  // The crack: two dark strokes zigzagging from the top of the hole up to the rim.
+  const top = out + ring;
+  const rise = Math.max(0, ground.y - 0.04 - top);
+  if (rise > 0.12) {
+    const jog = (random() < 0.5 ? -1 : 1) * (0.08 + random() * 0.1);
+    flat(top + rise * 0.25, jog * 0.5, 0.13, rise * 0.55, -Math.sign(jog) * 0.35, HOLE_TONE, 0.03);
+    flat(top + rise * 0.72, jog * 0.6, 0.11, rise * 0.5, Math.sign(jog) * 0.3, HOLE_TONE, 0.03);
+  }
+  // The rim above split by the root diving under it.
+  add(rimAngle, lip + 0.06, ground.y + 0.06 + size * 0.2, (random() - 0.5) * 0.3, 1.1, 0.5);
+  return shards;
 }
 
 // ---------------------------------------------------------------- the tree object
@@ -883,6 +1159,8 @@ export interface TreeMeshes {
   readonly snow: InstancedLike | null;
   readonly falling: InstancedLike | null;
   readonly fallingLeaves: InstancedLike | null;
+  /** Chunks of planter an old tree's roots broke loose (`rootBreak`, smooth form, on a planter). */
+  readonly shards: InstancedLike | null;
 }
 
 export interface TreeRender {
@@ -931,6 +1209,17 @@ interface OrnamentSet {
   readonly litterStart: number;
   readonly litterLimit: number;
   readonly stride: number;
+  /** Drawn as sprays (the `sprays` look): every `thin`th slot draws, `grow` times its size, one tone per twig. */
+  readonly spray: boolean;
+  readonly thin: number;
+  readonly grow: number;
+}
+
+/** How a blossom set draws as sprays: a big crown keeps every other slot at twice the size (fewer, readable sprays); a small one keeps all. */
+function sprayPlan(tree: Pick<Tree, "features" | "smooth">, spec: OrnamentSpecLike, slots: SlotsLike, own: boolean): { spray: boolean; thin: number; grow: number } {
+  const spray = tree.features.sprays && tree.smooth && own && spec.kind === "blossom";
+  if (!spray) return { spray, thin: 1, grow: 1 };
+  return slots.count > 900 ? { spray, thin: 2, grow: 2 } : { spray, thin: 1, grow: 1.5 };
 }
 
 interface Faller {
@@ -969,7 +1258,9 @@ interface Tree {
   readonly kinds: readonly OrnamentSet[];
   readonly limits: Required<TreeLimits>;
   readonly leafStride: number;
-  readonly hidden: Map<string, { readonly rank: number; readonly kind: Faller["kind"] }>;
+  readonly hidden: Map<string, { readonly rank: number; readonly kind: Faller["kind"]; readonly index: number }>;
+  /** The same slots by kind, for the per-slot test in every pose pass (a number lookup, not a string built per slot per frame). */
+  readonly hiddenSlots: Readonly<Record<Faller["kind"], Set<number>>>;
   /** Fruit animals have eaten this year, by set ("fruit", or "kind<n>" for a minor kind's) and slot. */
   readonly eaten: Map<string, Set<number>>;
   lastYear: YearLike | null;
@@ -978,10 +1269,16 @@ interface Tree {
   readonly random: () => number;
   readonly a: ColorLike;
   readonly b: ColorLike;
+  readonly c: ColorLike;
   readonly offset: Offset;
   spawnClock: number;
   paintKey: string;
   lastFrame: TreeFrameLike | null;
+  /** The host moves the tree itself this frame (`field: 0`): no sway field at all. */
+  still: boolean;
+  readonly seed: number;
+  /** The roots' break plans (`rootBreak`) and the trunk radius they were made for. */
+  readonly breaks: { trunk: number; plans: readonly RootBreak[] };
 }
 
 const DEFAULT_LIMITS: Required<TreeLimits> = { litter: 1800, flowerLitter: 600, fruitLitter: 320, falling: 64 };
@@ -1037,7 +1334,7 @@ function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): void {
     const radius = at(frame.radius, node) * (1 - at(frame.rot, node) * 0.7);
     const a: [number, number, number] = [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)];
     const b: [number, number, number] = [at(frame.x, node), at(frame.y, node), at(frame.z, node)];
-    if (!fallen) {
+    if (!fallen && !tree.still) {
       sway(offset, a[0], a[1], a[2], motion.elapsed, wind, height, motion.windDir);
       sway(swayB, b[0], b[1], b[2], motion.elapsed, wind, height, motion.windDir);
       a[0] += offset.x; a[2] += offset.z; b[0] += swayB.x; b[2] += swayB.z;
@@ -1052,6 +1349,7 @@ function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): void {
 function poseRoots(tree: Tree, frame: TreeFrameLike, array: Float32Array): void {
   const { model, ground } = tree;
   const trunk = at(frame.radius, 0);
+  const breaks = treeBreaks(tree, trunk);
   for (const [index, root] of model.roots.entries()) {
     const first = model.count + index * ROOT_SEGMENTS;
     for (let part = 0; part < ROOT_SEGMENTS; part += 1) clearSlot(array, first + part);
@@ -1062,13 +1360,90 @@ function poseRoots(tree: Tree, frame: TreeFrameLike, array: Float32Array): void 
       writeSegment(array, first, [c * trunk * 0.5, ground.y + trunk * 0.9, s * trunk * 0.5], [c * reach, ground.y + 0.02, s * reach], trunk * 0.42);
       continue;
     }
-    const path = rootPath(root, trunk, ground);
-    for (let part = 0; part < ROOT_SEGMENTS; part += 1) {
-      const p = path[part];
-      const q = path[part + 1];
-      if (p === undefined || q === undefined || p.gone) continue;
-      writeSegment(array, first + part, [p.x, p.y, p.z], [q.x, q.y, q.z], (p.radius + q.radius) / 2);
+    // A palm's roots are a short fibrous flare at its foot, never long runners.
+    const parts = tree.features.rootSink && model.species.palm ? 4 : ROOT_SEGMENTS;
+    // Till a tree is old its roots stay within the inner part of the planter; an old one's run to the lip and over it.
+    const reach = tree.features.rootSink && trunk < ROOT_OLD ? (ground.rootReach ?? ground.radius) * 0.42 : Infinity;
+    const plan = breaks[index] ?? NO_ROOT_BREAK;
+    poseRootPath(array, first, rootPath(root, trunk, ground, plan), tree.features.rootSink ? ROOT_SINK : 0, parts, plan.heave > 0 ? Infinity : reach);
+  }
+}
+
+/** The roots' break plans for this trunk (`rootBreak`), kept while the trunk holds its girth. */
+function treeBreaks(tree: Tree, trunk: number): readonly RootBreak[] {
+  const { model } = tree;
+  const on = tree.features.rootBreak && tree.features.roots && tree.smooth && !model.species.palm;
+  if (!on) return [];
+  if (tree.breaks.trunk !== trunk) {
+    tree.breaks.trunk = trunk;
+    tree.breaks.plans = rootBreaks(model.roots, trunk, tree.ground, tree.seed);
+    poseShards(tree, trunk);
+  }
+  return tree.breaks.plans;
+}
+
+/** Weathered stone, darkest first: the chunks' colour when the host does not pass its planter's. */
+const SHARD_COLORS = ["#5e4a3a", "#7a634f", "#958068"] as const;
+
+/** The planter chunks the roots broke loose, posed only when the trunk grows. */
+function poseShards(tree: Tree, trunk: number): void {
+  const mesh = tree.meshes.shards;
+  if (!mesh) return;
+  const array = mesh.instanceMatrix.array;
+  const own = tree.ground.planter?.colors;
+  const colors = own && own.length > 0 ? own : SHARD_COLORS;
+  for (const [index, root] of tree.model.roots.entries()) {
+    const shards = rootShards(root, index, trunk, tree.ground, tree.breaks.plans[index] ?? NO_ROOT_BREAK, tree.seed);
+    for (let slot = 0; slot < ROOT_SHARDS; slot += 1) {
+      const shard = shards[slot];
+      const place = index * ROOT_SHARDS + slot;
+      if (!shard) { clearSlot(array, place); continue; }
+      writeShard(array, place, shard);
+      tree.a.set(shard.tone === HOLE_TONE ? (colors[0] ?? SHARD_COLORS[0]) : (colors[Math.min(shard.tone, colors.length - 1)] ?? SHARD_COLORS[0]));
+      mesh.setColorAt(place, shard.tone === HOLE_TONE ? tree.a.multiplyScalar(0.28) : tree.a);
     }
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+}
+
+/** A chunk turned to face out from the planter at its angle, tipped out by `tilt` and rolled about its outward axis. */
+export function writeShard(array: Float32Array, index: number, shard: RootShard): void {
+  const c = Math.cos(shard.angle), n = Math.sin(shard.angle);
+  const ct = Math.cos(shard.tilt), st = Math.sin(shard.tilt), cr = Math.cos(shard.roll), sr = Math.sin(shard.roll);
+  // Tangent, up and out; up tips toward out by tilt, then up and tangent turn about out by roll.
+  const tangent = [-n, 0, c];
+  const up = [c * st, ct, n * st];
+  const out = [c * ct, -st, n * ct];
+  const x = tangent.map((v, i) => v * cr + (up[i] ?? 0) * sr);
+  const y = up.map((v, i) => v * cr - (tangent[i] ?? 0) * sr);
+  const [sx, sy, sz] = shard.size;
+  writeColumns(array, index, [
+    (x[0] ?? 0) * sx, (x[1] ?? 0) * sx, (x[2] ?? 0) * sx, 0,
+    (y[0] ?? 0) * sy, (y[1] ?? 0) * sy, (y[2] ?? 0) * sy, 0,
+    (out[0] ?? 0) * sz, (out[1] ?? 0) * sz, (out[2] ?? 0) * sz, 0,
+  ]);
+  writeOrigin(array, index, shard.x, shard.y, shard.z);
+}
+
+/**
+ * `rootSink`: only roots a pixel and a half thick or more draw. Once a root thins
+ * below that, or runs past the inner part of the planter, it dives under the soil
+ * for good, so no hairline or spoke runs on across the planter top like a crack;
+ * a young tree shows a short flare, an old one's thick roots still run to the lip
+ * and roll over it.
+ */
+const ROOT_SINK = 0.06;
+/** The trunk radius past which a tree is old enough for its roots to reach the planter's lip. */
+const ROOT_OLD = 0.45;
+
+function poseRootPath(array: Float32Array, first: number, path: readonly RootPoint[], sink: number, parts: number, reach: number): void {
+  for (let part = 0; part < parts; part += 1) {
+    const p = path[part];
+    const q = path[part + 1];
+    if (p === undefined || q === undefined || p.gone) continue;
+    if (part > 1 && (p.radius < sink || Math.hypot(p.x, p.z) > reach)) break;
+    writeSegment(array, first + part, [p.x, p.y, p.z], [q.x, q.y, q.z], (p.radius + q.radius) / 2);
   }
 }
 
@@ -1099,6 +1474,17 @@ function strainSkin(tree: Tree, node: number): TreeSkin | null {
   const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
   const own = strain > 0 ? tree.strains[strain] : undefined;
   return own && own.skin !== undefined ? own.skin : tree.skin;
+}
+
+/**
+ * A stable number for the clump a twig belongs to: its parent shoot, so the
+ * leaves and flowers of neighbouring twigs share a tone and the crown reads
+ * as masses (the `clumps` and `sprays` looks), not a per-leaf speckle.
+ */
+function clumpOf(tree: Pick<Tree, "model">, node: number): number {
+  const parent = tree.model.parent;
+  const shoot = parent && node < tree.model.count ? Math.max(0, at(parent, node)) : node;
+  return hash32(Math.imul(shoot + 1, 2654435761) ^ 0x9e3779b9);
 }
 
 /** The year an internode's limbs live by: its strain's own, or the tree's. */
@@ -1149,6 +1535,17 @@ interface LeafPass {
   readonly elapsed: number;
 }
 
+/**
+ * The sway field's offset for a leaf at (x, y, z), into `tree.offset`. A host
+ * that moves the tree itself (`field: 0`) gets none at all: the wood is already
+ * where keel/tree-mechanics put it, and the field's idle breathing would only
+ * float the leaves off their twigs (and cost a sway per leaf per frame).
+ */
+function drift(tree: Tree, pass: LeafPass, x: number, y: number, z: number): void {
+  if (tree.still) { tree.offset.x = 0; tree.offset.z = 0; return; }
+  sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
+}
+
 /** How far downwind a point is, so a gust reaches it in turn. */
 const downwind = (pass: LeafPass, x: number, z: number): number => x * Math.cos(pass.dir) + z * Math.sin(pass.dir);
 
@@ -1176,7 +1573,7 @@ function poseBlade(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const x = at(frame.x, node) + n[0] * out + (dx / scale) * clear;
   const y = at(frame.y, node) + n[1] * out - strainDrop(tree, node, index);
   const z = at(frame.z, node) + n[2] * out + (dz / scale) * clear;
-  sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
+  drift(tree, pass, x, y, z);
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
   const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, x, z));
   writeBlade(pass.array, index, [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4], n, leafSize * (weeps ? 1.5 : 1.9), motion, weeps ? 2.4 : 1);
@@ -1261,7 +1658,7 @@ function poseLeaflet(tree: Tree, fronds: FrondLayout, frame: TreeFrameLike, inde
   const profile = Math.sin(Math.PI * (0.08 + 0.88 * s)) ** 0.7;
   const grown = clamp(leafSize / Math.max(pass.size, 1e-6), 0, 1.4);
   const length = frond * 0.3 * (0.25 + 0.75 * profile) * grown * (0.85 + 0.3 * at(slots.size, index));
-  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.field, pass.height, pass.dir);
+  drift(tree, pass, p[0], p[1], p[2]);
   writeBlade(pass.array, index, [p[0] + tree.offset.x + swing, p[1], p[2] + tree.offset.z + swing * 0.4], norm3(...n), length, { droop: 0.04, twist: sign * 0.35 + shiver * 0.6, nod: 0 });
 }
 
@@ -1283,7 +1680,7 @@ function poseSprig(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPa
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const { p, n } = sprigPlace(frame, slots, index);
-  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.field, pass.height, pass.dir);
+  drift(tree, pass, p[0], p[1], p[2]);
   const motion = leafFlutter(pass.elapsed, pass.wind, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, p[0], p[2]));
   const stiff = { droop: motion.droop * 0.12, twist: at(slots.rank, index) * TAU + motion.twist * 0.2, nod: motion.nod * 0.3 };
   writeBlade(pass.array, index, [p[0] + tree.offset.x + swing * 0.3, p[1], p[2] + tree.offset.z + swing * 0.12], n, leafSize * 1.9, stiff);
@@ -1296,7 +1693,7 @@ function poseLump(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPas
   const x = at(frame.x, node) + at(slots.dx, index) * pass.spread;
   const y = at(frame.y, node) + at(slots.dy, index) * pass.spread - strainDrop(tree, node, index);
   const z = at(frame.z, node) + at(slots.dz, index) * pass.spread;
-  sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
+  drift(tree, pass, x, y, z);
   const flutter = pass.wind * 0.012 * Math.sin(pass.elapsed * 6.3 + rank * 40);
   const fx = flutter * Math.cos(pass.dir);
   const fz = flutter * Math.sin(pass.dir);
@@ -1305,21 +1702,39 @@ function poseLump(tree: Tree, frame: TreeFrameLike, index: number, pass: LeafPas
 
 function leafShows(tree: Tree, frame: TreeFrameLike, year: YearLike, index: number, leafy: boolean): boolean {
   const slots = tree.model.leaves;
-  return leafy && at(frame.grow, at(slots.node, index)) > 0 && at(slots.rank, index) >= year.drop && !tree.hidden.has(`leaf:${String(index)}`);
+  return leafy && at(frame.grow, at(slots.node, index)) > 0 && at(slots.rank, index) >= year.drop && !tree.hiddenSlots.leaf.has(index);
+}
+
+/**
+ * How much bigger a young tree's leaves draw. With `clumps` a seedling's first
+ * leaves come nearly twice the size, easing back to life size as the crown
+ * fills in, so a tree a year or two old reads as a sprout and not a speck.
+ */
+function youngLeaf(tree: Tree, frame: TreeFrameLike): number {
+  if (!tree.features.clumps) return frame.visible <= 4 ? 0.8 : 1;
+  return 1 + 0.9 * clamp(1 - (frame.visible - 4) / 90, 0, 1);
 }
 
 function leafPass(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): LeafPass {
   const bare = year.leaf <= 0;
-  const seedling = frame.visible <= 4;
   // A grand tree is bigger than life but has the same twigs, so each clump fills more of its crown.
   const grand = Math.max(1, frame.scale ?? 1) ** 0.75;
   return {
     array: mesh.instanceMatrix.array, height: Math.max(frame.height, 0.5), bare,
-    size: tree.colors.leafScale * (seedling ? 0.8 : 1) * (tree.skin?.leafSize ?? 1) * grand,
+    size: tree.colors.leafScale * youngLeaf(tree, frame) * (tree.skin?.leafSize ?? 1) * grand,
     spread: (bare ? 0.15 : 0.35 + 0.65 * year.leaf) * grand, wind: tree.features.sway ? motion.wind : 0, dir: motion.windDir ?? 0, elapsed: motion.elapsed,
     field: tree.features.sway ? motion.wind * (motion.field ?? 1) : 0,
   };
 }
+
+/**
+ * How far into full blossom the tree is (the `sprays` look), 0..1: in full bloom a
+ * blossom tree's new leaves stay small, so the crown reads as a pink cloud with
+ * green only as an accent, then grow as the petals fall.
+ */
+const floweringOf = (tree: Tree, year: YearLike): number =>
+  tree.features.sprays && tree.flowers?.spray === true ? clamp(year.bloom * 1.6, 0, 1) * (1 - clamp(year.petals * 1.2, 0, 1)) : 0;
+const leafHush = (tree: Tree, node: number, flowering: number): number => (flowering > 0 && strainColors(tree, node).blossom === true ? 1 - 0.55 * flowering : 1);
 
 function poseLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
   const { model } = tree;
@@ -1329,13 +1744,14 @@ function poseLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year:
   const bare = year.leaf <= 0;
   if (motion.dead === true) { for (let index = 0; index < slots.count; index += 1) clearSlot(mesh.instanceMatrix.array, index); mesh.instanceMatrix.needsUpdate = true; return; }
   const pass = leafPass(tree, mesh, frame, year, motion);
+  const flowering = floweringOf(tree, year);
   for (let index = 0; index < slots.count; index += 1) {
     const node = at(slots.node, index);
     // In winter only a few closed buds show; the rest of the twig is bare.
     const own = strainYear(tree, node, year);
     const resting = own.leaf <= 0;
     if (!leafShows(tree, frame, own, index, seedling || leafyNode(frame, node, tipLimit)) || (resting && index % 4 !== 0)) { clearSlot(pass.array, index); continue; }
-    const leafSize = resting ? pass.size * 0.24 : pass.size * at(slots.size, index) * (0.2 + 0.8 * own.leaf) * (0.45 + 0.55 * at(frame.grow, node));
+    const leafSize = resting ? pass.size * 0.24 : pass.size * leafHush(tree, node, flowering) * at(slots.size, index) * (0.2 + 0.8 * own.leaf) * (0.45 + 0.55 * at(frame.grow, node));
     // Hanging strands swing from their twig: the lower the leaf, the wider the swing.
     const swing = Math.max(0, -at(slots.dy, index)) * pass.wind * 0.35 * Math.sin(pass.elapsed * 1.4 + at(model.phase, node));
     if (tree.blades) poseBlade(tree, frame, index, pass, leafSize, swing);
@@ -1349,7 +1765,7 @@ function poseLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year:
  * down sit in the crown's own shade, the outer and upper ones catch the light,
  * and each varies a little on its own. Without it a crown is one flat colour.
  */
-export function crownShade(frame: TreeFrameLike, slots: SlotsLike): Float32Array {
+export function crownShade(frame: TreeFrameLike, slots: SlotsLike, jitter?: (index: number) => number): Float32Array {
   const shade = new Float32Array(slots.count).fill(1);
   const live: number[] = [];
   for (let index = 0; index < slots.count; index += 1) if (at(frame.grow, at(slots.node, index)) > 0) live.push(index);
@@ -1368,7 +1784,7 @@ export function crownShade(frame: TreeFrameLike, slots: SlotsLike): Float32Array
   const reach = Math.max(0.001, ...live.map(outward));
   for (let index = 0; index < slots.count; index += 1) {
     const up = clamp((at(frame.y, at(slots.node, index)) - low) / Math.max(high - low, 0.5), 0, 1);
-    shade[index] = (0.55 + 0.5 * clamp(outward(index) / reach, 0, 1) ** 0.8) * (0.85 + 0.25 * up) * (0.9 + 0.2 * at(slots.rank, index));
+    shade[index] = (0.55 + 0.5 * clamp(outward(index) / reach, 0, 1) ** 0.8) * (0.85 + 0.25 * up) * (0.9 + 0.2 * (jitter ? jitter(index) : at(slots.rank, index)));
   }
   return shade;
 }
@@ -1384,15 +1800,36 @@ function skinLeafColor(tree: Tree, skin: TreeSkin, frame: TreeFrameLike, index: 
 }
 
 /** Spring flush and the autumn turn: old needles of an evergreen never turn. */
-function seasonLeafColor(tree: Tree, year: YearLike, tone: number, rank: number, colors: TreeColors = tree.colors): ColorLike {
+function seasonLeafColor(tree: Tree, year: YearLike, tone: number, rank: number, colors: TreeColors, turnRank: number): ColorLike {
   const { model, a, b } = tree;
   a.set(colors.leaves[tone] ?? "#6c9a54");
   if (year.flush > 0) a.lerp(b.set((colors.blossom === true ? colors.leaves[2] : colors.spring[tone]) ?? "#a6ce6f"), year.flush * 0.7);
   const oldNeedles = model.species.evergreen ? model.species.phenology.dropMax * 1.4 : 2;
-  const turn = rank < oldNeedles ? clamp(year.color * 1.5 - rank * 0.5, 0, 1) : 0;
-  if (turn > 0) a.lerp(b.set(colors.autumn[(tone + Math.floor(rank * 3)) % colors.autumn.length] ?? "#cf6b4e"), turn);
+  // `turnRank` is the leaf's own rank, or its clump's: a clump turns together, so autumn comes in patches.
+  const turn = rank < oldNeedles ? clamp(year.color * 1.5 - turnRank * 0.5, 0, 1) : 0;
+  if (turn > 0) a.lerp(b.set(colors.autumn[(tone + Math.floor(turnRank * 3)) % colors.autumn.length] ?? "#cf6b4e"), turn);
   if (year.withered) a.set(colors.autumn[tone] ?? "#cf6b4e").lerp(b.set("#7d5c3a"), 0.6);
   return a;
+}
+
+/** A hybrid's minor kind under the tree's skin keeps a share of its own leaf colour (`clumps`), so an oak limb on an ember cherry still reads as its own section. */
+function skinnedLeafColor(tree: Tree, skin: TreeSkin, frame: TreeFrameLike, year: YearLike, index: number, colors: TreeColors): ColorLike {
+  const slots = tree.model.leaves;
+  const node = at(slots.node, index);
+  const kind = tree.features.clumps && year.leaf > 0 ? strainAt(tree, node) : undefined;
+  if (kind?.species === undefined || kind.colors === undefined) return skinLeafColor(tree, skin, frame, index);
+  const rank = at(slots.rank, index);
+  tree.c.copy(seasonLeafColor(tree, year, clumpOf(tree, node) % 3, rank, colors, rank));
+  return skinLeafColor(tree, skin, frame, index).lerp(tree.c, 0.45);
+}
+
+/** A leaf's season colour: by its own tone and rank, or (`clumps`) its clump's, with the odd leaf catching the light in the palest tone; a clump turns in autumn together. */
+function leafSeasonColor(tree: Tree, year: YearLike, index: number, colors: TreeColors): ColorLike {
+  const slots = tree.model.leaves;
+  const rank = at(slots.rank, index);
+  if (!tree.features.clumps) return seasonLeafColor(tree, year, at(slots.tone, index), rank, colors, rank);
+  const clump = clumpOf(tree, at(slots.node, index));
+  return seasonLeafColor(tree, year, index % 11 === 0 ? 2 : clump % 3, rank, colors, (((clump >>> 8) % 1000) / 1000) * 0.7 + rank * 0.3);
 }
 
 /** One leaf's colour for the year: bud, flush, turn, withered, dying, snow on needles. */
@@ -1401,12 +1838,12 @@ function leafColor(tree: Tree, frame: TreeFrameLike, year: YearLike, index: numb
   const slots = model.leaves;
   const node = at(slots.node, index);
   const skin = strainSkin(tree, node);
-  if (skin) return skinLeafColor(tree, skin, frame, index);
   const colors = strainColors(tree, node);
   year = strainYear(tree, node, year);
+  if (skin) return skinnedLeafColor(tree, skin, frame, year, index, colors);
   if (year.leaf <= 0) return a.set(colors.trunk[2] ?? "#9a6946").lerp(b.set(colors.leaves[0] ?? "#6c9a54"), 0.25);
-  seasonLeafColor(tree, year, at(slots.tone, index), at(slots.rank, index), colors);
-  const dead = at(frame.dead, at(slots.node, index));
+  leafSeasonColor(tree, year, index, colors);
+  const dead = at(frame.dead, node);
   if (dead > 0.05) a.lerp(b.set("#8a6b45"), clamp(dead * 4, 0, 1));
   // Evergreen needles hold snow on their upper side.
   if (snow > 0 && model.species.evergreen && at(slots.dy, index) > -0.02) a.lerp(b.set("#f2f6fb"), 0.75 * snow);
@@ -1415,7 +1852,8 @@ function leafColor(tree: Tree, frame: TreeFrameLike, year: YearLike, index: numb
 
 function paintLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: YearLike, snow: number): void {
   const slots = tree.model.leaves;
-  const shade = tree.smooth && tree.features.crownShade && (!tree.skin || tree.strains.length > 1) ? crownShade(frame, slots) : null;
+  const jitter = tree.features.clumps ? (index: number): number => (clumpOf(tree, at(slots.node, index)) % 1000) / 1000 : undefined;
+  const shade = tree.smooth && tree.features.crownShade && (!tree.skin || tree.strains.length > 1) ? crownShade(frame, slots, jitter) : null;
   for (let index = 0; index < slots.count; index += 1) {
     const color = leafColor(tree, frame, year, index, snow);
     if (shade && year.leaf > 0 && !strainSkin(tree, at(slots.node, index))) color.multiplyScalar(at(shade, index));
@@ -1426,26 +1864,28 @@ function paintLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year
 
 // ---------------------------------------------------------------- flowers and fruit
 
-function ornamentSet(tree: Pick<Tree, "lit" | "group" | "model" | "features">, name: OrnamentSet["name"], shape: GeometryLike, litterStart: number, litterLimit: number): OrnamentSet | null {
+function ornamentSet(tree: Pick<Tree, "lit" | "group" | "model" | "features" | "smooth">, name: OrnamentSet["name"], shape: GeometryLike, litterStart: number, litterLimit: number, spray: GeometryLike | null = null): OrnamentSet | null {
   const spec = name === "fruit" ? tree.model.species.fruit : tree.model.species.flower;
   const slots = name === "fruit" ? tree.model.fruit : tree.model.blossoms;
   if (spec === null || slots.count === 0 || !tree.features[name]) return null;
+  const plan = sprayPlan(tree, spec, slots, spray !== null);
   return {
-    name, spec, slots, litterStart, litterLimit, strain: -1,
+    name, spec, slots, litterStart, litterLimit, strain: -1, ...plan,
     look: ornamentLook(spec, tree.model.species.id),
-    mesh: makeMesh(tree, slots.count, name === "fruit" ? 0.62 : 0.7, tree.features.shadows, shape),
+    mesh: makeMesh(tree, slots.count, name === "fruit" ? 0.62 : 0.7, tree.features.shadows, plan.spray && spray ? spray : shape),
     stride: Math.max(1, Math.ceil(slots.count / Math.max(litterLimit, 1))),
   };
 }
 
 /** A minor kind's flowers or fruit as a set of their own (no litter: they fall with the tree's own). */
-function kindSet(tree: Pick<Tree, "lit" | "group" | "model" | "features">, kind: TreeKindOrnaments, name: OrnamentSet["name"], shape: GeometryLike): OrnamentSet | null {
+function kindSet(tree: Pick<Tree, "lit" | "group" | "model" | "features" | "smooth">, kind: TreeKindOrnaments, name: OrnamentSet["name"], shape: GeometryLike, spray: GeometryLike | null = null): OrnamentSet | null {
   const grown = name === "fruit" ? kind.fruit : kind.flower;
   if (!grown || grown.slots.count === 0 || !tree.features[name]) return null;
+  const plan = sprayPlan(tree, grown.spec, grown.slots, spray !== null);
   return {
-    name, spec: grown.spec, slots: grown.slots, litterStart: 0, litterLimit: 0, strain: kind.strain, stride: 1,
+    name, spec: grown.spec, slots: grown.slots, litterStart: 0, litterLimit: 0, strain: kind.strain, stride: 1, ...plan,
     look: ornamentLook(grown.spec, kind.species),
-    mesh: makeMesh(tree, grown.slots.count, name === "fruit" ? 0.62 : 0.7, tree.features.shadows, shape),
+    mesh: makeMesh(tree, grown.slots.count, name === "fruit" ? 0.62 : 0.7, tree.features.shadows, plan.spray && spray ? spray : shape),
   };
 }
 
@@ -1494,7 +1934,7 @@ function ripeFruit(tree: Tree): TreeFruit[] {
     const kind = set.spec.kind;
     for (let index = 0; index < set.slots.count; index += 1) {
       const rank = at(set.slots.rank, index);
-      if (rank >= open || rank < fallen || tree.hidden.has(`${set.name}:${String(index)}`) || eatenSlot(tree, set, index) || ripeness(set, index, year) < 0.7) continue;
+      if (rank >= open || rank < fallen || tree.hiddenSlots[set.name].has(index) || eatenSlot(tree, set, index) || ripeness(set, index, year) < 0.7) continue;
       if (!bearingNode(tree, frame, set.spec, at(set.slots.node, index), set.strain >= 0)) continue;
       const spot = hangingSpot(tree, set, frame, year, index);
       out.push({ key: `${name}:${String(index)}`, kind, x: spot.x, y: spot.y, z: spot.z, size: spot.unit * set.look.size[0], hanging: true });
@@ -1525,6 +1965,19 @@ function eatFruit(tree: Tree, key: string): boolean {
   return true;
 }
 
+/** A set's slots that are falling or eaten right now (looked up by number, once per slot per frame). */
+function goneSlots(tree: Tree, set: OrnamentSet): (index: number) => boolean {
+  const hidden = tree.hiddenSlots[set.name];
+  const eaten = set.name === "fruit" ? tree.eaten.get(setName(tree, set)) : undefined;
+  return eaten ? (index) => hidden.has(index) || eaten.has(index) : (index) => hidden.has(index);
+}
+
+/** The sway field's offset into `tree.offset`, or none when the host moves the tree itself. */
+function stillOrSway(tree: Tree, x: number, y: number, z: number, motion: TreeMotion, wind: number, height: number): void {
+  if (tree.still) { tree.offset.x = 0; tree.offset.z = 0; return; }
+  sway(tree.offset, x, y, z, motion.elapsed, wind * (motion.field ?? 1), height, motion.windDir);
+}
+
 function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
   const { spec, slots, mesh, look } = set;
   const { open, fallen } = ornamentState(set, year);
@@ -1533,15 +1986,19 @@ function poseOrnaments(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year:
   const array = mesh.instanceMatrix.array;
   const height = Math.max(frame.height, 0.5);
   const wind = tree.features.sway ? motion.wind : 0;
-  for (let index = 0; index < slots.count; index += 1) {
+  const gone = goneSlots(tree, set);
+  // A young crown's sprays stay near life size, so its twigs read through them.
+  const grow = 1 + (set.grow - 1) * clamp(frame.visible / 1500, 0.2, 1);
+  // Thinned slots were cleared when the mesh was made and stay cleared.
+  for (let index = 0; index < slots.count; index += set.thin) {
     const node = at(slots.node, index);
     const rank = at(slots.rank, index);
-    if (rank >= open || rank < fallen || tree.hidden.has(`${set.name}:${String(index)}`) || eatenSlot(tree, set, index) || !bearingNode(tree, frame, spec, node, set.strain >= 0)) { clearSlot(array, index); continue; }
-    const unit = tree.colors.leafScale * at(slots.size, index) * (0.35 + 0.65 * clamp((open - rank) * 8, 0, 1));
+    if (rank >= open || rank < fallen || gone(index) || !bearingNode(tree, frame, spec, node, set.strain >= 0)) { clearSlot(array, index); continue; }
+    const unit = tree.colors.leafScale * at(slots.size, index) * grow * (0.35 + 0.65 * clamp((open - rank) * 8, 0, 1));
     const x = at(frame.x, node) + at(slots.dx, index);
     const z = at(frame.z, node) + at(slots.dz, index);
     const y = at(frame.y, node) + at(slots.dy, index) * 0.5 + look.lift * unit;
-    sway(tree.offset, x, y, z, motion.elapsed, wind * (motion.field ?? 1), height, motion.windDir);
+    stillOrSway(tree, x, y, z, motion, wind, height);
     const swing = hangSwing(look.lift, wind, motion, rank);
     writeBox(array, index, x + tree.offset.x + swing.x, y, z + tree.offset.z + swing.z, look.size[0] * unit, look.size[1] * unit, look.size[2] * unit, rank * TAU);
   }
@@ -1581,7 +2038,11 @@ function ornamentColor(tree: Tree, set: OrnamentSet, index: number, year: YearLi
   if (set.spec.kind === "blossom") {
     const fade = clamp((year.petals - rank + 0.25) * 3, 0, 1);
     const petals = bloomColors(tree, index, colors, node);
-    a.set(petals[tone % petals.length] ?? "#f6bacb").lerp(b.set("#fff4f6"), fade * 0.6);
+    // A spray takes one tone for its whole twig, a touch richer: its own shape carries the light and shade.
+    const own = set.spray ? clumpOf(tree, node) % petals.length : tone % petals.length;
+    a.set(petals[own] ?? "#f6bacb");
+    if (set.spray) a.offsetHSL(0, 0.16, -0.06);
+    a.lerp(b.set("#fff4f6"), fade * 0.6);
   } else {
     const palette = set.look.colors ?? ["#ffffff"];
     a.set(palette[tone % palette.length] ?? "#ffffff");
@@ -1589,12 +2050,14 @@ function ornamentColor(tree: Tree, set: OrnamentSet, index: number, year: YearLi
     if (set.look.green !== undefined) a.lerp(b.set(set.look.green), 1 - ripeness(set, index, year));
   }
   // A skinned tree's flowers and fruit take its material: a golden tree bears golden cherries.
-  if (skin) a.lerp(b.set(skin.leaves[(index + 1) % skin.leaves.length] ?? "#ffffff"), 0.82);
+  // With `clumps` fruit keeps most of its own colour, so a red apple still reads on a golden crown.
+  const worn = set.name === "fruit" && tree.features.clumps ? 0.2 : 0.82;
+  if (skin) a.lerp(b.set(skin.leaves[(index + 1) % skin.leaves.length] ?? "#ffffff"), worn);
   return a;
 }
 
 function paintOrnaments(tree: Tree, set: OrnamentSet, year: YearLike): void {
-  for (let index = 0; index < set.slots.count; index += 1) set.mesh.setColorAt(index, ornamentColor(tree, set, index, year));
+  for (let index = 0; index < set.slots.count; index += set.thin) set.mesh.setColorAt(index, ornamentColor(tree, set, index, year));
   if (set.mesh.instanceColor) set.mesh.instanceColor.needsUpdate = true;
 }
 
@@ -1726,7 +2189,7 @@ function poseSnow(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, motion:
     const mx = (at(frame.x, node) + at(frame.baseX, node)) / 2;
     const my = (at(frame.y, node) + at(frame.baseY, node)) / 2;
     const mz = (at(frame.z, node) + at(frame.baseZ, node)) / 2;
-    sway(tree.offset, mx, my, mz, motion.elapsed, at(frame.fall, node) > 0 ? 0 : wind * (motion.field ?? 1), height, motion.windDir);
+    stillOrSway(tree, mx, my, mz, motion, at(frame.fall, node) > 0 ? 0 : wind, height);
     writeBox(array, node, mx + tree.offset.x, my + radius + depth / 2, mz + tree.offset.z, radius * 2.1, depth, level + radius, Math.atan2(dx, dz));
   }
   mesh.instanceMatrix.needsUpdate = true;
@@ -1782,7 +2245,8 @@ function spawnFaller(tree: Tree, frame: TreeFrameLike, year: YearLike, kind: Fal
     const key = source.key(index);
     if (rank < source.front || rank > source.front + 0.08 || tree.hidden.has(key) || !source.ok(index)) continue;
     const node = at(slots.node, index);
-    tree.hidden.set(key, { rank, kind });
+    tree.hidden.set(key, { rank, kind, index });
+    tree.hiddenSlots[kind].add(index);
     const [sx, sy, sz] = source.shape(index);
     const unit = tree.colors.leafScale;
     return {
@@ -1844,7 +2308,11 @@ function spawnFallers(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: 
     if (tree.fallers.length >= tree.limits.falling) tree.fallers.shift();
     tree.fallers.push(faller);
   }
-  for (const [key, held] of tree.hidden) if (held.rank < fallFront(tree, year, held.kind)) tree.hidden.delete(key);
+  for (const [key, held] of tree.hidden) {
+    if (held.rank >= fallFront(tree, year, held.kind)) continue;
+    tree.hidden.delete(key);
+    tree.hiddenSlots[held.kind].delete(held.index);
+  }
 }
 
 function drawFaller(tree: Tree, faller: Faller, slot: number, mesh: InstancedLike, elapsed: number): void {
@@ -1899,6 +2367,7 @@ function update(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMo
   tree.strainYears = motion.strainYears ?? [];
   tree.lastYear = year;
   tree.lastMotion = motion;
+  tree.still = motion.field === 0;
   forgetEaten(tree, year);
   const key = [year, ...tree.strainYears.filter((own): own is YearLike => own !== undefined)].map((own) => paintKeyOf(own, motion)).join("|");
   if (frame !== tree.lastFrame || key !== tree.paintKey) {
@@ -1935,7 +2404,8 @@ function shapesFor(build: Build, options: TreeRenderOptions): { wood: GeometryLi
     const leaf = own.leaf ?? base.box;
     return { wood: base.box, leaf, blade: leaf, bud: base.box };
   }
-  return { wood: base.wood, leaf: base.leaf, blade: speciesBlade(build.lit, build.model.species.id), bud: base.bud, ...own };
+  const blade = speciesBlade(build.lit, build.model.species.id);
+  return { wood: base.wood, leaf: base.leaf, blade: build.features.clumps && blade === base.blade ? base.softBlade : blade, bud: base.bud, ...own };
 }
 
 const hasOrnaments = (features: TreeFeatures): boolean => features.flowers || features.fruit;
@@ -1944,10 +2414,25 @@ function woodMesh(build: Build, shape: GeometryLike, groundY: number): Instanced
   const wood = makeMesh(build, build.model.count + build.model.roots.length * ROOT_SEGMENTS, 0.86, build.features.shadows, shape);
   if (build.smooth && build.features.bark) {
     wood.material.dispose();
-    wood.material = barkMaterial(build.lit, groundY);
+    wood.material = barkMaterial(build.lit, groundY, build.features.rootSink, build.features.rootBreak);
   }
   return wood;
 }
+
+/**
+ * Sprays let a little light through their petals: a faint glow in the petal colour,
+ * lost in daylight, keeps a blossom crown pink at dusk instead of sinking to the
+ * night's blue-black with the leaves.
+ */
+function glowPetals(mesh: InstancedLike, colors: TreeColors): void {
+  const material = mesh.material as MaterialLike & { emissive?: ColorLike; emissiveIntensity?: number };
+  if (!material.emissive) return;
+  material.emissive.set(colors.spring[0] ?? "#f6bacb");
+  material.emissiveIntensity = 0.16;
+}
+
+/** A skin's own leaf shape (crystal, coin) stays its flowers' shape too; a natural crown opens in sprays. */
+const sprayShape = (build: Build, options: TreeRenderOptions): GeometryLike | null => (build.smooth && !options.shapes?.leaf ? treeShapes(build.lit).spray : null);
 
 function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMeshes; flowers: OrnamentSet | null; fruits: OrnamentSet | null; kinds: OrnamentSet[] } {
   const { model, features, limits } = build;
@@ -1966,11 +2451,14 @@ function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMe
     snow: on(features.snow, () => makeMesh(build, model.count, 0.55, false, shapes.leaf)),
     falling: on(features.fallers, () => makeMesh(build, limits.falling, 0.78, shadows, shapes.leaf)),
     fallingLeaves: on(features.fallers, () => makeMesh(build, limits.falling, 0.78, shadows, leafShape, build.smooth)),
+    shards: on(features.rootBreak && features.roots && build.smooth && options.ground?.lip !== undefined && !model.species.palm, () => makeMesh(build, model.roots.length * ROOT_SHARDS, 0.95, shadows, treeShapes(build.lit).box)),
   };
   meshes.snow?.material.color.set("#f4f8ff");
-  const flowers = ornamentSet(build, "flowers", build.smooth ? shapes.leaf : shapes.wood, limits.litter, limits.flowerLitter);
+  const spray = sprayShape(build, options);
+  const flowers = ornamentSet(build, "flowers", build.smooth ? shapes.leaf : shapes.wood, limits.litter, limits.flowerLitter, spray);
+  if (flowers?.spray === true) glowPetals(flowers.mesh, options.colors);
   const fruits = ornamentSet(build, "fruit", build.smooth ? shapes.bud : shapes.wood, limits.litter + limits.flowerLitter, limits.fruitLitter);
-  const kinds = (options.kinds ?? []).flatMap((kind) => [kindSet(build, kind, "flowers", build.smooth ? shapes.leaf : shapes.wood), kindSet(build, kind, "fruit", build.smooth ? shapes.bud : shapes.wood)]).filter((set): set is OrnamentSet => set !== null);
+  const kinds = (options.kinds ?? []).flatMap((kind) => [kindSet(build, kind, "flowers", build.smooth ? shapes.leaf : shapes.wood, spray), kindSet(build, kind, "fruit", build.smooth ? shapes.bud : shapes.wood)]).filter((set): set is OrnamentSet => set !== null);
   return { meshes: { ...meshes, flowers: flowers?.mesh ?? null, fruit: fruits?.mesh ?? null }, flowers, fruits, kinds };
 }
 
@@ -1991,9 +2479,10 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     skin: options.skin ?? null,
     strains: options.strains ?? [], strainOf: options.strainOf ?? null, strainYears: [], blooms: (options.blooms ?? []).filter((bloom) => bloom.share > 0 && bloom.colors.length > 0),
     leafStride: Math.max(1, Math.ceil(model.leaves.count / limits.litter)),
-    hidden: new Map(), eaten: new Map(), lastYear: null, lastMotion: null, fallers: [], random: seededRandom((options.seed ?? 1) ^ 0x51f7),
-    a: new lit.Color(), b: new lit.Color(), offset: { x: 0, z: 0 },
-    spawnClock: 0, paintKey: "", lastFrame: null,
+    hidden: new Map(), hiddenSlots: { leaf: new Set(), flowers: new Set(), fruit: new Set() }, eaten: new Map(), lastYear: null, lastMotion: null, fallers: [], random: seededRandom((options.seed ?? 1) ^ 0x51f7),
+    a: new lit.Color(), b: new lit.Color(), c: new lit.Color(), offset: { x: 0, z: 0 },
+    spawnClock: 0, paintKey: "", lastFrame: null, still: false,
+    seed: options.seed ?? 1, breaks: { trunk: -1, plans: [] },
   };
   return {
     group, features, meshes, fallers: tree.fallers, kinds: kinds.map((set) => set.mesh),

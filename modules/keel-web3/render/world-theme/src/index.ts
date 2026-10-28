@@ -416,7 +416,7 @@ export const WORLDS: Readonly<Record<WorldId, WorldRecipe>> = {
     label: "Beach", form: "pixel", skyline: "shore", clouds: ["puff", "pastel"], sun: ["disc", "striped"], moon: ["big", "disc"], skyMix: 0.75, lightMix: 0.15, stars: 1.2,
     palettes: [
       ["tropic noon", { sky: ["#2fa8ff", "#bff4ff", "#1a3a6a", "#040a1e"], skyline: ["#f4e2b0", "#2ad8d0", "#0a6ab8", "#ffffff"], cloud: ["#ffffff", "#d8f4ff"], sun: ["#fffbe0", "#fff0a0"], moon: "#f0f4ff", light: "#fff6e0" }],
-      ["golden hour", { sky: ["#ff9a4a", "#ffd88a", "#3a1a4a", "#0a0418"], skyline: ["#f0c890", "#ff8a6a", "#2a2a7a", "#fff0d0"], cloud: ["#ffd0a0", "#ff9a8a"], sun: ["#fff0a0", "#ff6a3a"], moon: "#ffe0c0", light: "#ffc89a" }],
+      ["golden hour", { sky: ["#ff9a4a", "#ffd88a", "#241a54", "#0a0418"], skyline: ["#f0c890", "#ff8a6a", "#2a2a7a", "#fff0d0"], cloud: ["#ffd0a0", "#ff9a8a"], sun: ["#fff0a0", "#ff6a3a"], moon: "#ffe0c0", light: "#ffc89a" }],
       ["vapor cove", { sky: ["#ff9ad8", "#9af0ff", "#3a1a6a", "#0e0628"], skyline: ["#ffd8ec", "#5af0e8", "#8a4ae8", "#ffffff"], cloud: ["#ffe0f4", "#c0f4ff"], sun: ["#fff09a", "#ff5ab0"], moon: "#e0f8ff", light: "#ffd8f4" }],
     ],
   },
@@ -445,8 +445,8 @@ export const WORLDS: Readonly<Record<WorldId, WorldRecipe>> = {
   crystal: {
     label: "Crystal", form: "pixel", skyline: "spires", clouds: ["puff", "pastel"], sun: ["ring", "disc"], moon: ["ringed", "disc"], skyMix: 0.35, lightMix: 0.1, stars: 1.3,
     palettes: [
-      ["aurora", { sky: ["#c8f0e8", "#9ab8e8", "#1a2a58", "#060a1e"], skyline: ["#4a6aa8", "#6a8ad8", "#a8c8ff", "#9affe0"], cloud: ["#f0faff", "#d0e0ff"], sun: ["#f8fff0", "#c8f0ff"], moon: "#e0f0ff", light: "#e8f8ff" }],
-      ["rose quartz", { sky: ["#ffe0ea", "#e8b0c8", "#3a1a40", "#10061a"], skyline: ["#b87a98", "#d898b8", "#ffc8e0", "#ffd0f0"], cloud: ["#fff0f6", "#f0d0e0"], sun: ["#fff0f0", "#ffc8d8"], moon: "#ffe8f0", light: "#fff0f4" }],
+      ["aurora", { sky: ["#b4e8e4", "#9ab8e8", "#1a2a58", "#060a1e"], skyline: ["#33508e", "#4f70bc", "#8cb0f0", "#9affe0"], cloud: ["#f0faff", "#d0e0ff"], sun: ["#f8fff0", "#c8f0ff"], moon: "#e0f0ff", light: "#e8f8ff" }],
+      ["rose quartz", { sky: ["#ffe0ea", "#e8b0c8", "#3a1a40", "#10061a"], skyline: ["#94607c", "#b87e9c", "#f0b4d0", "#ffd0f0"], cloud: ["#fff0f6", "#f0d0e0"], sun: ["#fff0f0", "#ffc8d8"], moon: "#ffe8f0", light: "#fff0f4" }],
     ],
   },
   cosmic: {

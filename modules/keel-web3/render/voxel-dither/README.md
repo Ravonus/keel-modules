@@ -17,9 +17,20 @@ What it does, per art pixel:
 - **Screens:** `bayer2`, `bayer4`, `bayer8`, `halftone`, `lines`, `diagonal`,
   `hatch`, `ign`, `stipple`, `checker`, `none`. Each is a pure function of the
   pixel (`thresholdAt` is the CPU mirror), so a still pixel never crawls.
-- **Tone steps.** `color: "rgb"` steps each channel; `"luma"` steps lightness
-  twice as finely as colour and dithers colour gently, so shading reads as
-  ramps and greys stay grey. A `palette` (up to 32 colours) replaces both.
+- **Tone steps.** `color: "rgb"` steps each channel and dithers between two
+  neighbouring step colours only, so a tone never breaks into off-hue
+  confetti; `"luma"` steps lightness finely and colour finer still, dithering
+  colour gently, so shading reads as ramps, greys stay grey and a faint tint
+  (a pale sky, a night navy) keeps its hue. A `palette` (up to 32 colours,
+  matched in OKLab with hue weighted over lightness) replaces both; only
+  neighbouring entries on a ramp dither, so far-apart colours meet in a clean
+  edge. A dark sky bands flat instead of dotting.
+- **Shadow lift, clump and hue ramps.** `lift` raises the darkest tones toward
+  a cool blue so night never crushes to black (contrast already runs into
+  black through a soft knee); `clump` gathers sub-pixel speckle (leaves,
+  blossom, turf) into masses of one tone with a depth-aware Kuwahara pass, so
+  foliage reads and a fluttering crown does not shimmer; `ramp` leans lights
+  warm and shadows cool. The canonical `pixel` look wears all three.
 - **Outlines and creases** from depth: a one-pixel silhouette in a darker,
   cooler ink (or a fixed `outlineColor`), drawn as a solid run (never dithered)
   and thinner with distance, plus a softer line on voxel edges.
@@ -34,9 +45,10 @@ never outlined.
 ## Styles
 
 `smart` (the default), `pixel` (3D pixel art: big art pixels, a hard
-Bayer screen on every channel and three cel bands, for smooth low-poly scenes), `bayer`, `soft`, `halftone`, `engraving`, `chunky`,
-`grain`, `blossom` (a 16-colour palette), `pocket` (4 greens), `clean`
-(posterized cel, no dither) and `crt` (painted 3D pixel art: fine pixels,
+Bayer screen on every channel and three cel bands, for smooth low-poly scenes), `bayer` (DawnBringer's 32),
+`soft` (pastel, milky shadows), `halftone` (risograph inks on cream), `engraving`, `chunky` (PICO-8's 16),
+`grain` (film: fine noise, lifted blacks, warm lights), `blossom` (a 16-colour palette), `pocket` (4 greens), `clean`
+(posterized cel with plum ink, no dither) and `crt` (painted 3D pixel art: fine pixels,
 smooth light, dark ink outlines, rich colour, scanlines and a colour fringe). A setting passed with `style` overrides the
 preset's. `snap` (0 to 0.9) keeps flat in-between tones clean: most of each
 step between two tones snaps flat, and only a short seam where one tone meets

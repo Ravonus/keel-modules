@@ -20,7 +20,10 @@ continuous surface, with no seams and no blocks.
 - **Scene light.** The sun, a fill light (a moon), the hemisphere sky and
   ground, and a rim light are taken as keel/lit light colour × intensity, so
   bodies match `MeshStandardMaterial` brightness. Occlusion where parts meet
-  comes straight from the field.
+  comes straight from the field. An optional `front` light (colour ×
+  intensity, none by default) is a character light from the viewer's side:
+  it reaches only what faces the camera, so a small animal in shade or
+  against the sun still shows its coat and shape.
 - **Tapers, melt and decals.** A part may taper (`r1`, its radius at `b`:
   a muzzle to its nose, a tail to its tip), melt less than the body or not
   at all (`melt`, 0 to 2; 0 is a crisp seam, so legs, wings and claws stay

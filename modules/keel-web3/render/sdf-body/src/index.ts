@@ -64,6 +64,12 @@ export interface BodyLight {
   readonly ground: Vec;
   readonly rim?: Vec;
   readonly rimColor?: Vec;
+  /**
+   * A soft light from the viewer's side (colour × intensity), a character
+   * light: it reaches only what faces the camera, so a small animal standing
+   * in shade or against the sun still shows its coat and shape. None by default.
+   */
+  readonly front?: Vec;
 }
 
 export interface SdfBodiesOptions {
@@ -154,7 +160,7 @@ uniform float uLit[ROLES];
 uniform vec3 uMin, uMax;
 uniform float uK, uGlow, uInk;
 uniform vec3 uCenter, uSize;
-uniform vec3 uSun, uSunCol, uFill, uFillCol, uSky, uGround, uRim, uRimCol;
+uniform vec3 uSun, uSunCol, uFill, uFillCol, uSky, uGround, uRim, uRimCol, uFront;
 varying vec3 vLocal;
 varying vec3 vEye;
 
@@ -272,6 +278,8 @@ void main() {
     // Light as keel/lit's LitMaterial takes it (colour x intensity, Lambert over pi), the sun wrapped a little.
     vec3 light = hemi * ao + uSunCol * max(dot(n, uSun) * 0.8 + 0.2, 0.0) + uFillCol * max(dot(n, uFill), 0.0);
     light = light * INV_PI + uRimCol * rim * max(dot(n, uRim), 0.0) * INV_PI * 2.0;
+    // The character light from the camera, wrapped so it rounds the body instead of flattening it.
+    light += uFront * INV_PI * max(facing * 0.75 + 0.25 * n.y, 0.0);
     // A soft sheen along the sun, so fur and feathers turn with the light.
     vec3 halfway = normalize(uSun - rd);
     light += uSunCol * INV_PI * 0.12 * pow(max(dot(n, halfway), 0.0), 18.0);
@@ -327,6 +335,7 @@ function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxPar
     uSun: { value: new lit.Vector3(0, 1, 0) }, uSunCol: { value: new lit.Vector3(1, 1, 1) },
     uSky: { value: new lit.Vector3(0.6, 0.6, 0.7) }, uGround: { value: new lit.Vector3(0.2, 0.2, 0.2) },
     uRim: { value: new lit.Vector3(0, 0, 1) }, uRimCol: { value: new lit.Vector3(0, 0, 0) },
+    uFront: { value: new lit.Vector3(0, 0, 0) },
   };
   const material = new lit.CustomMaterial({ uniforms: u, vertexShader: VERTEX, fragmentShader: shader, side: "back", depthTest: true, depthWrite: true });
   const mesh = new lit.Mesh(geometry, material);
@@ -474,6 +483,7 @@ function lightSlot(slot: Slot, light: BodyLight): void {
   set("uGround", light.ground);
   set("uRim", light.rim);
   set("uRimCol", light.rimColor ?? [0, 0, 0]);
+  set("uFront", light.front ?? [0, 0, 0]);
 }
 
 /** Shadows: each part as a few plain spheres that only the shadow pass sees. */

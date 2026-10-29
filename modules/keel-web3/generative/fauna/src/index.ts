@@ -269,7 +269,7 @@ export const SPECIES = {
     temper: { groom: 2.4, sit: 2, sleep: 1.8, stretch: 1.6, look: 1.4, play: 1.1, yawn: 1.4, climb: 0.8, stalk: 1, graze: 0 }, friends: ["raccoon", "crow", "songbird"] }),
   hedgehog: define({ label: "Hedgehog", plan: "quad", size: 0.11, rarity: "uncommon", weight: 14, regions: ["alps"], speed: 0.9, active: "night", winter: false,
     build: { len: 0.9, leg: 0.2, body: 0.55, neck: 0.08, rise: 0.1, head: 0.26, snout: 0.4, ears: "round", tail: "none", tailLen: 0.1, hip: 1, extras: ["quills", "muzzle"], foot: "plant", sit: "lie", earLen: 0.7, snoutTip: 0.3, legR: 0.9 },
-    coats: [["brown", ["#8a6e54", "#5a4634", "#e0ccb0", "#140e0a", "#d8c8b0"]], ["blond", ["#b8a080", "#806a50", "#efe4d4", "#2a2018", "#f0e8d8"]]],
+    coats: [["brown", ["#b0926e", "#4e3c2c", "#ecdcc4", "#140e0a", "#d8c8b0"]], ["blond", ["#c8b494", "#7a6448", "#f4ecdc", "#2a2018", "#f0e8d8"]]],
     temper: { sniff: 2.6, dig: 1.6, coil: 1.2, wander: 1.4, sleep: 1, run: 0, graze: 0 }, friends: [] }),
   mouse: define({ label: "Field mouse", plan: "quad", size: 0.07, rarity: "common", weight: 30, regions: ALL_REGIONS, speed: 2.4, active: "night", groups: [5, 2, 2, 2], pack: [3, 4],
     build: { len: 1.2, leg: 0.3, body: 0.42, neck: 0.1, rise: 0.4, head: 0.26, snout: 0.2, ears: "round", tail: "thin", tailLen: 1.3, hip: 1.15, haunch: 1.3, chest: 0.85, sit: "haunch", earLen: 1.9, snoutTip: 0.35, tailRise: -0.7, legR: 0.8 },
@@ -692,32 +692,48 @@ interface Spot { readonly p: Vec; readonly size: number }
 const trunkClear = (stage: Stage, size: number): number => trunkR(stage) + size * 1.2 + 0.1;
 
 const turnTo = (a: number, b: number): number => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
-/** A heading to look for a spot along: toward the viewer, when there is one, of three picks the nearest to it, so the far side is rarer, not barred. */
+/** A heading to look for a spot along: toward the viewer, when there is one, of four picks the nearest to it, so the far side (behind the trunk, from the camera) is rare, not barred. */
 function headingFor(rand: () => number, stage: Stage): number {
   if (!stage.view) return rand() * TAU;
   const view = Math.atan2(stage.view[2], stage.view[0]);
   let best = rand() * TAU;
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < 3; i += 1) {
     const a = rand() * TAU;
     if (turnTo(a, view) < turnTo(best, view)) best = a;
   }
   return best;
 }
 
-/** A free spot on the ground, clear of the trunk, the rim and the others. */
+/** Whether a spot on the ground is round the back of the tree from the viewer (more than a little past the trunk's side). */
+function farSide(stage: Stage, x: number, z: number): boolean {
+  if (!stage.view) return false;
+  const v = Math.hypot(stage.view[0], stage.view[2]), d = Math.hypot(x, z);
+  return v > 0 && d > 0 && (x * stage.view[0] + z * stage.view[2]) / (v * d) < -0.2;
+}
+
+/** Whether a spot lies between the trunk's clearance and the rim, with room from the others. */
+function spotFree(x: number, z: number, inner: number, outer: number, size: number, taken: readonly Spot[]): boolean {
+  const d = Math.hypot(x, z);
+  return d >= inner && d <= outer && taken.every((other) => Math.hypot(other.p[0] - x, other.p[2] - z) >= (other.size + size) * 0.8);
+}
+
+/**
+ * A free spot on the ground, clear of the trunk, the rim and the others.
+ * Spots lean out toward the rim, past the root tangle and the canopy's shade,
+ * where an animal stands against open ground and not among the roots.
+ */
 function groundSpot(rand: () => number, stage: Stage, size: number, near?: Vec, reach = 0, taken: readonly Spot[] = []): Place {
   const inner = trunkClear(stage, size);
   const outer = Math.max(inner + 0.2, stage.radius - size * 0.8);
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const a = headingFor(rand, stage);
-    const r = near ? reach * Math.sqrt(rand()) : mix(inner, outer, Math.sqrt(rand()));
+    const r = near ? reach * Math.sqrt(rand()) : mix(inner, outer, rand() ** 0.35);
     const x = (near?.[0] ?? 0) + Math.cos(a) * r;
     const z = (near?.[2] ?? 0) + Math.sin(a) * r;
-    const d = Math.hypot(x, z);
-    const room = taken.every((other) => Math.hypot(other.p[0] - x, other.p[2] - z) >= (other.size + size) * 0.8);
-    if (d >= inner && d <= outer && room) return { on: "ground", x, z };
+    // (The first tries keep off the far side, behind the trunk and its roots from the camera; the last take what there is.)
+    if (spotFree(x, z, inner, outer, size, taken) && (attempt >= 8 || !farSide(stage, x, z))) return { on: "ground", x, z };
   }
-  const a = rand() * TAU;
+  const a = headingFor(rand, stage);
   const r = mix(inner, outer, 0.5);
   return { on: "ground", x: Math.cos(a) * r, z: Math.sin(a) * r };
 }
@@ -2834,17 +2850,34 @@ function shellOf(kit: Kit, body: QuadBody): void {
   for (const [x, y, k] of plates) { const at = add(lerpV(P, S, k), [x, y, 0]); decal(kit, "scute", "accent", at, at, r * (x === 0 ? 0.45 : 0.4)); }
 }
 
-/** A hedgehog's dome of spines over its back, bristling out from it, pale and dark. */
+/**
+ * A hedgehog's mantle of spines: a dark dome over its back with a clear brim
+ * behind the pale face, flecked with the spines' pale tips, and a ragged edge
+ * of short spines raked back along its sides and rump, so it reads as a
+ * bristling coat and not as a loaf or as horns.
+ */
 function quillsOf(kit: Kit, body: QuadBody): void {
   const { P, S, r } = body;
-  // (A round dome, not a log: the spines short and many, lying back, so they read as a bristling coat and not as horns.)
-  cap(kit, "quills", "alt", add(P, [0, r * 0.3, 0]), add(S, [0, r * 0.3, -r * 0.35]), r * 1.18, 0.85, UP, { melt: 0.45 });
-  for (let i = 0; i < 12; i += 1) {
-    const row = Math.floor(i / 4);
-    const a = ((i % 4) - 1.5) * 0.62 + (row % 2) * 0.3;
+  const back = unit(sub(P, S));
+  const front = lerpV(P, S, 0.72);
+  // A point over the mantle: `k` from its rump to its brim, `a` round from the top, `lift` out from its axis (its flank 1.15, its crown 0.98).
+  const at = (k: number, a: number, lift: number): Vec => add(lerpV(P, front, k), [Math.sin(a) * r * lift * 1.15, Math.cos(a) * r * lift * 0.98 + r * 0.25, 0]);
+  // (Behind the head, melting only a little, so its brim stands off the face and the flanks.)
+  cap(kit, "quills", "alt", add(P, [0, r * 0.25, -r * 0.15]), add(front, [0, r * 0.25, 0]), r * 1.15, 0.85, UP, { melt: 0.25 });
+  // (Within sdf-body's 48 parts a body: a dozen here, so the face is never the part left out.)
+  // The spines' pale tips, flecked over the dome.
+  for (let i = 0; i < 5; i += 1) {
+    const p = at(0.12 + i * 0.19, (i % 2 === 0 ? -0.45 : 0.45) * (i % 3 === 2 ? 0 : 1), 1);
+    decal(kit, "quill.tip", "belly", p, p, r * 0.17);
+  }
+  // The ragged edge: short spines raked back, along each flank and over the rump.
+  for (let i = 0; i < 6; i += 1) {
+    const k = Math.floor(i / 2) * 0.42;
+    const a = (i % 2 === 0 ? -1 : 1) * (1.1 - k * 0.6);
     const out: Vec = [Math.sin(a), Math.cos(a), 0];
-    const base = add(lerpV(P, S, 0.1 + row * 0.33), scale(out, r * 1.05));
-    cap(kit, "quill", i % 3 === 0 ? "dark" : "belly", base, add(base, add(scale(out, r * 0.42), [0, 0, -r * 0.3])), r * 0.15, 1, UP, { r1: r * 0.02, melt: 0.1 });
+    const base = at(k, a, 0.92);
+    const tip = add(base, add(scale(out, r * 0.32), scale(back, r * 0.38)));
+    cone(kit, "quill", i < 2 ? "belly" : "alt", base, tip, r * 0.15, r * 0.015, 0);
   }
 }
 
@@ -2999,6 +3032,8 @@ const BEAKS: Partial<Record<SpeciesId, string>> = { songbird: "#3a2a1a", crow: "
  * the tail). Cruising, it holds its wings still for a `glide` share of each
  * `bout` (seconds); a `bound`ing bird shuts them between bursts instead and
  * dips (a finch, a woodpecker). `dihedral` lifts held wings into a shallow V.
+ * `spots` paints a row of pale spots across the open wing (a woodpecker's
+ * chequered flight feathers).
  */
 interface WingStyle {
   readonly rate: number;
@@ -3015,13 +3050,14 @@ interface WingStyle {
   readonly dihedral: number;
   /** The tail's colour. */
   readonly tail: Role;
+  readonly spots?: Role;
 }
 const WING: WingStyle = { rate: 14, span: 0.7, chord: 0.2, fingers: 0, top: "alt", trail: "alt", tip: "alt", fold: ["alt", "alt"], glide: 0.25, bout: 2, bound: false, dihedral: 0.06, tail: "alt" };
 const WINGS: Partial<Record<SpeciesId, WingStyle>> = {
   songbird: { ...WING, rate: 28, span: 0.62, chord: 0.21, glide: 0, bout: 0.75, bound: true, dihedral: 0.04 },
-  woodpecker: { ...WING, rate: 24, span: 0.66, chord: 0.21, top: "coat", trail: "alt", tip: "coat", fold: ["coat", "alt"], glide: 0, bout: 1.1, bound: true, tail: "coat" },
+  woodpecker: { ...WING, rate: 24, span: 0.66, chord: 0.21, top: "coat", trail: "alt", tip: "coat", fold: ["coat", "alt"], glide: 0, bout: 1.1, bound: true, tail: "coat", spots: "belly" },
   parrot: { ...WING, rate: 19, span: 0.72, chord: 0.17, trail: "coat", fold: ["coat", "alt"], glide: 0.12, bout: 1.6 },
-  crow: { ...WING, rate: 12, span: 0.86, chord: 0.24, fingers: 4, top: "coat", glide: 0.4, bout: 3.2, dihedral: 0.1 },
+  crow: { ...WING, rate: 12, span: 0.86, chord: 0.24, fingers: 4, top: "alt", trail: "accent", tip: "alt", fold: ["alt", "alt"], glide: 0.4, bout: 3.2, dihedral: 0.1 },
   owl: { ...WING, rate: 8, span: 0.92, chord: 0.32, top: "coat", fold: ["coat", "alt"], glide: 0.6, bout: 2.6, dihedral: 0.02 },
   gull: { ...WING, rate: 7.5, span: 1.08, chord: 0.17, fingers: 2, trail: "belly", tip: "dark", fold: ["alt", "dark"], glide: 0.75, bout: 4.5, dihedral: 0.14 },
   peacock: { ...WING, rate: 12, span: 0.5, chord: 0.24, glide: 0.35, bout: 1.4 },
@@ -3270,10 +3306,13 @@ function wingOf(kit: Kit, who: Who, body: BirdBody, x: number, m: Moment): void 
   const armUp = plane(sub(elbow, shoulder));
   const handUp = plane(sub(tip, elbow));
   const behind = (p: Vec, k: number): Vec => madd(p, [0, 0, -1], chord * k);
-  // (Thin, and melting only a little into the body, so a wing reads as a wing at any size: the arm broad, the hand tapering to its tip.)
-  const wing: Finish = { melt: 0.3 };
+  // (Thin, and melting barely into the body, so a wing stands off it as a wing at any size, even
+  // a black wing on a black bird: the arm broad, the hand tapering to its tip. The trailing edge
+  // shows behind the arm as its own band.)
+  const wing: Finish = { melt: 0.12 };
   cap(kit, `wing.${L}`, style.top, behind(shoulder, 0.1), behind(elbow, 0.1), chord * 0.46, 0.16, armUp, { ...wing, r1: chord * 0.42 });
-  cap(kit, `wing.trail.${L}`, style.trail, behind(shoulder, 0.5), behind(elbow, 0.45), chord * 0.3, 0.14, armUp, { melt: 0.15 });
+  cap(kit, `wing.trail.${L}`, style.trail, behind(shoulder, 0.62), behind(elbow, 0.55), chord * 0.3, 0.13, armUp, { melt: 0.1 });
+  if (style.spots) wingSpots(kit, style.spots, L, behind(shoulder, 0.25), behind(tip, 0.25), chord);
   const fingers = style.fingers > 0 && beat.spread > 0.35 ? style.fingers : 0;
   const wrist = fingers > 0 ? lerpV(elbow, tip, 0.55) : tip;
   cap(kit, `wing.hand.${L}`, style.top, behind(elbow, 0.12), behind(wrist, 0.05), chord * 0.4, 0.15, handUp, { melt: 0.15, r1: chord * (fingers > 0 ? 0.3 : 0.16) });
@@ -3291,6 +3330,14 @@ function wingOf(kit: Kit, who: Who, body: BirdBody, x: number, m: Moment): void 
     const dir = unit(madd(axis, back, (k * 0.95 - 0.15) * beat.spread));
     const root = madd(wrist, back, chord * (k * 0.5 - 0.1));
     cap(kit, `wing.primary.${L}${String(i)}`, style.tip, root, madd(root, dir, reach * (1 - k * 0.25)), chord * 0.11, 0.35, handUp, { melt: 0.1, r1: chord * 0.06 });
+  }
+}
+
+/** A row of pale spots across an open wing, from near its root out toward its tip. */
+function wingSpots(kit: Kit, role: Role, L: string, root: Vec, tip: Vec, chord: number): void {
+  for (let i = 0; i < 4; i += 1) {
+    const at = lerpV(root, tip, 0.3 + i * 0.17);
+    decal(kit, `wing.spot.${L}${String(i)}`, role, at, at, chord * 0.14);
   }
 }
 
@@ -3773,7 +3820,7 @@ export function fits(id: SpeciesId, input: CastInput): boolean {
  * 1.6 times. A snake is long already and keeps
  * its true size.
  */
-const TOY = 1.2;
+const TOY = 1.4;
 export function shownSize(id: SpeciesId, size: number): number {
   const plan = speciesOf(id).plan;
   if (plan === "bug") return size * 1.6;

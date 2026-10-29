@@ -144,8 +144,8 @@ export default [
   {
     name: 'roots are in the way: sent across one, a bird hops it and a rabbit clears it, never passing through, and one sent onto it stands on top',
     run: ({ castFor, createHerd }) => {
-      // One root lying across the way from (-1.4, 0) to (1.4, 0), at x = 0.
-      const root = { a: [0, 0.08, -1.2], b: [0, 0.08, 1.2], r: 0.12 };
+      // One root lying across the way from (-1.4, 0) to (1.4, 0), at x = 0, reaching past where a toy-sized bird stands clear of the trunk.
+      const root = { a: [0, 0.08, -1.8], b: [0, 0.08, 1.8], r: 0.12 };
       const at = { ...stage(), roots: [root] };
       const top = 0.08 + 0.12;
       const crossing = (species, region) => {
@@ -451,5 +451,19 @@ export default [
       regionWeight('cat', 'rockies', 'city') > regionWeight('cat', 'rockies', 'nature'),
     ],
     expect: [true, 0, true],
+  },
+  {
+    name: 'every species, in every act, grown or young, male or female, fits sdf-body\'s 48 parts a body (past them the face is left out)',
+    run: ({ poseSpecies, SPECIES_IDS }) => {
+      const acts = ['stand', 'wander', 'run', 'hop', 'fly', 'climb', 'sit', 'lie', 'sleep', 'sniff', 'dig', 'groom', 'look', 'play', 'stretch', 'coil', 'drum', 'peck', 'preen', 'flap', 'sing', 'graze', 'howl', 'rear', 'eat', 'hang', 'roll', 'shake', 'stalk', 'bask'];
+      const over = [];
+      for (const id of SPECIES_IDS) for (const act of acts) for (const young of [false, true]) for (const sex of ['male', 'female']) for (const t of [0, 0.7, 1.9]) {
+        let n = 0;
+        try { n = poseSpecies(id, act, t, { young, sex }).capsules.length; } catch { continue; }
+        if (n > 48) over.push(`${id} ${act}`);
+      }
+      return [...new Set(over)];
+    },
+    expect: [],
   },
 ];

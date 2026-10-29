@@ -47,7 +47,9 @@ live), for anything that rolls a local animal outside a scene. `fits(id, input)`
   the animal's own copy of its species spec, so nothing else changes.
 - **Morphs are rarer still.** Albino, melanistic, golden and spirit morphs
   each carry their own rarity, and some glow.
-- **The sky has its own plan.** A flock may pass over some scenes. Over some
+- **The sky has its own plan.** A flock may pass over some scenes, of the
+  region's own birds, weighed as the ground cast is and in the region's own
+  coats (crows over Tokyo, lorikeets and cockatoos over Sydney). Over some
   worlds, something flies far off: an airliner, a prop plane with a banner, a
   jet with a contrail, a balloon or a saucer.
 

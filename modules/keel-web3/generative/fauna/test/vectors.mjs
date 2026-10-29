@@ -466,4 +466,22 @@ export default [
     },
     expect: [],
   },
+  {
+    name: 'the sky is local: crows lead the flocks over Tokyo, and a flock over Sydney wears only Sydney\'s coats and names',
+    run: ({ castFor, createHerd }) => {
+      const tokyo = {};
+      for (let seed = 0; seed < 200; seed += 1) { const { birds } = castFor({ seed, region: 'tokyo', world: 'nature' }).sky; tokyo[birds] = (tokyo[birds] ?? 0) + 1; }
+      const top = Object.entries(tokyo).sort((a, b) => b[1] - a[1])[0][0];
+      const sydney = new Set(), names = new Set();
+      for (let seed = 0; seed < 60; seed += 1) {
+        const cast = castFor({ seed, region: 'sydney', world: 'nature' });
+        if (cast.sky.birds !== 'parrot') continue;
+        sydney.add(cast.sky.coats.birds);
+        const herd = createHerd(cast);
+        for (let t = 0; t < 400; t += 2) for (const body of herd.sky(t, {})) if (body.kind === 'parrot') names.add(body.label);
+      }
+      return [top, [...sydney].every((coat) => ['lorikeet', 'galah', 'cockatoo'].includes(coat)), names.size > 1 && [...names].every((name) => name !== 'Parrot')];
+    },
+    expect: ['crow', true, true],
+  },
 ];

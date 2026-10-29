@@ -70,6 +70,13 @@ export interface BodyLight {
    * in shade or against the sun still shows its coat and shape. None by default.
    */
   readonly front?: Vec;
+  /**
+   * How saturated the bodies' muted colours are drawn (1 as painted; vivid
+   * ones are left as they are). A look that snaps to a small fixed palette
+   * asks for more, so a brown coat finds the palette's own browns and
+   * oranges instead of its greys and navies.
+   */
+  readonly saturation?: number;
 }
 
 export interface SdfBodiesOptions {
@@ -158,7 +165,7 @@ uniform int uCount;
 uniform vec3 uPal[ROLES];
 uniform float uLit[ROLES];
 uniform vec3 uMin, uMax;
-uniform float uK, uGlow, uInk;
+uniform float uK, uGlow, uInk, uSat;
 uniform vec3 uCenter, uSize;
 uniform vec3 uSun, uSunCol, uFill, uFillCol, uSky, uGround, uRim, uRimCol, uFront;
 varying vec3 vLocal;
@@ -287,6 +294,10 @@ void main() {
     light += uSky * INV_PI * 0.6 * rim;
     float glow = max(uGlow, lit);
     vec3 col = mix(base * light, base * (1.0 + 0.5 * rim), glow);
+    // (Muted colours only: a brown coat leaves the greys, a vivid fox is left as it is.)
+    float hi = max(max(col.r, col.g), col.b);
+    float vivid = smoothstep(0.35, 0.7, (hi - min(min(col.r, col.g), col.b)) / max(hi, 1e-4));
+    col = max(mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, mix(uSat, 1.0, vivid)), 0.0);
     // Bright sun would clip a coat channel by channel and turn a brown deer
     // orange; instead the highlight rolls off as a whole, keeping its hue.
     float peak = max(max(col.r, col.g), col.b);
@@ -331,7 +342,7 @@ function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxPar
     uMin: { value: new lit.Vector3() }, uMax: { value: new lit.Vector3() },
     uCenter: { value: new lit.Vector3() }, uSize: { value: new lit.Vector3(1, 1, 1) },
     uFill: { value: new lit.Vector3(0, 1, 0) }, uFillCol: { value: new lit.Vector3(0, 0, 0) },
-    uK: { value: 0.02 }, uGlow: { value: 0 }, uInk: { value: 0.85 },
+    uK: { value: 0.02 }, uGlow: { value: 0 }, uInk: { value: 0.85 }, uSat: { value: 1 },
     uSun: { value: new lit.Vector3(0, 1, 0) }, uSunCol: { value: new lit.Vector3(1, 1, 1) },
     uSky: { value: new lit.Vector3(0.6, 0.6, 0.7) }, uGround: { value: new lit.Vector3(0.2, 0.2, 0.2) },
     uRim: { value: new lit.Vector3(0, 0, 1) }, uRimCol: { value: new lit.Vector3(0, 0, 0) },
@@ -484,6 +495,7 @@ function lightSlot(slot: Slot, light: BodyLight): void {
   set("uRim", light.rim);
   set("uRimCol", light.rimColor ?? [0, 0, 0]);
   set("uFront", light.front ?? [0, 0, 0]);
+  (slot.u.uSat as UniformLike<number>).value = light.saturation ?? 1;
 }
 
 /** Shadows: each part as a few plain spheres that only the shadow pass sees. */

@@ -3736,6 +3736,10 @@ export interface SkyPlan {
   readonly birds: SpeciesId | null;
   readonly vee: SpeciesId | null;
   readonly swarm: SpeciesId | null;
+  /** The coat each of those wears: its region's own (a jungle crow over Tokyo, a silver gull over Sydney). */
+  readonly coats: { readonly birds: string; readonly vee: string; readonly swarm: string };
+  /** Where the sky is, for the flyers' local names. */
+  readonly region: RegionId | null;
   /** Everything that can pass over, weighted; what fits the moment is picked as each pass comes. */
   readonly traffic: readonly SkyTraffic[];
   /** Seconds between passes. */
@@ -4202,12 +4206,16 @@ function skyFor(rand: () => number, input: CastInput): SkyPlan {
   const ctx = contextOf(input);
   const here = (id: SpeciesId): boolean => (ctx.region === null || speciesOf(id).regions.includes(ctx.region)) && speciesOf(id).worlds.includes(ctx.world === "voxel" ? "nature" : ctx.world);
   const flockers = (Object.keys(FLOCK_WEIGHTS) as SpeciesId[]).filter(here);
-  const birds = flockers.length > 0 ? pick(rand, flockers.map((id) => [id, FLOCK_WEIGHTS[id] ?? 1] as const)) : null;
+  // (Weighed as the ground cast is weighed here: crows over Tokyo, gulls over the Atlantic.)
+  const local = (id: SpeciesId): number => (FLOCK_WEIGHTS[id] ?? 1) * (ctx.region ? LOCAL_WEIGHT[ctx.region][id] ?? 1 : 1);
+  const birds = flockers.length > 0 ? pick(rand, flockers.map((id) => [id, local(id)] as const)) : null;
   const vee = BIRDS_FOR.vee.find(here) ?? null;
   const swarm = BIRDS_FOR.murmuration.find(here) ?? null;
   const has: Partial<Record<SkyKind, boolean>> = { flock: birds !== null, vee: vee !== null, murmuration: swarm !== null };
   const sky = WORLD_SKY[ctx.world];
-  return { birds, vee, swarm, traffic: sky.traffic.filter((each) => has[each.kind] !== false), every: sky.every };
+  const coat = (id: SpeciesId | null): string => (id ? pick(rand, looksFor(id, ctx.region).map(([name, weight]) => [name, weight] as const)) : "");
+  const coats = { birds: coat(birds), vee: coat(vee), swarm: coat(swarm) };
+  return { birds, vee, swarm, coats, region: ctx.region, traffic: sky.traffic.filter((each) => has[each.kind] !== false), every: sky.every };
 }
 
 /**
@@ -4879,8 +4887,8 @@ export function createHerd(cast: Cast): Herd {
   const clock = { last: 0 };
   const skyRand = streamOf(cast.seed, "fauna.sky.passes");
   clock.last = -between(skyRand, [0.2, 0.8]) * cast.sky.every[0];
-  const flyer = (species: SpeciesId | null, name: string): Who | null => (species ? { member: memberOf(streamOf(cast.seed, `fauna.sky.${name}`), species, speciesOf(species).coats[0]?.[0] ?? "", false, { morph: "normal" }), spec: speciesOf(species) } : null);
-  const flyers = { flock: flyer(cast.sky.birds, "bird"), vee: flyer(cast.sky.vee, "vee"), swarm: flyer(cast.sky.swarm, "swarm") };
+  const flyer = (species: SpeciesId | null, coat: string, name: string): Who | null => (species ? { member: memberOf(streamOf(cast.seed, `fauna.sky.${name}`), species, coat || (speciesOf(species).coats[0]?.[0] ?? ""), false, { morph: "normal", region: cast.sky.region ?? undefined }), spec: speciesOf(species) } : null);
+  const flyers = { flock: flyer(cast.sky.birds, cast.sky.coats.birds, "bird"), vee: flyer(cast.sky.vee, cast.sky.coats.vee, "vee"), swarm: flyer(cast.sky.swarm, cast.sky.coats.swarm, "swarm") };
   const drawPass = (pass: Pass, t: number): Body[] => {
     if (pass.kind === "flock") return flyers.flock ? flockBodies(pass, flyers.flock, t) : [];
     if (pass.kind === "vee") return flyers.vee ? flockBodies(pass, flyers.vee, t) : [];

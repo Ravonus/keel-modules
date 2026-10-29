@@ -348,13 +348,14 @@ export default [
     expect: [1.1, '0.16', true, true, true],
   },
   {
-    name: 'four legs in three bones down to a paw, hoof or sole; markings are paint-only decals; a deer folds down to lie where a fox sits; every pose fits the 48-part budget',
+    name: 'four legs in three bones down to a paw, hoof or sole; the head drawn from its outline tapers to the nose; markings are paint-only decals; a deer folds down to lie where a fox sits; every pose fits the 48-part budget',
     run: ({ poseSpecies, SPECIES_IDS }) => {
       const fox = poseSpecies('fox', 'stand', 1).capsules;
       const bones = fox.filter((c) => c.part.startsWith('leg.FL')).map((c) => c.part.split('.').pop());
       const bib = fox.find((c) => c.part === 'bib');
-      const snout = fox.find((c) => c.part === 'snout');
-      const height = (body) => Math.max(...body.capsules.filter((c) => c.part === 'chest').map((c) => c.a[1]));
+      // (The muzzle is the head's outline's last part, tapering to the nose; the chest is the torso outline's front.)
+      const snout = fox.filter((c) => c.part.startsWith('head.')).at(-1);
+      const height = (body) => body.capsules.filter((c) => c.part.startsWith('body.')).at(-1).b[1];
       const deerSit = height(poseSpecies('deer', 'sit', 1)) < height(poseSpecies('deer', 'stand', 1)) * 0.6;
       const foxSit = height(poseSpecies('fox', 'sit', 1)) > height(poseSpecies('fox', 'stand', 1)) * 0.9;
       const actions = ['stand', 'wander', 'run', 'sit', 'lie', 'sleep', 'rear', 'hang', 'fly', 'hover', 'coil'];

@@ -186,7 +186,24 @@ export interface Build {
   /** The tail's thickness, as a share of the usual, and how far it rises above (or hangs below) its kind's. */
   readonly tailGirth: number;
   readonly tailRise: number;
+  /**
+   * Four legs: the torso's outline from hip (0) to shoulder (1), in body
+   * radii (its round ends run on past both). Without one, the torso is a
+   * haunch and a chest joined by a waist.
+   */
+  readonly torso?: readonly Station[];
+  /** The skull's outline in head radii from its middle, back to the stop where the brow drops to the muzzle; without one, the head is round. */
+  readonly skull?: readonly Station[];
+  /** The muzzle's outline from the stop (0) to the nose (1), in head radii across. */
+  readonly muzzle?: readonly Station[];
 }
+
+/**
+ * One station of an outline: how far along its line, how high the back (or
+ * crown) stands above that line, how low the belly (or chin) hangs under it,
+ * and its half width.
+ */
+type Station = readonly [k: number, top: number, bottom: number, half: number];
 
 type GroupKind = "solo" | "pair" | "family" | "pack";
 
@@ -228,6 +245,81 @@ const BUILD: Build = {
   len: 1.3, leg: 0.6, body: 0.24, neck: 0.3, rise: 0.7, head: 0.17, snout: 0.16, ears: "point", tail: "thin", tailLen: 0.8, hip: 1, extras: [],
   foot: "paw", fore: 1, legR: 1, chest: 1.1, haunch: 1, sit: "dog", earLen: 1, snoutTip: 0.7, tailGirth: 1, tailRise: 0,
 };
+/**
+ * Outlines by family, so each animal is drawn from its kind's real shape: a
+ * dog's deep chest and tucked waist, a cat's level back and round skull, a
+ * deer's narrow barrel and long face, a rabbit's high round haunch. Each is
+ * the torso along the spine and the skull and muzzle along the head (see
+ * `Station`); an animal's own traits still stretch and scale it.
+ */
+type Outline = Pick<Build, "torso" | "skull" | "muzzle">;
+const OUTLINE = {
+  canid: {
+    torso: [[0, 0.8, 0.68, 0.7], [0.38, 0.76, 0.5, 0.64], [0.75, 0.9, 1.02, 0.78], [1.05, 0.86, 0.95, 0.7]],
+    skull: [[-0.6, 0.58, 0.55, 0.62], [-0.1, 0.8, 0.62, 0.8], [0.35, 0.6, 0.52, 0.58]],
+    muzzle: [[0.5, 0.4, 0.4, 0.36], [1, 0.24, 0.26, 0.2]],
+  },
+  vulpine: {
+    torso: [[0, 0.78, 0.66, 0.66], [0.38, 0.72, 0.5, 0.6], [0.75, 0.84, 0.95, 0.72], [1.05, 0.8, 0.88, 0.64]],
+    skull: [[-0.6, 0.55, 0.52, 0.66], [-0.1, 0.78, 0.6, 0.86], [0.35, 0.55, 0.5, 0.56]],
+    muzzle: [[0.5, 0.34, 0.36, 0.3], [1, 0.18, 0.2, 0.14]],
+  },
+  felid: {
+    torso: [[0, 0.84, 0.72, 0.7], [0.4, 0.78, 0.66, 0.66], [0.8, 0.8, 0.84, 0.7], [1.05, 0.76, 0.84, 0.64]],
+    skull: [[-0.6, 0.68, 0.64, 0.76], [0, 0.92, 0.75, 0.96], [0.35, 0.74, 0.6, 0.72]],
+    muzzle: [[0.6, 0.5, 0.45, 0.5], [1, 0.38, 0.34, 0.36]],
+  },
+  cervid: {
+    torso: [[-0.05, 0.82, 0.72, 0.62], [0.35, 0.8, 0.86, 0.7], [0.75, 0.86, 0.96, 0.68], [1.05, 1, 0.78, 0.55]],
+    skull: [[-0.6, 0.55, 0.5, 0.56], [-0.1, 0.74, 0.6, 0.72], [0.3, 0.6, 0.55, 0.55]],
+    muzzle: [[0.5, 0.46, 0.46, 0.4], [1, 0.32, 0.34, 0.28]],
+  },
+  leporid: {
+    torso: [[-0.1, 1.08, 0.98, 1], [0.35, 1.04, 0.95, 0.92], [0.8, 0.8, 0.86, 0.75], [1.05, 0.7, 0.8, 0.65]],
+    skull: [[-0.6, 0.66, 0.6, 0.7], [0, 0.86, 0.75, 0.85], [0.4, 0.7, 0.6, 0.66]],
+    muzzle: [[1, 0.46, 0.42, 0.46]],
+  },
+  rodent: {
+    torso: [[-0.1, 0.95, 0.9, 0.9], [0.4, 0.98, 0.9, 0.9], [0.85, 0.8, 0.82, 0.74], [1.05, 0.7, 0.75, 0.64]],
+    skull: [[-0.6, 0.62, 0.6, 0.68], [0, 0.82, 0.7, 0.82], [0.35, 0.62, 0.56, 0.6]],
+    muzzle: [[0.6, 0.42, 0.42, 0.42], [1, 0.3, 0.3, 0.28]],
+  },
+  murid: {
+    torso: [[-0.1, 0.98, 0.95, 0.95], [0.45, 1.02, 0.95, 0.95], [1.05, 0.78, 0.8, 0.72]],
+    skull: [[-0.6, 0.66, 0.62, 0.72], [-0.05, 0.84, 0.7, 0.86], [0.3, 0.58, 0.52, 0.56]],
+    muzzle: [[1, 0.2, 0.22, 0.18]],
+  },
+  cavy: {
+    torso: [[-0.05, 0.95, 0.9, 0.85], [0.4, 0.95, 1, 0.92], [0.8, 0.9, 0.95, 0.85], [1.05, 0.85, 0.85, 0.74]],
+    skull: [[-0.6, 0.7, 0.7, 0.64], [0, 0.8, 0.74, 0.72], [0.3, 0.78, 0.72, 0.66]],
+    muzzle: [[1, 0.7, 0.6, 0.58]],
+  },
+  mustelid: {
+    torso: [[-0.05, 0.88, 0.74, 0.84], [0.4, 0.98, 0.78, 0.9], [0.8, 0.88, 0.8, 0.82], [1.05, 0.78, 0.78, 0.7]],
+    skull: [[-0.6, 0.6, 0.6, 0.72], [-0.05, 0.8, 0.65, 0.88], [0.35, 0.6, 0.55, 0.62]],
+    muzzle: [[1, 0.28, 0.3, 0.24]],
+  },
+  viverrid: {
+    torso: [[-0.05, 0.78, 0.68, 0.7], [0.4, 0.82, 0.66, 0.72], [0.8, 0.8, 0.76, 0.7], [1.05, 0.72, 0.74, 0.62]],
+    skull: [[-0.6, 0.58, 0.56, 0.66], [-0.05, 0.76, 0.62, 0.78], [0.35, 0.56, 0.52, 0.56]],
+    muzzle: [[1, 0.26, 0.28, 0.22]],
+  },
+  koala: {
+    torso: [[0, 1, 1, 0.95], [0.6, 1.02, 1, 0.95], [1.05, 0.9, 0.95, 0.85]],
+    skull: [[-0.5, 0.78, 0.74, 0.95], [0, 0.95, 0.8, 1.05], [0.35, 0.8, 0.7, 0.85]],
+    muzzle: [[1, 0.62, 0.5, 0.56]],
+  },
+  macropod: {
+    torso: [[-0.1, 1.1, 1, 0.9], [0.4, 0.95, 0.95, 0.8], [0.85, 0.72, 0.76, 0.6], [1.05, 0.62, 0.66, 0.55]],
+    skull: [[-0.6, 0.56, 0.52, 0.58], [-0.1, 0.74, 0.6, 0.72], [0.3, 0.6, 0.55, 0.55]],
+    muzzle: [[0.5, 0.46, 0.46, 0.4], [1, 0.34, 0.34, 0.3]],
+  },
+  erinaceid: {
+    skull: [[-0.6, 0.7, 0.65, 0.8], [0, 0.8, 0.7, 0.85], [0.3, 0.6, 0.55, 0.6]],
+    muzzle: [[1, 0.2, 0.24, 0.18]],
+  },
+} as const satisfies Readonly<Record<string, Outline>>;
+
 type SpeciesDraft = Omit<SpeciesSpec, "build" | "temper" | "friends" | "groups" | "pack" | "winter" | "climbs" | "flies" | "active" | "worlds">
   & Partial<Pick<SpeciesSpec, "temper" | "friends" | "groups" | "pack" | "winter" | "climbs" | "flies" | "active" | "worlds">>
   & { readonly build?: Partial<Build> };
@@ -240,47 +332,51 @@ const define = (draft: SpeciesDraft): SpeciesSpec => ({
 
 export const SPECIES = {
   rabbit: define({ label: "Rabbit", plan: "quad", size: 0.2, rarity: "common", weight: 70, regions: TEMPERATE, speed: 1.4, groups: [6, 3, 2, 1], pack: [3, 5],
-    build: { len: 0.85, leg: 0.36, body: 0.4, neck: 0.1, rise: 0.9, head: 0.27, snout: 0.08, ears: "long", tail: "puff", tailLen: 0.25, hip: 1.18, fore: 0.78, haunch: 1.3, chest: 0.95, sit: "loaf", snoutTip: 0.8, legR: 1.1 },
+    build: { ...OUTLINE.leporid, len: 0.85, leg: 0.36, body: 0.4, neck: 0.1, rise: 0.9, head: 0.27, snout: 0.08, ears: "long", tail: "puff", tailLen: 0.25, hip: 1.18, fore: 0.78, haunch: 1.3, chest: 0.95, sit: "loaf", snoutTip: 0.8, legR: 1.1 },
     coats: [["wild", ["#9a7e5e", "#7c6248", "#efe6d6", "#3a2c22", "#e8a8a8"]], ["snowshoe", ["#f2efe8", "#d8d2c8", "#ffffff", "#5a4a40", "#f0b0b8"]], ["dutch", ["#3a3230", "#f4f0ea", "#f4f0ea", "#1e1a18", "#e8a8a8"]]],
     temper: { graze: 2.2, groom: 1.6, rear: 1.4, hop: 1.8, sit: 1.3, wander: 0.4, sniff: 1.4 }, friends: ["songbird", "deer"] }),
   fox: define({ label: "Fox", plan: "quad", size: 0.36, rarity: "uncommon", weight: 34, regions: TEMPERATE, speed: 1.6, groups: [7, 2, 2, 0],
-    build: { len: 1.35, leg: 0.62, body: 0.25, neck: 0.3, rise: 0.75, head: 0.18, snout: 0.26, ears: "point", tail: "bushy", tailLen: 1.1, extras: ["socks", "bib"], earLen: 1.35, snoutTip: 0.32, chest: 1.15, haunch: 0.95, tailGirth: 1.15, legR: 0.85 },
+    build: { ...OUTLINE.vulpine, len: 1.35, leg: 0.62, body: 0.25, neck: 0.3, rise: 0.75, head: 0.18, snout: 0.26, ears: "point", tail: "bushy", tailLen: 1.1, extras: ["socks", "bib"], earLen: 1.35, snoutTip: 0.32, chest: 1.15, haunch: 0.95, tailGirth: 1.15, legR: 0.85 },
     coats: [["red", ["#d2662a", "#a8481c", "#f4efe6", "#2a1a14", "#f4efe6"]], ["silver", ["#5a5a62", "#2e2e34", "#e8e8ec", "#16161a", "#f0f0f4"]], ["arctic", ["#f4f4f0", "#dcdcd6", "#ffffff", "#2a2a2a", "#ffffff"]]],
     temper: { sniff: 2.2, dig: 1.6, play: 1.4, stretch: 1.3, sit: 1, sleep: 1, look: 1.4, wander: 1.4, stalk: 1.2, graze: 0 }, friends: ["crow"] }),
   deer: define({ label: "Deer", plan: "quad", size: 0.95, rarity: "uncommon", weight: 26, regions: TEMPERATE, speed: 1.1, groups: [4, 3, 4, 2], pack: [3, 4],
-    build: { len: 1.1, leg: 0.72, body: 0.22, neck: 0.55, rise: 1.05, head: 0.12, snout: 0.2, ears: "point", tail: "puff", tailLen: 0.18, extras: ["antlers", "spots", "rump"], foot: "hoof", sit: "lie", legR: 0.55, chest: 1.2, earLen: 1.5, snoutTip: 0.5 },
+    build: { ...OUTLINE.cervid, len: 1.1, leg: 0.72, body: 0.22, neck: 0.55, rise: 1.05, head: 0.12, snout: 0.2, ears: "point", tail: "puff", tailLen: 0.18, extras: ["antlers", "spots", "rump"], foot: "hoof", sit: "lie", legR: 0.55, chest: 1.2, earLen: 1.5, snoutTip: 0.5 },
     coats: [["whitetail", ["#a87a4e", "#8a6038", "#f4ece0", "#2a1e16", "#f8f4ec"]], ["sika", ["#9a5e34", "#7a4422", "#f0e4d0", "#241810", "#f6efe2"]], ["fallow", ["#c8925a", "#9e6c3e", "#f6ecd8", "#2e2014", "#ffffff"]]],
     temper: { graze: 2.8, look: 1.8, groom: 1, wander: 0.8, lie: 1.6, run: 0.3, dig: 0, roll: 0, sit: 0 }, friends: ["rabbit", "songbird", "crow"] }),
   wolf: define({ label: "Wolf", plan: "quad", size: 0.72, rarity: "rare", weight: 10, regions: ["rockies", "alps"], speed: 1.3, groups: [3, 2, 1, 5], pack: [3, 5],
-    build: { len: 1.35, leg: 0.7, body: 0.25, neck: 0.3, rise: 0.55, head: 0.17, snout: 0.24, ears: "point", tail: "bushy", tailLen: 0.75, extras: ["ruff", "bib", "saddle", "muzzle"], earLen: 1.15, snoutTip: 0.45, chest: 1.25, haunch: 0.9, tailRise: -0.5, tailGirth: 0.9, legR: 0.95 },
+    build: { ...OUTLINE.canid, len: 1.35, leg: 0.7, body: 0.25, neck: 0.3, rise: 0.55, head: 0.17, snout: 0.24, ears: "point", tail: "bushy", tailLen: 0.75, extras: ["ruff", "bib", "saddle", "muzzle"], earLen: 1.15, snoutTip: 0.45, chest: 1.25, haunch: 0.9, tailRise: -0.5, tailGirth: 0.9, legR: 0.95 },
     coats: [["grey", ["#7c7a74", "#4e4c48", "#e0dcd4", "#1e1c1a", "#d6d0c4"]], ["timber", ["#8a6a4a", "#4a3828", "#dcccb4", "#1c1610", "#cdb898"]], ["white", ["#e8e6e0", "#c8c4bc", "#ffffff", "#2a2826", "#ffffff"]], ["black", ["#2c2a2a", "#1a1818", "#4a4644", "#0c0a0a", "#5a5654"]]],
     temper: { howl: 2.4, sniff: 1.6, lie: 1.6, play: 1.4, look: 1.5, wander: 1.4, run: 0.6, graze: 0 }, friends: ["crow"] }),
   bear: define({ label: "Bear", plan: "quad", size: 0.9, rarity: "rare", weight: 8, regions: ["rockies", "alps", "tokyo"], speed: 0.8, winter: false, groups: [6, 0, 3, 0],
-    build: { len: 1.3, leg: 0.5, body: 0.36, neck: 0.25, rise: 0.15, head: 0.2, snout: 0.17, ears: "round", tail: "none", tailLen: 0.1, hip: 0.92, extras: ["hump", "muzzle"], foot: "plant", sit: "rump", legR: 1.5, chest: 1.15, earLen: 1.15, snoutTip: 0.6 },
+    build: { len: 1.3, leg: 0.58, body: 0.36, neck: 0.42, rise: -0.05, head: 0.2, snout: 0.2, ears: "round", tail: "none", tailLen: 0.1, hip: 0.92, extras: ["hump", "muzzle"], foot: "plant", sit: "rump", legR: 1.5, chest: 1.15, earLen: 1.5, snoutTip: 0.6,
+      // A round rump, a deep belly, the back rising to the hump over the shoulders; a broad skull dished down to a short, blunt muzzle.
+      torso: [[-0.05, 0.8, 0.62, 0.78], [0.3, 0.78, 0.72, 0.85], [0.68, 0.92, 0.72, 0.88], [0.95, 1.05, 0.68, 0.82], [1.1, 0.75, 0.7, 0.7]],
+      skull: [[-0.55, 0.6, 0.6, 0.68], [-0.08, 0.85, 0.72, 0.95], [0.35, 0.62, 0.62, 0.7]],
+      muzzle: [[0.5, 0.44, 0.5, 0.46], [1, 0.34, 0.38, 0.34]] },
     coats: [["brown", ["#6a4a30", "#4a3220", "#8a6a4a", "#1a120c", "#a88a68"]], ["black", ["#262220", "#141210", "#3a3430", "#0a0808", "#b89a72"]], ["cinnamon", ["#9a6236", "#764824", "#b8865a", "#22140a", "#c8a07a"]]],
     temper: { rear: 1.6, scratch: 2, sit: 1.8, sniff: 1.4, dig: 1.3, lie: 1.4, roll: 0.8, graze: 0 }, friends: ["songbird"] }),
   raccoon: define({ label: "Raccoon", plan: "quad", size: 0.3, rarity: "uncommon", weight: 18, regions: ["rockies", "atlantic"], worlds: ["nature", "voxel", "city"], speed: 1.1, active: "night", climbs: true, groups: [5, 2, 3, 0],
-    build: { len: 1.2, leg: 0.42, body: 0.32, neck: 0.18, rise: 0.55, head: 0.21, snout: 0.16, ears: "round", tail: "ring", tailLen: 0.85, hip: 1.18, extras: ["mask", "muzzle"], foot: "plant", sit: "haunch", haunch: 1.15, chest: 1, snoutTip: 0.4 },
+    build: { ...OUTLINE.mustelid, len: 1.2, leg: 0.42, body: 0.32, neck: 0.18, rise: 0.55, head: 0.21, snout: 0.16, ears: "round", tail: "ring", tailLen: 0.85, hip: 1.18, extras: ["mask", "muzzle"], foot: "plant", sit: "haunch", haunch: 1.15, chest: 1, snoutTip: 0.4 },
     coats: [["raccoon", ["#8a8682", "#5a5652", "#c8c4bc", "#1e1c1a", "#e8e4dc"]], ["tanuki", ["#8a6c4a", "#4a3828", "#b89a78", "#1a120c", "#d8c4a4"]]],
     temper: { dig: 1.8, sniff: 1.8, rear: 1.4, eat: 1.6, climb: 1.2, groom: 1.2, graze: 0 }, friends: ["cat"] }),
   cat: define({ label: "Cat", plan: "quad", size: 0.24, rarity: "uncommon", weight: 22, regions: ALL_REGIONS, worlds: ["city", "synth", "vapor", "nature"], speed: 1, active: "any", climbs: true, groups: [8, 2, 2, 0],
-    build: { len: 1.25, leg: 0.55, body: 0.27, neck: 0.18, rise: 0.75, head: 0.24, snout: 0.06, ears: "point", tail: "thin", tailLen: 1.1, tailRise: 0.5, chest: 1.05, haunch: 1.05, earLen: 1.05, snoutTip: 0.8, legR: 0.85 },
+    build: { ...OUTLINE.felid, len: 1.25, leg: 0.55, body: 0.27, neck: 0.18, rise: 0.75, head: 0.24, snout: 0.06, ears: "point", tail: "thin", tailLen: 1.1, tailRise: 0.5, chest: 1.05, haunch: 1.05, earLen: 1.05, snoutTip: 0.8, legR: 0.85 },
     coats: [["tabby", ["#b07a44", "#7a4e26", "#efe0c8", "#2a1a10", "#f0a0a0"]], ["black", ["#1e1c1e", "#121012", "#2a282a", "#060606", "#f0c040"]], ["calico", ["#f2ece2", "#d0782e", "#ffffff", "#2a2420", "#f0a0a0"]], ["grey", ["#8a8c94", "#5e6068", "#d8dadf", "#202226", "#f0a0b0"]]],
     temper: { groom: 2.4, sit: 2, sleep: 1.8, stretch: 1.6, look: 1.4, play: 1.1, yawn: 1.4, climb: 0.8, stalk: 1, graze: 0 }, friends: ["raccoon", "crow", "songbird"] }),
   hedgehog: define({ label: "Hedgehog", plan: "quad", size: 0.11, rarity: "uncommon", weight: 14, regions: ["alps"], speed: 0.9, active: "night", winter: false,
-    build: { len: 0.9, leg: 0.2, body: 0.55, neck: 0.08, rise: 0.1, head: 0.26, snout: 0.4, ears: "round", tail: "none", tailLen: 0.1, hip: 1, extras: ["quills", "muzzle"], foot: "plant", sit: "lie", earLen: 0.7, snoutTip: 0.3, legR: 0.9 },
+    build: { ...OUTLINE.erinaceid, len: 0.9, leg: 0.2, body: 0.55, neck: 0.08, rise: 0.1, head: 0.26, snout: 0.4, ears: "round", tail: "none", tailLen: 0.1, hip: 1, extras: ["quills", "muzzle"], foot: "plant", sit: "lie", earLen: 0.7, snoutTip: 0.3, legR: 0.9 },
     coats: [["brown", ["#b0926e", "#4e3c2c", "#ecdcc4", "#140e0a", "#d8c8b0"]], ["blond", ["#c8b494", "#7a6448", "#f4ecdc", "#2a2018", "#f0e8d8"]]],
     temper: { sniff: 2.6, dig: 1.6, coil: 1.2, wander: 1.4, sleep: 1, run: 0, graze: 0 }, friends: [] }),
   mouse: define({ label: "Field mouse", plan: "quad", size: 0.07, rarity: "common", weight: 30, regions: ALL_REGIONS, speed: 2.4, active: "night", groups: [5, 2, 2, 2], pack: [3, 4],
-    build: { len: 1.2, leg: 0.3, body: 0.42, neck: 0.1, rise: 0.4, head: 0.26, snout: 0.2, ears: "round", tail: "thin", tailLen: 1.3, hip: 1.15, haunch: 1.3, chest: 0.85, sit: "haunch", earLen: 1.9, snoutTip: 0.35, tailRise: -0.7, legR: 0.8 },
+    build: { ...OUTLINE.murid, len: 0.95, leg: 0.3, body: 0.44, neck: 0.1, rise: 0.4, head: 0.28, snout: 0.2, ears: "round", tail: "thin", tailLen: 1.3, hip: 1.15, haunch: 1.3, chest: 0.85, sit: "haunch", earLen: 1.9, snoutTip: 0.35, tailRise: -0.7, legR: 0.8 },
     coats: [["field", ["#9a7a58", "#6a5038", "#efe2cc", "#1a120c", "#f0a8a8"]], ["grey", ["#7c7a78", "#55524f", "#d8d4cc", "#141210", "#f0a8a8"]]],
     temper: { sniff: 2.4, eat: 2, groom: 1.6, rear: 1.4, run: 1.4, wander: 1.2, graze: 0 }, friends: [] }),
   capybara: define({ label: "Capybara", plan: "quad", size: 0.5, rarity: "rare", weight: 9, regions: ["tokyo"], worlds: ["nature", "beach", "voxel"], speed: 0.6, groups: [3, 3, 3, 2], pack: [3, 4],
-    build: { len: 1.45, leg: 0.36, body: 0.38, neck: 0.2, rise: 0.35, head: 0.28, snout: 0.3, ears: "round", tail: "none", tailLen: 0.05, earLen: 0.55, snoutTip: 0.85, haunch: 1.1, legR: 1.2 },
+    build: { ...OUTLINE.cavy, len: 1.45, leg: 0.36, body: 0.38, neck: 0.2, rise: 0.35, head: 0.28, snout: 0.3, ears: "round", tail: "none", tailLen: 0.05, earLen: 0.55, snoutTip: 0.85, haunch: 1.1, legR: 1.2 },
     coats: [["capybara", ["#9a6c42", "#764e2c", "#a87c52", "#20140c", "#b88c62"]]],
     temper: { lie: 2.6, graze: 2, sit: 1.6, sleep: 1.6, look: 0.6, wander: 0.5, run: 0, roll: 0 }, friends: ["songbird", "parrot", "monkey"] }),
   kangaroo: define({ label: "Kangaroo", plan: "quad", size: 0.9, rarity: "rare", weight: 14, regions: ["sydney"], speed: 1.8, groups: [3, 2, 4, 2], pack: [3, 4],
-    build: { len: 0.95, leg: 0.75, body: 0.25, neck: 0.22, rise: 1.2, head: 0.13, snout: 0.18, ears: "long", tail: "thick", tailLen: 1.15, hip: 0.8, extras: ["pouch"], fore: 0.45, foot: "plant", sit: "haunch", haunch: 1.4, chest: 0.9, earLen: 0.55, snoutTip: 0.55, tailGirth: 1.1 },
+    build: { ...OUTLINE.macropod, len: 0.95, leg: 0.75, body: 0.25, neck: 0.22, rise: 1.2, head: 0.13, snout: 0.18, ears: "long", tail: "thick", tailLen: 1.15, hip: 0.8, extras: ["pouch"], fore: 0.45, foot: "plant", sit: "haunch", haunch: 1.4, chest: 0.9, earLen: 0.55, snoutTip: 0.55, tailGirth: 1.1 },
     coats: [["red", ["#b06a3e", "#8a4e2a", "#e4cdb0", "#2a1a10", "#d8b898"]], ["grey", ["#8a8278", "#5e564e", "#d8d0c4", "#1e1a16", "#c8bcae"]]],
     temper: { graze: 1.8, rear: 2.6, groom: 1.2, hop: 2, look: 1.4, lie: 1, dig: 0, roll: 0 }, friends: [] }),
   tortoise: define({ label: "Tortoise", plan: "quad", size: 0.16, rarity: "rare", weight: 10, regions: ["nairobi"], worlds: ["nature", "beach", "voxel"], speed: 0.25, winter: false,
@@ -288,19 +384,19 @@ export const SPECIES = {
     coats: [["leopard", ["#8a7a5a", "#5a4a32", "#c8b88e", "#1a1408", "#3a3020"]], ["star", ["#6a5a3a", "#2a2010", "#c8a860", "#141008", "#e8c870"]]],
     temper: { graze: 2.4, bask: 2.6, sleep: 1.2, look: 0.6, wander: 0.8, run: 0, roll: 0, shake: 0, rear: 0, scratch: 0, groom: 0, stretch: 0, sit: 0 }, friends: ["songbird", "crab", "guineafowl"] }),
   meerkat: define({ label: "Meerkat", plan: "quad", size: 0.22, rarity: "rare", weight: 12, regions: [], speed: 1.8, groups: [1, 2, 3, 6], pack: [3, 6],
-    build: { len: 1.25, leg: 0.36, body: 0.24, neck: 0.22, rise: 0.8, head: 0.19, snout: 0.2, ears: "round", tail: "thin", tailLen: 0.85, hip: 1, extras: ["mask"], sit: "haunch", earLen: 0.6, snoutTip: 0.4, tailRise: -0.2 },
+    build: { ...OUTLINE.viverrid, len: 1.25, leg: 0.36, body: 0.24, neck: 0.22, rise: 0.8, head: 0.19, snout: 0.2, ears: "round", tail: "thin", tailLen: 0.85, hip: 1, extras: ["mask"], sit: "haunch", earLen: 0.6, snoutTip: 0.4, tailRise: -0.2 },
     coats: [["meerkat", ["#b8966c", "#8a6c48", "#d8c4a4", "#1a120a", "#e8d8bc"]]],
     temper: { rear: 3.2, look: 2.4, dig: 2, groom: 1.4, bask: 1.2, run: 1, graze: 0 }, friends: [] }),
   squirrel: define({ label: "Squirrel", plan: "quad", size: 0.12, rarity: "common", weight: 60, regions: TEMPERATE, worlds: ["nature", "voxel", "crystal", "city"], speed: 2.2, climbs: true, groups: [6, 3, 1, 1], pack: [3, 3],
-    build: { len: 1, leg: 0.4, body: 0.32, neck: 0.08, rise: 0.8, head: 0.26, snout: 0.12, ears: "tuft", tail: "curl", tailLen: 1.25, hip: 1.18, fore: 0.85, haunch: 1.25, chest: 0.95, sit: "haunch", tailGirth: 1.3 },
+    build: { ...OUTLINE.rodent, len: 1, leg: 0.4, body: 0.32, neck: 0.08, rise: 0.8, head: 0.26, snout: 0.12, ears: "tuft", tail: "curl", tailLen: 1.25, hip: 1.18, fore: 0.85, haunch: 1.25, chest: 0.95, sit: "haunch", tailGirth: 1.3 },
     coats: [["red", ["#b8582a", "#8a3e1a", "#f0e4d4", "#24140a", "#f4ece0"]], ["grey", ["#86827c", "#5e5a54", "#e8e4dc", "#1c1a18", "#efe8de"]], ["black", ["#2a2624", "#181614", "#4a4440", "#0a0808", "#4a4440"]]],
     temper: { eat: 2.6, climb: 2.6, rear: 1.6, dig: 1.4, look: 1.4, run: 1.4, play: 1.4, graze: 0 }, friends: ["songbird", "woodpecker"] }),
   redpanda: define({ label: "Red panda", plan: "quad", size: 0.28, rarity: "epic", weight: 5, regions: ["tokyo"], speed: 0.9, climbs: true, groups: [6, 2, 2, 0],
-    build: { len: 1.3, leg: 0.45, body: 0.3, neck: 0.16, rise: 0.6, head: 0.26, snout: 0.12, ears: "point", tail: "ring", tailLen: 1.1, hip: 1.08, extras: ["cheeks", "muzzle", "socks"], foot: "plant", earLen: 0.85, snoutTip: 0.55, tailGirth: 1.2 },
+    build: { ...OUTLINE.mustelid, len: 1.3, leg: 0.45, body: 0.3, neck: 0.16, rise: 0.6, head: 0.26, snout: 0.12, ears: "point", tail: "ring", tailLen: 1.1, hip: 1.08, extras: ["cheeks", "muzzle", "socks"], foot: "plant", earLen: 0.85, snoutTip: 0.55, tailGirth: 1.2 },
     coats: [["red panda", ["#b84a1e", "#5a2210", "#1e1210", "#140a06", "#f4ece0"]]],
     temper: { climb: 2.4, eat: 2, sleep: 1.8, groom: 1.4, stretch: 1.2, rear: 1.2, roll: 0, graze: 0 }, friends: [] }),
   koala: define({ label: "Koala", plan: "quad", size: 0.3, rarity: "epic", weight: 7, regions: ["sydney"], speed: 0.4, climbs: true, groups: [7, 1, 3, 0],
-    build: { len: 0.85, leg: 0.45, body: 0.4, neck: 0.08, rise: 1, head: 0.33, snout: 0.06, ears: "fluffy", tail: "none", tailLen: 0.05, hip: 1, extras: ["bignose"], foot: "plant", sit: "rump", earLen: 1.8, snoutTip: 0.9, legR: 1.2 },
+    build: { ...OUTLINE.koala, len: 0.85, leg: 0.45, body: 0.4, neck: 0.08, rise: 1, head: 0.33, snout: 0.06, ears: "fluffy", tail: "none", tailLen: 0.05, hip: 1, extras: ["bignose"], foot: "plant", sit: "rump", earLen: 1.8, snoutTip: 0.9, legR: 1.2 },
     coats: [["koala", ["#8a8a8e", "#5e5e62", "#e8e6e2", "#1a1a1c", "#2a2a2c"]]],
     temper: { sleep: 3.4, eat: 2.2, climb: 1.4, look: 0.6, wander: 0.2, scratch: 1.2, run: 0, roll: 0 }, friends: [] }),
   macaque: define({ label: "Snow monkey", plan: "primate", size: 0.5, rarity: "rare", weight: 12, regions: ["tokyo"], speed: 0.9, climbs: true, groups: [3, 3, 4, 3], pack: [3, 5],
@@ -369,23 +465,23 @@ export const SPECIES = {
     temper: { wave: 2.4, dig: 1.8, wander: 2, look: 1.2 }, friends: ["gull", "tortoise"] }),
   // ---- local animals, so each region has its own cast (builds are first drafts from the shared parts)
   tanuki: define({ label: "Tanuki", plan: "quad", size: 0.3, rarity: "uncommon", weight: 16, regions: ["tokyo"], worlds: ["nature", "voxel", "city"], speed: 1, active: "night", groups: [4, 5, 3, 0],
-    build: { len: 1.25, leg: 0.42, body: 0.36, neck: 0.16, rise: 0.55, head: 0.22, snout: 0.17, ears: "round", tail: "bushy", tailLen: 0.55, hip: 1.02, extras: ["mask"], foot: "paw", sit: "dog", tailGirth: 1.2, tailRise: -0.4 },
+    build: { ...OUTLINE.canid, len: 1.25, leg: 0.42, body: 0.36, neck: 0.16, rise: 0.55, head: 0.22, snout: 0.17, ears: "round", tail: "bushy", tailLen: 0.55, hip: 1.02, extras: ["mask"], foot: "paw", sit: "dog", tailGirth: 1.2, tailRise: -0.4 },
     coats: [["tanuki", ["#8a6c4a", "#4a3828", "#c8b08c", "#1a120c", "#e8dcc4"]], ["winter", ["#9a8060", "#5a4430", "#d8c4a4", "#1e140c", "#f0e6d4"]]],
     temper: { sniff: 2.2, dig: 1.6, eat: 1.4, sleep: 1.4, groom: 1.4, wander: 1.3, look: 1.2, graze: 0, run: 0.4 }, friends: ["crow"] }),
   marmot: define({ label: "Marmot", plan: "quad", size: 0.26, rarity: "uncommon", weight: 18, regions: ["alps", "rockies"], speed: 1, winter: false, groups: [3, 3, 3, 3], pack: [3, 5],
-    build: { len: 1.3, leg: 0.36, body: 0.42, neck: 0.12, rise: 0.5, head: 0.25, snout: 0.13, ears: "round", tail: "bushy", tailLen: 0.5, hip: 1.1, foot: "plant", sit: "haunch", haunch: 1.25, snoutTip: 0.8, earLen: 0.7 },
+    build: { ...OUTLINE.rodent, len: 1.3, leg: 0.36, body: 0.42, neck: 0.12, rise: 0.5, head: 0.25, snout: 0.13, ears: "round", tail: "bushy", tailLen: 0.5, hip: 1.1, foot: "plant", sit: "haunch", haunch: 1.25, snoutTip: 0.8, earLen: 0.7 },
     coats: [["alpine", ["#8a6e4e", "#5e4a34", "#c8a878", "#1e160e", "#e8dcc8"]], ["yellow-bellied", ["#7a6450", "#4e3e30", "#d8a850", "#1a140e", "#efe4cc"]]],
     temper: { rear: 3, bask: 2, graze: 2, look: 2, groom: 1.2, dig: 1.4, run: 1.2, sleep: 1, wander: 0.8 }, friends: ["crow"] }),
   badger: define({ label: "Badger", plan: "quad", size: 0.3, rarity: "rare", weight: 9, regions: ["alps"], speed: 0.9, active: "night", groups: [5, 3, 3, 0],
-    build: { len: 1.35, leg: 0.34, body: 0.4, neck: 0.15, rise: 0.35, head: 0.2, snout: 0.24, ears: "round", tail: "puff", tailLen: 0.22, hip: 1, extras: ["mask", "stripes"], foot: "plant", sit: "lie", snoutTip: 0.35, earLen: 0.6 },
+    build: { ...OUTLINE.mustelid, len: 1.35, leg: 0.34, body: 0.4, neck: 0.15, rise: 0.35, head: 0.2, snout: 0.24, ears: "round", tail: "puff", tailLen: 0.22, hip: 1, extras: ["mask", "stripes"], foot: "plant", sit: "lie", snoutTip: 0.35, earLen: 0.6 },
     coats: [["badger", ["#9a9a98", "#2a2a2a", "#2a2826", "#121212", "#f4f4f0"]]],
     temper: { dig: 3, sniff: 2.4, groom: 1.2, sleep: 1.2, wander: 1.3, roll: 0.5, graze: 0, sit: 0.4, run: 0.3 }, friends: [] }),
   skunk: define({ label: "Skunk", plan: "quad", size: 0.2, rarity: "uncommon", weight: 12, regions: ["rockies", "atlantic"], worlds: ["nature", "voxel", "city"], speed: 0.9, active: "night", groups: [7, 1, 3, 0],
-    build: { len: 1.3, leg: 0.4, body: 0.38, neck: 0.12, rise: 0.5, head: 0.22, snout: 0.2, ears: "round", tail: "bushy", tailLen: 1.1, hip: 1.12, extras: ["stripes"], foot: "plant", sit: "haunch", tailGirth: 1.4, tailRise: 0.6, snoutTip: 0.4 },
+    build: { ...OUTLINE.mustelid, len: 1.3, leg: 0.4, body: 0.38, neck: 0.12, rise: 0.5, head: 0.22, snout: 0.2, ears: "round", tail: "bushy", tailLen: 1.1, hip: 1.12, extras: ["stripes"], foot: "plant", sit: "haunch", tailGirth: 1.4, tailRise: 0.6, snoutTip: 0.4 },
     coats: [["striped", ["#1a1a1c", "#f4f4f0", "#2a2a2c", "#0a0a0a", "#f4f4f0"]]],
     temper: { dig: 2.4, sniff: 2.4, groom: 1, wander: 1.2, graze: 0, run: 0.2, look: 0.8 }, friends: [] }),
   possum: define({ label: "Brushtail possum", plan: "quad", size: 0.26, rarity: "uncommon", weight: 14, regions: ["sydney"], worlds: ["nature", "voxel", "city"], speed: 0.9, active: "night", climbs: true, groups: [7, 2, 3, 0],
-    build: { len: 1.3, leg: 0.42, body: 0.32, neck: 0.14, rise: 0.6, head: 0.22, snout: 0.16, ears: "point", tail: "bushy", tailLen: 1.1, hip: 1.05, foot: "plant", sit: "haunch", earLen: 1.2, tailGirth: 0.9, tailRise: -0.3 },
+    build: { ...OUTLINE.viverrid, len: 1.3, leg: 0.42, body: 0.32, neck: 0.14, rise: 0.6, head: 0.22, snout: 0.16, ears: "point", tail: "bushy", tailLen: 1.1, hip: 1.05, foot: "plant", sit: "haunch", earLen: 1.2, tailGirth: 0.9, tailRise: -0.3 },
     coats: [["brushtail", ["#8a8a88", "#5a5a58", "#e8e4dc", "#1a1a1a", "#2a2624"]], ["copper", ["#9a6a4a", "#6a4430", "#e8d8c4", "#1e140c", "#2a1a10"]]],
     temper: { climb: 2.8, eat: 2.2, sit: 1.4, look: 1.6, sleep: 1.2, groom: 1.4, graze: 0, run: 0.4 }, friends: ["koala"] }),
   kookaburra: define({ label: "Kookaburra", plan: "bird", size: 0.36, rarity: "uncommon", weight: 16, regions: ["sydney"], worlds: ["nature", "voxel", "city", "beach"], speed: 1, groups: [3, 4, 3, 3], pack: [3, 5],
@@ -393,11 +489,11 @@ export const SPECIES = {
     coats: [["laughing", ["#e2d6c0", "#6a5034", "#f4eee2", "#2a2018", "#4a7ab8"]]],
     temper: { sing: 3, look: 2.6, preen: 1.2, fly: 1.4, peck: 0.6, hop: 0.3 }, friends: ["kangaroo"] }),
   mongoose: define({ label: "Banded mongoose", plan: "quad", size: 0.18, rarity: "uncommon", weight: 16, regions: ["nairobi"], speed: 1.8, groups: [1, 2, 2, 7], pack: [4, 7],
-    build: { len: 1.5, leg: 0.36, body: 0.26, neck: 0.2, rise: 0.6, head: 0.18, snout: 0.22, ears: "round", tail: "thin", tailLen: 0.9, hip: 1, extras: ["stripes"], foot: "paw", sit: "haunch", snoutTip: 0.35, earLen: 0.6 },
+    build: { ...OUTLINE.viverrid, len: 1.5, leg: 0.36, body: 0.26, neck: 0.2, rise: 0.6, head: 0.18, snout: 0.22, ears: "round", tail: "thin", tailLen: 0.9, hip: 1, extras: ["stripes"], foot: "paw", sit: "haunch", snoutTip: 0.35, earLen: 0.6 },
     coats: [["banded", ["#7a6e5e", "#4a4034", "#a89a84", "#1a1610", "#c8bca4"]]],
     temper: { rear: 2.2, dig: 2.4, sniff: 2.4, look: 1.6, groom: 1.6, run: 1.4, play: 1.4, bask: 1, graze: 0 }, friends: ["guineafowl"] }),
   dikdik: define({ label: "Dik-dik", plan: "quad", size: 0.4, rarity: "rare", weight: 12, regions: ["nairobi"], speed: 1.2, groups: [3, 7, 2, 0],
-    build: { len: 1, leg: 0.75, body: 0.2, neck: 0.4, rise: 0.95, head: 0.15, snout: 0.2, ears: "point", tail: "puff", tailLen: 0.12, foot: "hoof", sit: "lie", legR: 0.6, earLen: 1.2, snoutTip: 0.5 },
+    build: { ...OUTLINE.cervid, len: 1, leg: 0.75, body: 0.2, neck: 0.4, rise: 0.95, head: 0.15, snout: 0.2, ears: "point", tail: "puff", tailLen: 0.12, foot: "hoof", sit: "lie", legR: 0.6, earLen: 1.2, snoutTip: 0.5 },
     coats: [["kirk", ["#a08468", "#7a6048", "#e8dccb", "#241a12", "#f4ece0"]]],
     temper: { graze: 2.4, look: 2.4, groom: 1, lie: 1.4, run: 0.6, sit: 0, dig: 0, roll: 0 }, friends: ["guineafowl", "songbird"] }),
   guineafowl: define({ label: "Guineafowl", plan: "bird", size: 0.5, rarity: "uncommon", weight: 14, regions: ["nairobi"], speed: 1, groups: [1, 2, 1, 8], pack: [4, 7],
@@ -2625,9 +2721,61 @@ function headAxes(hd: Vec, roll: number): { s: Vec; u: Vec } {
   return roll === 0 ? { s: hs, u: hu } : { s: unit(madd(hs, hu, -roll)), u: unit(madd(hu, hs, roll)) };
 }
 
-interface Head { readonly c: Vec; readonly d: Vec; readonly s: Vec; readonly u: Vec; readonly r: number }
+/** The cross-section of an outline at one point along it: its middle off the line, its half height, its half width. */
+interface Section { readonly o: number; readonly h: number; readonly w: number }
+
+function sectionAt(st: readonly Station[], k: number): Section {
+  let i = 0;
+  while (i < st.length - 2 && k > (st[i + 1]?.[0] ?? k)) i += 1;
+  const [k0, t0, b0, w0] = st[i] ?? [0, 1, 1, 1];
+  const [k1, t1, b1, w1] = st[i + 1] ?? [k0, t0, b0, w0];
+  const f = clamp((k - k0) / Math.max(k1 - k0, 1e-6), 0, 1);
+  const top = mix(t0, t1, f);
+  const bottom = mix(b0, b1, f);
+  return { o: (top - bottom) / 2, h: (top + bottom) / 2, w: mix(w0, w1, f) };
+}
+
+/**
+ * An outline lofted into one smooth body: each pair of stations is one part
+ * from one cross-section to the next, tapered and squashed to the sections'
+ * height and width, so the silhouette follows the species' own back line,
+ * belly line and girth (a bear's hump, a dog's tucked waist) and not a tube's.
+ */
+function loft(kit: Kit, part: string, role: Role, st: readonly Station[], along: (k: number) => Vec, u: Vec, s: Vec, size: number, melt: number): void {
+  for (let i = 0; i + 1 < st.length; i += 1) {
+    const [ka, ta, ba, wa] = st[i] ?? [0, 1, 1, 1];
+    const [kb, tb, bb, wb] = st[i + 1] ?? [ka, ta, ba, wa];
+    const ha = (ta + ba) / 2;
+    const hb = (tb + bb) / 2;
+    const wide = wa + wb > ha + hb;
+    const flat = wide ? (ha + hb) / (wa + wb) : (wa + wb) / (ha + hb);
+    const a = madd(along(ka), u, ((ta - ba) / 2) * size);
+    const b = madd(along(kb), u, ((tb - bb) / 2) * size);
+    cap(kit, `${part}.${String(i)}`, role, a, b, Math.max(ha, wa) * size, flat, wide ? u : s, { r1: Math.max(hb, wb) * size, melt });
+  }
+}
+
+/**
+ * A head. One drawn from an outline carries its sections (`sec`, in head
+ * radii along `d`), where its brow drops to the muzzle (`stop`) and where
+ * the muzzle ends (`tip`); a round head has none.
+ */
+interface Head {
+  readonly c: Vec; readonly d: Vec; readonly s: Vec; readonly u: Vec; readonly r: number;
+  readonly sec?: (k: number) => Section; readonly stations?: readonly Station[]; readonly stop?: number; readonly tip?: number;
+}
 /** Heads a touch big for the body, as a toy's are: the face is what makes an animal read at a glance. */
 const CHARM = 1.18;
+
+/** A skull's outline and its muzzle's, joined: the muzzle's stations run from the stop (0) to the nose (1), its length the animal's own snout. */
+function headStations(b: Build, snout: number, hr: number): { stations: Station[]; stop: number; tip: number } | null {
+  if (!b.skull) return null;
+  const skull = [...b.skull];
+  const stop = skull[skull.length - 1]?.[0] ?? 0.35;
+  const tip = stop + snout / hr + 0.15;
+  const muzzle = (b.muzzle ?? []).filter(([k]) => k > 0).map(([k, t, bt, w]): Station => [mix(stop, tip, k), t, bt, w]);
+  return { stations: [...skull, ...muzzle], stop, tip };
+}
 
 function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose, m: Moment): Head {
   const b = buildOf(actor);
@@ -2652,10 +2800,25 @@ function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose, m: Moment): Hea
   if (b.extras.includes("ruff")) cap(kit, "ruff", "coat", lerpV(n0, S, 0.4), lerpV(n0, n1, 0.35), chest * 0.82, 1, UP, { melt: 1.4 });
   if (b.extras.includes("bib")) decal(kit, "bib", "belly", add(S, [0, -chest * 0.35, chest * 0.75]), madd(n1, dirOf(yaw, np - 1.2), hr * 0.4), chest * 0.5);
   const hd = dirOf(yaw * 1.8 + q.curl * 0.8, -0.15 + pitch * 0.55 - down * 0.45 - q.curl * 0.4);
-  return { c: madd(n1, hd, hr * 0.55), d: hd, ...headAxes(hd, q.headRoll), r: hr };
+  const head: Head = { c: madd(n1, hd, hr * 0.55), d: hd, ...headAxes(hd, q.headRoll), r: hr };
+  const outline = headStations(b, b.snout * size, hr);
+  if (!outline) return head;
+  const { stations } = outline;
+  return { ...head, ...outline, sec: (k: number) => sectionAt(stations, k) };
 }
 
-const at3 = (h: Head, d: number, s: number, u: number): Vec => add(h.c, add(add(scale(h.d, d * h.r), scale(h.s, s * h.r)), scale(h.u, u * h.r)));
+/**
+ * A point on (or in) the head, `d` along it and `s`, `u` across it, as on a
+ * round head of radius 1. On an outlined head the point sits as far out on
+ * that station's own section as it would on the round one, so an ear or an
+ * eye set on a round head's surface lands on a bear's broad crown too.
+ */
+const at3 = (h: Head, d: number, s: number, u: number): Vec => {
+  if (!h.sec) return add(h.c, add(add(scale(h.d, d * h.r), scale(h.s, s * h.r)), scale(h.u, u * h.r)));
+  const sec = h.sec(d);
+  const rho = Math.sqrt(Math.max(1 - d * d, 0.2));
+  return add(h.c, add(add(scale(h.d, d * h.r), scale(h.s, (s / rho) * sec.w * h.r)), scale(h.u, (sec.o + (u / rho) * sec.h) * h.r)));
+};
 
 function earsOf(kit: Kit, kind: Ears, h: Head, back: number, size = 1, role: Role = "coat"): void {
   for (const x of [-1, 1]) earOf(kit, `ear.${x < 0 ? "L" : "R"}`, kind, h, x, back, size, role);
@@ -2697,7 +2860,20 @@ function roundEar(kit: Kit, part: string, fluffy: boolean, h: Head, x: number, s
  */
 function eyeOf(kit: Kit, part: string, h: Head, toward: Vec, r: number, open: boolean): void {
   const n = unit(sub(toward, h.c), h.d);
-  const at = madd(h.c, n, h.r * 0.92);
+  eyeAt(kit, part, h, madd(h.c, n, h.r * 0.92), n, r, open);
+}
+
+/** An eye on an outlined head: on its section's surface `d` along it, `s` out and `u` up round it (the brow above, the cheek below). */
+function outlinedEye(kit: Kit, part: string, h: Head, d: number, s: number, u: number, r: number, open: boolean): void {
+  const rho = Math.sqrt(Math.max(1 - d * d, 0.2));
+  const k = (rho * 0.97) / Math.max(Math.hypot(s, u), 1e-6);
+  const at = at3(h, d, s * k, u * k);
+  const sec = h.sec?.(d) ?? { o: 0, h: 1, w: 1 };
+  const axis = add(h.c, add(scale(h.d, d * h.r), scale(h.u, sec.o * h.r)));
+  eyeAt(kit, part, h, at, unit(madd(sub(at, axis), h.d, h.r * 0.35), h.d), r, open);
+}
+
+function eyeAt(kit: Kit, part: string, h: Head, at: Vec, n: Vec, r: number, open: boolean): void {
   if (!open) {
     ball(kit, part, "dark", at, r, 0.3, n);
     return;
@@ -2709,6 +2885,7 @@ function eyeOf(kit: Kit, part: string, h: Head, toward: Vec, r: number, open: bo
 
 function faceOf(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
   const b = buildOf(actor);
+  if (h.stations) { outlinedFace(kit, actor, h, q, asleep); return; }
   const snout = b.snout * actor.member.size;
   ball(kit, "head", "coat", h.c, h.r);
   // The muzzle tapers from the face to the nose: to a point on a fox, hardly at all on a capybara.
@@ -2723,6 +2900,33 @@ function faceOf(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
   else ball(kit, "nose", "nose", tip, Math.max(tipR * 0.8, h.r * 0.15));
   for (const x of [-1, 1]) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.62, x * 0.5, 0.28), h.r * 0.25, !asleep);
   faceMarks(kit, b, h, tip);
+  if (actor.member.horned && b.extras.includes("antlers")) antlersOf(kit, h, actor.member.size);
+  earsOf(kit, b.ears, h, q.earBack, b.earLen, b.extras.includes("cheeks") ? "accent" : "coat");
+}
+
+/**
+ * A face drawn from its species' outline: skull and muzzle lofted as one
+ * surface, the jaw under the muzzle (it drops as the mouth opens), the nose
+ * capping the muzzle's end and the eyes under the brow, just behind the stop.
+ */
+function outlinedFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
+  const b = buildOf(actor);
+  const stop = h.stop ?? 0.35;
+  const tip = h.tip ?? 1;
+  const sec = h.sec ?? ((): Section => ({ o: 0, h: 1, w: 1 }));
+  const along = (k: number): Vec => madd(h.c, h.d, k * h.r);
+  loft(kit, "head", "coat", h.stations ?? [], along, h.u, h.s, h.r, 1);
+  const root = sec(stop);
+  const end = sec(tip);
+  const front = madd(along(tip), h.u, (end.o + end.h * 0.25) * h.r);
+  const nose = madd(front, h.d, Math.max(end.h, end.w) * h.r * 0.8);
+  if (b.extras.includes("bignose")) cap(kit, "nose", "nose", madd(nose, h.u, h.r * 0.2), madd(nose, h.u, -h.r * 0.12), h.r * 0.3, 0.7, h.d);
+  else ball(kit, "nose", "nose", nose, Math.max(end.w * 0.6, 0.12) * h.r, 0.75, h.d);
+  const jawRoot = madd(along(stop - 0.1), h.u, (root.o - root.h * 0.5) * h.r);
+  const jawEnd = madd(along(tip), h.u, (end.o - end.h * 0.5) * h.r - (tip - stop) * h.r * q.mouth * 0.5);
+  cone(kit, "jaw", "coat", jawRoot, jawEnd, root.h * 0.5 * h.r, end.h * 0.55 * h.r);
+  for (const x of [-1, 1]) outlinedEye(kit, `eye.${x < 0 ? "L" : "R"}`, h, stop - 0.12, x * 0.62, 0.5, h.r * 0.22, !asleep);
+  faceMarks(kit, b, h, nose);
   if (actor.member.horned && b.extras.includes("antlers")) antlersOf(kit, h, actor.member.size);
   earsOf(kit, b.ears, h, q.earBack, b.earLen, b.extras.includes("cheeks") ? "accent" : "coat");
 }
@@ -2810,11 +3014,18 @@ function quadTrunk(kit: Kit, actor: Who, body: QuadBody): void {
   const extras = b.extras;
   const ch = r * b.chest;
   const hu = r * b.haunch;
-  // A chest set forward and low, a haunch over the hind legs, a waist between.
-  cone(kit, "body", "coat", P, S, hu * 0.85, ch * 0.88);
-  ball(kit, "haunch", "coat", add(P, [0, hu * 0.05, -hu * 0.1]), hu);
-  ball(kit, "chest", "coat", add(S, [0, -ch * 0.12, ch * 0.08]), ch);
-  if (extras.includes("hump")) ball(kit, "hump", "coat", add(S, [0, ch * 0.7, -ch * 0.35]), ch * 0.72);
+  if (b.torso) {
+    // The species' own outline along the spine, however the spine lies (standing, sat up, lying).
+    const f = unit(sub(S, P), [0, 0, 1]);
+    const side: Vec = [1, 0, 0];
+    loft(kit, "body", "coat", b.torso, (k) => lerpV(P, S, k), unit(cross(f, side), UP), side, r, 1);
+  } else {
+    // A chest set forward and low, a haunch over the hind legs, a waist between.
+    cone(kit, "body", "coat", P, S, hu * 0.85, ch * 0.88);
+    ball(kit, "haunch", "coat", add(P, [0, hu * 0.05, -hu * 0.1]), hu);
+    ball(kit, "chest", "coat", add(S, [0, -ch * 0.12, ch * 0.08]), ch);
+    if (extras.includes("hump")) ball(kit, "hump", "coat", add(S, [0, ch * 0.7, -ch * 0.35]), ch * 0.72);
+  }
   if (extras.includes("pouch")) ball(kit, "pouch", "belly", add(lerpV(P, S, 0.45), [0, -r * 0.35, r * 0.25]), r * 0.75);
   if (extras.includes("shell")) shellOf(kit, body);
   if (extras.includes("quills")) quillsOf(kit, body);
@@ -3663,11 +3874,25 @@ function skinOf(base: Palette, morph: Morph): Palette {
 /** Part way to its own grey: a plain coat sits in the scene's tones and leaves the loud colours to the tree. */
 const muted = (hex: string, k: number): string => { const [r, g, b] = hexRgb(hex); const y = r * 0.3 + g * 0.59 + b * 0.11; return rgbHex([r, g, b].map((c) => mix(c, y, k))); };
 
+/**
+ * A black coat painted as pixel art paints one: a cool charcoal at least `floor` light (sRGB luma),
+ * so it still has shades to turn in, and only the nose and the ink line are truly black.
+ */
+const CHARCOAL = "#5a6274";
+function charcoal(hex: string, floor: number): string {
+  const luma = (h: string): number => { const [r, g, b] = hexRgb(h); return (r * 0.3 + g * 0.59 + b * 0.11) / 255; };
+  const y = luma(hex);
+  return y >= floor ? hex : mixColor(hex, CHARCOAL, (floor - y) / Math.max(0.01, luma(CHARCOAL) - y));
+}
+
 function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph): Palette {
   const plain = morph === "normal" ? 0.32 : 0;
   const [coat, alt, belly, dark, accent] = colors.map((hex, i) => (i < 3 ? muted(hex, plain) : hex)) as unknown as CoatColors;
   const base: Palette = { coat, alt, belly, dark, accent, eye: IRIS[id] ?? "#4a2a16", pupil: "#070505", shine: "#ffffff", nose: dark, glow: accent, horn: BEAKS[id] ?? "#cbb38c", shell: alt };
-  return skinOf(base, morph);
+  const skin = skinOf(base, morph);
+  // Neon is dark on purpose: its glow carries it.
+  if (morph === "neon") return skin;
+  return { ...skin, coat: charcoal(skin.coat, 0.25), alt: charcoal(skin.alt, 0.19), belly: charcoal(skin.belly, 0.34) };
 }
 
 // ---------------------------------------------------------------- casting

@@ -294,6 +294,10 @@ void main() {
     light += uSky * INV_PI * 0.6 * rim;
     float glow = max(uGlow, lit);
     vec3 col = mix(base * light, base * (1.0 + 0.5 * rim), glow);
+    // Dark fur still shines: its sheen and sky rim are light of their own, not a share of
+    // its colour, so a black wolf shows its shape instead of a flat silhouette.
+    float dark = (1.0 - smoothstep(0.03, 0.2, dot(base, vec3(0.2126, 0.7152, 0.0722)))) * (1.0 - glow);
+    col += dark * INV_PI * (uSunCol * 0.22 * pow(max(dot(n, halfway), 0.0), 2.5) + uSky * 0.45 * rim);
     // (Muted colours only: a brown coat leaves the greys, a vivid fox is left as it is.)
     float hi = max(max(col.r, col.g), col.b);
     float vivid = smoothstep(0.35, 0.7, (hi - min(min(col.r, col.g), col.b)) / max(hi, 1e-4));

@@ -40,9 +40,28 @@ export default [
       bodies.draw([body()], light);
       const u = slots(bodies)[0].material.uniforms;
       const thin = u.uU.value[3];
-      return [u.uCount.value, u.uB.value[2].w >= 64, u.uB.value[0].w < 64, Math.round(thin.z * 100) / 100, thin.w];
+      // (The tag's melt is in 16ths: 0 for a crisp part, 16 for the body's own.)
+      const melt = (w) => Math.floor((w % 1024) / 16);
+      return [u.uCount.value, melt(u.uB.value[2].w), melt(u.uB.value[0].w), Math.round(thin.z * 100) / 100, Math.round(Math.hypot(thin.x, thin.y, thin.z) * 100) / 100, thin.w];
     },
-    expect: [4, true, true, 1, 0.3],
+    expect: [4, 0, 16, 0.3, 0.3, 0.04],
+  },
+  {
+    name: 'a tapered part carries its far radius, a part can melt less or not at all, and a decal is flagged and left out of the box',
+    run: ({ createSdfBodies, tagOf }) => {
+      const bodies = createSdfBodies(lit);
+      const parts = [
+        { a: [0, 0.4, 0], b: [0.6, 0.4, 0], r: 0.15, r1: 0.05, role: 'coat' },
+        { a: [0, 0.4, 0], b: [0, 0.1, 0], r: 0.05, role: 'coat', melt: 0.25 },
+        { a: [0, 0.4, 0], b: [0, 0.4, 0], r: 0.02, role: 'coat', melt: 0 },
+        { a: [5, 5, 5], b: [5, 5, 5], r: 0.1, role: 'belly', decal: true },
+      ];
+      bodies.draw([{ capsules: parts, palette: { coat: '#806040', belly: '#ffffff' } }], light);
+      const s = slots(bodies)[0];
+      const u = s.material.uniforms;
+      return [u.uU.value[0].w, Math.floor(u.uB.value[1].w / 16), Math.floor(u.uB.value[2].w / 16), u.uB.value[3].w >= 1024, s.scale.x < 2, tagOf(3, false, { melt: 2, decal: true })];
+    },
+    expect: [0.05, 4, 0, true, true, 3 + 512 + 1024],
   },
   {
     name: 'fewer bodies next frame hide the spare boxes; none are rebuilt',

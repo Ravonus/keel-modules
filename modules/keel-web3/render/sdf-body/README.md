@@ -21,6 +21,13 @@ continuous surface, with no seams and no blocks.
   ground, and a rim light are taken as keel/lit light colour × intensity, so
   bodies match `MeshStandardMaterial` brightness. Occlusion where parts meet
   comes straight from the field.
+- **Tapers, melt and decals.** A part may taper (`r1`, its radius at `b`:
+  a muzzle to its nose, a tail to its tip), melt less than the body or not
+  at all (`melt`, 0 to 2; 0 is a crisp seam, so legs, wings and claws stay
+  apart), or be a `decal`: paint only, with no surface of its own, colouring
+  the body where it lies inside it (a fox's bib, a deer's rump, a mask). All
+  three ride in the parts' existing uniforms, so the shader keeps its
+  uniform budget; old parts without them draw exactly as before.
 - **Glow.** `emissive` roles, a per-body `lit` list (an owl's eyes at night)
   and `glow` (a spirit animal) light from their own colour.
 - **Shadows.** With `shadows: true`, a proxy of plain spheres along every part

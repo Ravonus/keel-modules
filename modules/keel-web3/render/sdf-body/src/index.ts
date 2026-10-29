@@ -22,7 +22,13 @@
 
 export type Vec = readonly [number, number, number];
 
-/** One part: a capsule from a to b, r thick; `flat` < 1 squashes it across `up` (a wing, an ear). */
+/**
+ * One part: a capsule from a to b, r thick; `flat` < 1 squashes it across `up` (a wing, an ear).
+ * `r1` tapers it: r at a, r1 at b (a muzzle to its nose, a tail to its tip, a leg to its ankle).
+ * `melt` scales how far it melts into the rest (0 a crisp seam, 1 the body's own, up to 2).
+ * A `decal` is paint only: it changes no surface, and colours the body where it lies inside it
+ * (a fox's white bib, a deer's rump, a mask round the eyes).
+ */
 export interface BodyPart {
   readonly a: Vec;
   readonly b: Vec;
@@ -30,6 +36,9 @@ export interface BodyPart {
   readonly role: string;
   readonly flat?: number;
   readonly up?: Vec;
+  readonly r1?: number;
+  readonly melt?: number;
+  readonly decal?: boolean;
 }
 
 export interface BodyInput {
@@ -136,9 +145,9 @@ void main() {
 const FIELD = /* glsl */ `
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
-uniform vec4 uA[MAXP];     // a, r
-uniform vec4 uB[MAXP];     // b, role + 64 when crisp
-uniform vec4 uU[MAXP];     // thin axis, flatness
+uniform vec4 uA[MAXP];     // a, r at a
+uniform vec4 uB[MAXP];     // b, tag: role + 16 x melt (16ths; 0 crisp) + 1024 when a decal
+uniform vec4 uU[MAXP];     // thin axis x flatness, r at b
 uniform int uCount;
 uniform vec3 uPal[ROLES];
 uniform float uLit[ROLES];
@@ -149,44 +158,62 @@ uniform vec3 uSun, uSunCol, uFill, uFillCol, uSky, uGround, uRim, uRimCol;
 varying vec3 vLocal;
 varying vec3 vEye;
 
-// The pixel engine's capsule, squashed across its thin axis when flat < 1.
+// The pixel engine's capsule, tapered from r at a to r1 at b (its radius
+// follows the axis, the distance scaled by the slope so the march never
+// overshoots), and squashed across its thin axis when flat < 1.
 float part(vec3 p, int i) {
   vec3 a = uA[i].xyz, b = uB[i].xyz;
   vec3 pa = p - a, ba = b - a;
-  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-9), 0.0, 1.0);
+  float l2 = max(dot(ba, ba), 1e-9);
+  float h = clamp(dot(pa, ba) / l2, 0.0, 1.0);
   vec3 v = pa - ba * h;
-  float f = uU[i].w;
-  if (f < 0.999) { float t = dot(v, uU[i].xyz); v += uU[i].xyz * t * (1.0 / f - 1.0); return (length(v) - uA[i].w) * f; }
-  return length(v) - uA[i].w;
+  float r0 = uA[i].w, dr = r0 - uU[i].w;
+  float r = r0 - dr * h, slope = inversesqrt(1.0 + dr * dr / l2);
+  vec3 u = uU[i].xyz;
+  float f2 = dot(u, u);
+  if (f2 < 0.998) { float f = sqrt(f2); u /= f; float t = dot(v, u); v += u * t * (1.0 / f - 1.0); return (length(v) - r) * f * slope; }
+  return (length(v) - r) * slope;
 }
 
-// Part i melted into the surface so far; h is its share.
-float melt(int i, float d, float di, out float h) {
-  float k = min(uK, uA[i].w * 0.8);
+// Part i melted into the surface so far by its own share of the melt; h is its share.
+float melt(int i, float m, float d, float di, out float h) {
+  float k = max(min(uK * m, (uA[i].w + uU[i].w) * 0.4), 1e-6);
   h = clamp(0.5 + 0.5 * (d - di) / k, 0.0, 1.0);
   return mix(d, di, h) - k * h * (1.0 - h);
 }
-// The surface alone, for the march, the normal and the occlusion.
+// The surface alone, for the march, the normal and the occlusion. Crisp
+// parts join it after the melt, so nothing melts into an eye.
 float dist(vec3 p) {
-  float d = 1e9, h;
+  float d = 1e9, c = 1e9, h;
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
+    float tag = uB[i].w;
+    if (tag >= 1023.5) continue;
+    float m = floor(tag * 0.0625);
     float di = part(p, i);
-    d = uB[i].w >= 64.0 ? min(d, di) : melt(i, d, di, h);
+    if (m < 0.5) c = min(c, di); else d = melt(i, m * 0.0625, d, di, h);
   }
-  return d;
+  return min(d, c);
 }
-// The colour, melted by the same weights: once a pixel.
+// The colour, melted by the same weights, then decals on the melted coat,
+// then crisp parts over both: once a pixel.
 vec3 paint(vec3 p, out float lit) {
-  float d = 1e9, h; vec3 col = vec3(0.0); lit = 0.0;
+  float d = 1e9, c = 1e9, h, w = 0.0, cl = 0.0, dl = 0.0;
+  vec3 col = vec3(0.0), cc = vec3(0.0), dc = vec3(0.0); lit = 0.0;
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
-    float di = part(p, i), tag = uB[i].w;
-    int role = int(mod(tag, 64.0) + 0.5);
-    if (tag >= 64.0) { if (di < d) { col = uPal[role]; lit = uLit[role]; } d = min(d, di); continue; }
-    d = melt(i, d, di, h);
+    float tag = uB[i].w, di = part(p, i);
+    float decal = step(1023.5, tag);
+    tag -= decal * 1024.0;
+    float m = floor(tag * 0.0625);
+    int role = int(tag - m * 16.0 + 0.5);
+    if (decal > 0.5) { float s = clamp(0.5 - di / max(uA[i].w * 0.12, 1e-5), 0.0, 1.0); if (s > w) { w = s; dc = uPal[role]; dl = uLit[role]; } continue; }
+    if (m < 0.5) { if (di < c) { c = di; cc = uPal[role]; cl = uLit[role]; } continue; }
+    d = melt(i, m * 0.0625, d, di, h);
     col = mix(col, uPal[role], h); lit = mix(lit, uLit[role], h);
   }
+  col = mix(col, dc, w); lit = mix(lit, dl, w);
+  if (c < d) { col = cc; lit = cl; }
   return col;
 }
 vec3 normalAt(vec3 p, float e) {
@@ -329,9 +356,10 @@ function boundsOf(parts: readonly BodyPart[], count: number, blend: number, inkP
   let radius = 0;
   for (let i = 0; i < count; i += 1) {
     const part = parts[i];
-    if (!part) continue;
+    // (A decal has no surface: it never widens the box.)
+    if (!part || part.decal === true) continue;
     for (let axis = 0; axis < 3; axis += 1) span(lo, hi, axis, part);
-    radius += part.r;
+    radius += meanRadius(part);
   }
   const [lx = 0, ly = 0, lz = 0] = lo;
   const [hx = 0, hy = 0, hz = 0] = hi;
@@ -340,12 +368,16 @@ function boundsOf(parts: readonly BodyPart[], count: number, blend: number, inkP
   return { min: [lx - pad, ly - pad, lz - pad], max: [hx + pad, hy + pad, hz + pad], k: mean * blend };
 }
 
+/** A part's mean thickness, along a taper. */
+const meanRadius = (part: BodyPart): number => (part.r + (part.r1 ?? part.r)) / 2;
+
 /** Widen the box along one axis to take in a part. */
 function span(lo: number[], hi: number[], axis: number, part: BodyPart): void {
   const a = part.a[axis] ?? 0;
   const b = part.b[axis] ?? 0;
-  lo[axis] = Math.min(lo[axis] ?? Infinity, Math.min(a, b) - part.r);
-  hi[axis] = Math.max(hi[axis] ?? -Infinity, Math.max(a, b) + part.r);
+  const r1 = part.r1 ?? part.r;
+  lo[axis] = Math.min(lo[axis] ?? Infinity, a - part.r, b - r1);
+  hi[axis] = Math.max(hi[axis] ?? -Infinity, a + part.r, b + r1);
 }
 
 /** The part's thin direction: its `up`, made square to its length. */
@@ -381,13 +413,20 @@ function paint(slot: Slot, body: BodyInput, state: ShaderState): void {
   }
 }
 
+/** The tag a part carries to the shader: its role, its melt in 16ths (0 crisp), and 1024 for a decal. */
+export function tagOf(role: number, crisp: boolean, part: Pick<BodyPart, "melt" | "decal">): number {
+  const melt = crisp ? 0 : Math.round(Math.max(0, Math.min(2, part.melt ?? 1)) * 16);
+  return role + 16 * melt + (part.decal === true ? 1024 : 0);
+}
+
 function writePart(part: BodyPart, a: Vector4Like, b: Vector4Like, u: Vector4Like, tag: number): void {
   const flat = Math.max(0.05, Math.min(1, part.flat ?? 1));
-  // (A round part has no thin axis to find.)
+  // (A round part has no thin axis to find. The axis is stored scaled by the flatness.)
   const thin = flat < 0.999 ? thinAxis(part) : UP;
+  const f = flat < 0.999 ? flat : 1;
   a.set(part.a[0], part.a[1], part.a[2], part.r);
   b.set(part.b[0], part.b[1], part.b[2], tag);
-  u.set(thin[0], thin[1], thin[2], flat);
+  u.set(thin[0] * f, thin[1] * f, thin[2] * f, Math.max(0, part.r1 ?? part.r));
 }
 
 function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number, roles: number, blend: number, ink: Ink): void {
@@ -402,7 +441,7 @@ function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number,
     const a = A[i];
     const b = B[i];
     const u = U[i];
-    if (part && a && b && u) writePart(part, a, b, u, roleIndex(state, part.role, roles) + (state.crisp.has(part.role) ? 64 : 0));
+    if (part && a && b && u) writePart(part, a, b, u, tagOf(roleIndex(state, part.role, roles), state.crisp.has(part.role) || part.melt === 0, part));
   }
   paint(slot, body, state);
   (slot.u.uInk as UniformLike<number>).value = ink.width;
@@ -452,7 +491,8 @@ function castShadows(proxy: ReturnType<typeof shadowProxy>, bodies: readonly Bod
   let n = 0;
   for (const body of bodies) {
     for (const part of body.capsules) {
-      const r = part.r * (part.flat !== undefined && part.flat < 1 ? 0.6 : 1);
+      if (part.decal === true) continue;
+      const r = meanRadius(part) * ((part.flat ?? 1) < 1 ? 0.6 : 1);
       // A round part is one sphere; a long one three along its length.
       const steps = part.a[0] === part.b[0] && part.a[1] === part.b[1] && part.a[2] === part.b[2] ? 1 : 3;
       for (let s = 0; s < steps && n < limit; s += 1) {

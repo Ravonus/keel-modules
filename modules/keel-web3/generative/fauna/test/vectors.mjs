@@ -130,10 +130,14 @@ export default [
       const at = stage();
       for (let t = 0; t < 4; t += 0.5) herd.at(t, at);
       const sent = herd.command(4, { id: '0.0', to: { on: 'ground', x: 1.6, z: -1.2 } }, at);
-      let body = null;
-      for (let t = 4; t <= 30; t += 0.5) body = herd.at(t, at).find((each) => each.id === '0.0') ?? body;
+      // (It gets there and looks about, then goes on with its own life.)
+      let nearest = Infinity;
+      for (let t = 4; t <= 30; t += 0.5) {
+        const body = herd.at(t, at).find((each) => each.id === '0.0');
+        if (body) nearest = Math.min(nearest, Math.hypot(body.at[0] - 1.6, body.at[2] + 1.2));
+      }
       const everyone = herd.command(30, { to: { on: 'ground', x: -1.5, z: 1 } }, at);
-      return [sent, Math.hypot(body.at[0] - 1.6, body.at[2] + 1.2) < 0.4, everyone.length];
+      return [sent, nearest < 0.4, everyone.length];
     },
     expect: [['0.0'], true, 2],
   },
@@ -207,15 +211,17 @@ export default [
       const out = (p) => Math.hypot(p[0], p[2]);
       const clear = Math.min(...body.capsules.flatMap((c) => [out(c.a) - c.r, out(c.b) - c.r])) > 0.3;
       const across = Math.abs(body.front[0]) < 0.2;
-      const gait = (species, d) => {
+      const gait = (species, x, z) => {
         const h = createHerd(castFor({ seed: 5, region: 'tokyo', world: 'nature', radius: 3, species, group: 'solo' }));
         for (let t = 0; t < 2; t += 0.5) h.at(t, at);
         h.command(2, { id: '0.0', to: { on: 'ground', x: 1.5, z: 0 } }, at);
-        for (let t = 2; t < 12; t += 0.5) h.at(t, at);
-        h.command(12, { id: '0.0', to: { on: 'ground', x: 1.5, z: d } }, at);
-        return h.at(12.3, at).find((each) => each.id === '0.0').action;
+        // Once it is there and looking about (a bird left alone soon flies off round the tree again), send it on.
+        let t = 2.1;
+        while (t < 30 && h.at(t, at).find((each) => each.id === '0.0').action !== 'look') t += 0.1;
+        h.command(t + 0.1, { id: '0.0', to: { on: 'ground', x, z } }, at);
+        return h.at(t + 0.4, at).find((each) => each.id === '0.0').action;
       };
-      return [clear, across, gait('crow', 0.3), gait('crow', 2.6), gait('crane', 1.2)];
+      return [clear, across, gait('crow', 1.5, 0.3), gait('crow', -1.2, 1.8), gait('crane', 1.5, 1.2)];
     },
     expect: [true, true, 'wander', 'fly', 'wander'],
   },
@@ -340,5 +346,101 @@ export default [
       return [shownSize('snake', 1.1), shownSize('butterfly', 0.1).toFixed(2), shownSize('mouse', 0.1) > 0.3, shownSize('deer', 1.2) >= 1.2, g - Math.min(r, b) < 0x9a - 0x3a];
     },
     expect: [1.1, '0.16', true, true, true],
+  },
+  {
+    name: 'four legs in three bones down to a paw, hoof or sole; markings are paint-only decals; a deer folds down to lie where a fox sits; every pose fits the 48-part budget',
+    run: ({ poseSpecies, SPECIES_IDS }) => {
+      const fox = poseSpecies('fox', 'stand', 1).capsules;
+      const bones = fox.filter((c) => c.part.startsWith('leg.FL')).map((c) => c.part.split('.').pop());
+      const bib = fox.find((c) => c.part === 'bib');
+      const snout = fox.find((c) => c.part === 'snout');
+      const height = (body) => Math.max(...body.capsules.filter((c) => c.part === 'chest').map((c) => c.a[1]));
+      const deerSit = height(poseSpecies('deer', 'sit', 1)) < height(poseSpecies('deer', 'stand', 1)) * 0.6;
+      const foxSit = height(poseSpecies('fox', 'sit', 1)) > height(poseSpecies('fox', 'stand', 1)) * 0.9;
+      const actions = ['stand', 'wander', 'run', 'sit', 'lie', 'sleep', 'rear', 'hang', 'fly', 'hover', 'coil'];
+      const most = Math.max(...SPECIES_IDS.flatMap((id) => actions.map((a) => poseSpecies(id, a, 1.3).capsules.length)));
+      return [bones, bib?.decal === true, snout.r1 < snout.r, deerSit, foxSit, most <= 48];
+    },
+    expect: [['upper', 'lower', 'cannon', 'paw'], true, true, true, true, true],
+  },
+  {
+    name: 'regions cast their own animals: the same seeds have company in every region, but each region is led by its locals, wears their coats and calls them by their names',
+    run: ({ castFor }) => {
+      const REGIONS = ['rockies', 'atlantic', 'alps', 'tokyo', 'sydney', 'nairobi', 'bali'];
+      const seeds = Array.from({ length: 600 }, (_, s) => (Math.imul(s + 1, 2654435761) ^ 0x7a17a) >>> 0);
+      const casts = Object.fromEntries(REGIONS.map((region) => [region, seeds.map((seed) => castFor({ seed, region, world: 'nature', season: 'summer', radius: 3.3 }))]));
+      // Whether there is anyone at all never depends on the region.
+      const sameOdds = seeds.every((_, i) => REGIONS.every((region) => (casts[region][i].groups.length > 0) === (casts.rockies[i].groups.length > 0)));
+      const species = (region) => new Set(casts[region].flatMap((cast) => cast.groups.flatMap((g) => g.members.map((m) => m.species))));
+      const names = (region) => new Set(casts[region].flatMap((cast) => cast.groups.flatMap((g) => g.members.map((m) => m.label))));
+      const tokyo = species('tokyo');
+      const bali = species('bali');
+      const sydney = species('sydney');
+      const nairobi = species('nairobi');
+      return [
+        sameOdds,
+        tokyo.has('tanuki') && tokyo.has('macaque') && !tokyo.has('raccoon'),
+        bali.has('loris') && !bali.has('sloth') && !bali.has('capybara') && !bali.has('tortoise'),
+        sydney.has('kookaburra') && sydney.has('possum') && !sydney.has('tortoise'),
+        nairobi.has('mongoose') && nairobi.has('guineafowl') && !nairobi.has('meerkat') && !nairobi.has('peacock'),
+        names('tokyo').has('Sika deer') && names('rockies').has('Mule deer') && names('sydney').has('Australian magpie') && names('nairobi').has('Vervet monkey'),
+      ];
+    },
+    expect: [true, true, true, true, true, true],
+  },
+  {
+    name: 'no two animals alike: each has its own seeded make, pace and nerve, a pair is a male and a female, and only grown males carry antlers',
+    run: ({ castFor, poseSpecies }) => {
+      const pack = castFor({ seed: 21, region: 'rockies', world: 'nature', radius: 5, species: 'wolf', group: 'pack' }).groups[0].members;
+      const legs = new Set(pack.map((m) => m.traits.leg.toFixed(4)));
+      const pair = castFor({ seed: 4, region: 'alps', world: 'nature', radius: 5, species: 'deer', group: 'pair' }).groups[0].members;
+      const herd = Array.from({ length: 60 }, (_, seed) => castFor({ seed, region: 'atlantic', world: 'nature', season: 'autumn', radius: 5, species: 'deer', group: 'family' }).groups[0].members).flat();
+      const antlersRight = herd.every((m) => m.horned === (m.traits.sex === 'male' && !m.young));
+      const spring = castFor({ seed: 4, region: 'alps', world: 'nature', season: 'spring', radius: 5, species: 'deer', group: 'pair' }).groups[0].members;
+      const reach = (seed) => Math.max(...poseSpecies('fox', 'stand', 1, seed === undefined ? {} : { seed }).capsules.map((c) => Math.max(c.a[2], c.b[2])));
+      const individuals = new Set([1, 2, 3, 4, 5].map((seed) => reach(seed).toFixed(4)));
+      const tame = JSON.stringify(poseSpecies('fox', 'stand', 1)) === JSON.stringify(poseSpecies('fox', 'stand', 1));
+      const ranged = pack.every((m) => m.traits.leg > 0.9 && m.traits.leg < 1.1 && m.traits.tempo > 0.85 && m.traits.tempo < 1.15);
+      return [legs.size === pack.length, pair.map((m) => m.traits.sex), antlersRight, spring.some((m) => m.horned), individuals.size >= 4, tame, ranged];
+    },
+    expect: [true, ['male', 'female'], true, false, true, true, true],
+  },
+  {
+    name: 'the sky and the hour move them: rain and snow send animals to rest and keep birds out of the air, dawn and dusk bring song',
+    run: ({ idleMatrix }) => {
+      const share = (id, mood, acts) => { const m = idleMatrix(id, mood); const cols = acts.map((a) => m.actions.indexOf(a)).filter((j) => j >= 0); return m.rows.reduce((sum, row) => sum + cols.reduce((s, j) => s + (row[j] ?? 0), 0), 0) / m.rows.length; };
+      const moves = ['wander', 'run', 'hop', 'fly', 'climb'];
+      const rest = ['sit', 'lie', 'sleep'];
+      return [
+        share('deer', { weather: 'rain' }, moves) < share('deer', {}, moves),
+        share('songbird', { weather: 'rain' }, ['fly']) < share('songbird', {}, ['fly']) * 0.5,
+        share('fox', { weather: 'snow' }, rest) > share('fox', {}, rest),
+        share('songbird', { twilight: true }, ['sing']) > share('songbird', {}, ['sing']) * 1.5,
+        share('wolf', { twilight: true, night: true }, ['howl']) > share('wolf', { night: true }, ['howl']),
+      ];
+    },
+    expect: [true, true, true, true, true],
+  },
+  {
+    name: 'company acts together: a mongoose band keeps a sentry while the rest dig, a cat stalks the bird it is with and the bird gets away, crows mob a roosting owl',
+    run: ({ castFor, createHerd }) => {
+      const at = { ...stage(), radius: 3.3, perches: [0, 1, 2, 3, 4, 5].map((i) => ({ p: [Math.cos(i) * 1.6, 2 + (i % 3) * 0.4, Math.sin(i) * 1.6], d: [Math.cos(i), 0, Math.sin(i)], r: 0.08 })) };
+      const watch = (cast, seconds, test) => {
+        const herd = createHerd(cast);
+        for (let t = 0; t < seconds; t += 0.25) if (test(herd.at(t, at))) return true;
+        return false;
+      };
+      const band = castFor({ seed: 2, region: 'nairobi', world: 'nature', radius: 3.3, species: 'mongoose', group: 'pack' });
+      const sentry = watch(band, 240, (bodies) => bodies.some((b) => b.action === 'rear') && bodies.some((b) => b.action === 'dig' || b.action === 'sniff'));
+      const mixed = (a, b, seed) => {
+        const one = castFor({ seed, region: 'atlantic', world: 'nature', radius: 3.3, species: a, group: 'solo' });
+        const two = castFor({ seed: seed + 1, region: 'atlantic', world: 'nature', radius: 3.3, species: b, group: 'pair' });
+        return { ...one, groups: [{ kind: 'mixed', members: [...one.groups[0].members, ...two.groups[0].members] }] };
+      };
+      const stalks = watch(mixed('cat', 'songbird', 5), 240, (bodies) => bodies.some((b) => b.kind === 'cat' && b.action === 'stalk'));
+      const mobbing = watch(mixed('owl', 'crow', 8), 240, (bodies) => bodies.filter((b) => b.kind === 'crow' && (b.action === 'flap' || b.action === 'sing') && b.contact).length > 0 && bodies.some((b) => b.kind === 'owl' && b.action === 'look'));
+      return [sentry, stalks, mobbing];
+    },
+    expect: [true, true, true],
   },
 ];

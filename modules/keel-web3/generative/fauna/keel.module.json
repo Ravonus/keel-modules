@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "Rare, seeded animal life: 32 species that cast by region, world and season, idle through a Markov matrix of actions, act together in joint scenes, climb trees and fly, posed each frame as capsule parts any renderer can draw. Sky flocks and planes included. Deterministic and renderer-free.",
+  "summary": "Rare, seeded animal life: 42 species that cast by region (each region led by its own locals, in their local coats and names), world and season, each animal with its own seeded build, pace and nerve, idle through a Markov matrix of actions, act together in joint scenes, climb trees and fly, posed each frame as capsule parts any renderer can draw. Sky flocks and planes included. Deterministic and renderer-free.",
   "category": "generative",
   "owner": { "org": "keel-web3", "group": "generative" },
   "inputs": [
@@ -21,7 +21,11 @@
       { "value": "owl", "label": "Owl" }, { "value": "parrot", "label": "Parrot" }, { "value": "gull", "label": "Gull" },
       { "value": "peacock", "label": "Peacock" }, { "value": "crane", "label": "Crane" }, { "value": "woodpecker", "label": "Woodpecker" },
       { "value": "snake", "label": "Snake" }, { "value": "gecko", "label": "Gecko" }, { "value": "butterfly", "label": "Butterflies" },
-      { "value": "firefly", "label": "Fireflies" }, { "value": "crab", "label": "Crab" }
+      { "value": "firefly", "label": "Fireflies" }, { "value": "crab", "label": "Crab" },
+      { "value": "tanuki", "label": "Tanuki" }, { "value": "marmot", "label": "Marmot" }, { "value": "badger", "label": "Badger" },
+      { "value": "skunk", "label": "Skunk" }, { "value": "possum", "label": "Brushtail possum" }, { "value": "kookaburra", "label": "Kookaburra" },
+      { "value": "mongoose", "label": "Banded mongoose" }, { "value": "dikdik", "label": "Dik-dik" }, { "value": "guineafowl", "label": "Guineafowl" },
+      { "value": "loris", "label": "Slow loris" }
     ], "default": "seed" },
     { "key": "group", "label": "Company", "type": "select", "required": false, "options": [
       { "value": "seed", "label": "Seed's roll" },

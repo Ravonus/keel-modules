@@ -3910,6 +3910,13 @@ function localWeight(id: SpeciesId, ctx: CastContext): number {
   return speciesOf(id).weight * (ctx.region ? LOCAL_WEIGHT[ctx.region][id] ?? 1 : 1) * (WORLD_WEIGHT[ctx.world]?.[id] ?? 1);
 }
 
+/** A species' casting weight in a region (and, given one, a world), as `castFor` weighs it; 0 where it does not live. */
+export function regionWeight(id: SpeciesId, region: RegionId, world?: WorldKey): number {
+  const spec = speciesOf(id);
+  if (!spec.regions.includes(region) || (world && !spec.worlds.includes(world))) return 0;
+  return spec.weight * (LOCAL_WEIGHT[region][id] ?? 1) * (world ? WORLD_WEIGHT[world]?.[id] ?? 1 : 1);
+}
+
 /** One animal's own make and manner (see `Traits`); the young have big heads, short muzzles and legs, and play more. */
 function traitsOf(rand: (() => number) | null, young: boolean, sex?: Traits["sex"]): Traits {
   // (With no stream, the kind's own make: a gallery's or a test's animal, a stag rather than a doe.)

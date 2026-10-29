@@ -22,7 +22,9 @@ dependency-free and has no renderer.
   - **crab.**
 - **Each species is placed** by its native regions, the world, the season
   and the walkable radius, so a macaque turns up around Tokyo and big
-  animals only appear where they have room. `fits(id, input)` says whether a
+  animals only appear where they have room. `regionWeight(id, region, world?)` is a
+species' casting weight in a region, as `castFor` weighs it (0 where it does not
+live), for anything that rolls a local animal outside a scene. `fits(id, input)` says whether a
   species can appear.
 - **Each region has its own cast.** A region weights its own animals up and
   the incomers down, so mule deer, chipmunks and magpies lead in the Rockies,

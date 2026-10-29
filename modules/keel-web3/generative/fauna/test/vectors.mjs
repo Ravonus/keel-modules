@@ -443,4 +443,13 @@ export default [
     },
     expect: [true, true, true],
   },
+  {
+    name: 'regionWeight is castFor\'s local weight: kangaroos weigh more in Sydney than their base, and nothing where they do not live',
+    run: ({ regionWeight, SPECIES }) => [
+      regionWeight('kangaroo', 'sydney') > SPECIES.kangaroo.weight,
+      regionWeight('kangaroo', 'rockies'),
+      regionWeight('cat', 'rockies', 'city') > regionWeight('cat', 'rockies', 'nature'),
+    ],
+    expect: [true, 0, true],
+  },
 ];

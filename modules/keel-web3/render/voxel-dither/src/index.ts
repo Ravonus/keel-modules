@@ -50,6 +50,12 @@ export interface DitherSettings {
   readonly screen: ScreenChoice;
   /** CSS pixels per art pixel, 1 to 12; 0 picks one from the frame size. */
   readonly pixel: number;
+  /**
+   * The coarsest art pixel, in CSS pixels, of the parts tagged with
+   * `tagDetail`: they are drawn on a grid that divides the look's own, so a
+   * small animal keeps its shape in a coarse world. 0 draws them on the look's grid.
+   */
+  readonly detail: number;
   /** Tone steps per channel, 2 to 16 (ignored when a palette is set). */
   readonly levels: number;
   readonly color: ColorMode;
@@ -138,6 +144,7 @@ export const DEFAULT_DITHER_SETTINGS: DitherSettings = {
   style: "smart",
   screen: "auto",
   pixel: 0,
+  detail: 0,
   levels: 6,
   color: "luma",
   palette: [],
@@ -223,10 +230,12 @@ function signalFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "s
   };
 }
 
-function formFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "screen" | "pixel" | "shading" | "bands" | "outline" | "outlineColor" | "crease" | "depthBands" | "rays" | "skyDistance"> {
+function formFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "screen" | "pixel" | "detail" | "shading" | "bands" | "outline" | "outlineColor" | "crease" | "depthBands" | "rays" | "skyDistance"> {
   return {
     screen: oneOf<ScreenChoice>(value.screen, ["auto", ...SCREENS], base.screen),
-    pixel: Math.round(bounded(value.pixel, 0, 12, base.pixel)),
+    // Half steps: half a CSS pixel is one device pixel on a 2x screen.
+    pixel: Math.round(bounded(value.pixel, 0, 12, base.pixel) * 2) / 2,
+    detail: Math.round(bounded(value.detail, 0, 12, base.detail) * 2) / 2,
     shading: oneOf(value.shading, ["cel", "smooth"], base.shading),
     bands: Math.round(bounded(value.bands, 2, 8, base.bands)),
     outline: bounded(value.outline, 0, 1, base.outline),
@@ -263,6 +272,20 @@ export interface PixelGrid {
   /** Device-pixel offset that centres the grid in the frame (zero or negative). */
   readonly originX: number;
   readonly originY: number;
+  /** Detail pixels along each side of an art pixel, 1 to 4 (1: detail parts share the grid). */
+  readonly detail: number;
+}
+
+/** Most detail pixels along an art pixel's side: 4 is sixteen to an art pixel. */
+const MOST_DETAIL = 4;
+
+/** The finest whole split of an art pixel whose detail pixels are still at least `css` CSS pixels. */
+function detailSplit(pixel: number, css: number, ratio: number): number {
+  if (css <= 0) return 1;
+  const least = Math.max(1, Math.round(css * ratio));
+  let split = 1;
+  for (let k = 2; k <= MOST_DETAIL; k += 1) if (pixel % k === 0 && pixel / k >= least) split = k;
+  return split;
 }
 
 /** CSS pixels per art pixel when `pixel` is 0: about 210 art pixels on the short side, 2 to 6 px each. */
@@ -285,7 +308,7 @@ export function resolveGrid(cssWidth: number, cssHeight: number, devicePixelRati
   const deviceHeight = Math.max(1, Math.floor(cssHeight * ratio));
   const width = Math.ceil(deviceWidth / pixel);
   const height = Math.ceil(deviceHeight / pixel);
-  return { width, height, pixel, originX: Math.floor((deviceWidth - width * pixel) / 2), originY: Math.floor((deviceHeight - height * pixel) / 2) };
+  return { width, height, pixel, originX: Math.floor((deviceWidth - width * pixel) / 2), originY: Math.floor((deviceHeight - height * pixel) / 2), detail: detailSplit(pixel, settings.detail, ratio) };
 }
 
 /**
@@ -442,6 +465,13 @@ precision highp int;
 uniform sampler2D tColor;
 uniform sampler2D tDepth;
 uniform vec2 uGrid;
+// The detail parts' own colour and depth, uFine texels to an art pixel's side,
+// and (on the detail pass) the world's finished look to fill in around them.
+uniform sampler2D tDetail;
+uniform sampler2D tDetailDepth;
+uniform sampler2D tCoarse;
+uniform float uFine;
+uniform float uPass;
 uniform float uNear;
 uniform float uFar;
 uniform float uOrtho;
@@ -482,9 +512,17 @@ uniform vec3 uSignal[3];
 // Per-part filters: x the filter's number in SIGNAL_FILTERS, y its amount.
 uniform vec2 uFilter[3];
 ${SCREEN_GLSL}
-vec2 cellUv(vec2 cell) { return (clamp(cell, vec2(0.0), uGrid - 1.0) + 0.5) / uGrid; }
+// The pass's cells: art pixels (gF 1), or detail pixels (gF uFine) on the detail pass.
+vec2 gGrid;
+float gF;
+vec2 worldUv(vec2 cell) { return (floor(clamp(cell, vec2(0.0), gGrid - 1.0) / gF) + 0.5) / uGrid; }
+vec2 detailUv(vec2 cell) { return (clamp(cell, vec2(0.0), gGrid - 1.0) + 0.5) / gGrid; }
+// The world is drawn once per art pixel and the detail parts per detail pixel; a cell shows the nearer.
+bool onDetail(vec2 cell) { return gF > 1.5 && texture2D(tDetailDepth, detailUv(cell)).x < texture2D(tDepth, worldUv(cell)).x; }
+vec4 colorAt(vec2 cell) { return onDetail(cell) ? texture2D(tDetail, detailUv(cell)) : texture2D(tColor, worldUv(cell)); }
 float distanceAt(vec2 cell) {
-  float d = texture2D(tDepth, cellUv(cell)).x;
+  float d = texture2D(tDepth, worldUv(cell)).x;
+  if (gF > 1.5) d = min(d, texture2D(tDetailDepth, detailUv(cell)).x);
   if (d >= 0.99999) return uFar;
   if (uOrtho > 0.5) return uNear + d * (uFar - uNear);
   return (uNear * uFar) / (uFar - d * (uFar - uNear));
@@ -495,15 +533,15 @@ float distanceAt(vec2 cell) {
 // come out as dithered bands.
 vec3 godRays(vec2 cell) {
   if (uRayStrength <= 0.001) return vec3(0.0);
-  vec2 uv = (cell + 0.5) / uGrid;
+  vec2 uv = (cell + 0.5) / gGrid;
   vec2 step = (uv - uRaySource) * uRayDensity / 40.0;
-  vec2 aspect = vec2(uGrid.x / uGrid.y, 1.0);
+  vec2 aspect = vec2(gGrid.x / gGrid.y, 1.0);
   vec2 p = uv;
   float weight = 1.0;
   float sum = 0.0;
   for (int i = 0; i < 40; i++) {
     p -= step;
-    float open = distanceAt(floor(clamp(p, 0.0, 0.9999) * uGrid)) >= uSkyFrom ? 1.0 : 0.0;
+    float open = distanceAt(floor(clamp(p, 0.0, 0.9999) * gGrid)) >= uSkyFrom ? 1.0 : 0.0;
     float near = 0.3 + 0.7 * exp(-3.5 * length((p - uRaySource) * aspect));
     sum += open * near * weight;
     weight *= uRayDecay;
@@ -586,7 +624,7 @@ float signalHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.
 // The part a pixel belongs to, from the alpha its material wrote (see tagSignal):
 // 0 untagged, else 1 to 3.
 int partAt(vec2 cell) {
-  float a = texture2D(tColor, cellUv(cell)).a;
+  float a = colorAt(cell).a;
   return a < 0.375 ? 1 : a < 0.625 ? 2 : a < 0.875 ? 3 : 0;
 }
 vec3 signalOf(int part) {
@@ -605,13 +643,13 @@ float burstOf(float strength, float part) {
 vec2 tornCell(vec2 cell, float strength, float part) {
   float slot = floor(uTime * 8.0) + part * 31.0;
   float rows = floor(cell.y / (2.0 + floor(signalHash(vec2(slot, 3.1)) * 6.0)));
-  if (signalHash(vec2(rows, slot)) > 1.0 - 0.5 * strength) cell.x += floor((signalHash(vec2(rows, slot + 9.0)) - 0.5) * uGrid.x * 0.12 * strength);
-  return clamp(cell, vec2(0.0), uGrid - 1.0);
+  if (signalHash(vec2(rows, slot)) > 1.0 - 0.5 * strength) cell.x += floor((signalHash(vec2(rows, slot + 9.0)) - 0.5) * gGrid.x * 0.12 * strength);
+  return clamp(cell, vec2(0.0), gGrid - 1.0);
 }
 bool inTearBlock(vec2 cell, float part) {
   float slot = floor(uTime * 8.0) + part * 31.0;
-  vec2 size = uGrid * vec2(0.12 + 0.2 * signalHash(vec2(slot, 5.0)), 0.02 + 0.035 * signalHash(vec2(slot, 6.0)));
-  vec2 origin = vec2(signalHash(vec2(slot, 7.0)), signalHash(vec2(slot, 8.0))) * uGrid;
+  vec2 size = gGrid * vec2(0.12 + 0.2 * signalHash(vec2(slot, 5.0)), 0.02 + 0.035 * signalHash(vec2(slot, 6.0)));
+  vec2 origin = vec2(signalHash(vec2(slot, 7.0)), signalHash(vec2(slot, 8.0))) * gGrid;
   return all(greaterThan(cell, origin)) && all(lessThan(cell, origin + size));
 }
 vec2 glitchCell(vec2 cell, int part) {
@@ -619,14 +657,14 @@ vec2 glitchCell(vec2 cell, int part) {
     float strength = signalOf(k).z;
     if (burstOf(strength, float(k)) < 0.5) continue;
     vec2 source = tornCell(cell, strength, float(k));
-    if (part == k && inTearBlock(cell, float(k))) return clamp(source + vec2(0.0, floor(uGrid.y * 0.06)), vec2(0.0), uGrid - 1.0);
+    if (part == k && inTearBlock(cell, float(k))) return clamp(source + vec2(0.0, floor(gGrid.y * 0.06)), vec2(0.0), gGrid - 1.0);
     if (part == k || partAt(source) == k) return source;
   }
   return cell;
 }
 vec2 filterOf(int part) { return part == 1 ? uFilter[0] : part == 2 ? uFilter[1] : part == 3 ? uFilter[2] : vec2(0.0); }
 bool isFilter(vec2 f, float id) { return f.y > 0.0 && abs(f.x - id) < 0.5; }
-vec3 rgbAt(vec2 cell) { return toSrgb(texture2D(tColor, cellUv(cell)).rgb); }
+vec3 rgbAt(vec2 cell) { return toSrgb(colorAt(cell).rgb); }
 float lumaOf(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 vec3 hueOf(float h) { return clamp(abs(fract(h + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0); }
 // Filters that move pixels: where a filtered part reads from. Every offset is a
@@ -637,13 +675,13 @@ vec2 filterCell(vec2 cell, vec2 f, int part) {
   if (isFilter(f, 3.0)) { float k = 2.0 + floor(a * 2.0); cell = floor(cell / k) * k + floor(k * 0.5); }
   // vhs: rows wobble, and a band of tracking noise rolls up the frame
   if (isFilter(f, 7.0)) {
-    float band = 1.0 - smoothstep(0.0, 5.0, abs(cell.y - fract(uTime * 0.06) * uGrid.y));
+    float band = 1.0 - smoothstep(0.0, 5.0, abs(cell.y - fract(uTime * 0.06) * gGrid.y));
     cell.x += floor(sin(cell.y * 0.37 + uTime * 2.7) * a * 1.4 + band * a * 7.0 * (signalHash(vec2(cell.y, floor(uTime * 12.0))) - 0.5));
   }
   // wave: heat haze, rows sway on a slow sine
   if (isFilter(f, 9.0)) cell.x += floor(sin(cell.y * 0.22 + uTime * 2.1) * (1.0 + 2.5 * a) + 0.5);
   // slitscan: each row shows the part at its own moment, so the part shears and unshears
-  if (isFilter(f, 15.0)) cell.x += floor(sin(cell.y * 0.045 - uTime * 0.9) * uGrid.x * 0.035 * a + 0.5);
+  if (isFilter(f, 15.0)) cell.x += floor(sin(cell.y * 0.045 - uTime * 0.9) * gGrid.x * 0.035 * a + 0.5);
   // datamosh: blocks of the part jump and stick for half a second
   if (isFilter(f, 17.0)) {
     vec2 block = floor(cell / 6.0);
@@ -656,14 +694,14 @@ vec2 filterCell(vec2 cell, vec2 f, int part) {
     float best = 0.42;
     for (int k = 1; k <= 14; k++) {
       if (float(k) > 14.0 * a) break;
-      vec2 p = clamp(cell + vec2(0.0, float(k)), vec2(0.0), uGrid - 1.0);
+      vec2 p = clamp(cell + vec2(0.0, float(k)), vec2(0.0), gGrid - 1.0);
       if (partAt(p) != part) break;
       float l = lumaOf(rgbAt(p));
       if (l > best + 0.03) { best = l; pick = p; }
     }
     cell = pick;
   }
-  return clamp(cell, vec2(0.0), uGrid - 1.0);
+  return clamp(cell, vec2(0.0), gGrid - 1.0);
 }
 // Filters that change colour, applied before the tones are stepped, so a
 // filtered part is still dithered pixel art.
@@ -738,19 +776,33 @@ vec3 clumpAt(vec2 cell, vec3 c, float d0, float gap) {
   return sum / total;
 }
 void main() {
-  vec2 home = clamp(floor(gl_FragCoord.xy), vec2(0.0), uGrid - 1.0);
+  gF = 1.0;
+  gGrid = uGrid;
+  vec2 at = floor(gl_FragCoord.xy);
+  // The detail pass redraws only the detail parts' own pixels; the rest is the world's look.
+  if (uPass > 0.5) {
+    gF = uFine;
+    gGrid = uGrid * uFine;
+    if (!onDetail(at)) {
+      gl_FragColor = texture2D(tCoarse, (floor(at / uFine) + 0.5) / uGrid);
+      return;
+    }
+  }
+  // Clump would gather a small animal's eye and muzzle into its coat.
+  float clump = gF > 1.5 ? 0.0 : uClump;
+  vec2 home = clamp(at, vec2(0.0), gGrid - 1.0);
   int part = partAt(home);
   vec3 signal = signalOf(part);
   vec2 partFilter = filterOf(part);
   vec2 cell = filterCell(glitchCell(home, part), partFilter, part);
-  vec3 c = toSrgb(texture2D(tColor, cellUv(cell)).rgb);
+  vec3 c = toSrgb(colorAt(cell).rgb);
   // Red and blue drift apart by whole art pixels around a fringed part, and
   // further while it bursts.
   float fringe = max(signal.y, max(signalOf(partAt(home + vec2(2.0, 0.0))).y, signalOf(partAt(home - vec2(2.0, 0.0))).y));
   float split = floor(fringe * 1.6) + burstOf(signal.z, float(part));
   if (split >= 1.0) {
-    c.r = toSrgb(texture2D(tColor, cellUv(clamp(cell + vec2(split, 0.0), vec2(0.0), uGrid - 1.0))).rgb).r;
-    c.b = toSrgb(texture2D(tColor, cellUv(clamp(cell - vec2(split, 0.0), vec2(0.0), uGrid - 1.0))).rgb).b;
+    c.r = toSrgb(colorAt(cell + vec2(split, 0.0)).rgb).r;
+    c.b = toSrgb(colorAt(cell - vec2(split, 0.0)).rgb).b;
   }
   float d0 = distanceAt(cell);
   bool sky = d0 >= uSkyFrom;
@@ -761,10 +813,10 @@ void main() {
   float gap = 0.06 * d0 + 0.08;
   float edge = (!sky && max(max(dl, dr), max(du, dd)) - d0 > gap) ? 1.0 : 0.0;
   // Clumped, a leaf among leaves is not a silhouette.
-  if (uClump > 0.0 && d0 - min(min(dl, dr), min(du, dd)) > gap) edge = 0.0;
+  if (clump > 0.0 && d0 - min(min(dl, dr), min(du, dd)) > gap) edge = 0.0;
   float lap = abs(dl + dr - 2.0 * d0) + abs(du + dd - 2.0 * d0);
   float crease = (!sky && edge < 0.5 && lap > 0.012 * d0 + 0.02) ? 1.0 : 0.0;
-  if (uClump > 0.0 && !sky && split < 1.0) c = mix(c, clumpAt(cell, c, d0, gap), uClump);
+  if (clump > 0.0 && !sky && split < 1.0) c = mix(c, clumpAt(cell, c, d0, gap), clump);
   c = filterColor(c, cell, partFilter, edge);
 
   float jitter = (bayer8(cell + 3.0) - 0.5) * 0.18;
@@ -811,10 +863,13 @@ uniform float uPixel;
 uniform vec2 uOrigin;
 uniform float uScanlines;
 uniform float uTime;
+uniform float uFine;
 void main() {
   vec2 frame = (gl_FragCoord.xy - uOrigin) / uPixel;
-  vec2 cell = clamp(floor(frame), vec2(0.0), uGrid - 1.0);
-  vec4 look = texture2D(tLook, (cell + 0.5) / uGrid);
+  // The look target holds uFine detail pixels to an art pixel's side.
+  vec2 grid = uGrid * uFine;
+  vec2 cell = clamp(floor(frame * uFine), vec2(0.0), grid - 1.0);
+  vec4 look = texture2D(tLook, (cell + 0.5) / grid);
   vec3 c = look.rgb;
   // Each pixel's scanline strength came from the look pass (whole frame or its part);
   // none show when an art pixel is too few device pixels tall.
@@ -906,11 +961,16 @@ interface MaterialLike {
   visible: boolean;
   readonly userData: Record<string, unknown>;
   gradientMap?: TextureLike | null;
+  readonly colorWrite?: boolean;
   needsUpdate: boolean;
   dispose(): void;
 }
+interface LayersLike {
+  mask: number;
+}
 interface NodeLike {
   readonly isMesh?: boolean;
+  readonly layers?: LayersLike;
   material?: MaterialLike | MaterialLike[];
   traverse(visit: (node: NodeLike) => void): void;
 }
@@ -923,6 +983,7 @@ interface CameraLike {
   readonly isOrthographicCamera?: boolean;
   readonly matrixWorldInverse?: MatrixLike;
   readonly projectionMatrix?: MatrixLike;
+  readonly layers?: LayersLike;
 }
 interface RendererLike {
   getRenderTarget(): RenderTargetLike | null;
@@ -1102,6 +1163,29 @@ function tagTree(root: NodeLike, part: SignalPart): void {
   });
 }
 
+/**
+ * The layer detail parts are drawn on. The world pass leaves it out and the
+ * detail pass sees nothing else; a host's camera should not use it.
+ */
+export const DETAIL_LAYER = 30;
+const DETAIL_MASK = (1 << DETAIL_LAYER) >>> 0;
+
+/**
+ * Puts the meshes under each root that draw colour on the detail layer (only
+ * there). A mesh that draws no colour, such as a shadow proxy, stays with the
+ * world, so the parts still cast their shadows on it.
+ */
+function layerDetail(roots: ReadonlySet<NodeLike>, split: boolean): void {
+  for (const root of roots) {
+    root.traverse((node) => {
+      if (node.isMesh !== true || node.layers === undefined) return;
+      const materials = node.material === undefined ? [] : Array.isArray(node.material) ? node.material : [node.material];
+      if (materials.every((material) => material.colorWrite === false)) return;
+      node.layers.mask = split ? DETAIL_MASK : 1;
+    });
+  }
+}
+
 // ---------------------------------------------------------------- the pass
 
 /** A live dithered-voxel look bound to one renderer. */
@@ -1127,6 +1211,11 @@ export interface VoxelDither {
   tagSignal(root: NodeLike, part: SignalPart): void;
   /** Sets the signal of parts 1 to 3 (null for none), on top of the look's own whole-frame settings. */
   setSignals(parts: readonly (SignalSpec | null | undefined)[]): void;
+  /**
+   * Draws everything under `root` on the detail grid (see `detail`), over the
+   * world by depth. Meshes added under it later are picked up each frame.
+   */
+  tagDetail(root: NodeLike): void;
   /** Draws `scene` from `camera` through the look into the renderer's current target. */
   render(scene: unknown, camera: CameraLike): void;
   dispose(): void;
@@ -1142,6 +1231,7 @@ function createUniforms(): Record<string, Uniform> {
     uContrast: { value: 1 }, uSaturation: { value: 1 }, uSkyFrom: { value: 100 }, uRaySource: { value: [0.5, 0.5] }, uRayColor: { value: [1, 1, 1] },
     uRayStrength: { value: 0 }, uRayDecay: { value: 0.95 }, uRayDensity: { value: 0.8 }, tLook: { value: null },
     uScanlines: { value: 0 }, uChroma: { value: 0 }, uGlitch: { value: 0 }, uTime: { value: 0 }, uSignal: { value: new Float32Array(9) }, uFilter: { value: new Float32Array(6) },
+    tDetail: { value: null }, tDetailDepth: { value: null }, tCoarse: { value: null }, uFine: { value: 1 }, uPass: { value: 0 },
   };
 }
 
@@ -1220,36 +1310,98 @@ function writeRays(uniforms: Record<string, Uniform>, rays: RaySpec | null, view
 
 interface Pipeline {
   resize(grid: PixelGrid): void;
-  draw(renderer: RendererLike, scene: unknown, view: CameraLike, settings: DitherSettings, rays: RaySpec | null): void;
+  draw(renderer: RendererLike, scene: unknown, view: CameraLike, settings: DitherSettings, rays: RaySpec | null, detail: ReadonlySet<NodeLike>): void;
   dispose(): void;
 }
 
-/** The two targets and two passes: scene -> grid target, look at grid size, blit to the frame. */
+/** Sets a uniform the passes share; its value is read when a pass draws. */
+function setUniform(uniforms: Record<string, Uniform>, name: string, value: unknown): void {
+  const uniform = uniforms[name];
+  if (uniform !== undefined) uniform.value = value;
+}
+
+/** Draws the scene from `view` with only the layers in `mask`, then gives the camera its own back. */
+function renderLayers(renderer: RendererLike, scene: unknown, view: CameraLike, mask: number): void {
+  const layers = view.layers;
+  const own = layers?.mask ?? 1;
+  if (layers) layers.mask = mask;
+  renderer.render(scene, view);
+  if (layers) layers.mask = own;
+}
+
+interface Targets {
+  readonly world: RenderTargetLike;
+  readonly look: RenderTargetLike;
+  readonly detail: RenderTargetLike;
+  readonly detailLook: RenderTargetLike;
+}
+
+/** The world into its grid target and, when split, the detail parts alone into theirs. */
+function drawScene(renderer: RendererLike, scene: unknown, view: CameraLike, targets: Targets, fine: boolean): void {
+  const own = view.layers?.mask ?? 1;
+  renderer.setRenderTarget(targets.world);
+  renderLayers(renderer, scene, view, fine ? own & ~DETAIL_MASK : own);
+  if (!fine) return;
+  renderer.setRenderTarget(targets.detail);
+  renderLayers(renderer, scene, view, DETAIL_MASK);
+}
+
+/** The look at grid size and, when split, the detail parts' look over it; returns the target the blit shows. */
+function drawLook(renderer: RendererLike, post: Pass, quad: unknown, uniforms: Record<string, Uniform>, targets: Targets, split: number): RenderTargetLike {
+  setUniform(uniforms, "uFine", split);
+  setUniform(uniforms, "uPass", 0);
+  // A pass never samples its own target, so the world's look is bound only to the detail pass.
+  setUniform(uniforms, "tCoarse", targets.detailLook.texture);
+  renderer.setRenderTarget(targets.look);
+  renderer.render(post.scene, quad);
+  if (split <= 1) return targets.look;
+  setUniform(uniforms, "uPass", 1);
+  setUniform(uniforms, "tCoarse", targets.look.texture);
+  renderer.setRenderTarget(targets.detailLook);
+  renderer.render(post.scene, quad);
+  return targets.detailLook;
+}
+
+/**
+ * The targets and passes: the world -> grid target, the detail parts -> a
+ * target uFine times finer, the look at grid size, the detail parts' look over
+ * it at their size, and a blit to the frame. With no detail split, only the
+ * world pass and the look at grid size run.
+ */
 function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeline {
-  const target = createTarget(lit, true);
-  const lookTarget = createTarget(lit, false);
+  const targets: Targets = { world: createTarget(lit, true), look: createTarget(lit, false), detail: createTarget(lit, true), detailLook: createTarget(lit, false) };
+  const { world: target, look: lookTarget, detail: detailTarget, detailLook } = targets;
+  let split = 1;
   const camera: Readonly<Record<"near" | "far" | "ortho" | "sky", Uniform>> = { near: { value: 0.1 }, far: { value: 100 }, ortho: { value: 0 }, sky: { value: 100 } };
-  Object.assign(uniforms, { tColor: { value: target.texture }, tDepth: { value: target.depthTexture }, tLook: { value: lookTarget.texture }, uNear: camera.near, uFar: camera.far, uOrtho: camera.ortho, uSkyFrom: camera.sky });
+  Object.assign(uniforms, {
+    tColor: { value: target.texture }, tDepth: { value: target.depthTexture }, tLook: { value: lookTarget.texture },
+    tDetail: { value: detailTarget.texture }, tDetailDepth: { value: detailTarget.depthTexture }, tCoarse: { value: detailLook.texture },
+    uNear: camera.near, uFar: camera.far, uOrtho: camera.ortho, uSkyFrom: camera.sky,
+  });
   const geometry = lit.plane(2, 2);
   const post = createPass(lit, geometry, uniforms, FRAGMENT_GLSL);
   const blit = createPass(lit, geometry, uniforms, BLIT_GLSL);
   const quadCamera = new lit.OrthoCamera(-1, 1, 1, -1, 0, 1);
   return {
     resize(grid) {
+      split = grid.detail;
       target.setSize(grid.width, grid.height);
       lookTarget.setSize(grid.width, grid.height);
+      const fine = split > 1 ? split : 1;
+      detailTarget.setSize(grid.width * fine, grid.height * fine);
+      detailLook.setSize(grid.width * fine, grid.height * fine);
     },
-    draw(renderer, scene, view, settings, rays) {
+    draw(renderer, scene, view, settings, rays, detail) {
       const previous = renderer.getRenderTarget();
-      renderer.setRenderTarget(target);
-      renderer.render(scene, view);
+      const fine = split > 1 && detail.size > 0;
+      layerDetail(detail, fine);
+      drawScene(renderer, scene, view, targets, fine);
       camera.near.value = view.near;
       camera.far.value = view.far;
       camera.ortho.value = view.isOrthographicCamera === true ? 1 : 0;
       camera.sky.value = settings.skyDistance > 0 ? Math.min(settings.skyDistance, view.far * 0.999) : view.far * 0.999;
       writeRays(uniforms, rays, view, settings.rays);
-      renderer.setRenderTarget(lookTarget);
-      renderer.render(post.scene, quadCamera);
+      setUniform(uniforms, "tLook", drawLook(renderer, post, quadCamera, uniforms, targets, fine ? split : 1).texture);
       renderer.setRenderTarget(previous);
       renderer.render(blit.scene, quadCamera);
     },
@@ -1257,6 +1409,9 @@ function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeli
       target.depthTexture?.dispose();
       target.dispose();
       lookTarget.dispose();
+      detailTarget.depthTexture?.dispose();
+      detailTarget.dispose();
+      detailLook.dispose();
       post.material.dispose();
       blit.material.dispose();
       geometry.dispose();
@@ -1273,9 +1428,10 @@ function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeli
  */
 export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: unknown): VoxelDither {
   let settings = ditherSettings(input);
-  let grid: PixelGrid = { width: 1, height: 1, pixel: 1, originX: 0, originY: 0 };
+  let grid: PixelGrid = { width: 1, height: 1, pixel: 1, originX: 0, originY: 0, detail: 1 };
   let frame = { width: 1, height: 1, ratio: 1 };
   let rays: RaySpec | null = null;
+  const detail = new Set<NodeLike>();
   const uniforms = createUniforms();
   const pipeline = createPipeline(lit, uniforms);
   const cel = createCelShader(lit, settings.bands);
@@ -1312,18 +1468,15 @@ export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: 
     setRays(next) {
       rays = next;
     },
-    setTime(seconds) {
-      if (uniforms.uTime !== undefined) uniforms.uTime.value = Number.isFinite(seconds) ? seconds % 3600 : 0;
-    },
-    tagSignal(root, part) {
-      tagTree(root, part);
-    },
+    setTime(seconds) { setUniform(uniforms, "uTime", Number.isFinite(seconds) ? seconds % 3600 : 0); },
+    tagSignal(root, part) { tagTree(root, part); },
     setSignals(parts) {
       Object.assign(uniforms.uSignal ?? {}, { value: signalUniform(parts) });
       Object.assign(uniforms.uFilter ?? {}, { value: filterUniform(parts) });
     },
+    tagDetail(root) { detail.add(root); },
     render(scene, view) {
-      pipeline.draw(renderer, scene, view, settings, rays);
+      pipeline.draw(renderer, scene, view, settings, rays, detail);
     },
     dispose() {
       pipeline.dispose();

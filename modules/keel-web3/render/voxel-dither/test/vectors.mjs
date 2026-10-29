@@ -36,6 +36,14 @@ export default [
     expect: [6, 260, 183, -2, -2, 5, 30, 15],
   },
   {
+    name: 'detail parts split an art pixel into whole device pixels, never finer than asked and at most four a side',
+    run: ({ ditherSettings, resolveGrid }) => {
+      const split = (pixel, ratio, detail) => resolveGrid(800, 600, ratio, ditherSettings({ pixel, detail })).detail;
+      return [split(8, 2, 2), split(9, 1, 2), split(3, 2, 2), split(8, 2, 0), split(8, 1, 0.5), ditherSettings({ detail: 40 }).detail];
+    },
+    expect: [4, 3, 1, 1, 4, 12],
+  },
+  {
     name: 'bayer4 visits every one of its sixteen levels once per tile',
     run: ({ thresholdAt }) => {
       const levels = [];

@@ -87,14 +87,14 @@ export default [
     expect: [2],
   },
   {
-    name: 'shadows: a proxy of spheres along every part, three along a long part and one for a round one',
+    name: 'shadows: a proxy of spheres along every part, enough along a long part to leave no gaps and one for a round one',
     run: ({ createSdfBodies }) => {
       const bodies = createSdfBodies(lit, { shadows: true });
       bodies.draw([body(0), body(1)], light);
       const proxy = bodies.group.children.find((c) => c instanceof Instanced);
       return [proxy.castShadow, proxy.count, proxy.instanceMatrix.needsUpdate];
     },
-    expect: [true, 3 + 1 + 1 + 3 + 3 + 1 + 1 + 3, true],
+    expect: [true, 34, true],
   },
   {
     name: 'an ink line rings each body by default, with room for it in the box; ink: 0 turns it off',
@@ -130,5 +130,13 @@ export default [
       return [shader.includes('#define MAXP 20'), shader.includes('gl_FragDepth'), slots(bodies)[0].material.side === 'back'];
     },
     expect: [true, true, true],
+  },
+  {
+    name: 'a body short of parts loses its detail groups whole, highest first, and never a part that is not one; a GPU\'s uniforms name its parts',
+    run: ({ fitParts, partsFor }) => {
+      const parts = [...Array.from({ length: 44 }, () => ({})), ...Array.from({ length: 4 }, () => ({ detail: 1 })), ...Array.from({ length: 4 }, () => ({ detail: 2 })), ...Array.from({ length: 4 }, () => ({ detail: 3 }))];
+      return [fitParts(parts, 64).length, fitParts(parts, 50).length, fitParts(parts, 48).length, fitParts(parts, 40).length, partsFor(1024), partsFor(298), partsFor(224)];
+    },
+    expect: [56, 48, 48, 44, 64, 48, 23],
   },
 ];

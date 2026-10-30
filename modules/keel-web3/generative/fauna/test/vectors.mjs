@@ -230,9 +230,9 @@ export default [
     run: ({ SPECIES, poseSpecies }) => {
       const seeing = Object.keys(SPECIES).filter((id) => SPECIES[id].plan !== 'bug');
       const has = (body, role) => body.capsules.some((c) => c.role === role);
-      const open = seeing.filter((id) => { const body = poseSpecies(id, 'stand'); return has(body, 'pupil') && has(body, 'shine'); });
+      const open = seeing.filter((id) => { const body = poseSpecies(id, 'stand'); return body.eye !== undefined || (has(body, 'pupil') && has(body, 'shine')); });
       const asleep = poseSpecies('fox', 'sleep');
-      const most = Math.max(...Object.keys(SPECIES).flatMap((id) => ['stand', 'wander', 'fly', 'climb'].map((act) => poseSpecies(id, act).capsules.length)));
+      const most = Math.max(...Object.keys(SPECIES).flatMap((id) => ['stand', 'wander', 'fly', 'climb'].map((act) => poseSpecies(id, act).capsules.filter((c) => !c.detail).length)));
       return [open.length === seeing.length, has(asleep, 'pupil'), most <= 48];
     },
     expect: [true, false, true],
@@ -351,7 +351,7 @@ export default [
     name: 'four legs in three bones down to a paw, hoof or sole; the head drawn from its outline tapers to the nose; markings are paint-only decals; a deer folds down to lie where a fox sits; every pose fits the 48-part budget',
     run: ({ poseSpecies, SPECIES_IDS }) => {
       const fox = poseSpecies('fox', 'stand', 1).capsules;
-      const bones = fox.filter((c) => c.part.startsWith('leg.FL')).map((c) => c.part.split('.').pop());
+      const bones = fox.filter((c) => c.part.startsWith('leg.FL')).map((c) => c.part.split('.').pop()).filter((n) => !['toes', 'claws', 'mass'].includes(n));
       const bib = fox.find((c) => c.part === 'bib');
       // (The muzzle is the head's outline's last part, tapering to the nose; the chest is the torso outline's front.)
       const snout = fox.filter((c) => c.part.startsWith('head.')).at(-1);
@@ -359,7 +359,7 @@ export default [
       const deerSit = height(poseSpecies('deer', 'sit', 1)) < height(poseSpecies('deer', 'stand', 1)) * 0.6;
       const foxSit = height(poseSpecies('fox', 'sit', 1)) > height(poseSpecies('fox', 'stand', 1)) * 0.9;
       const actions = ['stand', 'wander', 'run', 'sit', 'lie', 'sleep', 'rear', 'hang', 'fly', 'hover', 'coil'];
-      const most = Math.max(...SPECIES_IDS.flatMap((id) => actions.map((a) => poseSpecies(id, a, 1.3).capsules.length)));
+      const most = Math.max(...SPECIES_IDS.flatMap((id) => actions.map((a) => poseSpecies(id, a, 1.3).capsules.filter((c) => !c.detail).length)));
       return [bones, bib?.decal === true, snout.r1 < snout.r, deerSit, foxSit, most <= 48];
     },
     expect: [['upper', 'lower', 'cannon', 'paw'], true, true, true, true, true],
@@ -454,13 +454,13 @@ export default [
     expect: [true, 0, true],
   },
   {
-    name: 'every species, in every act, grown or young, male or female, fits sdf-body\'s 48 parts a body (past them the face is left out)',
+    name: 'every species, in every act, grown or young, male or female, fits sdf-body\'s 48 parts a body with its detail groups dropped, 64 with them (past them the face is left out)',
     run: ({ poseSpecies, SPECIES_IDS }) => {
       const acts = ['stand', 'wander', 'run', 'hop', 'fly', 'climb', 'sit', 'lie', 'sleep', 'sniff', 'dig', 'groom', 'look', 'play', 'stretch', 'coil', 'drum', 'peck', 'preen', 'flap', 'sing', 'graze', 'howl', 'rear', 'eat', 'hang', 'roll', 'shake', 'stalk', 'bask'];
       const over = [];
       for (const id of SPECIES_IDS) for (const act of acts) for (const young of [false, true]) for (const sex of ['male', 'female']) for (const t of [0, 0.7, 1.9]) {
         let n = 0;
-        try { n = poseSpecies(id, act, t, { young, sex }).capsules.length; } catch { continue; }
+        try { const parts = poseSpecies(id, act, t, { young, sex }).capsules; n = parts.filter((c) => !c.detail).length; if (parts.length > 64) over.push(`${id} ${act} rich`); } catch { continue; }
         if (n > 48) over.push(`${id} ${act}`);
       }
       return [...new Set(over)];

@@ -51,6 +51,20 @@ export interface BodyPart {
   readonly carve?: boolean;
   readonly shadow?: boolean;
   readonly bow?: Vec;
+  /** A row of this many beads, each `r` round, from `a` to `b` (and out along `bow`, if it has one, at its middle): a foot's nails as one part. */
+  readonly row?: number;
+  /** On a row: each bead drawn out this far and this way into a digit, thinning as it goes: a hand's fingers as one part. */
+  readonly reach?: Vec;
+  /** On a row with `reach`: each digit thins right down to a point: claws. */
+  readonly sharp?: boolean;
+  /** A finishing part the body can go without, in groups: where a renderer has too few parts, the highest group goes first, whole (see `fitParts`). */
+  readonly detail?: number;
+  /**
+   * On a decal: bare skin, not paint. A pelt thins out toward it, its locks shorter and fewer until
+   * none grow, so its edge is the coat's own (a macaque's face, a callus), and what shows between
+   * the last hairs is this part's colour. `melt` scales how wide that edge runs.
+   */
+  readonly bare?: boolean;
 }
 
 export interface BodyInput {
@@ -71,6 +85,58 @@ export interface BodyInput {
   readonly material?: Material;
   /** A pattern painted over the coat (under its decals). */
   readonly pattern?: Pattern;
+  /** A relief over the whole body; without one it is as smooth as its parts. */
+  readonly form?: Form;
+  /** The eyes' lids: without them an eye is the open lens it is drawn as. */
+  readonly eye?: Eye;
+  /** How this body's bare skin takes the light; without it skin is lit as the coat is. */
+  readonly skin?: Skin;
+}
+
+/**
+ * Living skin, on `role` and under every `bare` part, whatever its hex. Skin
+ * is matte and its colour comes from the blood under it, so its chroma is
+ * held on a soft knee (`chroma`, a share of its luminance it can never quite
+ * pass) however strong the role's colour and however hard a look's grade
+ * pushes it, and small changes of hex stay small. `pale` is the thin skin
+ * round an eye, `flush` how far the blood wanders over the rest, `depth` how
+ * much of the light comes back out of it.
+ */
+export interface Skin {
+  readonly role: string;
+  readonly chroma: number;
+  readonly pale?: string;
+  readonly flush?: number;
+  /** How much of the light it gives back, as a share of a painted surface's: under 1 the depth of living skin, which light goes into. */
+  readonly depth?: number;
+}
+
+/**
+ * The relief of muscle, bone and fat over a body, grown from its pattern's
+ * seed: `amount` how far it stands off the surface, `size` how broad it runs.
+ */
+export interface Form {
+  readonly amount: number;
+  readonly size: number;
+}
+
+/**
+ * How an eye's `role` lens is painted, its iris shaded from where it lies:
+ * `lid` how far the upper lid has come down it (0 not at all, 1 shut),
+ * `slant` how far that lid rises to the outer corner, `color` the skin of it,
+ * `pupil` the pupil's shape. It is painted on whatever surface lies over the
+ * lens, so the head's shape can neither bury the eye nor leave it standing proud.
+ */
+export interface Eye {
+  readonly role: string;
+  readonly lid: number;
+  readonly slant: number;
+  readonly color: string;
+  readonly pupil: "round" | "slit" | "bar" | "dark";
+  /** A thin black line round the eye. */
+  readonly ring: boolean;
+  /** How big its spark of light is, a share of the eye. */
+  readonly spark?: number;
 }
 
 /**
@@ -100,13 +166,19 @@ export interface Material {
  * `patches` a calico's soft blotches in two colours, its legs left clear,
  * `grizzle` fine flecks drawn out tailward, darkening softly to the
  * spine and giving way to the `second` colour on the belly and inside the legs,
- * and `tips` the raised tips of a coat's grain alone (a spine's pale end).
+ * `tips` the raised tips of a coat's grain alone (a spine's pale end), and
+ * `scutes` the pigment a `plate` grain's plates lay down as they grow, on those
+ * plates alone (see `run`).
  * `role` is the colour it is painted in, `scale` its
  * feature size in the parts' units, `contrast` how strongly it shows, and
- * `seed` makes each animal's its own.
+ * `seed` makes each animal's its own: any whole number, each a different
+ * place in the noise. `genes` are how this animal's marks grow, continuous
+ * rather than a list of looks: `warp` how far they wander, `stretch` how
+ * drawn out along the body, `density` how much less of the coat they cover
+ * (negative for more), `drift` how far its shade wanders over the body.
  */
 export interface Pattern {
-  readonly kind: "dapple" | "spots" | "stripes" | "streaks" | "bars" | "chevrons" | "mackerel" | "patches" | "grizzle" | "tips";
+  readonly kind: "dapple" | "spots" | "stripes" | "streaks" | "bars" | "chevrons" | "mackerel" | "patches" | "grizzle" | "tips" | "scutes";
   readonly role: string;
   /** A colour of its own (hex) in place of its role's: a shade of the coat. */
   readonly color?: string;
@@ -116,9 +188,17 @@ export interface Pattern {
   readonly trunk?: Vec;
   /** `mackerel`, `grizzle`: the height on the body's frame above which its midline is painted, the dark line down a spine. */
   readonly dorsal?: number;
+  /**
+   * `scutes`: how long the pigment cells along a plate's growing edge keep
+   * on working, 0 to 1. Those that stop and start leave broken blotches, those
+   * that never stop leave whole rays out from its first speck, and every
+   * plate in between. `scale` is how far apart they stand along that edge.
+   */
+  readonly run?: number;
   readonly scale: number;
   readonly contrast: number;
   readonly seed: number;
+  readonly genes?: readonly [warp: number, stretch: number, density: number, drift: number];
 }
 
 /**
@@ -138,16 +218,85 @@ export interface Pattern {
  * of a single `lie`. `spine` is a stand of sharp spikes set by direction from
  * `crown` (a hedgehog's), so they stay whole as the surface moves, each lying
  * well back along the coat the way of `lie`, with `size` their height off it.
+ * `plate` is a shell's horn: a shell's own layout of plates laid over the dome
+ * about `crown` (see `dome`), each a low flat-topped plate stepped down in the
+ * growth rings it laid down to a narrow sunk seam, its dome stopped flat at the
+ * rim; `on` names the shell, and every other part wears hide in scales grown by
+ * the same cells (see `scales`).
  * `on`, a role, grows the grain on that role's parts alone and leaves the
  * rest smooth.
  */
 export interface Grain {
-  readonly kind: "fur" | "feather" | "scale" | "spine";
+  readonly kind: "fur" | "feather" | "scale" | "spine" | "plate";
   readonly size: number;
   readonly lie?: Vec;
   readonly rise?: number;
   readonly crown?: Vec;
   readonly on?: string;
+  /** `plate`: the dome, as its half width, height and half length off `crown`, which lies at the middle of its rim. */
+  readonly dome?: Vec;
+  /** `plate`: how far the dome has pitched forward, in radians (it dips as the animal's forelegs bend). */
+  readonly tilt?: number;
+  /** `plate`: how deep the teeth along the dome's back rim are cut, as a share of its height, one to each rim plate. */
+  readonly teeth?: number;
+  /** `plate`: where the hide's scales grow larger than its own fine ones. */
+  readonly scales?: readonly ScalePatch[];
+  /** `fur`: a coat grown from the skeleton (see Pelt), in place of `lie` and `crown`. */
+  readonly pelt?: Pelt;
+}
+
+/**
+ * One stretch of the skeleton a pelt grows from: its hair runs from `a` to
+ * `b`, `long` of it at each end (in `size`s). `up` is the side its coat is
+ * longest and darkest on (a spine's back, a limb's outside), `girth` how thick
+ * the body lies about it, `fall` how far the hair slants away from that side
+ * as it runs, 0 straight along the bone (a flank's hair falling off the spine).
+ */
+export interface PeltBone {
+  readonly a: Vec;
+  readonly b: Vec;
+  readonly long: readonly [number, number];
+  readonly up: Vec;
+  readonly girth: number;
+  readonly fall?: number;
+}
+
+/**
+ * Hair grown the way hair grows, by general rules, for any animal. Its way is
+ * a flow field off the skeleton (`flow`, at most twelve bones), so it runs
+ * crown to nape to spine to rump and down each limb and crosses itself
+ * nowhere; its length is a map over the same bones. It clumps at three scales,
+ * big locks that break the outline, smaller ones drawn together into them and
+ * sparse fine strands, each narrowing to a point, over `under`, a soft dense
+ * undercoat, that share of the hair's length, which leaves no dark between
+ * them. `thin` is how much shorter it grows on the underside of each bone
+ * (a belly, the inside of a limb). Its colour is pigment along each hair, not
+ * light on it: `root` the shade laid over its base, as strongly as `crease`,
+ * `band` the dark ring below its tip and how strongly, `tip` the pale end of
+ * it and how much of the hair that is, each lock warmer or cooler by up to
+ * `tint`. Over the whole animal it goes to `back` toward the coat's `up` sides
+ * and to `front` away from them, as strongly as `dorsal` and `ventral`.
+ */
+export interface Pelt {
+  readonly flow: readonly PeltBone[];
+  readonly under?: number;
+  readonly thin?: number;
+  readonly crease?: number;
+  readonly root?: string;
+  readonly band?: readonly [color: string, depth: number];
+  readonly tip?: readonly [color: string, share: number];
+  readonly tint?: number;
+  readonly back?: string;
+  readonly front?: string;
+  readonly dorsal?: number;
+  readonly ventral?: number;
+}
+
+/** A patch of a plated animal's hide wearing scales of its own: within `reach` of `at`, `size` across. */
+export interface ScalePatch {
+  readonly at: Vec;
+  readonly reach: number;
+  readonly size: number;
 }
 
 /** The scene's light, as the bodies see it. Directions point toward the light. */
@@ -270,13 +419,36 @@ uniform vec3 uSun, uSunCol, uFill, uFillCol, uSky, uGround, uRim, uRimCol, uFron
 uniform float uGrain, uGrainKind, uGrainRise;
 uniform float uGrainOn;    // the one role grain grows on; -1 for all
 uniform vec4 uCrown;       // the point a coat falls from; w 0 for none
+uniform vec3 uDome;        // a plated dome's half width, height and half length off the crown
+uniform vec3 uDomeGene;    // the cosine and sine of how far it has pitched forward, how deep its back rim's teeth
+uniform vec4 uScale[3];    // where a hide's scales grow larger, and how far round there; w 0 for none
+uniform vec3 uScaleSize;   // how large, each
 uniform vec3 uAft, uOrigin, uSide, uUp, uFwd;
 uniform vec4 uMat;      // sheen, fuzz, gloss, iridescence
 uniform float uLift;    // how far a near-black coat's sheen lifts it
 uniform float uNeutral; // how far a near-black coat's colour is drawn to neutral
-uniform vec4 uPattern;  // kind (0 none), scale, contrast, seed
+uniform vec4 uPattern;  // kind (0 none), scale, contrast
+uniform vec3 uPatSeed;  // where in the noise this animal's coat grew
+uniform vec4 uPatGene;  // warp, stretch along the body, density, drift (see Pattern)
 uniform vec3 uPatCol, uPatTwo, uTrunk;
 uniform float uDorsal;
+uniform vec3 uForm;      // how far the body's own relief stands, and how broad it runs
+uniform float uEyeRole;  // the role an eye's lens wears; -1 for none
+uniform vec4 uEyeLid;    // how far the upper lid is down, how it slants up to the outer corner, the pupil's kind, its black ring
+uniform vec3 uEyeLidCol;
+uniform float uEyeSpark;  // how big its spark of light is
+uniform int uFlowN;        // how many bones a pelt grows from; 0 for none
+uniform vec4 uFlowA[FLOWS]; // a, how long its hair is there
+uniform vec4 uFlowB[FLOWS]; // b, how long its hair is there
+uniform vec4 uFlowU[FLOWS]; // the side it is longest on, its girth
+uniform float uFlowFall[FLOWS];
+uniform vec4 uPelt;       // undercoat's share, how thin on the underside, how deep the crease, how far a lock's tint wanders
+uniform vec3 uPeltCast;   // how strong the dorsal and the ventral are
+uniform vec3 uPeltLine;   // how deep the band, how much of the hair is tip
+uniform vec3 uPeltRoot, uPeltBand, uPeltTip, uPeltBack, uPeltFront;
+uniform float uSkinRole;  // the role living skin wears; -1 for none
+uniform vec3 uSkin;       // how much chroma it can hold, how far its blood wanders, how much of the light it gives back
+uniform vec3 uSkinPale;
 varying vec3 vLocal;
 varying vec3 vEye;
 // How much grain this pixel shows: none where a lock would be finer than a pixel.
@@ -285,6 +457,12 @@ float gFade = 0.0;
 float gCover = 1.0;
 float gLift = 0.0;
 float gReach = 1.0;
+// How much of the surface here is bare skin, and that skin's colour; how much of it is skin at all;
+// how near the nearest eye lies.
+float gBare = 0.0, gSkin = 0.0, gEyeD = 1e9, gMark = 0.0;
+vec3 gBareCol = vec3(0.0);
+// 0 while the field is asked for the body under the locks alone (the light on a coat goes by that).
+float gLocks = 1.0;
 
 float hash3(vec3 p) {
   p = fract(p * 0.3183099 + 0.1) * 17.0;
@@ -299,6 +477,8 @@ float noise3(vec3 x) {
 // The grain's height at p, 0 to about 1: fur in ridged locks drawn out along
 // the lie of the coat; feathers and scales in rows that rise to a lip at each
 // one's trailing edge, the rows wandering so they never line up like tiles.
+// Whether grain grows on a part of this role.
+float grows(float role) { return uGrainOn < -0.5 || abs(role - uGrainOn) < 0.5 ? 1.0 : 0.0; }
 // A point in the body's own frame (x to its side, y up, z forward), so what is grown on it moves with it.
 vec3 bodyAt(vec3 p) {
   vec3 v = p - uOrigin;
@@ -330,7 +510,8 @@ float locks(vec3 p) {
 const float SPINES = 10.0, SPINE_LEAN = 1.35, SPINE_SWAY = 0.5, SPINE_OVAL = 0.62;
 vec3 crownAt(vec3 p) {
   vec3 v = p - uCrown.xyz;
-  return vec3(dot(v, uSide), dot(v, uUp), dot(v, uFwd));
+  v = vec3(dot(v, uSide), dot(v, uUp), dot(v, uFwd));
+  return vec3(v.x, v.y * uDomeGene.x + v.z * uDomeGene.y, v.z * uDomeGene.x - v.y * uDomeGene.y);
 }
 float spines(vec3 p, float lift) {
   vec3 v = crownAt(p), n = normalize(v);
@@ -352,8 +533,140 @@ float spines(vec3 p, float lift) {
   }
   return max(best, 0.0);
 }
+// A shell's plates, as a shell lays them: five down its keel, four up each side and a ring of wide
+// ones round its rim, on the dome unrolled flat from its top (0 there, 1 at the rim). Each plate grows
+// out from its own first speck, keeping its shape as it does, so what it knows of a point is which
+// way from there it lies (gWay), how far out from there to its seam (gRing, 0 at the speck, 1 at the
+// seam: its rings run true to its edges) and how far off the seam is (gSeam). This animal's seed
+// moves the seams, as a shell's are never quite true, a little more on one side than on the other.
+const float PLATE_KEEL = 0.33, PLATE_SIDE = 0.51, PLATE_COSTAL = 0.36, PLATE_RIM = 0.82, PLATE_FOOT = 1.08, PLATE_MARGINS = 18.0, PLATE_PI = 3.14159265;
+float gSeam = 1.0, gRing = 0.0, gPlate = 0.0, gFan = 0.0;
+vec2 gWay = vec2(0.0);
+void plateCell(vec2 rel, float ring, float seam, float id) {
+  gWay = rel; gRing = ring; gSeam = seam; gPlate = id;
+}
+// Where a rim plate lies round the shell: its place, its plates turned a little from true, each side its own way.
+float plateRound(vec2 g) {
+  float a = abs(atan(g.x, g.y)) / PLATE_PI * PLATE_MARGINS * 0.5;
+  return a + 0.5 + 0.2 * sin(a * 1.7 + uPatSeed.x + sign(g.x) * 1.3) * smoothstep(0.0, 1.5, a);
+}
+// (A rim plate grows upward from the shell's edge, its speck on its lower edge, and fans out from there.)
+void plateMargin(vec2 g, float rho, float rim) {
+  float a = plateRound(g), c = floor(a), f = a - c, wide = 2.0 * PLATE_PI / PLATE_MARGINS * rho;
+  plateCell(vec2((f - 0.5) * wide, rho - PLATE_FOOT), max(abs(2.0 * f - 1.0), (PLATE_FOOT - rho) / (PLATE_FOOT - rim)), min((rho - rim) * 2.4, min(f, 1.0 - f) * wide), hash3(vec3(c, sign(g.x), 7.0) + uPatSeed));
+  gFan = 1.0;
+}
+// One plate's first speck, in the shell's plan: (a row, a place along it).
+vec2 plateSite(float row, float col, inout float id) {
+  vec3 h = vec3(row * 1.7, col, 0.0) + uPatSeed;
+  float seed = hash3(h), wander = 1.0 - 0.4 * step(0.5, -row), a = fract(seed * 7.3) - 0.5, b = fract(seed * 13.7) - 0.5;
+  id = seed;
+  if (abs(row) < 0.5) return vec2(a * 0.05, col * PLATE_KEEL + b * 0.08);
+  float z = (col + 0.5) * PLATE_COSTAL;
+  return vec2(row * (PLATE_SIDE - 0.09 * z * z + a * 0.1 * wander), z + b * 0.08 * wander);
+}
+void plateAt(vec3 p) {
+  vec3 n = normalize(crownAt(p) / uDome);
+  float rho = acos(clamp(n.y, -1.0, 1.0)) / (PLATE_PI * 0.5);
+  vec2 g = normalize(n.xz + vec2(0.0, 1e-5)) * rho;
+  float rim = PLATE_RIM + (noise3(vec3(g * 2.3, 1.0) + uPatSeed) - 0.5) * 0.06;
+  gFan = 0.0;
+  if (rho > rim) { plateMargin(g, rho, rim); return; }
+  vec2 sites[13], near = vec2(0.0);
+  float best = 99.0, id = 0.0, seed = 0.0;
+  int at = 0;
+  for (int row = -1; row <= 1; row++) {
+    for (int col = -2; col <= (row == 0 ? 2 : 1); col++) {
+      vec2 s = plateSite(float(row), float(col), seed);
+      sites[at] = s; at++;
+      float f = dot(g - s, g - s);
+      if (f < best) { best = f; near = s; id = seed; }
+    }
+  }
+  // (Whichever edge it has reached first is how far it has grown: the shape it keeps is its own.)
+  vec2 rel = g - near;
+  float ring = (rho - length(near)) / max(rim - length(near), 1e-3), seam = rim - rho;
+  for (int i = 0; i < at; i++) {
+    vec2 v = sites[i] - near;
+    float k = dot(v, v);
+    if (k < 1e-5) continue;
+    float far = 2.0 * dot(rel, v) / k;
+    if (far > ring) { ring = far; seam = (1.0 - far) * sqrt(k) * 0.5; }
+  }
+  plateCell(rel, ring, min(seam, (rim - rho) * 2.4), id);
+}
+// A plate's height: low, flat over the patch it started as, stepped down in each year's growth to
+// the narrow seam it is sunk in. (uGrainRise is how far above its seam it stands, its shape the same.)
+const float PLATE_YEARS = 6.0;
+float plateRelief(vec3 p) {
+  plateAt(p);
+  float year = min(gRing, 1.0) * PLATE_YEARS, stair = (floor(year) + smoothstep(0.72, 1.0, fract(year))) / PLATE_YEARS;
+  return smoothstep(0.0, 0.03, gSeam) * (0.32 + 0.24 * uGrainRise * (1.0 - smoothstep(0.24, 1.0, stair)));
+}
+// Hide, by the plan of a shell: cells each round their own first speck, kept apart by their seams,
+// only in the round and as fine as this part of the animal wears them.
+void scaleCells(vec3 q) {
+  vec3 i = floor(q - 0.5), near = vec3(0.0), sites[8];
+  float best = 99.0, id = 0.0;
+  for (int c = 0; c < 8; c++) {
+    vec3 cell = i + vec3(float(c & 1), float((c >> 1) & 1), float((c >> 2) & 1));
+    float h = hash3(cell + 1.7);
+    sites[c] = cell + 0.2 + 0.6 * vec3(h, fract(h * 7.3), fract(h * 13.7));
+    float f = dot(q - sites[c], q - sites[c]);
+    if (f < best) { best = f; near = sites[c]; id = h; }
+  }
+  vec3 rel = q - near;
+  float ring = 0.0, seam = 1.0;
+  for (int c = 0; c < 8; c++) {
+    vec3 v = sites[c] - near;
+    float k = dot(v, v);
+    if (k < 1e-5) continue;
+    float far = 2.0 * dot(rel, v) / k;
+    if (far > ring) { ring = far; seam = (1.0 - far) * sqrt(k) * 0.5; }
+  }
+  plateCell(vec2(rel.x + rel.z, rel.y), ring, seam, id);
+}
+// How large this part of the hide's scales are: the fine ones of a neck, or a patch's own.
+float scaleSize(vec3 p) {
+  float size = uGrain * 0.24;
+  if (uScale[0].w > 0.0 && distance(p, uScale[0].xyz) < uScale[0].w) size = uScaleSize.x;
+  if (uScale[1].w > 0.0 && distance(p, uScale[1].xyz) < uScale[1].w) size = uScaleSize.y;
+  if (uScale[2].w > 0.0 && distance(p, uScale[2].xyz) < uScale[2].w) size = uScaleSize.z;
+  return size;
+}
+float gScale = 1.0;
+// Hide's height at p: each scale domed and sunk in its seam, a large one shingled, its lower edge lying over the next.
+float hide(vec3 p) {
+  gScale = scaleSize(p);
+  scaleCells(bodyAt(p) / gScale);
+  float shingle = smoothstep(uGrain * 0.24, uGrain * 0.4, gScale);
+  return gScale * (0.06 + 0.08 * shingle + 0.12 * shingle * clamp(0.5 - gWay.y, 0.0, 1.0)) * smoothstep(0.0, 0.14, gSeam);
+}
+// How far a shell's rim rides up from its middle: a wide low arch over the neck with a shallow notch
+// cut in it, a lower one over the tail, and teeth along its back edge, a seam between each two.
+float rimRise(vec3 v) {
+  float z = v.z / uDome.z, x = abs(v.x) / uDome.x, open = 1.0 - smoothstep(0.1, 0.8, x);
+  float rise = open * (0.14 * smoothstep(0.5, 1.0, z) + 0.07 * smoothstep(0.65, 1.0, -z)) + (1.0 - smoothstep(0.08, 0.34, x)) * 0.16 * smoothstep(0.7, 1.0, z);
+  if (z < -0.45) rise += uDomeGene.z * abs(2.0 * fract(plateRound(vec2(x, z))) - 1.0) * smoothstep(0.45, 0.8, -z);
+  return uDome.y * rise;
+}
+// A shell's flare: its rim turned out a little at the very foot of the dome over the tail, and less over the neck.
+float brim(vec3 p) {
+  vec3 v = crownAt(p);
+  float y = clamp(1.0 - (v.y - rimRise(v)) / (uDome.y * 0.42), 0.0, 1.0), z = v.z / uDome.z;
+  return uDome.y * 0.035 * y * y * (smoothstep(0.15, 0.9, -z) + 0.45 * smoothstep(0.6, 1.0, z));
+}
+// (A plated dome stops flat just under its rim: a shell is a dome over a floor, never a ball.)
+float hull(vec3 p, float di, float role) {
+  if (uGrainKind < 3.5 || grows(role) < 0.5) return di;
+  vec3 v = crownAt(p);
+  float k = uDome.y * 0.05, cut = rimRise(v) - v.y - uDome.y * 0.1;
+  float h = clamp(0.5 + 0.5 * (cut - di) / k, 0.0, 1.0);
+  return mix(di, cut, h) + k * h * (1.0 - h);
+}
 // The coat lies back along the body and a little down (uAft, the grain's lie).
 float grain(vec3 p) {
+  if (uGrainKind > 3.5) return plateRelief(p);
   if (uGrainKind > 2.5) return spines(p, gLift);
   if (uCrown.w > 0.5 && uGrainKind < 0.5) return locks(p);
   vec3 q = bodyAt(p) / uGrain;
@@ -374,6 +687,123 @@ float grain(vec3 p) {
   return (f - smoothstep(0.82, 1.0, f)) * (0.6 + 0.4 * cell);
 }
 
+// A pelt (see Pelt). The two bones nearest p, each by how far off its own girth p lies: all its
+// coat comes off them, so nothing grown on it can ever cross what grows beside it, and where one
+// hands over to the other their locks simply overlap, as a mantle's lie over an arm's.
+int gFlowI = 0, gFlowJ = 0;
+float gFlowW = 1.0, gLong = 0.0, gSide = 0.0;
+// (The share of the way along bone i, its hair's length there, and how far p lies toward its long side.)
+float flowLong(vec3 p, int i, float k, out float side) {
+  vec3 a = uFlowA[i].xyz, ba = uFlowB[i].xyz - a;
+  side = dot(normalize(p - a - ba * k + 1e-6), uFlowU[i].xyz);
+  return mix(uFlowA[i].w, uFlowB[i].w, k) * mix(1.0 - uPelt.y, 1.0, smoothstep(-0.75, 0.3, side));
+}
+void flowAt(vec3 p) {
+  float best = 1e9, next = 1e9, kb = 0.0, kn = 0.0;
+  for (int i = 0; i < uFlowN; i++) {
+    vec3 a = uFlowA[i].xyz, ba = uFlowB[i].xyz - a;
+    float k = clamp(dot(p - a, ba) / max(dot(ba, ba), 1e-9), 0.0, 1.0);
+    float off = length(p - a - ba * k) - uFlowU[i].w;
+    if (off < best) { next = best; kn = kb; gFlowJ = gFlowI; best = off; kb = k; gFlowI = i; }
+    else if (off < next) { next = off; kn = k; gFlowJ = i; }
+  }
+  gFlowW = smoothstep(0.0, uGrain * 1.2, next - best);
+  float near, far;
+  float a = flowLong(p, gFlowI, kb, near), b = flowLong(p, gFlowJ, kn, far);
+  // (Halfway between two bones it is the mean of them, and the nearer's alone from there out, so the map has no step in it.)
+  float w = 0.5 + 0.5 * gFlowW;
+  gLong = mix(b, a, w);
+  gSide = mix(far, near, w);
+}
+// How far along its hair's run a point t along a bone lies, with hair la long at its start and
+// lb at its end: locks keep their shape however fast the hair lengthens, as the sum of their own
+// lengths never bunches up the way a share of the local length would.
+float hairRun(float t, float span, float la, float lb) {
+  if (t < 0.0) return t / la;
+  float grow = (lb - la) / span, t1 = min(t, span);
+  float run = abs(grow) < 1e-4 ? t1 / la : log(1.0 + grow * t1 / la) / grow;
+  return run + max(t - span, 0.0) / lb;
+}
+// Bone i's skin unrolled: x along the hair, y across it, in grain sizes, mirrored about its long
+// side, as a parting runs. Its hair's slant is a turn of this sheet, so it stays one straight lie.
+vec2 sheetAt(vec3 p, int i) {
+  vec3 a = uFlowA[i].xyz, e = uFlowB[i].xyz - a, up = uFlowU[i].xyz, r = p - a;
+  float span = max(length(e), 1e-5);
+  e /= span;
+  float arc = atan(dot(r, cross(e, up)), dot(r, up)) * max(uFlowU[i].w, uGrain);
+  // (The parting wanders, as nothing about an animal runs straight.)
+  arc += (noise3(p / (uGrain * 4.5) + uPatSeed) - 0.5) * uGrain * 2.4;
+  float way = abs(arc), run = hairRun(dot(r, e), span, max(uFlowA[i].w, 0.2), max(uFlowB[i].w, 0.2)), f = uFlowFall[i];
+  return vec2(run + way * f, way - run * f) / uGrain;
+}
+// Where on its lock the last field found lies: 0 root to 1 tip, across it (-1 to 1, narrowing to its
+// point), how far off its middle in the field's own units, and a number of its own.
+float gS = 0.0, gX = 0.0, gDrift = 0.0, gId = 0.0;
+// Rows of locks over a sheet, q in grain sizes, wide by span a cell: each roots in its cell, runs
+// two rows on and narrows to its point, the tallest over any point is the one seen. gap is the
+// share of them that never grow.
+float lockField(vec2 q, float wide, float span, float seed, float gap) {
+  float v = q.x / span, row0 = floor(v), top = 0.0;
+  for (int dr = 0; dr < 3; dr++) {
+    float row = row0 - float(dr), slip = hash3(vec3(row, seed, 1.7)) * 5.0, u = q.y / wide + slip, col0 = floor(u);
+    for (int dc = -1; dc <= 1; dc++) {
+      float col = col0 + float(dc), h = hash3(vec3(row, col, seed));
+      if (h < gap) continue;
+      float s = (v - row - fract(h * 3.7) * 0.7) / mix(1.2, 1.7, fract(h * 11.3));
+      if (s < 0.0 || s > 1.0) continue;
+      float drift = u - col - 0.5 - (fract(h * 7.3) - 0.5) * 0.6 - (fract(h * 5.1) - 0.5) * s * 0.8;
+      float x = drift / (0.86 * smoothstep(0.0, 0.2, s) * pow(1.0 - s, 0.62) + 1e-3);
+      if (abs(x) >= 1.0) continue;
+      float tall = (1.0 - x * x) * (0.3 + 0.7 * s);
+      if (tall > top) { top = tall; gS = s; gX = x; gId = h; gDrift = drift * wide; }
+    }
+  }
+  return top;
+}
+const float PELT_BIG = 2.2, PELT_BIG_LONG = 4.2, PELT_MID = 0.62, PELT_MID_LONG = 2.3, PELT_FINE = 0.24, PELT_FINE_LONG = 2.6, PELT_DRAW = 1.5;
+// The height of bone i's coat at p, 0 to about 1: a big lock, the lesser ones in it drawn together
+// toward its point, the sparse fine strands over them, and each one's tiny ridges, which run
+// together with it to its tip.
+float boneCoat(vec3 p, int i, float gap) {
+  vec2 q = sheetAt(p, i);
+  float seed = float(i) * 3.1;
+  float big = lockField(q, PELT_BIG, PELT_BIG_LONG, seed, 0.3 + gap * 0.7);
+  float sb = gS;
+  // (Spread wider the further along the big lock, so what lies in it comes together at its point.)
+  vec2 drawn = vec2(q.x, q.y + gDrift * PELT_DRAW * sb * step(1e-4, big));
+  float mid = lockField(drawn, PELT_MID, PELT_MID_LONG, seed + 7.0, gap);
+  float sm = gS, xm = gX, idm = gId;
+  float ridge = 0.5 + 0.5 * cos(xm * 7.0 + idm * 40.0);
+  float fine = lockField(drawn, PELT_FINE, PELT_FINE_LONG, seed + 13.0, 0.74 + gap * 0.26);
+  gS = sm; gX = xm; gId = idm;
+  return max(big * 0.62 + mid * (0.34 + 0.08 * ridge), fine * 1.06 * step(1e-4, mid));
+}
+// The coat's height at p (see flowAt, called first), the nearer bone's or, where it hands over, the other's.
+float coatAt(vec3 p, float gap) {
+  float h = boneCoat(p, gFlowI, gap);
+  if (gFlowW > 0.999) return h;
+  float s = gS, x = gX, id = gId, other = boneCoat(p, gFlowJ, gap) * (1.0 - gFlowW);
+  if (other > h) return other;
+  gS = s; gX = x; gId = id;
+  return h;
+}
+// How bare the skin is at p, d off the nearest bare part: its edge broken by the noise the locks grow in.
+float bareAt(vec3 p, float d) {
+  // (With no grain to go by, a glowing morph's, it is a plain soft patch.)
+  float g = uGrain > 0.0 ? uGrain : uK;
+  if (d > g * 3.0) return 0.0;
+  return 1.0 - smoothstep(-g * 0.42, g * 0.42, d + (noise3(p / (g * 0.8) + uPatSeed) - 0.5) * g * 0.9);
+}
+// How far a coat raises the surface at p, off the bones' map: its undercoat, whole at any distance,
+// and the locks over that, a lock's mean far off where they are too fine to tell apart.
+float peltRise(vec3 p, float bare, float cover) {
+  flowAt(p);
+  float under = uPelt.x, keep = sqrt(cover) * (1.0 - bare), mean = 0.55;
+  // (Toward any edge of the coat its locks grow fewer, so it stops in a fringe over a wrist, not a line.)
+  float locks = gFade > 0.0 && gLocks > 0.5 ? coatAt(p, max(bare, 1.0 - cover)) : mean;
+  return uGrain * uGrainRise * gLong * keep * (under + (1.0 - under) * mix(mean, locks, gFade));
+}
+
 // The pixel engine's capsule, tapered from r at a to r1 at b (its radius
 // follows the axis, the distance scaled by the slope so the march never
 // overshoots), and squashed across its thin axis when flat < 1.
@@ -382,6 +812,15 @@ float part(vec3 p, int i) {
   vec3 pa = p - a, ba = b - a;
   float l2 = max(dot(ba, ba), 1e-9);
   float h = clamp(dot(pa, ba) / l2, 0.0, 1.0);
+  // (A row's bead count is stored as its far radius, under nought, and its bow as it stands.)
+  // (A row of digits has a quarter on its count, and its bow is how far each one reaches; a half, and they come to points.)
+  if (uU[i].w < 0.0) {
+    float n = floor(-uU[i].w) - 1.0, s = floor(h * n + 0.5) / n;
+    if (fract(-uU[i].w) < 0.1) return length(pa - ba * s - uU[i].xyz * 4.0 * s * (1.0 - s)) - uA[i].w;
+    vec3 v = pa - ba * s, reach = uU[i].xyz;
+    float k = clamp(dot(v, reach) / max(dot(reach, reach), 1e-9), 0.0, 1.0);
+    return length(v - reach * k) - uA[i].w * (1.0 - (fract(-uU[i].w) > 0.4 ? 0.94 : 0.28) * k);
+  }
   vec3 v = pa - ba * h;
   float r0 = uA[i].w, dr = r0 - uU[i].w;
   float r = r0 - dr * h, slope = inversesqrt(1.0 + dr * dr / l2);
@@ -420,8 +859,8 @@ float mackerel(vec3 q, vec3 b) {
   float tail = 1.0 - smoothstep(uTrunk.y - s * 0.3, uTrunk.y + s * 0.3, b.z);
   float wander = fbm(q * 0.45) * 3.2;
   float up = clamp((b.y - uTrunk.x) / (s * 5.5), 0.0, 1.0);
-  float z = q.z * 0.8 + 1.1 * sin(q.z * 0.55 + uPattern.w);
-  float edge = mix(0.98, 0.5 - 0.6 * noise3(vec3(z * 0.5, 5.0, uPattern.w)), sqrt(up));
+  float z = q.z * 0.8 + 1.1 * sin(q.z * 0.55 + uPatSeed.x);
+  float edge = mix(0.98, 0.5 - 0.6 * noise3(vec3(z * 0.5, 5.0, uPatSeed.y)), sqrt(up));
   float dash = smoothstep(mix(0.42, 0.1, up), mix(0.56, 0.24, up), noise3(vec3(q.x * 0.35, q.y * 0.5, q.z * 1.3) + 7.0));
   float flank = smoothstep(edge, edge + 0.16, sin(z * 3.14159 + wander * 0.8 + up * 1.3)) * dash;
   float bar = smoothstep(0.25, 0.5, sin(q.y * 3.4 + wander * 0.5)) * smoothstep(s * 1.6, s * 2.5, abs(b.x)) * smoothstep(s * 1.6, s * 2.2, b.y);
@@ -441,7 +880,7 @@ float patches(vec3 q, vec3 b) {
   float tail = 1.0 - smoothstep(uTrunk.y - s * 0.2, uTrunk.y + s * 0.2, b.z);
   float up = clamp((b.y - uTrunk.x) / (s * 1.4), 0.0, 1.0);
   float n = mix(noise3(calicoWarp(q)), noise3(calicoWarp(q * 0.4) + 41.0), tail);
-  float t = mix(0.66, 0.4, up) + 0.25 * smoothstep(uTrunk.z - s * 1.0, uTrunk.z, b.z);
+  float t = mix(0.66, 0.4, up) + 0.25 * smoothstep(uTrunk.z - s * 1.0, uTrunk.z, b.z) + uPatGene.z;
   return smoothstep(t, t + 0.03, n) * smoothstep(uTrunk.x * 0.8, uTrunk.x, b.y) * (1.0 - smoothstep(uTrunk.z, uTrunk.z + s * 0.2, b.z));
 }
 // How far a grizzled coat has gone over to its pale at b: under the trunk, fading up the flanks,
@@ -462,6 +901,32 @@ float grizzle(vec3 q, vec3 b) {
   float body = smoothstep(uTrunk.y - s * 2.0, uTrunk.y, b.z) * smoothstep(s * 3.0, s * 7.0, b.y);
   return max(max(fleck * mix(0.42, 0.62, back) * body, back * 0.62), grizzlePale(b) * 0.92);
 }
+// The pigment on a plate, as a plate lays it down: cells along its growing edge paint what grows
+// under them, each working for a run of years, then resting, so a mark is written outward from the
+// first speck, the way round the plate being which cell and the way out being when. Those that never
+// rest (keep 1) write whole rays that thin as they go and stop short of the seam; those that do write
+// blocks along its growth rings. The speck itself is painted whole. A rim plate's rays fan up from its
+// lower edge. Each plate its own cells, each animal its own plates.
+float plateMarks(float keep) {
+  vec2 way = normalize(gWay + vec2(1e-5, 0.0));
+  vec3 own = uPatSeed + gPlate * 41.0;
+  float wobble = noise3(vec3(way * 1.1, gRing * 1.5) + own) - 0.5, loose = 1.0 - keep;
+  // (Each run its own ring of cells, more of them as the edge grows longer, so no mark lines up with the last.)
+  float hold = keep * keep * keep, run = gRing / mix(0.25, 9.0, hold), band = floor(run), year = run - band;
+  float cells = (gFan > 0.5 ? 8.0 : clamp(floor(uGrain / uPattern.y + gPlate * 2.5), 3.0, 14.0)) * (1.0 + band * 0.75);
+  float a = atan(way.x, way.y) / (PLATE_PI * 2.0) * cells + 0.5 + (gFan > 0.5 ? 0.0 : gPlate * 19.0 + band * 3.7) + wobble * uPatGene.x * loose * 0.7;
+  float c = floor(a), off = abs(a - c - 0.5) * 2.0;
+  float works = step(hash3(vec3(c, band, 5.0) + own), mix(0.6 - uPatGene.z * 3.0, 1.0, hold));
+  float block = 1.0 - smoothstep(0.78, 0.92, length(vec2(off * 0.9, (year - 0.5) * 2.2)) + wobble * 0.7);
+  float stop = 0.84 - 0.2 * hash3(vec3(c, 3.0, 1.0) + own), wide = mix(0.075, 0.012, clamp(gRing / stop, 0.0, 1.0));
+  float ray = (1.0 - smoothstep(wide - 0.012, wide + 0.012, sin(off * PLATE_PI / cells) * gRing)) * (1.0 - smoothstep(stop - 0.05, stop, gRing));
+  float speck = 1.0 - smoothstep(0.14, 0.22, gRing * (gFan > 0.5 ? 2.2 : 1.0) + wobble * 0.3 * loose);
+  return max(mix(block, ray, hold) * works * smoothstep(0.1, 0.16, gRing), speck);
+}
+float scuteMarks(vec3 p) {
+  plateAt(p);
+  return plateMarks(uPattern.w);
+}
 // The pattern's share at p, 0 to 1, grown in the body's frame (see Pattern).
 // A spine's pale end: all but the last of a short one (the fringe at its skirt and hairline), brightest on
 // the lit top and front of the dome, so the dome reads as one form. (Far off, too small for the grain to
@@ -472,17 +937,27 @@ float spineTip(vec3 p, vec3 b) {
   float lit = mix(0.55, 1.0, smoothstep(0.35, 1.0, (b.y + b.z * 0.25) / uPattern.y));
   return mix(smoothstep(0.72, 0.84, g), smoothstep(start, start + 0.1, g) * lit, gFade);
 }
+// The space a coat's marks grow in: this animal's own stretch of the noise, drawn out along its
+// body and warped by its own genes, so no two grow the same marks from the same algorithm.
+vec3 coatSpace(vec3 b) {
+  vec3 q = b / uPattern.y;
+  q.z /= uPatGene.y;
+  q += uPatSeed;
+  return q + (vec3(noise3(q * 0.6 + 11.0), noise3(q * 0.6 + 29.0), noise3(q * 0.6 + 47.0)) - 0.5) * uPatGene.x;
+}
 float pattern(vec3 p) {
   float kind = uPattern.x;
   if (kind < 0.5) return 0.0;
+  if (kind > 10.5) return scuteMarks(p) * gCover;
   vec3 b = bodyAt(p);
-  vec3 q = b / uPattern.y + uPattern.w;
-  if (kind < 1.5) return smoothstep(0.5, 0.7, fbm(q));
-  if (kind < 2.5) return smoothstep(0.64, 0.72, noise3(q * 1.6));
+  vec3 q = coatSpace(b);
+  float g = uPatGene.z;
+  if (kind < 1.5) return smoothstep(0.5 + g, 0.7 + g, fbm(q));
+  if (kind < 2.5) return smoothstep(0.64 + g, 0.72 + g, noise3(q * 1.6));
   // (Stripes and bars wander with the noise and thin out down the flanks, as a tiger's or an owl's do.)
   float wander = fbm(q * 0.7) * 1.6;
   if (kind < 3.5) return smoothstep(0.35, 0.75, sin(q.z * 3.14159 + wander * 2.0)) * smoothstep(-0.6, 0.4, b.y / uPattern.y);
-  if (kind < 4.5) return smoothstep(0.62, 0.78, noise3(vec3(q.x * 2.6, q.y * 2.6, q.z * 0.35)));
+  if (kind < 4.5) return smoothstep(0.62 + g, 0.78 + g, noise3(vec3(q.x * 2.6, q.y * 2.6, q.z * 0.35)));
   // (Bars run across the lie of the coat, down a level body and round an upright one, each
   // broken into short marks across, as an owl's are: rows of chevrons, never whole rings.)
   float along = dot(q, uAft);
@@ -499,14 +974,12 @@ float pattern(vec3 p) {
 vec3 patternColor(vec3 p) {
   if (uPattern.x < 7.5 || uPattern.x > 9.5) return uPatCol;
   if (uPattern.x > 8.5) return mix(uPatCol, uPatTwo, smoothstep(0.03, 0.3, grizzlePale(bodyAt(p))));
-  return mix(uPatCol, uPatTwo, smoothstep(0.47, 0.5, fbm(calicoWarp(bodyAt(p).zxy / uPattern.y + uPattern.w) + 31.0)));
+  return mix(uPatCol, uPatTwo, smoothstep(0.47, 0.5, fbm(calicoWarp(coatSpace(bodyAt(p)).zxy) + 31.0)));
 }
 // How thick part i is at its thinnest: its smaller radius, squashed by its flatness.
 float partThickness(int i) {
   return min(uA[i].w, uU[i].w) * min(length(uU[i].xyz), 1.0);
 }
-// Whether grain grows on a part of this role.
-float grows(float role) { return uGrainOn < -0.5 || abs(role - uGrainOn) < 0.5 ? 1.0 : 0.0; }
 // Part i melted into the surface so far by its own share of the melt; h is its share.
 float melt(int i, float m, float d, float di, out float h) {
   float k = max(min(uK * m, (uA[i].w + uU[i].w) * 0.4), 1e-6);
@@ -516,27 +989,48 @@ float melt(int i, float m, float d, float di, out float h) {
 // The surface alone, for the march, the normal and the occlusion. Crisp
 // parts join it after the melt, so nothing melts into an eye.
 float dist(vec3 p) {
-  float d = 1e9, c = 1e9, h, thick = 0.0, cover = 0.0, cut = 1e9, ck = 1e-6;
+  float d = 1e9, c = 1e9, h, thick = 0.0, cover = 0.0, cut = 1e9, ck = 1e-6, bare = 1e9;
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
     float tag = uB[i].w;
+    if (tag >= 4095.5) { if (uFlowN > 0) bare = min(bare, part(p, i)); continue; }
     bool carve = tag >= 2047.5 && tag < 3071.5;
     if (tag >= 1023.5 && !carve) continue;
     float m = floor(mod(tag, 1024.0) * 0.0625);
     float di = part(p, i);
     if (carve) { if (di < cut) { cut = di; ck = max(uK * m * 0.0625, 1e-6); } continue; }
     if (m < 0.5) { c = min(c, di); continue; }
+    di = hull(p, di, mod(tag, 16.0));
     d = melt(i, m * 0.0625, d, di, h);
     thick = mix(thick, partThickness(i), h);
     cover = mix(cover, grows(mod(tag, 16.0)), h);
   }
   // The carves cut in after the melt, their rims as soft as their own melt.
   if (cut < 1e8) { h = clamp(0.5 - 0.5 * (d + cut) / ck, 0.0, 1.0); d = mix(d, -cut, h) + ck * h * (1.0 - h); }
+  // A body is never a smooth balloon: muscle, bone and fat lift and crease it, each animal its own
+  // way. (Lighter on a thin part, and none about an eye or a nose.)
+  // (Horn has no muscle under it: a shell wears its plates instead.)
+  float plated = uGrainKind > 3.5 ? smoothstep(0.35, 0.65, cover) : 0.0;
+  if (uForm.x > 0.0 && d < uForm.x * 3.0 && plated < 1.0) {
+    vec3 q = bodyAt(p) / uForm.y + uPatSeed;
+    float crease = 1.0 - abs(noise3(q * 1.7 + 9.0) * 2.0 - 1.0);
+    d -= uForm.x * (noise3(q) * 1.5 - 0.75 + crease * crease * 0.7 - 0.2) * mix(0.25, 1.0, smoothstep(0.3, 0.8, thick / uForm.y)) * smoothstep(0.0, uForm.x * 2.0, c) * (1.0 - plated);
+  }
+  if (uGrainKind > 3.5) {
+    if (plated > 0.0) d -= plated * brim(p);
+    if (gFade > 0.0 && d < uGrain) d -= gFade * smoothstep(1.0, 0.4, d / uGrain) * smoothstep(0.0, uGrain * 0.3, c) * (plated > 0.0 ? mix(hide(p), plateRelief(p) * 0.5 * uGrain, plated) : hide(p));
+    return min(d, c);
+  }
   // (Spines stand their full height, up to a sharp point, so they stop only well clear of it.)
   if (uGrainKind > 2.5) {
     float tall = uGrain * uGrainRise;
     gLift = max(d, 0.0);
     if (gFade > 0.0 && cover > 0.0 && d < tall * 2.0) { float s = spines(p, gLift); d -= tall * gReach * gFade * smoothstep(0.45, 0.8, cover) * smoothstep(0.0, uGrain * 1.2, c) * s * smoothstep(2.0, 1.2, d / tall); }
+    return min(d, c);
+  }
+  // (A pelt, as far off the surface as its longest hair, none of it about a crisp part.)
+  if (uFlowN > 0) {
+    if (d < uGrain * uGrainRise * 3.2) d -= peltRise(p, bareAt(p, bare), cover) * smoothstep(0.0, uGrain * 0.8, c);
     return min(d, c);
   }
   // (Near the surface only: the grain costs noise, and far off it changes nothing. A thin
@@ -550,15 +1044,45 @@ float dist(vec3 p) {
   }
   return min(d, c);
 }
+// An eye, painted onto whatever surface lies over its lens, so no head's shape can bury it or leave
+// it standing proud: a black line round it, the iris lit from below, where light pooled through the
+// cornea comes out, with fibres to the pupil and a dark ring at its edge, the upper lid's shadow over
+// it, the pupil and its spark, then the lid cutting across the top. Alpha 0 is off the eye.
+vec4 eyePaint(vec3 p, vec4 a, vec4 b, vec4 u, vec3 col) {
+  vec3 centre = (a.xyz + b.xyz) * 0.5, axis = b.xyz - a.xyz;
+  float along = length(axis);
+  vec3 n = normalize(u.xyz);
+  // (A lens drawn as a ball lies no way of its own: it lies level with the body.)
+  axis = along > 1e-6 ? axis / along : normalize(cross(n, uUp) + uSide * 1e-3);
+  vec3 up = cross(axis, n), v = p - centre;
+  float r = a.w, x = dot(v, axis) / r, y = dot(v, up) / r;
+  float rr = length(vec2(max(abs(x) - along * 0.5 / r, 0.0), y));
+  if (rr > 1.0 + 0.1 * uEyeLid.w || abs(dot(v, n)) > r * 1.6 + uForm.x * 2.0) return vec4(0.0);
+  vec3 e = bodyAt(centre);
+  float outer = sign(dot(axis, uSide * (e.x < 0.0 ? -1.0 : 1.0) - uFwd * 0.8));
+  float lid = mix(1.15, 0.15, uEyeLid.x) + uEyeLid.y * x * outer;
+  if (y > lid + 0.2) return rr > 1.0 ? vec4(0.0) : vec4(uEyeLidCol, 1.0);
+  if (y > lid || rr > 1.0) return vec4(uEyeLidCol * 0.05, 1.0);
+  col *= (1.0 + 0.16 * sin(atan(y, x) * 17.0) * smoothstep(0.2, 0.5, rr)) * mix(1.3, 0.8, smoothstep(0.0, 0.9, rr)) * (1.0 + 0.9 * smoothstep(0.1, -0.75, y));
+  col *= (1.0 - 0.8 * smoothstep(0.68, 0.98, rr)) * (1.0 - 0.6 * smoothstep(lid - 0.75, lid, y));
+  float kind = uEyeLid.z;
+  float pupil = kind < 0.5 ? length(vec2(x, y)) / 0.5 : kind < 1.5 ? length(vec2(x / 0.16, y / 0.66)) : kind < 2.5 ? length(vec2(x / 0.58, y / 0.2)) : length(vec2(x, y)) / 0.68;
+  col = mix(vec3(0.008), col, smoothstep(0.92, 1.05, pupil));
+  return vec4(mix(col, vec3(1.0), 1.0 - smoothstep(uEyeSpark - 0.03, uEyeSpark + 0.02, length(vec2(x + 0.22, y - 0.36)))), 1.0);
+}
 // The colour, melted by the same weights, then the decals under the pattern,
 // the pattern, a carve's cut, the decals on it, then crisp parts over all: once a pixel.
 vec3 paint(vec3 p, out float lit, out float soft) {
   float d = 1e9, c = 1e9, h, w = 0.0, cl = 0.0, dl = 0.0, wu = 0.0, ul = 0.0, cut = 1e9, vl = 0.0, deep = 1e-6, ck = 1e-6, cover = 0.0;
   vec3 col = vec3(0.0), cc = vec3(0.0), dc = vec3(0.0), uc = vec3(0.0), vc = vec3(0.0); lit = 0.0;
   bool furred = false;
+  float eyeD = 1e9, eyeL = 0.0, bare = 1e9, skin = 0.0;
+  vec3 iris = vec3(0.0);
+  vec4 eyeA = vec4(0.0), eyeB = vec4(0.0), eyeU = vec4(0.0);
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
     float tag = uB[i].w, di = part(p, i);
+    if (tag >= 4095.5) { if (di < bare) { bare = di; gBareCol = uPal[int(mod(tag, 16.0) + 0.5)]; } continue; }
     float under = step(2047.5, tag);
     tag -= under * 2048.0;
     float decal = step(1023.5, tag);
@@ -580,14 +1104,22 @@ vec3 paint(vec3 p, out float lit, out float soft) {
       else if (s > w) { w = s; dc = uPal[role]; dl = uLit[role]; }
       continue;
     }
-    if (m < 0.5) { if (di < c) { c = di; cc = uPal[role]; cl = uLit[role]; } continue; }
+    if (m < 0.5) {
+      if (abs(float(role) - uEyeRole) < 0.5 && di < eyeD) { eyeD = di; eyeA = uA[i]; eyeB = uB[i]; eyeU = uU[i]; iris = uPal[role]; eyeL = uLit[role]; }
+      if (di < c) { c = di; cc = uPal[role]; cl = uLit[role]; }
+      continue;
+    }
+    di = hull(p, di, float(role));
     d = melt(i, m * 0.0625, d, di, h);
     col = mix(col, uPal[role], h); lit = mix(lit, uLit[role], h);
     cover = mix(cover, grows(float(role)), h);
+    skin = mix(skin, abs(float(role) - uSkinRole) < 0.5 ? 1.0 : 0.0, h);
   }
-  gCover = cover; gLift = max(d, 0.0);
+  gCover = cover; gLift = max(d, 0.0); gSkin = skin; gBare = bareAt(p, bare); gEyeD = eyeD; gMark = w;
   col = mix(col, uc, wu); lit = mix(lit, ul, wu);
   col = mix(col, patternColor(p), pattern(p) * uPattern.z);
+  // (A coat is never one shade: it drifts paler and darker over the body, each animal's its own way.)
+  if (uPattern.x > 0.5) col *= 1.0 + (fbm(bodyAt(p) / (uPattern.y * 7.0) + uPatSeed) - 0.5) * uPatGene.w;
   // (The cut shows its own colour as deep as it goes, what lies beneath toward its rim.)
   float cv = cut < 1e8 ? smoothstep(0.0, deep, -d) : 0.0;
   col = mix(col, vc, cv); lit = mix(lit, vl, cv);
@@ -596,6 +1128,10 @@ vec3 paint(vec3 p, out float lit, out float soft) {
   if (cut < 1e8) { h = clamp(0.5 - 0.5 * (d + cut) / ck, 0.0, 1.0); d = mix(d, -cut, h) + ck * h * (1.0 - h); }
   soft = 1.0;
   if (c < d) { col = cc; lit = cl; soft = 0.0; }
+  if (eyeD < eyeA.w * 2.0 + uForm.x * 2.0) {
+    vec4 eye = eyePaint(p, eyeA, eyeB, eyeU, iris);
+    if (eye.a > 0.5) { col = eye.rgb; lit = eyeL; soft = 0.0; gSkin = 1.0; }
+  }
   return col;
 }
 vec3 normalAt(vec3 p, float e) {
@@ -610,10 +1146,76 @@ const MARCH = /* glsl */ `
 // What a coat's grain does to its colour: each lock or feather darker at its root and lighter at its
 // tip; a spine, warm at its root, with a dark band below its pale end.
 float grainShade(vec3 p, vec3 base) {
+  // (A plate dark in its narrow seam and faintly along each growth ring, hide dark down its creases, each scale a shade its own.)
+  if (uGrainKind > 3.5) {
+    plateAt(p);
+    float plate = mix(0.14, 1.0, smoothstep(0.004, 0.026, gSeam)) * (1.0 - 0.06 * smoothstep(0.72, 1.0, abs(2.0 * fract(min(gRing, 1.0) * PLATE_YEARS) - 1.0)));
+    hide(p);
+    float scale = smoothstep(uGrain * 0.24, uGrain * 0.4, gScale);
+    return mix(mix(mix(0.84, 0.5, scale), 1.0, smoothstep(0.0, 0.16, gSeam)) * (0.96 + 0.08 * gPlate), plate, gCover);
+  }
   float g = grain(p);
   if (uGrainKind < 2.5) return 0.8 + 0.3 * g;
   // (A pale coat's bands are faint, a dark one's deep.)
   return 1.0 - mix(0.38, 0.15, smoothstep(0.1, 0.5, dot(base, vec3(0.2126, 0.7152, 0.0722)))) * smoothstep(0.3, 0.55, g) * (1.0 - smoothstep(0.62, 0.74, g));
+}
+// Hide's three values: its own, its pale where it turns under, dark in the shade of a shell's rim;
+// and over them the marks its plates wear, the same cells grown large, as far as they run on this animal.
+vec3 hideTone(vec3 p, vec3 base, vec3 n, float soft) {
+  if (uPattern.x > 10.5 && soft > 0.5) {
+    base = mix(base, uPatTwo, smoothstep(0.12, -0.5, dot(n, uUp)));
+    scaleCells(bodyAt(p) / (uGrain * 1.6) + uPatSeed);
+    base *= 1.0 - 0.56 * uPattern.w * plateMarks(0.0) * step(0.52, gPlate);
+  }
+  vec3 v = crownAt(p);
+  float under = rimRise(v) - uDome.y * 0.1 - v.y;
+  return base * mix(1.0, 0.2, (1.0 - smoothstep(0.0, uDome.y * 0.17, under)) * (1.0 - smoothstep(0.86, 1.06, length(v.xz / uDome.xz))));
+}
+// A pelt's colour at p: each hair's pigment along it, root to tip, each lock a shade its own and
+// warmer or cooler, darker toward the coat's long side and paler away from it, with the skin showing
+// where the hair has thinned to nothing. (A rule of colour alone, so it needs no light to read.)
+vec3 peltTone(vec3 p, vec3 base) {
+  flowAt(p);
+  float locks = 0.0;
+  gS = 0.55; gX = 0.0; gId = 0.5;
+  if (gFade > 0.0) locks = coatAt(p, max(gBare, 1.0 - gCover));
+  float side = smoothstep(-0.1, 0.8, gSide), under = smoothstep(0.0, -0.75, gSide);
+  vec3 hair = mix(mix(base, uPeltBack, side * uPeltCast.x), uPeltFront, under * uPeltCast.y);
+  // (Each strand in a lock ends a little before or after the next, so its tips make a fringe, not a line.)
+  float strand = floor(gX * 3.0 + 3.0), hairId = fract(gId * 17.0 + strand * 0.37);
+  float s = mix(0.5, gS + (hairId - 0.5) * 0.34, gFade), lock = gId * 2.0 - 1.0;
+  // (Banded along the hair, as an agouti's is: a dusky root, the hair's own colour, the band, then its tip.)
+  vec3 tone = mix(hair, hair * uPeltRoot, (1.0 - smoothstep(0.0, 0.42, s)) * uPelt.z);
+  float tipFrom = 1.0 - uPeltLine.y, band = smoothstep(tipFrom - 0.26, tipFrom - 0.1, s) * (1.0 - smoothstep(tipFrom - 0.02, tipFrom + 0.08, s));
+  tone = mix(tone, uPeltBand, band * uPeltLine.x * (0.55 + 0.45 * fract(gId * 9.7)) * gFade);
+  tone = mix(tone, mix(hair, uPeltTip, 0.66), smoothstep(tipFrom, tipFrom + 0.18, s) * (0.55 + 0.45 * fract(gId * 5.3)) * gFade);
+  tone *= 1.0 + (lock * uPelt.w * 0.5 + (hairId - 0.5) * uPelt.w * 1.4) * gFade;
+  tone = mix(tone, tone * vec3(1.06, 1.0, 0.92), max(lock, 0.0) * uPelt.w * 2.0 * gFade);
+  tone = mix(tone, tone * vec3(0.93, 0.98, 1.08), max(-lock, 0.0) * uPelt.w * 2.0 * gFade);
+  // (Between the locks is undercoat, soft and a shade duller, never a dark gap.)
+  tone = mix(mix(hair, hair * uPeltRoot, 0.5 * uPelt.z), tone, mix(1.0, smoothstep(0.02, 0.2, locks), gFade));
+  // (Where the skin goes bare only the hairs still grown cover it, and over a part that wears no coat there are none.)
+  // (A mark painted on it, a mouth or a nostril, stays over all of that.)
+  float hairs = smoothstep(0.02, 0.16, locks) * gFade, naked = gBare * (1.0 - hairs) * (1.0 - gMark);
+  gSkin = max(gSkin, naked);
+  return mix(mix(base, tone, mix(hairs, 1.0, gCover * gCover) * (1.0 - gMark)), gBareCol, naked);
+}
+// Skin under its own colour: paler and thinner round an eye, the blood wandering through the rest.
+vec3 skinTone(vec3 p, vec3 base) {
+  float blood = (fbm(p / (uGrain * 1.4) + uPatSeed) - 0.5) * uSkin.y;
+  return mix(base, mix(base, uSkinPale, 1.0 - smoothstep(uGrain * 0.3, uGrain * 1.3, gEyeD)) * (uSkin.z + blood), gSkin);
+}
+// Skin's chroma held on a soft knee, so no light and no later grade can push it to neon: a colour
+// well inside the knee stays as it is, and a stronger one comes out little stronger.
+// (Its hue is its own in any light, so a blue shadow on red skin never turns it magenta.)
+// (And a shade warmer than it was painted: what comes back out of skin has lost its blue to the blood.)
+vec3 skinGrade(vec3 col, vec3 base) {
+  float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  vec3 warm = base * vec3(1.0, 1.0, 0.72);
+  vec3 own = warm * luma / max(dot(warm, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
+  vec3 c = mix(col, own, 0.8) - luma;
+  float m = length(c) / max(luma, 1e-4);
+  return mix(col, luma + c * (uSkin.x * (1.0 - exp(-m / uSkin.x))) / max(m, 1e-4), gSkin);
 }
 const float INV_PI = 0.3183098862;
 // (The least light a spine takes above the skirt: its dark is the dome's underside, never its middle.)
@@ -650,9 +1252,12 @@ void main() {
   float t = tn, d = 1e9, near = 1e9, nearT = tn;
   gFade = uGrain > 0.0 ? smoothstep(0.7, 2.2, uGrain / max(px * max(tn, eps), 1e-7)) : 0.0;
   // (A grained surface is steeper than its distance says: shorter steps keep the march on it, shortest and most on a stand of spines.)
-  bool spiny = uGrainKind > 2.5 && gFade > 0.0;
-  float stride = gFade > 0.0 ? (spiny ? 0.5 : 0.72) : 1.0;
-  int steps = spiny ? 120 : 68;
+  bool spiny = uGrainKind > 2.5 && uGrainKind < 3.5 && gFade > 0.0;
+  bool plated = uGrainKind > 3.5 && gFade > 0.0;
+  // (A pelt's locks are steeper still than its grain, at their edges.)
+  bool pelted = uFlowN > 0 && gFade > 0.0;
+  float stride = gFade > 0.0 ? (spiny || plated ? 0.5 : pelted ? 0.6 : 0.72) : 1.0;
+  int steps = spiny || plated || pelted ? 120 : 68;
   bool hit = false;
   // (Plain steps: over-relaxed ones jump a flat ear edge-on.)
   for (int s = 0; s < 120; s++) {
@@ -681,28 +1286,44 @@ void main() {
     float lit, soft;
     vec3 base = paint(p, lit, soft);
     // Each lock or feather darker at its root and lighter at its tip, so the grain reads in colour too.
-    if (gFade > 0.0) base *= mix(1.0, grainShade(p, base), gFade * soft * gCover);
-    vec3 n = normalAt(p, eps * 1.5);
+    // (Hide has a grain of its own, under a plate's: it shows where the plates stop.)
+    bool coated = uFlowN > 0 && soft > 0.5;
+    if (coated) base = peltTone(p, base);
+    else {
+      base = mix(base, gBareCol, gBare * soft);
+      if (gFade > 0.0) base *= mix(1.0, grainShade(p, base), gFade * soft * (plated ? 1.0 : gCover));
+    }
+    if (uSkinRole > -0.5 && soft > 0.5) base = skinTone(p, base);
+    vec3 n = normalAt(p, eps * 1.5), form = n;
+    // (A coat takes the light as the form under it, with only some of each lock's own relief: a
+    // lock's steep edge turned to the sky is what would show as a bright sliver.)
+    if (coated) { gLocks = 0.0; form = normalAt(p, eps * 4.0); n = normalize(mix(form, n, 0.3 * gCover + 1.0 - gCover)); }
+    if (uGrainKind > 3.5 && (gCover < 0.5 || soft < 0.5)) base = hideTone(p, base, n, soft);
     // A little occlusion where parts meet (a leg against a belly), straight from the field.
     float reach = scale * 0.05;
     float ao = clamp(0.5 + 0.5 * dist(p + n * reach) / reach, 0.4, 1.0);
+    // (Skin is creased: the fold under a brow, round a lip, shadowed by what stands over it.)
+    if (gSkin > 0.0) { float fold = uGrain * 0.5; ao *= mix(1.0, clamp(0.45 + 0.55 * dist(p + form * fold) / fold, 0.55, 1.0), gSkin); }
+    gLocks = 1.0;
     // (A stand of spines takes the light as the dome under it, one form and no pits, with only part of each spine's own facets.)
     float shade = 0.0;
     if (spiny) { float dome = gCover * soft; vec3 v = normalize(crownAt(p)); n = normalize(mix(n, uSide * v.x + uUp * v.y + uFwd * v.z, dome * 0.4)); ao = mix(ao, 1.0, dome * 0.6); shade = dome * SPINE_FLOOR * smoothstep(-0.45, 0.1, v.y); }
     vec3 hemi = mix(uGround, uSky, 0.5 + 0.5 * n.y);
     float facing = max(dot(n, -rd), 0.0);
-    float rim = pow(1.0 - facing, 3.0);
+    float rim = pow(1.0 - max(dot(form, -rd), 0.0), 3.0) * (1.0 - 0.85 * gSkin);
     // Light as keel/lit's LitMaterial takes it (colour x intensity, Lambert over pi), the sun wrapped a little.
     vec3 light = hemi * ao + uSunCol * max(dot(n, uSun) * 0.8 + 0.2, 0.0) + uFillCol * max(dot(n, uFill), 0.0);
     light = max(light * INV_PI, vec3(shade)) + uRimCol * rim * max(dot(n, uRim), 0.0) * INV_PI * 2.0;
     // The character light from the camera, wrapped so it rounds the body instead of flattening it.
     light += uFront * INV_PI * max(facing * 0.75 + 0.25 * n.y, 0.0);
+    // (Light that has wandered through skin comes back out where the sun is not, so its shadows stay shallow.)
+    light += gSkin * (uSky + uSunCol * 0.25) * INV_PI * 0.3;
     // A soft sheen along the sun, so fur and feathers turn with the light.
     vec3 halfway = normalize(uSun - rd);
-    light += uSunCol * INV_PI * 0.12 * pow(max(dot(n, halfway), 0.0), 18.0);
+    light += uSunCol * INV_PI * 0.12 * pow(max(dot(n, halfway), 0.0), 18.0) * (1.0 - gSkin);
     // A sky-lit edge lifts the body off the ground behind it.
     light += uSky * INV_PI * 0.6 * rim;
-    light += coatLight(n, rd, halfway, rim) * soft;
+    light += coatLight(n, rd, halfway, rim) * soft * (1.0 - gSkin);
     float glow = max(uGlow, lit);
     vec3 col = mix(base * light, base * (1.0 + 0.5 * rim), glow);
     // Dark fur still shines: its sheen and sky rim are light of their own, not a share of
@@ -718,6 +1339,7 @@ void main() {
     col = max(mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, mix(uSat, 1.0, vivid)), 0.0);
     // Bright sun would clip a coat channel by channel and turn a brown deer
     // orange; instead the highlight rolls off as a whole, keeping its hue.
+    if (uSkinRole > -0.5) col = skinGrade(col, base);
     float peak = max(max(col.r, col.g), col.b);
     if (peak > 0.75) col *= (0.75 + 0.25 * (1.0 - exp(-(peak - 0.75) * 4.0))) / peak;
     gl_FragColor = vec4(col, 1.0);
@@ -728,7 +1350,9 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-const fragment = (maxParts: number, roles: number): string => `#define MAXP ${String(maxParts)}\n#define ROLES ${String(roles)}\n${FIELD}\n${MARCH}`;
+/** Most bones a pelt grows from (the shader's array). */
+const FLOWS = 12;
+const fragment = (maxParts: number, roles: number): string => `#define MAXP ${String(maxParts)}\n#define ROLES ${String(roles)}\n#define FLOWS ${String(FLOWS)}\n${FIELD}\n${MARCH}`;
 
 // ---------------------------------------------------------------- bodies
 
@@ -765,9 +1389,13 @@ function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxPar
     uSky: { value: new lit.Vector3(0.6, 0.6, 0.7) }, uGround: { value: new lit.Vector3(0.2, 0.2, 0.2) },
     uRim: { value: new lit.Vector3(0, 0, 1) }, uRimCol: { value: new lit.Vector3(0, 0, 0) },
     uFront: { value: new lit.Vector3(0, 0, 0) },
-    uGrain: { value: 0 }, uGrainKind: { value: 0 }, uGrainRise: { value: 1 }, uGrainOn: { value: -1 }, uCrown: { value: new lit.Vector4(0, 0, 0, 0) }, uAft: { value: new lit.Vector3(0, 0, -1) },
+    uGrain: { value: 0 }, uGrainKind: { value: 0 }, uGrainRise: { value: 1 }, uGrainOn: { value: -1 }, uCrown: { value: new lit.Vector4(0, 0, 0, 0) }, uDome: { value: new lit.Vector3(1, 1, 1) }, uDomeGene: { value: new lit.Vector3(1, 0, 0) }, uScale: { value: Array.from({ length: 3 }, () => new lit.Vector4()) }, uScaleSize: { value: new lit.Vector3(1, 1, 1) }, uAft: { value: new lit.Vector3(0, 0, -1) },
     uOrigin: { value: new lit.Vector3(0, 0, 0) }, uSide: { value: new lit.Vector3(1, 0, 0) }, uUp: { value: new lit.Vector3(0, 1, 0) }, uFwd: { value: new lit.Vector3(0, 0, 1) },
-    uMat: { value: new lit.Vector4(0, 0, 0, 0) }, uLift: { value: 1 }, uNeutral: { value: 0 }, uPattern: { value: new lit.Vector4(0, 1, 0, 0) }, uPatCol: { value: new lit.Color("#000000") }, uPatTwo: { value: new lit.Color("#000000") }, uTrunk: { value: new lit.Vector3(0, 0, 0) }, uDorsal: { value: 1e6 },
+    uMat: { value: new lit.Vector4(0, 0, 0, 0) }, uLift: { value: 1 }, uNeutral: { value: 0 }, uPattern: { value: new lit.Vector4(0, 1, 0, 0) }, uForm: { value: new lit.Vector3(0, 1, 0) }, uEyeRole: { value: -1 }, uEyeLid: { value: new lit.Vector4(0, 0, 0, 1) }, uEyeLidCol: { value: new lit.Color("#000000") }, uEyeSpark: { value: 0.2 }, uPatSeed: { value: new lit.Vector3(0, 0, 0) }, uPatGene: { value: new lit.Vector4(1, 1, 0, 0) }, uPatCol: { value: new lit.Color("#000000") }, uPatTwo: { value: new lit.Color("#000000") }, uTrunk: { value: new lit.Vector3(0, 0, 0) }, uDorsal: { value: 1e6 },
+    uFlowN: { value: 0 }, uFlowA: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowB: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowU: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowFall: { value: new Array<number>(FLOWS).fill(0) },
+    uPelt: { value: new lit.Vector4(0.4, 0, 0, 0) }, uPeltCast: { value: new lit.Vector3(0, 0, 0) }, uPeltLine: { value: new lit.Vector3(0, 0, 0) },
+    uPeltRoot: { value: new lit.Color("#000000") }, uPeltBand: { value: new lit.Color("#000000") }, uPeltTip: { value: new lit.Color("#000000") }, uPeltBack: { value: new lit.Color("#000000") }, uPeltFront: { value: new lit.Color("#000000") },
+    uSkinRole: { value: -1 }, uSkin: { value: new lit.Vector3(1, 0, 0) }, uSkinPale: { value: new lit.Color("#000000") },
   };
   const material = new lit.CustomMaterial({ uniforms: u, vertexShader: VERTEX, fragmentShader: shader, side: "back", depthTest: true, depthWrite: true });
   const mesh = new lit.Mesh(geometry, material);
@@ -864,12 +1492,12 @@ function paint(slot: Slot, body: BodyInput, state: ShaderState): void {
   }
 }
 
-/** The tag a part carries to the shader: its role, its melt in 16ths (0 crisp), 1024 for a decal and 2048 more for one under the pattern, 2048 alone for a carve. */
-export function tagOf(role: number, crisp: boolean, part: Pick<BodyPart, "melt" | "decal" | "under" | "carve">): number {
+/** The tag a part carries to the shader: its role, its melt in 16ths (0 crisp), 1024 for a decal and 2048 more for one under the pattern, or 4096 more for one that is bare skin, 2048 alone for a carve. */
+export function tagOf(role: number, crisp: boolean, part: Pick<BodyPart, "melt" | "decal" | "under" | "carve" | "bare">): number {
   // (A carve is never crisp: its melt is how soft its rim is.)
   const melt = crisp && part.carve !== true ? 0 : Math.round(Math.max(0, Math.min(2, part.melt ?? 1)) * 16);
   if (part.carve === true) return role + 16 * Math.max(1, melt) + 2048;
-  return role + 16 * melt + (part.decal === true ? (part.under === true ? 3072 : 1024) : 0);
+  return role + 16 * melt + (part.decal === true ? (part.bare === true ? 5120 : part.under === true ? 3072 : 1024) : 0);
 }
 
 function writePart(part: BodyPart, a: Vector4Like, b: Vector4Like, u: Vector4Like, tag: number): void {
@@ -880,8 +1508,12 @@ function writePart(part: BodyPart, a: Vector4Like, b: Vector4Like, u: Vector4Lik
   const bow = bowOf(part);
   a.set(part.a[0], part.a[1], part.a[2], part.r);
   b.set(part.b[0], part.b[1], part.b[2], tag);
+  if (part.row !== undefined) { u.set(...(part.reach ?? part.bow ?? [0, 0, 0]), rowTag(part)); return; }
   u.set(bow ? bow[0] : thin[0] * f, bow ? bow[1] : thin[1] * f, bow ? bow[2] : thin[2] * f, Math.max(0, part.r1 ?? part.r));
 }
+
+/** A row's count as the shader takes it, under nought, its fraction saying what kind of row. */
+const rowTag = (part: BodyPart): number => -Math.max(2, part.row ?? 2) - (part.sharp ? 0.5 : part.reach ? 0.25 : 0);
 
 /** A part's bow as the shader takes it: its way, 2 plus its size long. */
 function bowOf(part: BodyPart): Vec | null {
@@ -890,10 +1522,10 @@ function bowOf(part: BodyPart): Vec | null {
 }
 
 function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number, roles: number, blend: number, ink: Ink): void {
-  const parts = body.capsules;
+  const parts = fitParts(body.capsules, maxParts);
   const count = Math.min(parts.length, maxParts);
   // (The grain stands off the surface: the box leaves it room.)
-  const { min, max, k } = boundsOf(parts, count, blend, ink.pad + grainReach(grainOf(body)));
+  const { min, max, k } = boundsOf(parts, count, blend, ink.pad + standOff(body));
   const A = slot.u.uA?.value as Vector4Like[];
   const B = slot.u.uB?.value as Vector4Like[];
   const U = slot.u.uU?.value as Vector4Like[];
@@ -917,10 +1549,14 @@ function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number,
 const SMOOTH: Grain = { kind: "fur", size: 0 };
 /** The way a coat lies when its grain names none: back along the body and a little down. */
 const AFT: Vec = [0, -0.33, -0.944];
-const GRAIN_KINDS: Readonly<Record<Grain["kind"], number>> = { fur: 0, feather: 1, scale: 2, spine: 3 };
+const GRAIN_KINDS: Readonly<Record<Grain["kind"], number>> = { fur: 0, feather: 1, scale: 2, spine: 3, plate: 4 };
 const grainOf = (body: BodyInput): Grain => (body.grain && body.grain.size > 0 ? body.grain : SMOOTH);
-/** How far a grain stands off the surface: a spine its whole height. */
-const grainReach = (grain: Grain): number => grain.size * (grain.kind === "spine" ? 1.1 : 0.4) * (grain.rise ?? 1);
+/** How far the surface stands off its parts: its grain and its relief. */
+const standOff = (body: BodyInput): number => grainReach(grainOf(body)) + (body.form?.amount ?? 0);
+/** How far a grain stands off the surface: a spine its whole height, a shell's plates and its brim. */
+const grainReach = (grain: Grain): number => grain.size * (grain.kind === "spine" ? 1.1 : 0.4) * (grain.rise ?? 1) + (grain.dome?.[1] ?? 0) * 0.12 + grain.size * (grain.rise ?? 1) * peltLong(grain);
+/** A pelt's longest hair, in grain sizes. */
+const peltLong = (grain: Grain): number => (grain.pelt?.flow ?? []).reduce((most, bone) => Math.max(most, ...bone.long), 0);
 
 /** How each grain takes the light when the body names no material of its own: fur soft and fuzzy, feathers and scales glossy. */
 const MATERIALS: Readonly<Record<Grain["kind"], Required<Material>>> = {
@@ -928,10 +1564,27 @@ const MATERIALS: Readonly<Record<Grain["kind"], Required<Material>>> = {
   feather: { sheen: 0.15, fuzz: 0.1, gloss: 0.35, iridescence: 0, lift: 1, neutral: 0 },
   scale: { sheen: 0, fuzz: 0, gloss: 0.7, iridescence: 0, lift: 1, neutral: 0 },
   spine: { sheen: 0, fuzz: 0.1, gloss: 0.3, iridescence: 0, lift: 1, neutral: 0.3 },
+  plate: { sheen: 0, fuzz: 0, gloss: 0.3, iridescence: 0, lift: 1, neutral: 0 },
 };
-const PATTERN_KINDS: Readonly<Record<Pattern["kind"], number>> = { dapple: 1, spots: 2, stripes: 3, streaks: 4, bars: 5, chevrons: 6, mackerel: 7, patches: 8, grizzle: 9, tips: 10 };
+const PATTERN_KINDS: Readonly<Record<Pattern["kind"], number>> = { dapple: 1, spots: 2, stripes: 3, streaks: 4, bars: 5, chevrons: 6, mackerel: 7, patches: 8, grizzle: 9, tips: 10, scutes: 11 };
 
 interface Vector4Set { set(x: number, y: number, z: number, w: number): unknown }
+
+/** The point a grain is set about, and the dome a plated one lies on. */
+function crownSlot(slot: Slot, grain: Grain): void {
+  (slot.u.uCrown?.value as Vector4Set).set(...(grain.crown ?? [0, 0, 0]), grain.crown ? 1 : 0);
+  (slot.u.uDome?.value as Vector3Like).set(...(grain.dome ?? [1, 1, 1]));
+  const tilt = grain.tilt ?? 0;
+  (slot.u.uDomeGene?.value as Vector3Like).set(Math.cos(tilt), Math.sin(tilt), grain.teeth ?? 0);
+  scaleSlot(slot, grain.scales ?? []);
+}
+
+/** Where a plated animal's hide wears scales of their own. */
+function scaleSlot(slot: Slot, scales: readonly ScalePatch[]): void {
+  const at = slot.u.uScale?.value as Vector4Set[];
+  at.forEach((each, i) => { const patch = scales[i]; each.set(...(patch?.at ?? [0, 0, 0]), patch?.reach ?? 0); });
+  (slot.u.uScaleSize?.value as Vector3Like).set(scales[0]?.size ?? 1, scales[1]?.size ?? 1, scales[2]?.size ?? 1);
+}
 
 /** The body's frame (its grain and pattern ride on it), its grain, its material and its pattern. */
 function grainSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
@@ -940,7 +1593,7 @@ function grainSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: numbe
   (slot.u.uGrainKind as UniformLike<number>).value = GRAIN_KINDS[grain.kind];
   (slot.u.uGrainRise as UniformLike<number>).value = grain.rise ?? 1;
   (slot.u.uGrainOn as UniformLike<number>).value = grain.on === undefined ? -1 : roleIndex(state, grain.on, roles);
-  (slot.u.uCrown?.value as Vector4Set).set(...(grain.crown ?? [0, 0, 0]), grain.crown ? 1 : 0);
+  crownSlot(slot, grain);
   const fwd = unitOr(body.front ?? [0, 0, 1], [0, 0, 1]);
   const side = unitOr(cross(UP, fwd), [1, 0, 0]);
   const up = cross(fwd, side);
@@ -955,6 +1608,75 @@ function grainSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: numbe
   (slot.u.uLift as UniformLike<number>).value = m.lift;
   (slot.u.uNeutral as UniformLike<number>).value = m.neutral;
   patternSlot(slot, body, state, roles);
+  skinSlot(slot, body, state, roles);
+}
+
+/** What lies over the coat's own light: the eyes' lids and the body's relief. */
+function skinSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
+  eyeSlot(slot, body, state, roles);
+  (slot.u.uForm?.value as Vector3Like).set(body.form?.amount ?? 0, Math.max(body.form?.size ?? 1, 1e-4), 0);
+  peltSlot(slot, grainOf(body).pelt);
+  bareSlot(slot, body, state, roles);
+}
+
+/** How this body's bare skin takes the light. */
+function bareSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
+  const { skin } = body;
+  (slot.u.uSkinRole as UniformLike<number>).value = skin ? roleIndex(state, skin.role, roles) : -1;
+  if (!skin) return;
+  (slot.u.uSkin?.value as Vector3Like).set(skin.chroma, skin.flush ?? 0, skin.depth ?? 1);
+  (slot.u.uSkinPale?.value as ColorLike).set(skin.pale ?? body.palette[skin.role] ?? "#000000");
+}
+
+/** The bones a pelt grows from, each square to its own long side. */
+function flowSlot(slot: Slot, flow: readonly PeltBone[]): void {
+  const A = slot.u.uFlowA?.value as Vector4Like[];
+  const B = slot.u.uFlowB?.value as Vector4Like[];
+  const U = slot.u.uFlowU?.value as Vector4Like[];
+  const fall = slot.u.uFlowFall?.value as number[];
+  const count = Math.min(flow.length, FLOWS);
+  for (let i = 0; i < count; i += 1) {
+    const bone = flow[i];
+    if (!bone) continue;
+    const along = unitOr(sub(bone.b, bone.a), [0, 0, 1]);
+    const up = unitOr(sub(bone.up, times(along, dot(along, bone.up))), [0, 1, 0]);
+    A[i]?.set(...bone.a, bone.long[0]);
+    B[i]?.set(...bone.b, bone.long[1]);
+    U[i]?.set(...up, bone.girth);
+    fall[i] = bone.fall ?? 0;
+  }
+  (slot.u.uFlowN as UniformLike<number>).value = count;
+}
+
+/** A pelt's plain defaults: a soft undercoat, its hair one colour root to tip. */
+const PELT: Required<Omit<Pelt, "flow">> = { under: 0.45, thin: 0, crease: 0.2, tint: 0, root: "#000000", band: ["#000000", 0], tip: ["#ffffff", 0], back: "#000000", front: "#ffffff", dorsal: 0, ventral: 0 };
+
+/** What a pelt grows from and the colours along its hair. */
+function peltSlot(slot: Slot, pelt: Pelt | undefined): void {
+  if (!pelt) { (slot.u.uFlowN as UniformLike<number>).value = 0; return; }
+  flowSlot(slot, pelt.flow);
+  const { under, thin, crease, tint, root, band, tip, back, front, dorsal, ventral } = { ...PELT, ...pelt };
+  const color = (name: string, hex: string): void => { (slot.u[name]?.value as ColorLike).set(hex); };
+  (slot.u.uPelt?.value as Vector4Set).set(under, thin, crease, tint);
+  (slot.u.uPeltCast?.value as Vector3Like).set(dorsal, ventral, 0);
+  (slot.u.uPeltLine?.value as Vector3Like).set(band[1], tip[1], 0);
+  color("uPeltRoot", root);
+  color("uPeltBand", band[0]);
+  color("uPeltTip", tip[0]);
+  color("uPeltBack", back);
+  color("uPeltFront", front);
+}
+
+const EYE_PUPILS: Readonly<Record<Eye["pupil"], number>> = { round: 0, slit: 1, bar: 2, dark: 3 };
+
+/** The eyes' lids, and the role whose lens they are painted on. */
+function eyeSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
+  const eye = body.eye;
+  (slot.u.uEyeRole as UniformLike<number>).value = eye ? roleIndex(state, eye.role, roles) : -1;
+  if (!eye) return;
+  (slot.u.uEyeLid?.value as Vector4Set).set(eye.lid, eye.slant, EYE_PUPILS[eye.pupil], eye.ring ? 1 : 0);
+  (slot.u.uEyeLidCol?.value as ColorLike).set(eye.color);
+  (slot.u.uEyeSpark as UniformLike<number>).value = eye.spark ?? 0.2;
 }
 
 /** The pattern over the coat, in its own colour or its role's; none when it has no contrast. */
@@ -962,10 +1684,19 @@ function patternSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: num
   const pattern = body.pattern;
   if (!pattern || pattern.contrast <= 0) { (slot.u.uPattern?.value as Vector4Set).set(0, 1, 0, 0); return; }
   roleIndex(state, pattern.role, roles);
-  (slot.u.uPattern?.value as Vector4Set).set(PATTERN_KINDS[pattern.kind], Math.max(pattern.scale, 1e-4), Math.min(1, pattern.contrast), (pattern.seed % 97) * 1.37);
+  (slot.u.uPattern?.value as Vector4Set).set(PATTERN_KINDS[pattern.kind], Math.max(pattern.scale, 1e-4), Math.min(1, pattern.contrast), pattern.run ?? 0);
+  geneSlot(slot, pattern);
   (slot.u.uPatCol?.value as ColorLike).set(pattern.color ?? body.palette[pattern.role] ?? "#000000");
   (slot.u.uPatTwo?.value as ColorLike).set(pattern.second ?? "#000000");
   trunkSlot(slot, pattern);
+}
+
+/** Where in the noise this animal's coat grew, and how its marks grow there. */
+function geneSlot(slot: Slot, pattern: Pattern): void {
+  const at = (k: number): number => ((Math.imul(pattern.seed >>> 0, k) >>> 0) % 4093) * 0.0731;
+  (slot.u.uPatSeed?.value as Vector3Like).set(at(2654435761), at(1597334677), at(3812015801));
+  const [warp, stretch, density, drift] = pattern.genes ?? [1, 1, 0, 0];
+  (slot.u.uPatGene?.value as Vector4Set).set(warp, Math.max(stretch, 0.05), density, drift);
 }
 
 /** Where a pattern that goes by the trunk finds it, and how high its spine line starts. */
@@ -1001,9 +1732,16 @@ function lightSlot(slot: Slot, light: BodyLight): void {
   (slot.u.uSat as UniformLike<number>).value = light.saturation ?? 1;
 }
 
+/** How far apart a part's shadow spheres sit, in its radii; the most a part takes; and the smallest part that casts, against the body's largest. */
+const SHADOW_STEP = 1.25;
+const SHADOW_MOST = 12;
+const SHADOW_LEAST = 0.05;
+/** The pool's spheres a part, on average, so a full scene's last bodies keep their shadows. */
+const SHADOW_POOL = 5;
+
 /** Shadows: each part as a few plain spheres that only the shadow pass sees. */
 function shadowProxy(lit: LitLike, limit: number): { mesh: InstancedLike; matrix: Matrix4Like; geometry: DisposableLike; material: MaterialLike } {
-  const geometry = lit.sphere(1, 8, 6);
+  const geometry = lit.sphere(1, 12, 8);
   const material = new lit.FlatMaterial({ colorWrite: false, depthWrite: false });
   const mesh = new lit.Instances(geometry, material, limit);
   mesh.castShadow = true;
@@ -1012,16 +1750,24 @@ function shadowProxy(lit: LitLike, limit: number): { mesh: InstancedLike; matrix
   return { mesh, matrix: new lit.Matrix4(), geometry, material };
 }
 
+/** The spheres a part casts its shadow with: enough to run its length without gaps, each its own width along a taper. */
+function castsAlong(part: BodyPart): number {
+  const length = Math.hypot(part.b[0] - part.a[0], part.b[1] - part.a[1], part.b[2] - part.a[2]);
+  return Math.min(Math.ceil(length / (Math.max(meanRadius(part), 1e-5) * SHADOW_STEP)) + 1, SHADOW_MOST);
+}
+
 function castShadows(proxy: ReturnType<typeof shadowProxy>, bodies: readonly BodyInput[], limit: number): void {
   let n = 0;
   for (const body of bodies) {
+    // (Parts too small to show in a shadow, an eye, a claw, are left out of it: most of the cost and none of the look.)
+    const least = Math.max(...body.capsules.map(meanRadius), 0) * SHADOW_LEAST;
     for (const part of body.capsules) {
-      if (!casts(part)) continue;
-      const r = meanRadius(part) * ((part.flat ?? 1) < 1 ? 0.6 : 1);
-      // A round part is one sphere; a long one three along its length.
-      const steps = part.a[0] === part.b[0] && part.a[1] === part.b[1] && part.a[2] === part.b[2] ? 1 : 3;
+      if (!casts(part) || meanRadius(part) < least) continue;
+      const squash = (part.flat ?? 1) < 1 ? 0.6 : 1;
+      const steps = castsAlong(part);
       for (let s = 0; s < steps && n < limit; s += 1) {
-        const k = steps === 1 ? 0 : s * 0.5;
+        const k = steps === 1 ? 0 : s / (steps - 1);
+        const r = (part.r + ((part.r1 ?? part.r) - part.r) * k) * squash;
         proxy.matrix.makeScale(r, r, r).setPosition(part.a[0] + (part.b[0] - part.a[0]) * k, part.a[1] + (part.b[1] - part.a[1]) * k, part.a[2] + (part.b[2] - part.a[2]) * k);
         proxy.mesh.setMatrixAt(n, proxy.matrix);
         n += 1;
@@ -1032,12 +1778,30 @@ function castShadows(proxy: ReturnType<typeof shadowProxy>, bodies: readonly Bod
   proxy.mesh.instanceMatrix.needsUpdate = true;
 }
 
+/** The most parts a body can have, and the uniform vectors the shader spends on all else (measured from a linked program). */
+export const MOST_PARTS = 64;
+export const OTHER_UNIFORMS = 154;
+
+/** The parts a device's fragment uniform vectors can hold: each costs three. */
+export const partsFor = (uniforms: number): number => Math.min(MOST_PARTS, Math.floor((uniforms - OTHER_UNIFORMS) / 3));
+
+/** A body's parts cut to `most`, dropping whole `detail` groups from the highest down, so a left paw never keeps claws a right one lost. */
+export function fitParts<T extends { readonly detail?: number }>(parts: readonly T[], most: number): readonly T[] {
+  let kept = parts;
+  while (kept.length > most) {
+    const top = kept.reduce((high, part) => Math.max(high, part.detail ?? 0), 0);
+    if (top === 0) break;
+    kept = kept.filter((part) => (part.detail ?? 0) !== top);
+  }
+  return kept;
+}
+
 /** A pool of smooth raymarched bodies, drawn from capsule parts each frame. */
 export function createSdfBodies(lit: LitLike, options: SdfBodiesOptions = {}): SdfBodies {
-  const maxParts = Math.max(4, Math.min(64, options.maxParts ?? 48));
+  const maxParts = Math.max(4, Math.min(MOST_PARTS, options.maxParts ?? 48));
   const maxBodies = Math.max(1, options.maxBodies ?? 48);
   const roles = 16;
-  const blend = options.blend ?? 0.6;
+  const blend = options.blend ?? 0.46;
   const width = Math.max(0, options.ink ?? 0.85);
   const ink: Ink = { width, pad: width > 0 ? Math.max(0, options.inkPad ?? 0.08) : 0 };
   const shader = fragment(maxParts, roles);
@@ -1045,7 +1809,7 @@ export function createSdfBodies(lit: LitLike, options: SdfBodiesOptions = {}): S
   const group = new lit.Group();
   const state: ShaderState = { roles: new Map(), crisp: new Set(options.crisp ?? DEFAULT_CRISP), emissive: new Set(options.emissive ?? DEFAULT_EMISSIVE) };
   const slots: Slot[] = [];
-  const proxy = options.shadows === true ? shadowProxy(lit, maxBodies * maxParts) : null;
+  const proxy = options.shadows === true ? shadowProxy(lit, maxBodies * maxParts * SHADOW_POOL) : null;
   if (proxy) group.add(proxy.mesh);
   return {
     group,
@@ -1061,7 +1825,7 @@ export function createSdfBodies(lit: LitLike, options: SdfBodiesOptions = {}): S
         fill(slot, body, state, maxParts, roles, blend, ink);
         lightSlot(slot, light);
       });
-      if (proxy) castShadows(proxy, bodies.slice(0, maxBodies), maxBodies * maxParts);
+      if (proxy) castShadows(proxy, bodies.slice(0, maxBodies), maxBodies * maxParts * SHADOW_POOL);
     },
     dispose() {
       for (const slot of slots) slot.material.dispose();

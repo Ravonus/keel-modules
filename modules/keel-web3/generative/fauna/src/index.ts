@@ -5728,6 +5728,12 @@ function lizardLegs(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void
 // ---------------------------------------------------------------- insects
 
 /** Where a bug's body is: drifting over its spot, settled on a leaf, or flying between, at the same heights. */
+/** A firefly's own spot in the air, off its seed: anywhere round it, near or well out, low or high. */
+const fireflySpot = (seed: number): Vec => {
+  const out = 0.7 + 1.1 * ((seed * 13) % 1);
+  return [Math.cos(seed * TAU) * out, 0.2 + 0.8 * ((seed * 37) % 1), Math.sin(seed * TAU) * out];
+};
+
 function bugCentre(who: Who, m: Moment): Vec {
   const size = who.member.size;
   const t = m.t;
@@ -5736,7 +5742,7 @@ function bugCentre(who: Who, m: Moment): Vec {
   const drift: Vec = [Math.sin(t * 0.6 + phase) * 0.35, Math.sin(t * 0.9 + phase * 2) * 0.18, Math.cos(t * 0.5 + phase) * 0.35];
   // (Fireflies hang well apart over the grass, never in a clump.)
   // (Each keeps a spot of its own in the air, so a pack is spread through the dusk and never a heap on the grass.)
-  const wander = firefly ? add([Math.sin(phase * 91) * 1.5, 0.55 + 0.45 * Math.sin(phase * 53), Math.cos(phase * 67) * 1.5], scale(drift, 1.4)) : scale(drift, 0.3);
+  const wander = firefly ? add(fireflySpot(ownPhase(who)), scale(drift, 1.4)) : scale(drift, 0.3);
   if (m.mode !== "fly") return m.segment.act === "sit" && !firefly ? [0, size * 0.1, 0] : add([0, 0.35 + m.pose.lift * 0.4, 0], wander);
   const airy = (place: Place): number => (place.on === "ground" ? 0.35 + m.pose.lift * 0.4 : size * 0.1);
   const flying = mix(airy(m.segment.from), airy(m.segment.to), smooth(clamp((t - m.segment.t0) / Math.max(0.01, m.segment.t1 - m.segment.t0), 0, 1)));

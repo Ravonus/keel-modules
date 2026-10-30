@@ -4735,7 +4735,7 @@ const WINGS: Partial<Record<SpeciesId, WingStyle>> = {
   parrot: { ...WING, rate: 19, span: 0.72, chord: 0.17, trail: "coat", fold: ["coat", "alt"], glide: 0.12, bout: 1.6 },
   crow: { ...WING, rate: 12, span: 0.86, chord: 0.24, fingers: 4, top: "alt", trail: "accent", tip: "alt", fold: ["alt", "alt"], glide: 0.4, bout: 3.2, dihedral: 0.1 },
   owl: { ...WING, rate: 8, span: 0.92, chord: 0.32, top: "coat", fold: ["coat", "alt"], glide: 0.6, bout: 2.6, dihedral: 0.02 },
-  gull: { ...WING, rate: 7.5, span: 1.08, chord: 0.17, fingers: 2, trail: "belly", tip: "dark", fold: ["alt", "dark"], glide: 0.75, bout: 4.5, dihedral: 0.14 },
+  gull: { ...WING, rate: 7.5, span: 1.08, chord: 0.2, fingers: 4, trail: "belly", tip: "dark", fold: ["alt", "dark"], glide: 0.75, bout: 4.5, dihedral: 0.14 },
   peacock: { ...WING, rate: 12, span: 0.5, chord: 0.24, glide: 0.35, bout: 1.4 },
   crane: { ...WING, rate: 5, span: 1.1, chord: 0.2, fingers: 4, top: "coat", tip: "coat", fold: ["coat", "alt"], glide: 0.35, bout: 5, dihedral: 0.08 },
   kookaburra: { ...WING, rate: 17, span: 0.66, chord: 0.23, glide: 0.3, bout: 1.6 },
@@ -5290,7 +5290,7 @@ function wingOf(kit: Kit, who: Who, body: BirdBody, x: number, m: Moment): void 
     const k = i / (fingers - 1 || 1);
     const dir = unit(madd(axis, back, (k * 0.95 - 0.15) * beat.spread));
     const root = madd(wrist, back, chord * (k * 0.5 - 0.1));
-    cap(kit, `wing.primary.${L}${String(i)}`, style.tip, root, madd(root, dir, reach * (1 - k * 0.25)), chord * 0.11, 0.35, handUp, { melt: 0.1, r1: chord * 0.06 });
+    cap(kit, `wing.primary.${L}${String(i)}`, style.tip, root, madd(root, dir, reach * (1 - k * 0.25)), chord * 0.15, 0.12, handUp, { melt: 0.1, r1: chord * 0.09 });
   }
 }
 
@@ -5417,6 +5417,8 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
   if (!b.extras.includes("train")) {
     // A fan of feathers, spread wide as it steers and lands, closed as it sits.
     const spread = clamp(0.1 + body.flight.flare * 0.45 + body.flight.glide * 0.2 + m.pose.fan * 0.4, 0, 0.6);
+    // (The rump narrows into it, so the tail grows out of the body and doesn't end it.)
+    cap(kit, "rump", "coat", lerpV(body.C, body.T, 0.7), madd(body.T, dirOf(Math.PI, tilt), body.r * 0.75), body.r * 0.66, 1, UP, { r1: body.r * 0.2, melt: 1 });
     // (Thin, and broader at the tip than the root: each its own feather, not a stump off the rump.)
     TAIL_FEATHERS.forEach((k, i) => {
       const dir = dirOf(Math.PI + 0.15 * m.pose.tailWag + k * spread, tilt);
@@ -5797,7 +5799,8 @@ function bugCentre(who: Who, m: Moment): Vec {
 function butterflyWing(kit: Kit, part: string, root: Vec, tip: Vec, r: readonly [number, number], normal: Vec, spots: number): void {
   const shape = (name: string, role: Role, to: Vec, k: number, flat: number): void => { cap(kit, `${part}.${name}`, role, root, to, r[0] * k, flat, normal, { r1: r[1] * k, melt: 0 }); };
   shape("edge", "alt", tip, 1, 0.08);
-  shape("colour", "coat", lerpV(root, tip, 0.86), 0.8, 0.13);
+  // (Most of a wing is its colour: the margin is a line round it, not a frame.)
+  shape("colour", "coat", lerpV(root, tip, 0.93), 0.9, 0.13);
   const across = unit(cross(normal, sub(tip, root)));
   for (let k = 0; k < spots; k += 1) ball(kit, `${part}.spot`, "accent", madd(tip, across, r[1] * ((k + 0.5) / spots - 0.5) * 1.5), r[1] * 0.12, 0.8, normal);
 }

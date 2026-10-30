@@ -223,6 +223,8 @@ export interface Build {
   readonly skull?: readonly Station[];
   /** The muzzle's outline from the stop (0) to the nose (1), in head radii across. */
   readonly muzzle?: readonly Station[];
+  /** A leg's radii, top and bottom of each bone, where a kind's differ from the usual. */
+  readonly taper?: { readonly fore: readonly [number, number, number, number]; readonly hind: readonly [number, number, number, number] };
   /** A bird's bill: its depth at the root, in head radii (a finch's cone, a crow's heavy wedge). */
   readonly bill?: number;
 }
@@ -295,6 +297,8 @@ const BUILD: Build = {
  * `Station`); an animal's own traits still stretch and scale it.
  */
 type Outline = Pick<Build, "torso" | "skull" | "muzzle">;
+/** A runner's leg: muscle high up, drawn in to a slim cannon below the knee or hock. */
+const RUNNER_TAPER = { fore: [1.65, 0.92, 0.78, 0.42], hind: [2.2, 1.08, 0.9, 0.42] } as const;
 const OUTLINE = {
   canid: {
     torso: [[0, 0.8, 0.68, 0.7], [0.38, 0.76, 0.5, 0.64], [0.75, 0.9, 1.02, 0.78], [1.05, 0.86, 0.95, 0.7]],
@@ -408,7 +412,7 @@ export const SPECIES = {
     coats: [["wild", ["#9a7e5e", "#7c6248", "#efe6d6", "#3a2c22", "#e8a8a8"]], ["snowshoe", ["#f2efe8", "#d8d2c8", "#ffffff", "#5a4a40", "#f0b0b8"]], ["dutch", ["#3a3230", "#f4f0ea", "#f4f0ea", "#1e1a18", "#e8a8a8"]]],
     temper: { graze: 2.2, groom: 1.6, rear: 1.4, hop: 1.8, sit: 1.3, wander: 0.4, sniff: 1.4 }, friends: ["songbird", "deer"] }),
   fox: define({ label: "Fox", plan: "quad", size: 0.36, rarity: "uncommon", weight: 34, regions: TEMPERATE, speed: 1.6, groups: [7, 2, 2, 0],
-    build: { ...OUTLINE.vulpine, len: 1.35, leg: 0.62, body: 0.25, neck: 0.3, rise: 0.75, head: 0.18, snout: 0.26, ears: "point", tail: "bushy", tailLen: 1.1, extras: ["socks", "bib"], earLen: 1.35, snoutTip: 0.32, chest: 1.15, haunch: 0.95, tailGirth: 1.15, legR: 0.85 },
+    build: { ...OUTLINE.vulpine, taper: RUNNER_TAPER, len: 1.35, leg: 0.62, body: 0.25, neck: 0.3, rise: 0.75, head: 0.18, snout: 0.26, ears: "point", tail: "bushy", tailLen: 1.1, extras: ["socks", "bib", "muzzle"], earLen: 1.1, snoutTip: 0.32, chest: 1.15, haunch: 0.95, tailGirth: 1.15, legR: 0.85 },
     coats: [["red", ["#d2662a", "#a8481c", "#f4efe6", "#2a1a14", "#f4efe6"]], ["silver", ["#5a5a62", "#2e2e34", "#e8e8ec", "#16161a", "#f0f0f4"]], ["arctic", ["#f4f4f0", "#dcdcd6", "#ffffff", "#2a2a2a", "#ffffff"]]],
     temper: { sniff: 2.2, dig: 1.6, play: 1.4, stretch: 1.3, sit: 1, sleep: 1, look: 1.4, wander: 1.4, stalk: 1.2, graze: 0 }, friends: ["crow"] }),
   deer: define({ label: "Deer", plan: "quad", size: 0.95, rarity: "uncommon", weight: 26, regions: TEMPERATE, speed: 1.1, groups: [4, 3, 4, 2], pack: [3, 4],
@@ -416,7 +420,7 @@ export const SPECIES = {
     coats: [["whitetail", ["#a87a4e", "#8a6038", "#f4ece0", "#2a1e16", "#f8f4ec"]], ["sika", ["#9a5e34", "#7a4422", "#f0e4d0", "#241810", "#f6efe2"]], ["fallow", ["#c8925a", "#9e6c3e", "#f6ecd8", "#2e2014", "#ffffff"]]],
     temper: { graze: 2.8, look: 1.8, groom: 1, wander: 0.8, lie: 1.6, run: 0.3, dig: 0, roll: 0, sit: 0 }, friends: ["rabbit", "songbird", "crow"] }),
   wolf: define({ label: "Wolf", plan: "quad", size: 0.72, rarity: "rare", weight: 10, regions: ["rockies", "alps"], speed: 1.3, groups: [3, 2, 1, 5], pack: [3, 5],
-    build: { ...OUTLINE.canid, len: 1.35, leg: 0.7, body: 0.25, neck: 0.3, rise: 0.55, head: 0.17, snout: 0.24, ears: "point", tail: "bushy", tailLen: 0.75, extras: ["ruff", "bib", "saddle", "muzzle"], earLen: 1.15, snoutTip: 0.45, chest: 1.25, haunch: 0.9, tailRise: -0.5, tailGirth: 0.9, legR: 0.95 },
+    build: { ...OUTLINE.canid, taper: RUNNER_TAPER, len: 1.35, leg: 0.7, body: 0.25, neck: 0.3, rise: 0.55, head: 0.17, snout: 0.24, ears: "point", tail: "bushy", tailLen: 0.75, extras: ["ruff", "bib", "saddle", "muzzle"], earLen: 1.15, snoutTip: 0.45, chest: 1.25, haunch: 0.9, tailRise: -0.5, tailGirth: 0.9, legR: 0.95 },
     coats: [["grey", ["#7c7a74", "#4e4c48", "#e0dcd4", "#1e1c1a", "#d6d0c4"]], ["timber", ["#8a6a4a", "#4a3828", "#dcccb4", "#1c1610", "#cdb898"]], ["white", ["#e8e6e0", "#c8c4bc", "#ffffff", "#2a2826", "#ffffff"]], ["black", ["#2c2a2a", "#1a1818", "#4a4644", "#0c0a0a", "#5a5654"]]],
     temper: { howl: 2.4, sniff: 1.6, lie: 1.6, play: 1.4, look: 1.5, wander: 1.4, run: 0.6, graze: 0 }, friends: ["crow"] }),
   bear: define({ label: "Bear", plan: "quad", size: 0.9, rarity: "rare", weight: 8, regions: ["rockies", "alps", "tokyo"], speed: 0.8, winter: false, groups: [6, 0, 3, 0],
@@ -537,7 +541,7 @@ export const SPECIES = {
     temper: { wave: 2.4, dig: 1.8, wander: 2, look: 1.2 }, friends: ["gull", "tortoise"] }),
   // ---- local animals, so each region has its own cast (builds are first drafts from the shared parts)
   tanuki: define({ label: "Tanuki", plan: "quad", size: 0.3, rarity: "uncommon", weight: 16, regions: ["tokyo"], worlds: ["nature", "voxel", "city"], speed: 1, active: "night", groups: [4, 5, 3, 0],
-    build: { ...OUTLINE.canid, len: 1.25, leg: 0.42, body: 0.36, neck: 0.16, rise: 0.55, head: 0.22, snout: 0.17, ears: "round", tail: "bushy", tailLen: 0.55, hip: 1.02, extras: ["mask"], foot: "paw", sit: "dog", tailGirth: 1.2, tailRise: -0.4 },
+    build: { ...OUTLINE.canid, taper: RUNNER_TAPER, len: 1.25, leg: 0.42, body: 0.36, neck: 0.16, rise: 0.55, head: 0.22, snout: 0.17, ears: "round", tail: "bushy", tailLen: 0.55, hip: 1.02, extras: ["mask"], foot: "paw", sit: "dog", tailGirth: 1.2, tailRise: -0.4 },
     coats: [["tanuki", ["#8a6c4a", "#4a3828", "#c8b08c", "#1a120c", "#e8dcc4"]], ["winter", ["#9a8060", "#5a4430", "#d8c4a4", "#1e140c", "#f0e6d4"]]],
     temper: { sniff: 2.2, dig: 1.6, eat: 1.4, sleep: 1.4, groom: 1.4, wander: 1.3, look: 1.2, graze: 0, run: 0.4 }, friends: ["crow"] }),
   marmot: define({ label: "Marmot", plan: "quad", size: 0.26, rarity: "uncommon", weight: 18, regions: ["alps", "rockies"], speed: 1, winter: false, groups: [3, 3, 3, 3], pack: [3, 5],
@@ -569,7 +573,7 @@ export const SPECIES = {
     coats: [["kirk", ["#a08468", "#7a6048", "#e8dccb", "#241a12", "#f4ece0"]]],
     temper: { graze: 2.4, look: 2.4, groom: 1, lie: 1.4, run: 0.6, sit: 0, dig: 0, roll: 0 }, friends: ["guineafowl", "songbird"] }),
   guineafowl: define({ label: "Guineafowl", plan: "bird", size: 0.5, rarity: "uncommon", weight: 14, regions: ["nairobi"], speed: 1, groups: [1, 2, 1, 8], pack: [4, 7],
-    build: { ...OUTLINE.galliform, bill: 0.38, len: 1, leg: 0.3, body: 0.3, neck: 0.22, rise: 0.7, head: 0.11, snout: 0.08, ears: "none", tail: "fan", tailLen: 0.2, extras: ["spots", "crown"] },
+    build: { ...OUTLINE.galliform, bill: 0.38, len: 1, leg: 0.3, body: 0.25, neck: 0.24, rise: 0.8, head: 0.1, snout: 0.08, ears: "none", tail: "fan", tailLen: 0.24, extras: ["spots", "crown"] },
     coats: [["helmeted", ["#4a4e5c", "#3a3e4a", "#5e6270", "#101216", "#5a8ae0"]]],
     temper: { peck: 3, wander: 2, look: 1.4, preen: 1, sing: 1, fly: 0.3, hop: 0.3 }, friends: ["dikdik", "mongoose"] }),
   loris: define({ label: "Slow loris", plan: "primate", size: 0.24, rarity: "epic", weight: 6, regions: ["bali"], worlds: ["nature", "beach", "voxel"], speed: 0.15, active: "night", climbs: true, groups: [8, 1, 2, 0],
@@ -2777,7 +2781,7 @@ function pawWork(plan: FootPlan, body: QuadBody, leg: LegId, q: Pose, t: number,
  * knee forward, the hock back); a foreleg's elbow sits behind.
  */
 /** Each foot's radius as a share of the leg's, and the leg's thickness down its two upper bones (root, knee, knee, joint). */
-const SOLE: Readonly<Record<Foot, number>> = { paw: 0.6, hoof: 0.62, plant: 0.55 };
+const SOLE: Readonly<Record<Foot, number>> = { paw: 0.6, hoof: 0.78, plant: 0.55 };
 const LEG_TAPER = { fore: [1.45, 0.95, 0.9, 0.68], hind: [1.95, 1.1, 1.0, 0.62] } as const;
 
 /** Which way a leg's middle joint bends: a knee forward, an elbow back, a folded knee out to the side. */
@@ -2838,7 +2842,7 @@ function lowOf(b: Build, fore: boolean): { share: number; lean: number; upper: n
   return { share: bipedal(b) ? 0.42 : low.hind, lean: low.hindTilt, upper: 0.56, lower: 0.56 };
 }
 
-const taperOf = (b: Build, fore: boolean): readonly [number, number, number, number] => (fore ? b.legMake?.fore ?? LEG_TAPER.fore : b.legMake?.hind ?? LEG_TAPER.hind);
+const taperOf = (b: Build, fore: boolean): readonly [number, number, number, number] => (fore ? b.legMake?.fore ?? b.taper?.fore ?? LEG_TAPER.fore : b.legMake?.hind ?? b.taper?.hind ?? LEG_TAPER.hind);
 
 const softRole = (b: Build): Role => (b.extras.includes("mitts") ? "belly" : b.extras.includes("socks") ? "dark" : "coat");
 
@@ -2933,7 +2937,7 @@ function footParts(kit: Kit, b: Build, name: string, end: Vec, sole: Vec, legR: 
   const toe = madd(sole, [0, 0, 1], plantR * (b.foot === "plant" ? 0.6 : 0.35));
   // (A sole lies flat, heel to toe, so the foot reads from the side.)
   if (b.foot === "plant") cap(kit, `${name}.cannon`, lowRole, end, sole, legR * 0.75, 0.7, UP, { r1: legR * 0.85, melt: 0.4 });
-  else cone(kit, `${name}.cannon`, lowRole, end, sole, legR * 0.62, legR * 0.55, 0.35);
+  else cone(kit, `${name}.cannon`, lowRole, end, sole, legR * (b.taper ? 0.42 : 0.62), legR * (b.taper ? 0.46 : 0.55), 0.35);
   cap(kit, `${name}.paw`, "dark", toe, toe, plantR * (b.foot === "plant" ? 1.25 : 1.35), b.foot === "plant" ? 0.6 : 0.7, UP, { melt: 0.3 });
 }
 
@@ -3088,7 +3092,7 @@ function earOf(kit: Kit, part: string, kind: Ears, h: Head, x: number, back: num
     const dir = unit(add(add(scale(h.u, 1), scale(h.d, -(0.25 + back * 0.8))), scale(h.s, x * 0.3)));
     const len = h.r * (kind === "tuft" ? 0.7 : 0.95) * size;
     // (Pointed: broad at the root, narrowing to the tip.)
-    cap(kit, part, kind === "tuft" ? "alt" : role, root, madd(root, dir, len), h.r * 0.28 * Math.sqrt(size) * base, 0.6, h.d, { r1: h.r * 0.09, melt: 0.6 });
+    cap(kit, part, kind === "tuft" ? "alt" : role, root, madd(root, dir, len), h.r * 0.4 * Math.sqrt(size) * base, 0.34, unit(madd(h.d, h.s, -x * 0.4)), { r1: h.r * 0.06, melt: 0.45 });
   } else if (kind === "cup") cupEar(kit, part, h, x, size);
   else if (kind === "round" || kind === "fluffy" || kind === "rimmed") roundEar(kit, part, kind, h, x, size);
   else if (kind === "long") {
@@ -4866,10 +4870,18 @@ function birdBeak(kit: Kit, who: Who, h: Head, beak: number, mouth: number): voi
   const top = madd(root, h.u, br * 0.26);
   const tip = madd(madd(top, h.d, long), h.u, -(long * bill.hook + br * 0.26));
   const along = unit(sub(tip, top), h.d);
-  cap(kit, "beak", "horn", top, tip, br * 0.76, 1, UP, { r1: br * mix(0.07, 0.3, bill.hook), bow: scale(unit(madd(h.u, along, -dot(h.u, along)), h.u), arch), melt: 0.2 });
+  cap(kit, "beak", "horn", top, tip, br * 0.76, 1, UP, { r1: br * mix(0.07, 0.17, bill.hook), bow: scale(unit(madd(h.u, along, -dot(h.u, along)), h.u), arch), melt: 0.2 });
   const jaw = madd(root, h.u, -br * 0.46);
   const end = madd(madd(jaw, h.d, long * bill.low), h.u, br * 0.28 - long * 0.5 * mouth);
   cap(kit, "beak.lower", "horn", jaw, end, br * 0.5, 1, UP, { r1: br * 0.05, bow: scale(h.u, -long * 0.03), melt: 0.15, shadow: false });
+}
+
+/** A peacock's crest: a fan of bare quills up off its crown, each with a small flag at its tip. */
+function peacockCrest(kit: Kit, h: Head): void {
+  const [a, b] = [at3(h, -0.08, -0.3, 0.8), at3(h, -0.08, 0.3, 0.8)];
+  const reach = add(scale(h.u, h.r * 1.05), scale(h.d, -h.r * 0.2));
+  cap(kit, "crown", "dark", a, b, h.r * 0.04, 1, UP, { row: 4, reach, melt: 0.1, shadow: false });
+  cap(kit, "crown.tip", "accent", add(a, reach), add(b, reach), h.r * 0.13, 1, UP, { row: 4, melt: 0.05, shadow: false });
 }
 
 function birdCrest(kit: Kit, who: Who, h: Head): void {
@@ -4888,7 +4900,7 @@ function birdCrest(kit: Kit, who: Who, h: Head): void {
     }
   }
   if (b.extras.includes("crown")) {
-    if (id === "peacock") for (const x of [-0.4, 0, 0.4]) ball(kit, "crown", "accent", madd(at3(h, -0.1, x, 0.9), h.u, h.r * 0.8), h.r * 0.22);
+    if (id === "peacock") peacockCrest(kit, h);
     else if (id === "guineafowl") {
       // A helmeted guineafowl's bony casque, up and back off its bare blue crown.
       const root = at3(h, -0.1, 0, 0.7);
@@ -5092,32 +5104,25 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
     return;
   }
   const fan = m.pose.fan;
-  for (let i = 0; i < 8; i += 1) {
-    const a = (i / 7 - 0.5) * 2.6;
+  for (let i = 0; i < 6; i += 1) {
+    const a = (i / 5 - 0.5) * 2.6;
     const spread = unit(add(scale(UP, Math.cos(a)), scale([1, 0, 0], Math.sin(a))));
-    const dir = unit(lerpV(dirOf(Math.PI + (i / 7 - 0.5) * 0.3, -0.25), add(spread, [0, 0, -0.25]), fan));
+    const dir = unit(lerpV(dirOf(Math.PI + (i / 5 - 0.5) * 0.3, -0.25), add(spread, [0, 0, -0.25]), fan));
     // (Closed, the middle feathers run longest, so the train comes to a point behind; spread, they make an even fan.)
     const tip = above(madd(body.T, dir, b.tailLen * size * mix(0.62 + 0.38 * Math.cos(a * 1.6), 0.85 + 0.15 * Math.cos(a), fan)), body.r * 0.42);
     // (Each feather narrow at its root and broad toward its end, so the train tapers off the back, not a log.)
-    cap(kit, `train.${String(i)}`, "alt", body.T, tip, body.r * 0.16, 0.18, unit(cross(dir, [0, 0, 1]), UP), { r1: body.r * mix(0.32, 0.46, fan) });
+    cap(kit, `train.${String(i)}`, "alt", body.T, tip, body.r * 0.18, 0.18, unit(cross(dir, [0, 0, 1]), UP), { r1: body.r * mix(0.42, 0.56, fan) });
     if (fan > 0.3) ball(kit, `eyespot.${String(i)}`, "accent", lerpV(body.T, tip, 0.85), body.r * 0.32, 0.3, [0, 0, 1]);
-    // Closed, its eyespots still show down its length in rows.
-    else if (i % 3 === 1) for (const k of [0.62, 0.88]) decal(kit, `eyespot.${String(i)}`, "accent", lerpV(body.T, tip, k), lerpV(body.T, tip, k), body.r * 0.16);
+    // Closed, its eyespots show down each feather, a dark heart in each gold eye.
+    else for (const [role, wide, detail] of [["accent", 0.13, undefined], ["dark", 0.06, 1]] as const) cap(kit, `eyespot.${String(i)}`, role, lerpV(body.T, tip, 0.4 + (i % 2) * 0.08), lerpV(body.T, tip, 0.96), body.r * wide, 1, UP, { row: 4, decal: true, ...(detail === undefined ? {} : { detail }) });
   }
 }
 
-/** Plumage painted on: a guineafowl's white pearl spots all over, a kookaburra's brown mantle over its pale body. */
+/** Plumage painted on: a kookaburra's brown mantle over its pale body. */
 function birdMarks(kit: Kit, who: Who, body: BirdBody): void {
   const id = who.member.species;
   const over: Vec = [0, Math.cos(body.pitch), -Math.sin(body.pitch)];
   if (id === "kookaburra") decal(kit, "mantle", "alt", madd(body.T, over, body.r * 0.75), madd(body.K, over, body.r * 0.6), body.r * 0.62);
-  if (id !== "guineafowl" || !who.spec.build.extras.includes("spots")) return;
-  for (let i = 0; i < 10; i += 1) {
-    const along = lerpV(body.T, body.K, 0.1 + (i % 5) * 0.2);
-    const a = (i < 5 ? 0.55 : -0.55) + (i % 2) * 0.35;
-    const at = madd(madd(along, over, body.r * 0.95 * Math.cos(a)), [1, 0, 0], body.r * 0.95 * Math.sin(a));
-    decal(kit, "spot", "shine", at, at, body.r * 0.24);
-  }
 }
 
 /** The body: a drawn one follows its kind's back and keel, the breast a patch of colour on its front-and-under side (whichever way it is tipped), not a lump. */
@@ -5364,6 +5369,16 @@ function serpentHead(kit: Kit, who: Who, points: readonly Vec[], m: Moment): voi
   if (m.pose.mouth > 0.2 && m.segment.act === "flick") cap(kit, "tongue", "accent", at3(h, 1, 0, -0.1), madd(at3(h, 1, 0, -0.1), hd, h.r * 1.4 * m.pose.mouth), h.r * 0.08);
 }
 
+/** A gecko's foot: five thin toes spread from the wrist, each ending in a round sticky pad. */
+function geckoFoot(kit: Kit, part: string, at: Vec, r0: number, x: number, fore: boolean): void {
+  const flat: Vec = [at[0], r0 * 0.1, at[2]];
+  const lean = fore ? 1 : -0.3;
+  const [a, b] = [add(flat, [-r0 * 0.34, 0, r0 * 0.12 * lean]), add(flat, [r0 * 0.34, 0, r0 * 0.12 * lean])];
+  const reach: Vec = [x * r0 * 0.3, 0, r0 * 0.62 * lean];
+  cap(kit, `${part}.toes`, "coat", a, b, r0 * 0.085, 1, UP, { row: 5, reach, melt: 0.2, shadow: false });
+  cap(kit, `${part}.pads`, "coat", add(a, reach), add(b, reach), r0 * 0.15, 0.6, UP, { row: 5, melt: 0.1, shadow: false, detail: 1 });
+}
+
 function lizardLegs(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void {
   const size = who.member.size;
   const r0 = who.spec.build.body * size;
@@ -5373,7 +5388,9 @@ function lizardLegs(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void
       const leg = `${k}${x < 0 ? "L" : "R"}`;
       const step = footCycle(m.phase - (leg === "FL" || leg === "HR" ? 0 : 0.5), 0.55, 0.55 * bodyStride(who) * m.moving, size * 0.06);
       const foot: Vec = [body[0] + x * size * 0.2, step.y, body[2] + step.z + (k === "F" ? size * 0.05 : -size * 0.03)];
-      limb(kit, `leg.${leg}`, "coat", add(body, [x * r0, 0, 0]), foot, [size * 0.11, size * 0.11], r0 * 0.38, [x, 1, 0], "coat");
+      const wide: Vec = [foot[0] + x * size * 0.1, foot[1], foot[2]];
+      limb(kit, `leg.${leg}`, "coat", add(body, [x * r0 * 0.8, r0 * 0.1, 0]), wide, [size * 0.13, size * 0.13], r0 * 0.27, [x, 1, 0], "coat");
+      geckoFoot(kit, `leg.${leg}`, wide, r0, x, k === "F");
     }
   }
 }
@@ -5439,26 +5456,46 @@ function poseCrab(kit: Kit, who: Who, m: Moment): void {
   const legLen = b.leg * size;
   // Resting, a crab settles its shell down onto the sand.
   const C: Vec = [0, mix(legLen * 0.55, r * 0.45, Math.max(q.sit * 0.6, q.lie)), 0];
-  ball(kit, "body", "coat", C, r, 0.5);
-  ball(kit, "belly", "belly", add(C, [0, -r * 0.2, 0]), r * 0.8, 0.35);
+  // (Its shell wider than long, flat over a low belly, its front edge drawn straight across between the eyes.)
+  cap(kit, "body", "coat", add(C, [-r * 0.5, 0, -r * 0.08]), add(C, [r * 0.5, 0, -r * 0.08]), r * 0.86, 0.46, UP, { melt: 0.3 });
+  cap(kit, "brow", "coat", add(C, [-r * 0.82, r * 0.06, r * 0.5]), add(C, [r * 0.82, r * 0.06, r * 0.5]), r * 0.22, 0.5, UP, { melt: 0.5 });
+  cap(kit, "belly", "belly", add(C, [-r * 0.5, -r * 0.2, 0]), add(C, [r * 0.5, -r * 0.2, 0]), r * 0.66, 0.34, UP, { melt: 0.2 });
   for (const x of [-1, 1]) {
-    const stalk = add(C, [x * r * 0.35, r * 0.3, r * 0.7]);
-    cap(kit, "eyestalk", "coat", stalk, add(stalk, [0, r * 0.45, 0]), r * 0.08);
-    ball(kit, "eye", "pupil", add(stalk, [0, r * 0.5, 0]), r * 0.12);
-    ball(kit, "eye.shine", "shine", add(stalk, [0, r * 0.58, r * 0.06]), r * 0.035);
-    for (let i = 0; i < 3; i += 1) {
-      const z = (i - 1) * r * 0.55;
-      const step = footCycle(m.phase - i / 3 - (x > 0 ? 0.5 : 0), 0.5, 0.5 * bodyStride(who) * m.moving, legLen * 0.3);
-      limb(kit, `leg.${x}.${i}`, "alt", add(C, [x * r * 0.85, 0, z]), [x * (r + legLen * 0.9) + step.z, step.y, z * 1.3], [legLen * 0.6, legLen * 0.6], r * 0.085, [x, 1, 0], "alt", 0.25);
-    }
-    // (A fiddler's one claw is huge, and it is the one it waves.)
-    const fiddler = who.member.coat === "fiddler" ? (x > 0 ? 2.5 : 0.6) : 1;
-    const wave = x > 0 ? q.reach : 0;
-    const claw = add(C, [x * r * 0.9, r * 0.3 + wave * r * 1.5, r * 1.5]);
-    limb(kit, `claw.${x}`, "coat", add(C, [x * r * 0.7, 0, r * 0.6]), claw, [r * 0.8, r * 0.8], r * 0.13 * Math.sqrt(fiddler), [x, 0, 1], "accent", 0.4);
-    ball(kit, "pincer", "coat", claw, r * 0.38 * fiddler, 0.6);
-    ball(kit, "pincer.tip", "accent", add(claw, [0, r * 0.15 * (0.5 + q.hand), r * 0.3 * fiddler]), r * 0.18 * fiddler);
+    const stalk = add(C, [x * r * 0.26, r * 0.2, r * 0.68]);
+    cap(kit, "eyestalk", "coat", stalk, add(stalk, [x * r * 0.04, r * 0.34, r * 0.05]), r * 0.06);
+    ball(kit, "eye", "pupil", add(stalk, [x * r * 0.04, r * 0.4, r * 0.05]), r * 0.1);
+    ball(kit, "eye.shine", "shine", add(stalk, [x * r * 0.04, r * 0.47, r * 0.1]), r * 0.03);
+    crabLegs(kit, C, x, r, legLen, who, m);
+    crabClaw(kit, C, x, r, who.member.coat === "fiddler" ? (x > 0 ? 2.2 : 0.6) : 1, x > 0 ? q.reach : 0, q.hand);
   }
+}
+
+/** Four walking legs down a side, thin and jointed high, each ending in a sharp point on the sand. */
+function crabLegs(kit: Kit, C: Vec, x: number, r: number, legLen: number, who: Who, m: Moment): void {
+  for (let i = 0; i < 4; i += 1) {
+    const z = (i - 1.6) * r * 0.42;
+    const step = footCycle(m.phase - i / 4 - (x > 0 ? 0.5 : 0), 0.5, 0.5 * bodyStride(who) * m.moving, legLen * 0.3);
+    const foot: Vec = [x * (r * 1.25 + legLen * 0.8) + step.z, step.y, z * 1.5];
+    const root = add(C, [x * r * 1.05, -r * 0.05, z]);
+    const { mid, end } = solveTwoBone(root, foot, legLen * 0.62, legLen * 0.62, [x, 1, 0]);
+    cone(kit, `leg.${String(x)}.${String(i)}.upper`, "alt", root, mid, r * 0.1, r * 0.075, 0.2);
+    cap(kit, `leg.${String(x)}.${String(i)}.lower`, "alt", mid, end, r * 0.075, 1, UP, { r1: r * 0.012, melt: 0.1 });
+  }
+}
+
+/** A claw: an arm folded in front of the face, a swollen palm, a fixed finger and a moving one that open and close on each other. (A fiddler's one claw is huge, and it is the one it waves.) */
+function crabClaw(kit: Kit, C: Vec, x: number, r: number, big: number, wave: number, open: number): void {
+  const root = add(C, [x * r * 1.0, 0, r * 0.55]);
+  const palm = add(C, [x * r * 0.86, r * 0.1 + wave * r * 1.5, r * 1.3]);
+  const { mid } = solveTwoBone(root, palm, r * 0.62, r * 0.62, [x, 0, -0.4]);
+  cone(kit, `claw.${String(x)}`, "coat", root, mid, r * 0.14, r * 0.17 * Math.sqrt(big), 0.3);
+  cone(kit, `claw.${String(x)}.wrist`, "coat", mid, palm, r * 0.17 * Math.sqrt(big), r * 0.22 * big, 0.3);
+  const way: Vec = [-x * 0.3, 0, 1];
+  cap(kit, "pincer", "coat", palm, madd(palm, way, r * 0.3 * big), r * 0.25 * big, 0.72, [1, 0, 0], { r1: r * 0.2 * big, melt: 0.3 });
+  const base = madd(palm, way, r * 0.3 * big);
+  const gape = (0.18 + open * 0.3) * r * big;
+  cap(kit, "pincer.tip", "accent", add(base, [0, -r * 0.08 * big, 0]), add(madd(base, way, r * 0.62 * big), [0, -r * 0.05 * big, 0]), r * 0.15 * big, 1, UP, { r1: r * 0.015, bow: [0, -r * 0.05 * big, 0], melt: 0.15 });
+  cap(kit, "pincer.tip", "accent", add(base, [0, r * 0.1 * big, 0]), add(madd(base, way, r * 0.56 * big), [0, gape, 0]), r * 0.12 * big, 1, UP, { r1: r * 0.015, bow: [0, r * 0.06 * big, 0], melt: 0.15 });
 }
 
 // ---------------------------------------------------------------- coats and rare morphs
@@ -6329,6 +6366,7 @@ type PatternSpec = readonly [CoatPattern["kind"], Role, number, number, (string 
  */
 const PATTERNS: Partial<Record<SpeciesId, PatternSpec>> = {
   macaque: ["dapple", "alt", 0.24, 0.16], monkey: ["dapple", "alt", 0.2, 0.14],
+  guineafowl: ["spots", "shine", 0.022, 1],
   hedgehog: ["tips", "belly", 1, 1], sloth: ["dapple", "alt", 0.2, 0.36, "#5e7038"], owl: ["bars", "alt", 0.07, 0.5], snake: ["spots", "alt", 0.035, 0.45], cat: ["dapple", "alt", 0.3, 0.08], raccoon: ["grizzle", "alt", 0.035, 1],
 };
 const COAT_PATTERNS: Readonly<Record<string, PatternSpec>> = {
@@ -7074,6 +7112,87 @@ function commandTroupes(troupes: readonly Troupe[], t: number, order: Order, sta
   return sent;
 }
 
+// ---------------------------------------------------------------- collision
+
+/** A circle on the ground, in world x and z. */
+export interface Ring { readonly x: number; readonly z: number; readonly r: number }
+/** What an animal takes up on the ground: rings along its trunk, and how hard it is to move. */
+export interface Footprint { readonly rings: readonly Ring[]; readonly weight: number; readonly team: number; readonly self: number; readonly faces: number }
+
+const SHOVE_PASSES = 4;
+
+/** Animals that have turned to each other (a sniff, a groom, a nose to a nose) may come this much closer, their trunks still apart. */
+const SNUG = 0.5;
+const TOUCH_ACTS: readonly Action[] = ["groom", "nuzzle", "play", "sniff"];
+const greeting = (a: Footprint, b: Footprint): boolean => a.team === b.team && (a.faces === b.self || b.faces === a.self);
+
+/** How far ring `a` lies inside ring `b`, each carried by its animal's shove so far, and the way out of it. */
+function overlapOf(a: Ring, at: readonly [number, number], b: Ring, bt: readonly [number, number], tie: number, room: number): { gap: number; x: number; z: number } {
+  const dx = a.x + at[0] - b.x - bt[0];
+  const dz = a.z + at[1] - b.z - bt[1];
+  const d = Math.hypot(dx, dz);
+  // (Dead on top of each other, they part by their places in the cast, never by chance.)
+  return d > 1e-6 ? { gap: (a.r + b.r) * room - d, x: dx / d, z: dz / d } : { gap: (a.r + b.r) * room, x: Math.cos(tie), z: Math.sin(tie) };
+}
+
+/**
+ * How far each animal is pushed so that none stands in another: the lighter
+ * gives way more. A function of where they stand now and nothing else, so it
+ * eases in as they close, and is the same at any frame rate.
+ */
+export function shoveApart(prints: readonly (Footprint | null)[]): (readonly [number, number])[] {
+  const shove = prints.map((): [number, number] => [0, 0]);
+  const pushPair = (i: number, j: number): void => {
+    const [a, b] = [prints[i], prints[j]];
+    const [at, bt] = [shove[i], shove[j]];
+    if (!a || !b || !at || !bt) return;
+    const room = greeting(a, b) ? SNUG : 1;
+    for (const ra of a.rings) for (const rb of b.rings) {
+      const { gap, x, z } = overlapOf(ra, at, rb, bt, i + j * 2.4, room);
+      if (gap <= 0) continue;
+      const share = b.weight / (a.weight + b.weight);
+      at[0] += x * gap * share; at[1] += z * gap * share;
+      bt[0] -= x * gap * (1 - share); bt[1] -= z * gap * (1 - share);
+    }
+  };
+  for (let pass = 0; pass < SHOVE_PASSES; pass += 1) for (let i = 0; i < prints.length; i += 1) for (let j = i + 1; j < prints.length; j += 1) pushPair(i, j);
+  return shove;
+}
+
+/** An animal's footprint, from the thick parts of its body as posed; none while it is off the ground. */
+function footprintOf(actor: Actor, m: Moment, capsules: readonly Capsule[], team: number): Footprint | null {
+  if (m.mode === "fly" || m.mode === "climb" || m.segment.from.on !== "ground" || m.segment.to.on !== "ground") return null;
+  const thick = capsules.filter((c) => c.decal !== true && c.carve !== true);
+  const most = thick.reduce((high, c) => Math.max(high, c.r), 0);
+  if (most <= 0) return null;
+  const { o, z } = m.frame;
+  const along = thick.filter((c) => c.r >= most * 0.6).flatMap((c) => [dot(sub(c.a, o), z), dot(sub(c.b, o), z)]);
+  const r = most * 1.25;
+  const ring = (k: number): Ring => ({ x: o[0] + z[0] * k, z: o[2] + z[2] * k, r });
+  const [low, high] = [Math.min(...along), Math.max(...along)];
+  // (A ring in the middle too: two bodies lying head to tail would have their ends push equally both ways, and stay put.)
+  return { rings: high - low > r ? [ring(low + r * 0.5), ring((low + high) / 2), ring(high - r * 0.5)] : [ring((low + high) / 2)], weight: actor.member.size * actor.member.size, team, self: actor.index, faces: TOUCH_ACTS.includes(m.segment.act) ? m.segment.face : -1 };
+}
+
+/** A whole posed body moved along the ground. */
+function shoved(m: Moment, capsules: Capsule[], [x, z]: readonly [number, number]): { m: Moment; capsules: Capsule[] } {
+  if (x === 0 && z === 0) return { m, capsules };
+  const by: Vec = [x, 0, z];
+  return { m: { ...m, frame: { ...m.frame, o: add(m.frame.o, by) } }, capsules: capsules.map((c) => ({ ...c, a: add(c.a, by), b: add(c.b, by) })) };
+}
+
+interface Posed { readonly id: string; readonly actor: Actor; readonly m: Moment; readonly capsules: Capsule[]; readonly scene: Scene }
+
+/** Everyone as posed, pushed clear of each other and made into bodies. */
+function settledBodies(posed: readonly Posed[], prints: readonly (Footprint | null)[]): Body[] {
+  const shoves = shoveApart(prints);
+  return posed.map(({ id, actor, m, capsules, scene }, i) => {
+    const moved = shoved(m, capsules, shoves[i] ?? [0, 0]);
+    actor.pos = moved.m.frame.o;
+    return bodyOf(id, actor, moved.m, moved.capsules, scene);
+  });
+}
+
 /** The scene's living cast: call `at` every frame with the stage, and `sky` for what flies over. */
 export function createHerd(cast: Cast): Herd {
   let troupes: Troupe[] | null = null;
@@ -7094,7 +7213,8 @@ export function createHerd(cast: Cast): Herd {
     cast,
     at(t: number, stage: Stage): Body[] {
       troupes ??= troupesOf(cast, stage, pantry);
-      const out: Body[] = [];
+      const posed: Posed[] = [];
+      const prints: (Footprint | null)[] = [];
       troupes.forEach((troupe, g) => {
         extend(troupe, t + 1, { stage, backs: troupe.actors.map((actor) => actor.back) });
         for (const actor of troupe.actors) {
@@ -7105,10 +7225,11 @@ export function createHerd(cast: Cast): Herd {
           actor.back = backOf(capsules);
           // (Fireflies are only seen when they light up, after dark.)
           if (actor.spec.active === "night" && actor.spec.plan === "bug" && stage.night !== true) continue;
-          out.push(bodyOf(`${g}.${actor.index}`, actor, m, capsules, { stage, backs: troupe.actors.map((a) => a.back) }));
+          posed.push({ id: `${g}.${actor.index}`, actor, m, capsules, scene: { stage, backs: troupe.actors.map((a) => a.back) } });
+          prints.push(footprintOf(actor, m, capsules, g));
         }
       });
-      return out;
+      return settledBodies(posed, prints);
     },
     sky(t: number, now: SkyNow = {}): Body[] {
       const reach = now.radius ?? 1;

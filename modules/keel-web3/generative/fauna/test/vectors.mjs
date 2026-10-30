@@ -485,4 +485,19 @@ export default [
     },
     expect: ['crow', true, true],
   },
+  {
+    name: 'animals on the ground never stand in one another: the lighter gives way, a pair greeting may come closer but never through, and the same places always part the same way',
+    run: ({ shoveApart }) => {
+      const at = (x, weight, self, faces = -1, team = 0) => ({ rings: [{ x, z: 0, r: 1 }], weight, team, self, faces });
+      const [a, b] = shoveApart([at(0, 1, 0), at(1, 1, 1)]);
+      const [big, small] = shoveApart([at(0, 9, 0), at(1, 1, 1)]);
+      const greeting = shoveApart([at(0, 1, 0, 1), at(1, 1, 1)]);
+      const strangers = shoveApart([at(0, 1, 0, 1, 0), at(1, 1, 1, -1, 1)]);
+      const through = shoveApart([at(0, 1, 0, 1), at(0.2, 1, 1)]);
+      const clear = shoveApart([at(0, 1, 0), at(5, 1, 1), null]);
+      const stacked = shoveApart([at(0, 1, 0), at(0, 1, 1)]);
+      return [Math.round((b[0] - a[0] + 1) * 100) / 100, Math.abs(big[0]) < Math.abs(small[0]), greeting[0][0], through[0][0] !== 0, strangers[0][0] !== 0, clear[1][0], Math.hypot(stacked[0][0] - stacked[1][0], stacked[0][1] - stacked[1][1]) > 1.9];
+    },
+    expect: [2, true, 0, true, true, 0, true],
+  },
 ];

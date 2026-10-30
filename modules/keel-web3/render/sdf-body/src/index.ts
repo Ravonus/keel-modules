@@ -1266,7 +1266,8 @@ void main() {
     if (d < max(eps, px * t * 0.35)) { hit = true; break; }
     float gap = d / max(t, eps);
     if (gap < near) { near = gap; nearT = t; }
-    t += d * stride;
+    // (Never under half a pixel: a ray grazing one part must still reach what lies behind it, not spend its steps there.)
+    t += max(d * stride, px * t * 0.5);
     if (t > tf) break;
   }
   // (Steps run out grazing a thin part: within a pixel of it is on it.)

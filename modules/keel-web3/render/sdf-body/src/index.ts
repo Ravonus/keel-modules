@@ -1000,6 +1000,8 @@ float partThickness(int i) {
 }
 // Part i melted into the surface so far by its own share of the melt; h is its share.
 float melt(int i, float m, float d, float di, out float h) {
+  // (Nothing yet: a driver may take mix(x, y, 1) as x + (y - x), and at this size that rounds to nought, a hit filling the box.)
+  if (d > 1e8) { h = 1.0; return di; }
   float k = max(min(uK * m, (uA[i].w + uU[i].w) * 0.4), 1e-6);
   h = clamp(0.5 + 0.5 * (d - di) / k, 0.0, 1.0);
   return mix(d, di, h) - k * h * (1.0 - h);

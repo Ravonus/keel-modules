@@ -35,13 +35,15 @@ export interface Settings {
   readonly shafts: number;
   /** Shells of marine snow. */
   readonly snow: number;
+  /** The share of the surf's spray drawn, from 0 to 1. */
+  readonly spray: number;
 }
 
 const LEVELS: Readonly<Record<Level, Settings>> = {
-  low: { level: "low", renderScale: 0.7, upscale: false, reflectSteps: 0, shadowSteps: 0, traceFar: 0, traceNear: 0, casters: 0, shafts: 4, snow: 2 },
-  medium: { level: "medium", renderScale: 0.75, upscale: true, reflectSteps: 14, shadowSteps: 10, traceFar: 70, traceNear: 60, casters: 8, shafts: 8, snow: 4 },
-  high: { level: "high", renderScale: 0.8, upscale: true, reflectSteps: 28, shadowSteps: 20, traceFar: 140, traceNear: 140, casters: 16, shafts: 16, snow: 6 },
-  ultra: { level: "ultra", renderScale: 1, upscale: true, reflectSteps: 48, shadowSteps: 32, traceFar: 260, traceNear: 260, casters: 32, shafts: 24, snow: 6 },
+  low: { level: "low", renderScale: 0.7, upscale: false, reflectSteps: 0, shadowSteps: 0, traceFar: 0, traceNear: 0, casters: 0, shafts: 4, snow: 2, spray: 0.25 },
+  medium: { level: "medium", renderScale: 0.75, upscale: true, reflectSteps: 14, shadowSteps: 10, traceFar: 70, traceNear: 60, casters: 8, shafts: 8, snow: 4, spray: 0.5 },
+  high: { level: "high", renderScale: 0.8, upscale: true, reflectSteps: 28, shadowSteps: 20, traceFar: 140, traceNear: 140, casters: 16, shafts: 16, snow: 6, spray: 0.8 },
+  ultra: { level: "ultra", renderScale: 1, upscale: true, reflectSteps: 48, shadowSteps: 32, traceFar: 260, traceNear: 260, casters: 32, shafts: 24, snow: 6, spray: 1 },
 };
 
 const TIER_LEVELS: Readonly<Record<Tier, Level>> = { low: "low", mid: "medium", high: "high" };
@@ -70,13 +72,14 @@ export function settingsAt(settings: Settings, place: Place): Settings {
   const open = place.clearance > PLAIN;
   if (place.under) {
     // No sand within sight of the deep; down here light is in the water, not on the ground.
-    return { ...settings, shadowSteps: open ? 0 : settings.shadowSteps, snow: settings.snow };
+    return { ...settings, shadowSteps: open ? 0 : settings.shadowSteps, spray: 0 };
   }
   const high = clampShare(place.height / 120);
   return {
     ...settings,
     shafts: 0,
     snow: 0,
+    spray: settings.spray * (1 - high),
     reflectSteps: Math.round(settings.reflectSteps * (1 - high * 0.6)),
     casters: open ? 0 : settings.casters,
   };
@@ -97,12 +100,15 @@ export interface QualityInput {
   readonly tracing?: boolean;
   /** Rebuilding the image from past frames, on by default where the level has it. */
   readonly upscale?: boolean;
+  /** Whether the surf throws spray. */
+  readonly spray?: boolean;
 }
 
 /** What can be switched while running. */
 export interface Switches {
   readonly tracing?: boolean;
   readonly upscale?: boolean;
+  readonly spray?: boolean;
   readonly level?: Level;
 }
 
@@ -119,7 +125,9 @@ export interface Quality {
   readonly tracing: boolean;
   /** Whether upscaling is on. */
   readonly upscale: boolean;
-  /** Turns tracing or upscaling on or off, or changes level, at once. */
+  /** Whether the surf throws spray. */
+  readonly spray: boolean;
+  /** Turns tracing, upscaling or spray on or off, or changes level, at once. */
   set(switches: Switches): void;
 }
 
@@ -145,6 +153,7 @@ export function createQuality(input: QualityInput = {}): Quality {
   let settings = LEVELS[level];
   let tracing = input.tracing ?? true;
   let upscale = input.upscale ?? true;
+  let spray = input.spray ?? true;
   const target = input.target ?? 1000 / 60;
   const floorOf = (): number => Math.min(input.floor ?? 0.5, settings.renderScale);
   let scale = settings.renderScale;
@@ -155,9 +164,11 @@ export function createQuality(input: QualityInput = {}): Quality {
     get scale() { return scale; },
     get tracing() { return tracing; },
     get upscale() { return upscale; },
+    get spray() { return spray; },
     set(switches) {
       tracing = switches.tracing ?? tracing;
       upscale = switches.upscale ?? upscale;
+      spray = switches.spray ?? spray;
       if (switches.level === undefined || switches.level === level) return;
       level = switches.level;
       settings = LEVELS[level];
@@ -166,7 +177,7 @@ export function createQuality(input: QualityInput = {}): Quality {
     },
     at(place) {
       const here = settingsAt(settings, place);
-      return { ...(tracing ? here : withoutRays(here)), upscale: upscale && settings.upscale, renderScale: upscale && settings.upscale ? scale : Math.max(scale, 1 - (1 - scale) / 2) };
+      return { ...(tracing ? here : withoutRays(here)), spray: spray ? here.spray : 0, upscale: upscale && settings.upscale, renderScale: upscale && settings.upscale ? scale : Math.max(scale, 1 - (1 - scale) / 2) };
     },
     frame(milliseconds) {
       smoothed += (milliseconds - smoothed) * SMOOTH_TIME;

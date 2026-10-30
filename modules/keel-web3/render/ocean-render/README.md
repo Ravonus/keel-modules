@@ -55,13 +55,20 @@ keel/lit is injected, and the module never imports it.
   upscaler, not DLSS, so it runs on any GPU.
 - **Shore and tide.** `draw`'s `level` moves the water, and the waterline, breakers
   and wet sand move with it. Use `tideOn` for a clock or `tideAt` for the real moon.
+- **Breakers.** Near the eye the mesh is moved by `surfThrow`, so a crest folds over
+  its own face and curls. Past 90 m a breaker only lifts.
+- **Spray.** Drops are thrown by `surfBurst` from a grid that wraps round the eye.
+  Each drop's whole flight is worked out in its vertex shader, so nothing is stored.
+- **Wet sand.** The water pushes a wet line up the sand at once, and it falls by
+  itself at `dryTime`. This line is the only thing here that remembers past frames.
 
 ## Options
 
 `createOcean(lit, options)`: `sea`, `absorption`, `scatter`, `level` (the tide;
 `draw`'s light can also move it), `size` (across the seabed), `colorAt` (the
 ground's colour: `generative/beach`'s fits), `exposure` and `quality`
-(`render/quality`'s `createQuality`, which holds the on and off switches).
+(`render/quality`'s `createQuality`, which holds the on and off switches) and
+`dryTime` (seconds wet sand takes to dry a metre, default 3600).
 
 The ground under `sea.seabedAt` is baked once into a 256-cell map across `size`,
 so waves shoal over any ground, including a `generative/beach` shore.
@@ -75,8 +82,7 @@ so waves shoal over any ground, including a `generative/beach` shore.
   not yet feed `voxel-dither`.
 - The sky is a two-colour gradient and a sun, not `world-light`'s sky.
 - The ground is one fixed mesh that ends at `size`, with nothing past it.
-- Breakers change the water's height and foam, but do not curl over. Spray is not drawn.
-- The wet band follows the current tide at once, with no slow drying.
+- `sea.surfaceAt` answers for the water's height at a place, so it does not follow a thrown lip.
 
 ## Preview
 
@@ -84,7 +90,7 @@ so waves shoal over any ground, including a `generative/beach` shore.
 node modules/keel-web3/render/ocean-render/tools/serve.mjs
 ```
 
-It serves `http://localhost:4197`. Add `?view=school|shark|jelly|window|surf|shore|beach|above`, `&quality=low|medium|high|ultra`, `&tide=low|mid|high` and
+It serves `http://localhost:4197`. Add `?view=school|shark|jelly|window|surf|break|shore|beach|above`, `&quality=low|medium|high|ultra`, `&tide=low|mid|high` and
 `&t=30` to hold a moment. It needs a sibling `keel-engine` checkout for keel/lit
 (or `KEEL_ENGINE`).
 

@@ -4,6 +4,17 @@ const deep = { under: true, depth: 30, height: 0, clearance: 60 };
 
 export default [
   {
+    name: "spray is on the shore, not under the water, and switches off",
+    run: ({ createQuality }) => {
+      const quality = createQuality({ level: "high" });
+      const before = quality.at(shore).spray;
+      const under = quality.at(deep).spray;
+      quality.set({ spray: false });
+      return [before, under, quality.at(shore).spray];
+    },
+    expect: [0.8 * (1 - 2 / 120), 0, 0],
+  },
+  {
     name: "auto takes its level from the device",
     run: ({ createQuality }) => ["low", "mid", "high"].map((tier) => createQuality({ tier }).level),
     expect: ["low", "medium", "high"],

@@ -153,15 +153,39 @@ uniform float uShore, uWind;
 float depthAt(vec2 p) { return uShore - groundAt(p); }
 // As generative/ocean's surfAt.
 float slant(vec2 p) { return sin(p.x * 0.021 + p.y * 0.033) * 0.9 + sin(p.x * 0.0071 - p.y * 0.011 + 1.3) * 1.3; }
-float surfSaw(float depth, vec2 p) { return fract((0.69813 * uTime + 9.0 * sqrt(max(depth, 0.0)) + slant(p)) / 6.283185); }
+float sawAt(float depth, vec2 p, float time) { return fract((0.69813 * time + 9.0 * sqrt(max(depth, 0.0)) + slant(p)) / 6.283185); }
+float surfSaw(float depth, vec2 p) { return sawAt(depth, p, uTime); }
 float surfBuild(float depth) { return smoothstep(0.0, 1.0, clamp((4.5 - depth) / 3.0, 0.0, 1.0)) * smoothstep(0.0, 1.0, clamp((depth - 0.15) / 0.7, 0.0, 1.0)); }
-float surfSets(vec2 p) { return 0.72 + 0.28 * sin(uTime * 0.09 + slant(p)); }
+float setsAt(vec2 p, float time) { return 0.72 + 0.28 * sin(time * 0.09 + slant(p)); }
+float surfSets(vec2 p) { return setsAt(p, uTime); }
 float surfLift(float depth, vec2 p) {
   float saw = surfSaw(depth, p);
   float front = pow(1.0 - saw, 3.0) * clamp(saw / 0.05, 0.0, 1.0);
   float swash = sin(0.69813 * uTime + slant(p) - 1.1) * 0.5 + 0.5;
   float shore = smoothstep(0.0, 1.0, clamp((1.4 - depth) / 1.1, 0.0, 1.0));
-  return (0.14 * uWind * front * surfBuild(depth) + 0.07 * uWind * swash * shore) * surfSets(p);
+  return (0.18 * uWind * front * surfBuild(depth) + 0.07 * uWind * swash * shore) * surfSets(p);
+}
+// As generative/ocean's surfThrow.
+float surfThrow(float depth, vec2 p) {
+  float saw = surfSaw(depth, p);
+  float lip = smoothstep(0.0, 0.09, saw) * (1.0 - smoothstep(0.09, 0.3, saw));
+  float breaking = smoothstep(3.0, 1.5, depth) * smoothstep(0.35, 0.85, depth);
+  return 0.22 * uWind * lip * breaking * surfSets(p);
+}
+// As generative/ocean's surfBurst.
+float surfBurst(float depth, vec2 p, float time) {
+  float landing = smoothstep(1.9, 1.0, depth) * smoothstep(0.2, 0.6, depth);
+  return landing * (1.0 - smoothstep(0.0, 0.18, sawAt(depth, p, time))) * setsAt(p, time);
+}
+// Which way is up the shore here.
+vec2 shoreward(vec2 p) {
+  vec2 slope = vec2(groundAt(p + vec2(1.5, 0.0)) - groundAt(p - vec2(1.5, 0.0)), groundAt(p + vec2(0.0, 1.5)) - groundAt(p - vec2(0.0, 1.5)));
+  return slope / max(length(slope), 1e-4);
+}
+// All a breaker moves water by: up the shore, and up.
+vec3 breaker(vec2 p, float depth, vec2 along) {
+  float thrown = surfThrow(depth, p);
+  return vec3(along.x * thrown, surfLift(depth, p), along.y * thrown);
 }
 // As generative/ocean's shoalOf.
 float shoal(float k, float depth) {
@@ -299,7 +323,7 @@ uniform mat4 uProjInv, uCamWorld;
 uniform vec3 uEye;
 uniform float uTime;
 uniform int uShafts, uSnow;
-uniform float uWet;
+uniform float uWet, uRunUp;
 ${WATER_LIGHT}
 ${GROUND}
 ${TRACE}
@@ -344,6 +368,14 @@ float snow(vec3 eye, vec3 dir, float end) {
   }
   return sum;
 }
+// Sand the water has left: dark up to the highest line it reached, and a mirror where the last swash ran.
+vec3 wetSand(vec3 col, vec3 p, vec3 dir) {
+  float top = uWet + 0.05 * sin(p.x * 0.37 + sin(p.z * 0.53) * 2.0) + 0.02 * sin(p.x * 1.7 + p.z * 1.3);
+  float wet = smoothstep(top, top - 0.12, p.y);
+  float fresh = smoothstep(uRunUp + 0.12, uRunUp - 0.5, p.y);
+  float fresnel = 0.02 + 0.98 * pow(1.0 - abs(dir.y), 5.0);
+  return mix(col * (1.0 - 0.32 * wet - 0.2 * fresh), skyColor(reflect(dir, vec3(0.0, 1.0, 0.0))) * vec3(0.8, 0.76, 0.7), fresh * fresnel * 0.5);
+}
 void main() {
   float d = texture2D(uDepth, vUv).r;
   bool far = d >= 1.0;
@@ -354,8 +386,7 @@ void main() {
   float dist = far ? FAR : length(ray);
   vec3 dir = normalize(ray);
   vec3 col = far ? skyColor(dir) : texture2D(uColor, vUv).rgb;
-  // Sand the water has just left stays dark, up to the top of the last swash.
-  if (!far) col *= 1.0 - 0.5 * smoothstep(uWet, uWet - 0.3, (eye + dir * dist).y);
+  if (!far) col = wetSand(col, eye + dir * dist, dir);
   float sun = far ? 1.0 : sunlit(eye + dir * dist + vec3(0.0, 0.15, 0.0));
   if (!far) col *= 0.42 + 0.58 * sun;
   float toPlane = abs(dir.y) > 1e-4 ? (uLevel - eye.y) / dir.y : FAR * 2.0;
@@ -389,13 +420,16 @@ ${WAVE_MATHS}
 varying vec2 vRest;
 varying vec3 vWorld;
 varying float vDepth;
+varying vec2 vAlong;
 uniform float uLevel;
 void main() {
   vec2 rest = position.xz + cameraPosition.xz;
   float dist = length(position.xz);
   vRest = rest;
   vDepth = depthAt(rest);
-  vWorld = displaced(rest, dist, max(vDepth, 0.0)) + vec3(0.0, uLevel + surfLift(vDepth, rest), 0.0);
+  // A lip needs the mesh's fine rings, so far off a breaker only lifts.
+  vAlong = vDepth < 3.5 ? shoreward(rest) * smoothstep(90.0, 45.0, dist) : vec2(0.0);
+  vWorld = displaced(rest, dist, max(vDepth, 0.0)) + breaker(rest, vDepth, vAlong) + vec3(0.0, uLevel, 0.0);
   gl_Position = projectionMatrix * viewMatrix * vec4(vWorld, 1.0);
 }
 `;
@@ -407,6 +441,7 @@ ${TRACE}
 varying vec2 vRest;
 varying vec3 vWorld;
 varying float vDepth;
+varying vec2 vAlong;
 uniform sampler2D uDepth, uBelow;
 uniform vec2 uRes;
 uniform float uTraceNear;
@@ -426,9 +461,10 @@ void main() {
   if (vDepth < 6.0 && dist < 240.0) {
     vec2 ex = vRest + vec2(0.35, 0.0);
     vec2 ez = vRest + vec2(0.0, 0.35);
-    float here = surfLift(vDepth, vRest);
-    n.x -= (surfLift(depthAt(ex), ex) - here) / 0.35;
-    n.z -= (surfLift(depthAt(ez), ez) - here) / 0.35;
+    vec3 here = breaker(vRest, vDepth, vAlong);
+    vec3 across = vec3(0.35, 0.0, 0.0) + breaker(ex, depthAt(ex), vAlong) - here;
+    vec3 along = vec3(0.0, 0.0, 0.35) + breaker(ez, depthAt(ez), vAlong) - here;
+    n += normalize(cross(along, across)) - vec3(0.0, 1.0, 0.0);
   }
   n = normalize(n);
   bool under = uUnder > 0.5;
@@ -455,19 +491,84 @@ void main() {
   float foam = smoothstep(0.32, 0.62, 1.0 - n.y + vWorld.y * 0.06) * (0.5 + 0.5 * sin(vRest.x * 5.0 + sin(vRest.y * 4.0 + uTime)));
   // Surf: broken water where the depth runs out, the short waves' energy going into it.
   float lace = 0.5 + 0.5 * sin(vRest.x * 2.3 + sin(vRest.y * 2.9 + uTime * 0.5) * 2.0 + sin(vRest.y * 0.9 - vRest.x * 1.1 - uTime * 0.4) * 3.0);
+  float grain = 0.5 + 0.5 * sin(vRest.x * 7.3 + sin(vRest.y * 6.1 + uTime * 1.3) * 2.0) * sin(vRest.y * 8.7 - vRest.x * 2.1 - uTime);
   float saw = surfSaw(vDepth, vRest);
-  float crest = (1.0 - smoothstep(0.1, 0.42, saw) * (0.6 + 0.4 * lace)) * surfBuild(vDepth) * surfSets(vRest);
-  float spent = smoothstep(2.2, 0.5, vDepth) * smoothstep(0.55, 0.05, saw) * lace;
-  float edge = smoothstep(0.2, 0.03, vWorld.y - groundAt(vRest)) * (0.45 + 0.55 * lace);
-  foam = max(foam, clamp(max(crest * 1.6, max(spent * 0.8, edge)), 0.0, 1.0));
+  float build = surfBuild(vDepth) * surfSets(vRest);
+  // The face stays glass until it has fallen: white runs along the lip, then fills the bore behind it.
+  float crown = smoothstep(0.03, 0.07, saw) * (1.0 - smoothstep(0.07, 0.17, saw));
+  float fallen = smoothstep(2.4, 1.2, vDepth);
+  float face = mix(smoothstep(0.0, 0.05, saw), 1.0, smoothstep(1.2, 0.7, vDepth));
+  float bore = face * (1.0 - smoothstep(0.05, 0.3 + 0.3 * lace, saw)) * fallen;
+  float spent = smoothstep(2.2, 0.5, vDepth) * smoothstep(0.55, 0.05, saw) * 0.7;
+  float edge = smoothstep(0.2, 0.03, vWorld.y - groundAt(vRest));
+  float white = max(max(crown, bore) * build, max(spent, edge));
+  foam = max(foam, smoothstep(0.3, 0.62, white + (lace - 0.5) * 0.5 + (grain - 0.5) * 0.4) * step(0.02, white));
   float body = (0.1 + 0.2 * smoothstep(0.0, 5.0, vDepth)) + foam * 0.7;
-  vec3 lit = uScatter * uSunCol * (0.2 + 0.5 * max(n.x * uSunDir.x + n.z * uSunDir.z + 0.2, 0.0)) + vec3(0.9) * foam;
+  // Sun coming through the thin water of the face.
+  float glass = smoothstep(0.07, 0.0, saw) * build * (1.0 - foam);
+  vec3 lit = uScatter * uSunCol * (0.2 + 0.5 * max(n.x * uSunDir.x + n.z * uSunDir.z + 0.2, 0.0) + 1.3 * glass) + vec3(0.9) * foam;
   // The water bends what lies under it: look it up where the bent ray lands.
   vec3 below = texture2D(uBelow, uv + n.xz * 0.05 / (1.0 + dist * 0.04)).rgb;
   vec3 col = mix(mix(below, lit, clamp(body, 0.0, 1.0)), sky, fresnel) + uSunCol * glitter * max(0.0, 1.0 - foam);
   // Foam is white water on top of it all: bright by day whatever the angle.
-  col = mix(col, (uSunCol * 0.22 + uZenith * 0.5), foam);
+  float shade = 0.66 + 0.34 * max(dot(n, uSunDir), 0.0) + (grain - 0.5) * 0.14;
+  col = mix(col, (uSunCol * 0.22 + uZenith * 0.5) * shade, foam);
   gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+const SPRAY_VERTEX = /* glsl */ `
+${WAVE_MATHS}
+attribute vec2 aCell;
+uniform float uLevel, uSprayShare;
+varying vec2 vUv;
+varying float vLeft;
+vec3 hash3(vec3 p) {
+  p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+  p += dot(p, p.yxz + 33.33);
+  return fract((p.xxy + p.yxx) * p.zyx);
+}
+// A cell that has nothing to throw this moment draws nothing.
+void skip() { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); }
+void main() {
+  // The grid of cells wraps round the eye, and each cell keeps its numbers wherever the eye is.
+  vec2 cell = aCell + SPRAY_GRID * floor((cameraPosition.xz / SPRAY_CELL - aCell) / SPRAY_GRID + 0.5);
+  vec3 own = hash3(vec3(cell, 1.0) + 512.0);
+  vUv = position.xy + 0.5;
+  vLeft = 0.0;
+  if (own.z > uSprayShare) { skip(); return; }
+  // Each drop lives again and again, thrown from wherever the surf was crashing when it was born.
+  float life = 0.9 + own.x * 0.9;
+  float round_ = floor((uTime + own.y * 97.0) / life);
+  float born = round_ * life - own.y * 97.0;
+  float age = uTime - born;
+  vec3 toss = hash3(vec3(cell, round_) + 7.0);
+  vec2 from = (cell + toss.xy) * SPRAY_CELL;
+  float burst = surfBurst(depthAt(from), from, born);
+  if (burst < 0.3) { skip(); return; }
+  vec2 along = shoreward(from);
+  vec2 drift = along * (1.0 + 3.0 * toss.y) + vec2(toss.z - 0.5, toss.x - 0.5) * 1.5;
+  float rise = (0.5 + 0.5 * toss.z) * uWind * 0.8 * burst;
+  float height = uLevel + 0.14 * uWind + rise * age - 4.2 * age * age;
+  float size = (0.1 + 0.26 * toss.x * toss.x) * (1.0 + age * 3.0) * (0.5 + burst);
+  vec4 view = viewMatrix * vec4(from.x + drift.x * age, height, from.y + drift.y * age, 1.0);
+  view.xy += position.xy * size;
+  vLeft = burst * smoothstep(0.0, 0.08, age) * pow(1.0 - age / life, 1.5);
+  gl_Position = projectionMatrix * view;
+}
+`;
+
+const SPRAY_FRAGMENT = /* glsl */ `
+varying vec2 vUv;
+varying float vLeft;
+uniform sampler2D uDepth;
+uniform vec2 uRes;
+uniform vec3 uSunCol, uZenith;
+void main() {
+  if (texture2D(uDepth, gl_FragCoord.xy / uRes).r < gl_FragCoord.z) discard;
+  vec2 q = vUv * 2.0 - 1.0;
+  float soft = 1.0 - smoothstep(0.1, 1.0, length(q));
+  gl_FragColor = vec4(uSunCol * 0.26 + uZenith * 0.55, soft * min(vLeft * 1.1, 0.7));
 }
 `;
 
@@ -634,6 +735,8 @@ export interface OceanOptions {
   /** The ground's colour, linear RGB, at a place on it: `generative/beach`'s `colorAt` fits. */
   readonly colorAt?: (x: number, y: number, z: number) => Vec;
   readonly exposure?: number;
+  /** Seconds wet sand takes to dry a metre down from the highest line the water reached. */
+  readonly dryTime?: number;
   /** `render/quality`'s createQuality, or anything answering the same. The default is steady high settings. */
   readonly quality?: QualityLike;
 }
@@ -649,6 +752,8 @@ export interface OceanSettings {
   readonly casters: number;
   readonly shafts: number;
   readonly snow: number;
+  /** The share of the surf's spray drawn, from 0 to 1. */
+  readonly spray?: number;
 }
 
 /** Where the camera is, for a quality to judge. */
@@ -664,7 +769,7 @@ export interface QualityLike {
   frame(milliseconds: number): void;
 }
 
-const STEADY: OceanSettings = { renderScale: 0.8, upscale: true, reflectSteps: 28, shadowSteps: 20, traceFar: 140, traceNear: 140, casters: 16, shafts: 16, snow: 6 };
+const STEADY: OceanSettings = { renderScale: 0.8, upscale: true, reflectSteps: 28, shadowSteps: 20, traceFar: 140, traceNear: 140, casters: 16, shafts: 16, snow: 6, spray: 0.8 };
 
 /** A sphere standing in for part of an animal in the rays. */
 export interface Caster {
@@ -701,6 +806,10 @@ export interface Ocean {
 
 /** The most spheres a ray can meet. */
 const MAX_CASTERS = 32;
+
+/** Cells a side of the wrapping grid spray is thrown from, and their size in metres. */
+const SPRAY_GRID = 90;
+const SPRAY_CELL = 0.9;
 
 /** Cells a side of the ground baked for the surface to read its depth from. */
 const GROUND_CELLS = 256;
@@ -745,20 +854,46 @@ function lightUniforms(lit: LitLike, absorption: Vec, scatter: Vec): Uniforms {
   return {
     uAbsorb: vector(absorption), uScatter: vector(scatter), uSunDir: vector([0, 1, 0]), uSunCol: vector([3, 3, 3]),
     uZenith: vector(DEFAULT_ZENITH), uHorizon: vector(DEFAULT_HORIZON), uLevel: { value: 0 }, uUnder: { value: 0 }, uTime: { value: 0 },
-    uShore: { value: 0 }, uWet: { value: 0 }, uReflectSteps: { value: 0 }, uShadowSteps: { value: 0 }, uCasterCount: { value: 0 }, uTraceFar: { value: 0 }, uTraceNear: { value: 0 }, uShafts: { value: 0 }, uSnow: { value: 0 },
+    uShore: { value: 0 }, uWet: { value: 0 }, uRunUp: { value: 0 }, uSprayShare: { value: 0 }, uReflectSteps: { value: 0 }, uShadowSteps: { value: 0 }, uCasterCount: { value: 0 }, uTraceFar: { value: 0 }, uTraceNear: { value: 0 }, uShafts: { value: 0 }, uSnow: { value: 0 },
     uCaster: { value: Array.from({ length: MAX_CASTERS }, () => new lit.Vector4()) },
     uCasterTint: { value: Array.from({ length: MAX_CASTERS }, () => new lit.Vector3()) },
   };
 }
 
-function writeLight(shared: Uniforms, light: OceanLight, level: number, under: boolean, t: number, wind: number): void {
+/**
+ * Where wet sand stops, a moment later: pushed up at once by the water, and
+ * falling slowly by itself once the water leaves.
+ *
+ * @param top The line before, height in metres.
+ * @param runUp How high the water reaches now.
+ * @param seconds Since the line before; going back in time starts it over.
+ * @param dryTime Seconds the line takes to fall a metre.
+ * @returns The line now.
+ */
+export function wetLineAfter(top: number, runUp: number, seconds: number, dryTime: number): number {
+  return seconds < 0 ? runUp : Math.max(runUp, top - seconds / dryTime);
+}
+
+/** Keeps the wet line from frame to frame: the one thing here with a memory. */
+function wetLineOf(shared: Uniforms, wind: number, dryTime: number): (level: number, t: number) => void {
+  let top = -Infinity;
+  let last = 0;
+  return (level, t) => {
+    const runUp = level + 0.07 * wind + 0.2;
+    top = wetLineAfter(top, runUp, t - last, dryTime);
+    last = t;
+    if (shared.uRunUp) shared.uRunUp.value = runUp;
+    if (shared.uWet) shared.uWet.value = top;
+  };
+}
+
+function writeLight(shared: Uniforms, light: OceanLight, level: number, under: boolean, t: number): void {
   setVec(shared.uSunDir, unit(light.sun));
   setVec(shared.uSunCol, light.sunColor);
   setVec(shared.uZenith, light.zenith ?? DEFAULT_ZENITH);
   setVec(shared.uHorizon, light.horizon ?? DEFAULT_HORIZON);
   if (shared.uLevel) shared.uLevel.value = level;
   if (shared.uShore) shared.uShore.value = level;
-  if (shared.uWet) shared.uWet.value = level + 0.07 * wind + 0.2;
   if (shared.uUnder) shared.uUnder.value = under ? 1 : 0;
   if (shared.uTime) shared.uTime.value = t;
 }
@@ -772,6 +907,7 @@ function writeSettings(shared: Uniforms, settings: OceanSettings, casters: reado
   set("uTraceNear", settings.traceNear);
   set("uShafts", settings.shafts);
   set("uSnow", settings.snow);
+  set("uSprayShare", settings.spray ?? 0);
   set("uCasterCount", count);
   const spheres = shared.uCaster?.value as Vector4Like[];
   const tints = shared.uCasterTint?.value as Vector3Like[];
@@ -865,6 +1001,7 @@ interface Rig {
   readonly copy: Pass;
   readonly surface: NodeLike;
   readonly surfaceUniforms: Uniforms;
+  readonly spray: NodeLike;
   readonly quadCamera: unknown;
 }
 
@@ -885,6 +1022,7 @@ function drawWorld(rig: Rig, renderer: RendererLike, stage: unknown, camera: Cam
   renderer.render(rig.copy.stage, rig.quadCamera);
   renderer.autoClear = false;
   renderer.clear(false, true, false);
+  rig.spray.visible = (rig.surfaceUniforms.uSprayShare?.value as number) > 0;
   renderer.render(rig.surface, camera);
 }
 
@@ -896,6 +1034,20 @@ function surfaceOf(lit: LitLike, uniforms: Uniforms, defines: Readonly<Record<st
   const stage = new lit.Stage();
   stage.add(mesh);
   return { stage, disc, material };
+}
+
+/** One quad a drop, thrown and aged in its vertex shader. */
+function sprayOf(lit: LitLike, stage: NodeLike, uniforms: Uniforms, defines: Readonly<Record<string, unknown>>): { mesh: NodeLike; quad: GeometryLike; material: DisposableLike } {
+  const quad = lit.plane(1, 1);
+  const cells = new Float32Array(SPRAY_GRID * SPRAY_GRID * 2);
+  for (let index = 0; index < SPRAY_GRID * SPRAY_GRID; index += 1) cells.set([index % SPRAY_GRID, Math.floor(index / SPRAY_GRID)], index * 2);
+  quad.setAttribute("aCell", new lit.InstanceAttribute(cells, 2));
+  const material = new lit.CustomMaterial({ defines: { ...defines, SPRAY_GRID: `${SPRAY_GRID}.0`, SPRAY_CELL: SPRAY_CELL.toFixed(2) }, uniforms, vertexShader: SPRAY_VERTEX, fragmentShader: SPRAY_FRAGMENT, side: "double", transparent: true, depthWrite: false, depthTest: true });
+  const mesh = new lit.Instances(quad, material, SPRAY_GRID * SPRAY_GRID);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 1;
+  stage.add(mesh);
+  return { mesh, quad, material };
 }
 
 function placeOf(sea: SeaLike, eye: CameraLike["position"], level: number, t: number): OceanPlace {
@@ -928,11 +1080,13 @@ export function createOcean(lit: LitLike, options: OceanOptions): Ocean {
   const present = passOf(lit, quad, presentUniforms, PRESENT);
   const surfaceUniforms: Uniforms = { ...shared, uWave: { value: waveUniform(lit, sea.packed) }, uDepth: { value: scene.depthTexture }, uBelow: { value: water.texture }, uRes: { value: new lit.Vector2(1, 1) } };
   const surface = surfaceOf(lit, surfaceUniforms, defines);
+  const spray = sprayOf(lit, surface.stage, surfaceUniforms, defines);
   const resolver = resolverOf(lit, quad);
-  const rig: Rig = { scene, water, final, mediumUniforms, medium, copy, surface: surface.stage, surfaceUniforms, quadCamera };
+  const rig: Rig = { scene, water, final, mediumUniforms, medium, copy, surface: surface.stage, surfaceUniforms, spray: spray.mesh, quadCamera };
   const group = new lit.Group();
   const bed = seabedOf(lit, sea, seabedSize, Math.round(seabedSize / 1.8), options.colorAt);
   group.add(bed.mesh);
+  const wetLine = wetLineOf(shared, sea.wind, options.dryTime ?? 3600);
   return {
     group,
     isUnder: (x, y, z, t) => y < sea.surfaceAt(x, z, t, baseLevel).height,
@@ -941,13 +1095,13 @@ export function createOcean(lit: LitLike, options: OceanOptions): Ocean {
       if (light.frameMs !== undefined) options.quality?.frame(light.frameMs);
       const place = placeOf(sea, camera.position, level, t);
       const settings = options.quality?.at(place) ?? STEADY;
-      writeLight(shared, light, level, place.under, t, sea.wind);
+      writeLight(shared, light, level, place.under, t);
+      wetLine(level, t);
       writeSettings(shared, settings, light.casters ?? []);
       renderer.getDrawingBufferSize(size);
       const width = Math.max(1, Math.floor(size.x * settings.renderScale));
       const height = Math.max(1, Math.floor(size.y * settings.renderScale));
-      const previous = renderer.getRenderTarget();
-      const clears = renderer.autoClear;
+      const [previous, clears] = [renderer.getRenderTarget(), renderer.autoClear];
       const undo = settings.upscale ? jitter(camera, resolver.frame, width, height) : null;
       drawWorld(rig, renderer, stage, camera, width, height);
       undo?.();
@@ -964,7 +1118,7 @@ export function createOcean(lit: LitLike, options: OceanOptions): Ocean {
       renderer.render(present.stage, quadCamera);
     },
     dispose() {
-      for (const item of [baked.height, baked.color, scene, water, final, ...resolver.targets, quad, medium.material, copy.material, present.material, resolver.pass.material, surface.material, surface.disc, bed.geometry, bed.material]) item.dispose();
+      for (const item of [baked.height, baked.color, scene, water, final, ...resolver.targets, quad, medium.material, copy.material, present.material, resolver.pass.material, surface.material, surface.disc, spray.quad, spray.material, bed.geometry, bed.material]) item.dispose();
     },
   };
 }

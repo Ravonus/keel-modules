@@ -32,7 +32,8 @@ sun.position.set(sunDirection[0] * 100, sunDirection[1] * 100, sunDirection[2] *
 scene.add(sun, sun.target, new lit.SkyLight("#9fd0e6", "#2a4a58", 1.2));
 
 const quality = createQuality({ level: query.get("quality") ?? "high", tier: "high" });
-const ocean = createOcean(lit, { sea, colorAt: beach.colorAt, size: 640, quality });
+// Sand dries fast here because the tide below runs a whole cycle in two minutes.
+const ocean = createOcean(lit, { sea, colorAt: beach.colorAt, size: 640, quality, dryTime: number("dry", 40) });
 scene.add(ocean.group);
 
 const bodies = createSdfBodies(lit, { shadows: false, maxBodies: 18, maxParts: 48, ink: 0 });
@@ -67,6 +68,10 @@ const VIEWS = {
   // Wading ashore: out of the shallows and up the sand on a loop, or held by ?t.
   surf() {
     return { eye: [-12, 2.4, 92], look: [14, 0, 116] };
+  },
+  // Along a breaking front, at the height of its lip.
+  break() {
+    return { eye: [-4, 1.5, number("z", 109)], look: [30, 0.7, number("z", 109) + 5] };
   },
   shore(all, t) {
     const walk = Math.sin(t * 0.08) * 0.5 + 0.5;
@@ -112,6 +117,7 @@ tideButton.onclick = () => { const order = ["auto", "low", "mid", "high"]; tide 
 paintTide();
 bar.append(tideButton);
 toggle("upscale", () => quality.upscale, () => quality.set({ upscale: !quality.upscale }));
+toggle("spray", () => quality.spray, () => quality.set({ spray: !quality.spray }));
 
 function fit() {
   renderer.setSize(innerWidth, innerHeight, false);
@@ -134,7 +140,7 @@ function frame(t, frameMs) {
   const { eye, look } = VIEWS[view](all, t);
   // The camera rides over the swell rather than through it.
   const top = sea.surfaceAt(eye[0], eye[2], t, level).height;
-  camera.position.set(eye[0], ["above", "window", "shore", "beach", "surf"].includes(view) ? eye[1] : Math.min(eye[1], top - 0.6), eye[2]);
+  camera.position.set(eye[0], ["above", "window", "shore", "beach", "surf", "break"].includes(view) ? eye[1] : Math.min(eye[1], top - 0.6), eye[2]);
   camera.lookAt(look[0], look[1], look[2]);
   camera.updateMatrixWorld();
   swarm.draw(all, eye, bodyLight);

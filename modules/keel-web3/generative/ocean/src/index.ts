@@ -195,6 +195,11 @@ const slant = (x: number, z: number): number => Math.sin(x * 0.021 + z * 0.033) 
 
 const sawOf = (phase: number): number => phase / TAU - Math.floor(phase / TAU);
 
+const surfSets = (x: number, z: number, t: number): number => 0.72 + 0.28 * Math.sin(t * 0.09 + slant(x, z));
+
+/** How far through its front the surf at a place is: 0 at the leading edge. */
+const surfSaw = (depth: number, x: number, z: number, t: number): number => sawOf(SURF_OMEGA * t + SURF_TRAVEL * Math.sqrt(Math.max(depth, 0)) + slant(x, z));
+
 /**
  * What the surf adds to the water near a shore: a front that steepens as the
  * depth runs out, collapses in the last metre, and runs up the sand as swash
@@ -209,14 +214,48 @@ const sawOf = (phase: number): number => phase / TAU - Math.floor(phase / TAU);
  * @returns Metres added to the water's height.
  */
 export function surfAt(depth: number, x: number, z: number, t: number, wind: number): number {
-  const sets = 0.72 + 0.28 * Math.sin(t * 0.09 + slant(x, z));
-  const phase = SURF_OMEGA * t + SURF_TRAVEL * Math.sqrt(Math.max(depth, 0)) + slant(x, z);
-  const saw = sawOf(phase);
+  const sets = surfSets(x, z, t);
+  const saw = surfSaw(depth, x, z, t);
   const front = Math.pow(1 - saw, 3) * clamp(saw / 0.05, 0, 1);
   const build = smooth(clamp((4.5 - depth) / 3, 0, 1)) * smooth(clamp((depth - 0.15) / 0.7, 0, 1));
   const swash = Math.sin(SURF_OMEGA * t + slant(x, z) - 1.1) * 0.5 + 0.5;
   const shore = smooth(clamp((1.4 - depth) / 1.1, 0, 1));
-  return (0.14 * wind * front * build + 0.07 * wind * swash * shore) * sets;
+  return (0.18 * wind * front * build + 0.07 * wind * swash * shore) * sets;
+}
+
+/**
+ * How far a breaking crest is thrown ahead of its own foot, up the shore. A
+ * renderer that moves water by this much folds the crest over its face, so the
+ * wave curls. `surfaceAt` answers for the water's height at a place, so it
+ * does not move with the lip.
+ *
+ * @param depth Water over the ground.
+ * @param x Where on the water.
+ * @param z Where on the water.
+ * @param t Seconds.
+ * @param wind The sea's wind, which sets the surf's size.
+ * @returns Metres up the shore.
+ */
+export function surfThrow(depth: number, x: number, z: number, t: number, wind: number): number {
+  const saw = surfSaw(depth, x, z, t);
+  const lip = smooth(clamp(saw / 0.09, 0, 1)) * (1 - smooth(clamp((saw - 0.09) / 0.21, 0, 1)));
+  const breaking = smooth(clamp((3 - depth) / 1.5, 0, 1)) * smooth(clamp((depth - 0.35) / 0.5, 0, 1));
+  return 0.22 * wind * lip * breaking * surfSets(x, z, t);
+}
+
+/**
+ * How hard the surf is crashing: 1 where a big front's lip lands, 0 in deep
+ * water, behind the front and up the sand. What throws spray.
+ *
+ * @param depth Water over the ground.
+ * @param x Where on the water.
+ * @param z Where on the water.
+ * @param t Seconds.
+ * @returns From 0 to 1.
+ */
+export function surfBurst(depth: number, x: number, z: number, t: number): number {
+  const landing = smooth(clamp((1.9 - depth) / 0.9, 0, 1)) * smooth(clamp((depth - 0.2) / 0.4, 0, 1));
+  return landing * (1 - smooth(clamp(surfSaw(depth, x, z, t) / 0.18, 0, 1))) * surfSets(x, z, t);
 }
 
 function displaceBy(waves: readonly Wave[], x: number, z: number, t: number, depth: number): Vec3 {

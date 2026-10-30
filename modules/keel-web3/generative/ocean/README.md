@@ -17,6 +17,8 @@ lightThrough(12);           // the share of red, green and blue left after 12 m
 tideOn(hours, { range: 2 }); // the tide by clock, springs and neaps included
 tideTimes(hours);           // the next high and low waters
 surfAt(depth, x, z, t, wind); // breakers and swash near a shore
+surfThrow(depth, x, z, t, wind); // how far a lip is thrown up the shore
+surfBurst(depth, x, z, t); // how hard the surf is crashing, 0 to 1
 ```
 
 - **Waves.** Gerstner waves on deep water's dispersion (`omega = sqrt(g k)`),

@@ -136,16 +136,16 @@ export type Action =
 /** Actions that carry an animal somewhere else. */
 export const MOVES: ReadonlySet<Action> = new Set<Action>(["wander", "run", "hop", "climb", "fly", "stalk"]);
 
-type Ears = "point" | "round" | "long" | "flop" | "tuft" | "fluffy" | "none";
-type Tail = "bushy" | "curl" | "thin" | "puff" | "ring" | "thick" | "fan" | "none";
+type Ears = "point" | "round" | "rimmed" | "cup" | "long" | "flop" | "tuft" | "fluffy" | "none";
+type Tail = "bushy" | "curl" | "thin" | "puff" | "ring" | "banded" | "thick" | "fan" | "stub" | "none";
 /**
  * Extra parts and markings. Markings are paint only (sdf-body decals): a pale
  * `bib` down the throat and chest, a white `rump`, a pale `muzzle`, a dark
- * `saddle` down the back, dark `socks` on the lower legs, a `mask` across the
- * eyes; a `ruff` of fur round the neck, a `hump` over the shoulders.
+ * `saddle` down the back, dark `socks` on the lower legs, pale `mitts` on the paws, a `mask` across the
+ * eyes, pale `brows` over it; a `ruff` of fur round the neck, `jowls` on the cheeks, a `hump` over the shoulders; a `button` nose, `fingers` marked on the forepaws.
  */
 type Extra = "bignose" | "antlers" | "mask" | "quills" | "shell" | "pouch" | "crest" | "stripes" | "longneck" | "train" | "crown" | "glowtail" | "claws" | "cheeks" | "spots"
-  | "bib" | "rump" | "muzzle" | "saddle" | "socks" | "ruff" | "hump";
+  | "bib" | "rump" | "muzzle" | "saddle" | "socks" | "mitts" | "ruff" | "hump" | "brows" | "jowls" | "button" | "fingers" | "wet" | "toes";
 /** What a leg stands on: a paw on its toes, a hoof on its tips, or a flat sole, heel down (a bear's, a raccoon's). */
 type Foot = "paw" | "hoof" | "plant";
 /**
@@ -185,9 +185,29 @@ export interface Build {
   readonly earBase?: number;
   /** The muzzle's tip, as a share of its root: small for a fox's point, near 1 for a capybara's block. */
   readonly snoutTip: number;
+  /** A round head's eyes, if they sit other than the usual: a face point (along, out, up). */
+  readonly eyeSet?: readonly [number, number, number];
   /** The tail's thickness, as a share of the usual, and how far it rises above (or hangs below) its kind's. */
   readonly tailGirth: number;
   readonly tailRise: number;
+  /** The neck's thickness against the usual (a cat's slim). */
+  readonly neckGirth: number;
+  /** A foreleg's two upper bones, each as a share of its reach: over a half bends it at the elbow, a half stands it straight. */
+  readonly foreBone: number;
+  /** A tail's own line, a step for each segment: how much it climbs over its kind's, how far it swings aside, its share of the length (a cat's soft S, off to one side). */
+  readonly tailLine?: readonly (readonly [rise: number, sway: number, share: number])[];
+  /** A leg made to its own plan and not its foot's (see `LegMake`). */
+  readonly legMake?: LegMake;
+  /** Nose to the ground, how many body radii the shoulders sink, the elbows bending and the neck reaching out low (a cat's sniff, where a dog just drops its head). */
+  readonly stoop?: number;
+  /** How far out its legs stand, as a share of its body's radius (a hedgehog's in under its skirt). */
+  readonly stance?: number;
+  /** How far back it draws its head as it curls up, in body radii (a hedgehog's in under its mantle). */
+  readonly curlIn?: number;
+  /** How far up a blunt snout turns at its end, in head radii. */
+  readonly snoutUp?: number;
+  /** The furthest its head goes below level, in radians, however low its nose is held (a hedgehog's, all neck hidden under its mantle). */
+  readonly dip?: number;
   /**
    * Four legs: the torso's outline from hip (0) to shoulder (1), in body
    * radii (its round ends run on past both). Without one, the torso is a
@@ -201,6 +221,19 @@ export interface Build {
   readonly muzzle?: readonly Station[];
   /** A bird's bill: its depth at the root, in head radii (a finch's cone, a crow's heavy wedge). */
   readonly bill?: number;
+}
+
+/**
+ * A soft stocky leg, two bones right down to its paw: a foreleg that stands
+ * as one straight column, and a hind leg of a long rounded thigh tapering to
+ * a low hock, hardly bent, with a short foot below. Each taper is a leg's
+ * thickness down its bones (root, joint, joint, paw), as shares of the usual
+ * leg, and `hindBones` are the hind leg's two bones as shares of its reach.
+ */
+interface LegMake {
+  readonly fore: readonly [number, number, number, number];
+  readonly hind: readonly [number, number, number, number];
+  readonly hindBones: readonly [number, number];
 }
 
 /**
@@ -248,7 +281,7 @@ const WILD: readonly WorldKey[] = ["nature", "voxel", "crystal"];
 
 const BUILD: Build = {
   len: 1.3, leg: 0.6, body: 0.24, neck: 0.3, rise: 0.7, head: 0.17, snout: 0.16, ears: "point", tail: "thin", tailLen: 0.8, hip: 1, extras: [],
-  foot: "paw", fore: 1, legR: 1, chest: 1.1, haunch: 1, sit: "dog", earLen: 1, snoutTip: 0.7, tailGirth: 1, tailRise: 0,
+  foot: "paw", fore: 1, legR: 1, chest: 1.1, haunch: 1, sit: "dog", earLen: 1, snoutTip: 0.7, tailGirth: 1, tailRise: 0, neckGirth: 1, foreBone: 0.53,
 };
 /**
  * Outlines by family, so each animal is drawn from its kind's real shape: a
@@ -269,11 +302,9 @@ const OUTLINE = {
     skull: [[-0.6, 0.55, 0.52, 0.66], [-0.1, 0.78, 0.6, 0.86], [0.35, 0.55, 0.5, 0.56]],
     muzzle: [[0.5, 0.34, 0.36, 0.3], [1, 0.18, 0.2, 0.14]],
   },
-  // (A cat's broad cheeks and short, wide muzzle make its round face; its back rises a little to the haunch.)
+  // (A cat is one smooth bean: a gentle arc of spine over a round barrel and a soft low belly.)
   felid: {
-    torso: [[0, 0.88, 0.74, 0.74], [0.4, 0.8, 0.68, 0.68], [0.8, 0.8, 0.86, 0.72], [1.05, 0.76, 0.84, 0.66]],
-    skull: [[-0.6, 0.66, 0.62, 0.8], [0, 0.9, 0.8, 1.1], [0.35, 0.72, 0.64, 0.86]],
-    muzzle: [[0.6, 0.48, 0.46, 0.56], [1, 0.36, 0.36, 0.4]],
+    torso: [[-0.02, 0.86, 0.74, 0.86], [0.5, 0.92, 0.84, 0.92], [1.04, 0.84, 0.82, 0.84]],
   },
   cervid: {
     torso: [[-0.05, 0.82, 0.72, 0.62], [0.35, 0.8, 0.86, 0.7], [0.75, 0.86, 0.96, 0.68], [1.05, 1, 0.78, 0.55]],
@@ -304,6 +335,10 @@ const OUTLINE = {
     torso: [[-0.05, 0.88, 0.74, 0.84], [0.4, 0.98, 0.78, 0.9], [0.8, 0.88, 0.8, 0.82], [1.05, 0.78, 0.78, 0.7]],
     skull: [[-0.6, 0.6, 0.6, 0.72], [-0.05, 0.8, 0.65, 0.88], [0.35, 0.6, 0.55, 0.62]],
     muzzle: [[1, 0.28, 0.3, 0.24]],
+  },
+  // (A raccoon is pear-shaped: its back arches over deep wide loins and falls to low narrow shoulders. Its head is a round one: the face marks sit true on it.)
+  procyonid: {
+    torso: [[-0.12, 1, 1.04, 1.1], [0.4, 1.2, 1.08, 1.08], [1.05, 0.78, 0.84, 0.72]],
   },
   viverrid: {
     torso: [[-0.05, 0.78, 0.68, 0.7], [0.4, 0.82, 0.66, 0.72], [0.8, 0.8, 0.76, 0.7], [1.05, 0.72, 0.74, 0.62]],
@@ -351,10 +386,6 @@ const OUTLINE = {
     torso: [[-0.3, 0.5, 0.38, 0.5], [0.3, 0.9, 0.85, 0.8], [0.75, 0.88, 0.98, 0.8], [1.1, 0.6, 0.62, 0.55]],
     skull: [[-0.7, 0.55, 0.5, 0.55], [0, 0.72, 0.62, 0.62], [0.6, 0.48, 0.42, 0.42]],
   },
-  erinaceid: {
-    skull: [[-0.6, 0.7, 0.65, 0.8], [0, 0.8, 0.7, 0.85], [0.3, 0.6, 0.55, 0.6]],
-    muzzle: [[1, 0.2, 0.24, 0.18]],
-  },
 } as const satisfies Readonly<Record<string, Outline>>;
 
 type SpeciesDraft = Omit<SpeciesSpec, "build" | "temper" | "friends" | "groups" | "pack" | "winter" | "climbs" | "flies" | "active" | "worlds">
@@ -393,16 +424,16 @@ export const SPECIES = {
     coats: [["brown", ["#6a4a30", "#4a3220", "#8a6a4a", "#1a120c", "#a88a68"]], ["black", ["#262220", "#141210", "#3a3430", "#0a0808", "#b89a72"]], ["cinnamon", ["#9a6236", "#764824", "#b8865a", "#22140a", "#c8a07a"]]],
     temper: { rear: 1.6, scratch: 2, sit: 1.8, sniff: 1.4, dig: 1.3, lie: 1.4, roll: 0.8, graze: 0 }, friends: ["songbird"] }),
   raccoon: define({ label: "Raccoon", plan: "quad", size: 0.3, rarity: "uncommon", weight: 18, regions: ["rockies", "atlantic"], worlds: ["nature", "voxel", "city"], speed: 1.1, active: "night", climbs: true, groups: [5, 2, 3, 0],
-    build: { ...OUTLINE.mustelid, len: 1.2, leg: 0.42, body: 0.32, neck: 0.18, rise: 0.55, head: 0.21, snout: 0.16, ears: "round", tail: "ring", tailLen: 0.85, hip: 1.18, extras: ["mask", "muzzle"], foot: "plant", sit: "haunch", haunch: 1.15, chest: 1, snoutTip: 0.4 },
-    coats: [["raccoon", ["#8a8682", "#5a5652", "#c8c4bc", "#1e1c1a", "#e8e4dc"]], ["tanuki", ["#8a6c4a", "#4a3828", "#b89a78", "#1a120c", "#d8c4a4"]]],
+    build: { ...OUTLINE.procyonid, len: 0.9, leg: 0.36, fore: 0.94, body: 0.35, neck: 0.16, rise: 0.15, head: 0.285, snout: 0.17, ears: "rimmed", tail: "banded", tailLen: 1, tailGirth: 0.87, hip: 1.32, extras: ["mask", "brows", "muzzle", "socks", "jowls", "button", "fingers"], foot: "plant", sit: "haunch", haunch: 1.1, chest: 0.95, snoutTip: 0.5, eyeSet: [0.46, 0.66, 0.3], earLen: 1.1, legR: 0.72, legMake: { fore: [1.9, 1.25, 1.05, 0.72], hind: [2.6, 1.3, 1.15, 0.95], hindBones: [0.66, 0.4] } },
+    coats: [["raccoon", ["#80858c", "#4e5258", "#c8c8c6", "#181310", "#f4f2ec"]], ["tanuki", ["#8a6c4a", "#4a3828", "#b89a78", "#18110b", "#e6e0d4"]]],
     temper: { dig: 1.8, sniff: 1.8, rear: 1.4, eat: 1.6, climb: 1.2, groom: 1.2, graze: 0 }, friends: ["cat"] }),
   cat: define({ label: "Cat", plan: "quad", size: 0.24, rarity: "uncommon", weight: 22, regions: ALL_REGIONS, worlds: ["city", "synth", "vapor", "nature"], speed: 1, active: "any", climbs: true, groups: [8, 2, 2, 0],
-    build: { ...OUTLINE.felid, len: 1.05, leg: 0.52, body: 0.3, neck: 0.16, rise: 0.7, head: 0.27, snout: 0.06, ears: "point", tail: "thin", tailLen: 1.05, tailRise: -0.3, tailGirth: 2.1, chest: 1.05, haunch: 1.1, earLen: 0.9, earBase: 1.45, snoutTip: 0.8, legR: 1 },
-    coats: [["tabby", ["#b07a44", "#7a4e26", "#efe0c8", "#2a1a10", "#f0a0a0"]], ["black", ["#1e1c1e", "#121012", "#2a282a", "#060606", "#f0c040"]], ["calico", ["#f2ece2", "#d0782e", "#ffffff", "#2a2420", "#f0a0a0"]], ["grey", ["#8a8c94", "#5e6068", "#d8dadf", "#202226", "#f0a0b0"]]],
+    build: { ...OUTLINE.felid, len: 0.7, leg: 0.4, body: 0.3, neck: 0.19, neckGirth: 0.78, foreBone: 0.503, rise: 0.85, head: 0.25, hip: 1.03, snout: 0.14, ears: "point", tail: "thin", tailLen: 0.95, tailGirth: 1.95, tailLine: [[0.42, 1, 0.3], [0.68, 0.85, 0.3], [0.78, 0.45, 0.26], [0.12, 0.1, 0.14]], extras: ["bib", "mitts"], chest: 1, haunch: 1, snoutTip: 0.8, legR: 0.64, legMake: { fore: [1.95, 1.5, 1.45, 0.92], hind: [2.8, 1.15, 1.12, 0.92], hindBones: [0.74, 0.31] }, stoop: 0.5 },
+    coats: [["tabby", ["#e4b48c", "#d09058", "#fff2e0", "#704424", "#e8a098"]], ["black", ["#191716", "#100f0e", "#191716", "#080706", "#54403f"]], ["calico", ["#f6f0e6", "#d8782a", "#ffffff", "#1e1a18", "#eea2a2"]], ["grey", ["#9a9ca4", "#5e6068", "#e4e4e8", "#262830", "#eea8b4"]]],
     temper: { groom: 2.4, sit: 2, sleep: 1.8, stretch: 1.6, look: 1.4, play: 1.1, yawn: 1.4, climb: 0.8, stalk: 1, graze: 0 }, friends: ["raccoon", "crow", "songbird"] }),
   hedgehog: define({ label: "Hedgehog", plan: "quad", size: 0.11, rarity: "uncommon", weight: 14, regions: ["alps"], speed: 0.9, active: "night", winter: false,
-    build: { ...OUTLINE.erinaceid, len: 0.9, leg: 0.2, body: 0.55, neck: 0.08, rise: 0.1, head: 0.26, snout: 0.4, ears: "round", tail: "none", tailLen: 0.1, hip: 1, extras: ["quills", "muzzle"], foot: "plant", sit: "lie", earLen: 0.7, snoutTip: 0.3, legR: 0.9 },
-    coats: [["brown", ["#b0926e", "#4e3c2c", "#ecdcc4", "#140e0a", "#d8c8b0"]], ["blond", ["#c8b494", "#7a6448", "#f4ecdc", "#2a2018", "#f0e8d8"]]],
+    build: { len: 0.6, leg: 0.13, body: 0.33, neck: 0.05, neckGirth: 0.7, rise: -1.15, head: 0.18, snout: 0.185, stance: 0.5, snoutUp: 0.08, dip: 0.5, curlIn: 1.3, ears: "cup", tail: "stub", tailLen: 0.1, hip: 1, extras: ["quills", "wet", "toes"], foot: "paw", sit: "lie", earLen: 0.95, snoutTip: 0.62, legR: 0.42, chest: 0.5, haunch: 0.6, eyeSet: [0.68, 0.45, 0.24], legMake: { fore: [1.5, 1.15, 1.05, 0.85], hind: [1.7, 1.15, 1.05, 0.85], hindBones: [0.6, 0.5] } },
+    coats: [["brown", ["#c0a88e", "#5e3a26", "#dcc8a8", "#1c1410", "#5e4432"]], ["blond", ["#dccdb8", "#c4b698", "#f2e6c8", "#907068", "#c8ae98"]]],
     temper: { sniff: 2.6, dig: 1.6, coil: 1.2, wander: 1.4, sleep: 1, run: 0, graze: 0 }, friends: [] }),
   mouse: define({ label: "Field mouse", plan: "quad", size: 0.07, rarity: "common", weight: 30, regions: ALL_REGIONS, speed: 2.4, active: "night", groups: [5, 2, 2, 2], pack: [3, 4],
     build: { ...OUTLINE.murid, len: 0.95, leg: 0.3, body: 0.44, neck: 0.1, rise: 0.4, head: 0.28, snout: 0.2, ears: "round", tail: "thin", tailLen: 1.3, hip: 1.15, haunch: 1.3, chest: 0.85, sit: "haunch", earLen: 1.9, snoutTip: 0.35, tailRise: -0.7, legR: 0.8 },
@@ -445,8 +476,8 @@ export const SPECIES = {
     coats: [["macaque", ["#8a7a5e", "#5e5038", "#c8b898", "#241c12", "#d8a088"]], ["vervet", ["#8a8c78", "#5a5c4a", "#e8e6dc", "#141410", "#2a2a2a"]]],
     temper: { climb: 2.4, hang: 1.6, groom: 2.2, eat: 1.8, play: 1.6, look: 1.2, scratch: 1.4 }, friends: ["parrot", "peacock", "guineafowl"] }),
   sloth: define({ label: "Sloth", plan: "primate", size: 0.45, rarity: "epic", weight: 4, regions: [], worlds: ["nature", "beach", "voxel"], speed: 0.12, climbs: true, groups: [9, 0, 2, 0],
-    build: { len: 0.55, leg: 0.5, body: 0.22, neck: 0.1, head: 0.14, snout: 0.03, ears: "none", tail: "none", tailLen: 0.05, extras: ["mask", "claws"] },
-    coats: [["sloth", ["#9a8a6a", "#6a5c44", "#c8b896", "#2a2016", "#e8dcc0"]]],
+    build: { len: 0.42, leg: 0.38, body: 0.155, neck: 0.1, head: 0.14, snout: 0.03, ears: "none", tail: "none", tailLen: 0.05, extras: ["mask", "claws"] },
+    coats: [["sloth", ["#747a74", "#4a4438", "#5c6c48", "#241c14", "#dcd6c4"]]],
     temper: { hang: 4, sleep: 3, eat: 1.2, look: 0.8, climb: 0.6 }, friends: [] }),
   songbird: define({ label: "Songbird", plan: "bird", size: 0.13, rarity: "common", weight: 80, regions: ALL_REGIONS, worlds: ["nature", "voxel", "crystal", "city", "beach"], speed: 1.4, groups: [5, 4, 2, 2], pack: [3, 5],
     build: { ...OUTLINE.passerine, bill: 0.36, len: 1, leg: 0.22, body: 0.27, neck: 0.1, rise: 0.4, head: 0.17, snout: 0.14, ears: "none", tail: "fan", tailLen: 0.38 },
@@ -457,8 +488,8 @@ export const SPECIES = {
     coats: [["crow", ["#23262e", "#2c3346", "#2e3038", "#08080a", "#4a5068"]], ["hooded", ["#8a8a8e", "#1a1a1e", "#9a9a9e", "#0a0a0c", "#2a2a2e"]]],
     temper: { peck: 2.4, look: 2, hop: 1.6, flap: 1.2, sing: 0.8, fly: 2 }, friends: ["deer", "cat", "wolf"] }),
   owl: define({ label: "Owl", plan: "bird", size: 0.3, rarity: "rare", weight: 10, regions: ["rockies", "atlantic", "alps", "tokyo", "nairobi"], worlds: ["nature", "voxel", "crystal", "city"], speed: 0.8, active: "night", groups: [8, 2, 2, 0],
-    build: { ...OUTLINE.strigid, bill: 0.3, len: 0.9, leg: 0.16, body: 0.37, neck: 0.04, rise: 1.2, head: 0.23, snout: 0.06, ears: "tuft", tail: "fan", tailLen: 0.3 },
-    coats: [["barn", ["#cca470", "#8e877e", "#ffffff", "#4a2e18", "#b4804e"]], ["great horned", ["#8a6a4a", "#5a4430", "#b4703c", "#1e140c", "#fbf8f2"]], ["snowy", ["#eceff3", "#d8dee8", "#faf9f5", "#2a2a2e", "#ffffff"]]],
+    build: { ...OUTLINE.strigid, bill: 0.3, len: 0.9, leg: 0.26, body: 0.37, neck: 0.04, rise: 1.2, head: 0.25, snout: 0.06, ears: "tuft", tail: "fan", tailLen: 0.3 },
+    coats: [["barn", ["#cab084", "#98938c", "#ffffff", "#4a2e18", "#b4804e"]], ["great horned", ["#8a6a4a", "#5a4430", "#b4703c", "#1e140c", "#fbf8f2"]], ["snowy", ["#e8edf6", "#c8d2e2", "#ebf0f9", "#2a2a2e", "#ffffff"]]],
     temper: { look: 3, preen: 1.6, sleep: 2, flap: 0.8, fly: 1.3, peck: 0, hop: 0, sing: 0 }, friends: ["crow"] }),
   parrot: define({ label: "Parrot", plan: "bird", size: 0.28, rarity: "rare", weight: 14, regions: ["bali", "sydney"], worlds: ["nature", "beach", "voxel", "vapor"], speed: 1, groups: [4, 4, 1, 3], pack: [3, 5],
     build: { ...OUTLINE.psittacid, bill: 0.6, len: 1.2, leg: 0.2, body: 0.2, neck: 0.1, rise: 0.9, head: 0.16, snout: 0.14, ears: "none", tail: "fan", tailLen: 0.9, extras: ["crest"] },
@@ -2191,6 +2222,8 @@ export interface Capsule {
   readonly r1?: number;
   /** How far it melts into the rest of the body: 0 a crisp seam, 1 the body's own (the default). */
   readonly melt?: number;
+  /** How far, and which way, its middle stands off the straight line from a to b: a curved part, in place of `flat`. */
+  readonly bow?: Vec;
   /** Paint only: no surface of its own, it colours the body inside it (a bib, a rump patch, a mask). */
   readonly decal?: boolean;
   /** A decal painted under the coat's pattern, so the pattern still runs over it (an owl's barred breast). */
@@ -2202,7 +2235,7 @@ export interface Capsule {
 }
 
 /** A part's taper, melt, decal, carve and shadow flags, as `cap` takes them. */
-interface Finish { readonly r1?: number; readonly melt?: number; readonly decal?: boolean; readonly under?: boolean; readonly carve?: boolean; readonly shadow?: boolean }
+interface Finish { readonly r1?: number; readonly melt?: number; readonly decal?: boolean; readonly under?: boolean; readonly carve?: boolean; readonly shadow?: boolean; readonly bow?: Vec }
 
 const POSE_KEYS = ["crouch", "sit", "lie", "curl", "rear", "bow", "roll", "headPitch", "headYaw", "headRoll", "tailUp", "tailWag", "earBack", "mouth", "scratch", "dig", "shake", "wing", "flap", "peck", "fan", "reach", "hand", "hang", "hop", "lift"] as const;
 type PoseKey = (typeof POSE_KEYS)[number];
@@ -2410,16 +2443,19 @@ function cap(kit: Kit, part: string, role: Role, a: Vec, b: Vec, r: number, flat
   if (!(r > 0.0002)) return;
   const upRolled = kit.roll === 0 ? up : rollV(up, kit.roll);
   const capsule: Capsule = { a: toWorld(kit.f, rolled(kit, a)), b: toWorld(kit.f, rolled(kit, b)), r, role, part, flat: flatness, up: unit(dirToWorld(kit.f, upRolled), kit.f.y), fw: kit.f.z };
-  if (!finish) { kit.out.push(capsule); return; }
-  kit.out.push({
-    ...capsule,
+  kit.out.push(finish ? { ...capsule, ...finished(kit, finish) } : capsule);
+}
+/** What a finish adds to a capsule. */
+function finished(kit: Kit, finish: Finish): Partial<Capsule> {
+  return {
     ...(finish.r1 === undefined ? {} : { r1: Math.max(0, finish.r1) }),
     ...(finish.melt === undefined ? {} : { melt: finish.melt }),
     ...(finish.decal === true ? { decal: true } : {}),
     ...(finish.under === true ? { under: true } : {}),
     ...(finish.carve === true ? { carve: true } : {}),
     ...(finish.shadow === false ? { shadow: false } : {}),
-  });
+    ...(finish.bow === undefined ? {} : { bow: dirToWorld(kit.f, kit.roll === 0 ? finish.bow : rollV(finish.bow, kit.roll)) }),
+  };
 }
 /** A tapered part: r at a, r1 at b, melting `melt` as far as the rest. */
 const cone = (kit: Kit, part: string, role: Role, a: Vec, b: Vec, r: number, r1: number, melt = 1): void => { cap(kit, part, role, a, b, r, 1, UP, { r1, melt }); };
@@ -2574,6 +2610,11 @@ function restsOf(b: Build, q: Pose, m: Moment): { sit: number; loaf: number; rum
   return { sit: own("dog"), loaf, rump: own("rump"), haunch: own("haunch"), lie, rear };
 }
 
+/** How far an animal that stoops has its nose down, 0 to 1, on all fours only. */
+function nosing(b: Build, q: Pose): number {
+  return b.stoop === undefined ? 0 : clamp(-q.headPitch / 0.55, 0, 1) * (1 - clamp(q.sit + q.lie + q.curl, 0, 1));
+}
+
 function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
   const size = actor.member.size;
   const b = buildOf(actor);
@@ -2613,12 +2654,13 @@ function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
   P = lerpV(P, [0, hu * 1.0, -L / 2], down);
   S = lerpV(S, [0, r * b.chest * (loaf > lie ? 1.25 : 1.05), L * (loaf > lie ? 0.42 : 0.5)], down);
   S = madd(S, UP, -q.bow * Math.max(0, S[1] - r * 1.4) * 0.55);
+  S = madd(S, UP, -nosing(b, q) * (b.stoop ?? 0) * r);
   const gait = quadGait(actor, m);
   const free = m.moving * (1 - sit) * (1 - down) * (1 - up);
   const { lift, flex, reach } = strideOf(gait, m, q, size, r, free);
   P = add(P, [0, lift - flex, -reach]);
   S = add(S, [0, lift + flex, reach]);
-  return { P, S, r, w: r * 0.72, L, legF: (shY - r * 0.45) * (bipedal(b) ? b.fore : 1), legH: hipY - r * 0.2, sit, loaf, lie, rump, haunch, rear, gait, free };
+  return { P, S, r, w: r * (b.stance ?? 0.72), L, legF: (shY - r * 0.45) * (bipedal(b) ? b.fore : 1), legH: hipY - r * 0.2, sit, loaf, lie, rump, haunch, rear, gait, free };
 }
 
 /** Each foot's share of its leg: the paw's pastern and hock, a hoof's long cannon, a sole laid flat. */
@@ -2640,8 +2682,9 @@ function stanceFoot(b: Build, body: QuadBody, leg: LegId, q: Pose): FootPlan {
   const { P, S, w, L, legF, legH, r } = body;
   const low = LOWER[b.foot];
   if (foreLeg(leg)) {
-    let foot: Vec = [x * w, 0, S[2] + 0.05 * L];
-    let tilt = low.foreTilt;
+    // (A foreleg made as a column stands right under its shoulder.)
+    let foot: Vec = [x * w, 0, b.legMake ? S[2] - r * 0.1 : S[2] + 0.05 * L];
+    let tilt = b.legMake ? 0 : low.foreTilt;
     foot = lerpV(foot, [x * w * 0.9, 0, S[2] + 0.04 * L], body.sit);
     // A bear sits back with its forepaws down between its knees; a squirrel holds them to its mouth.
     foot = lerpV(foot, [x * w * 0.75, 0, S[2] + L * 0.12], body.rump);
@@ -2661,7 +2704,7 @@ function stanceFoot(b: Build, body: QuadBody, leg: LegId, q: Pose): FootPlan {
     tilt = mix(tilt, 1.0, rear);
     return { foot, tilt };
   }
-  let foot: Vec = [x * w, 0, P[2]];
+  let foot: Vec = [x * w, 0, b.legMake ? P[2] + r * 0.25 : P[2]];
   let tilt = low.hindTilt;
   // Every fold lays the hock flat on the ground with the foot out ahead of it.
   const folded = Math.max(body.sit, body.haunch, body.loaf);
@@ -2721,29 +2764,63 @@ const LEG_TAPER = { fore: [1.45, 0.95, 0.9, 0.68], hind: [1.95, 1.1, 1.0, 0.62] 
 /** Which way a leg's middle joint bends: a knee forward, an elbow back, a folded knee out to the side. */
 function poleOf(fore: boolean, body: QuadBody, b: Build, x: number): Vec {
   if (fore) return body.lie > 0.5 && b.foot !== "hoof" ? [0, 1, -0.3] : [0, 0, -1];
-  return Math.max(body.lie, body.loaf, body.sit, body.haunch) > 0.5 ? [x * 0.7, 0.5, 0.6] : [0, 0, 1];
+  if (Math.max(body.lie, body.loaf, body.sit, body.haunch) > 0.5) return [x * 0.7, 0.5, 0.6];
+  // (Standing, a soft leg's joint is its hock, behind the foot, where another's is a knee ahead of it.)
+  return [0, 0, b.legMake ? -1 : 1];
 }
 
 function quadLeg(kit: Kit, actor: Who, body: QuadBody, leg: LegId, plan: FootPlan): void {
   const b = buildOf(actor);
   const x = sideOf(leg);
   const fore = foreLeg(leg);
-  const low = LOWER[b.foot];
   const legR = Math.max(0.004, body.r * 0.32 * b.legR);
   const reach = fore ? body.legF : body.legH;
-  // (A kangaroo's hind foot is long: it stands on it.)
-  const lowLen = reach * (fore ? low.fore : bipedal(b) ? 0.42 : low.hind);
+  const { share, lean, upper, lower } = lowOf(b, fore);
+  const lowLen = reach * share;
   const root = fore ? add(body.S, [x * body.w * 0.85, -body.r * 0.45, -body.r * 0.1]) : add(body.P, [x * body.w, -body.r * 0.2, 0]);
-  const bone = Math.max(1e-4, reach - lowLen * Math.cos(fore ? low.foreTilt : low.hindTilt)) * (fore ? 0.53 : 0.56);
+  const span = Math.max(1e-4, reach - lowLen * Math.cos(lean));
   const dir: Vec = [0, Math.cos(plan.tilt), Math.sin(plan.tilt) * (fore ? 1 : -1)];
-  const plantR = legR * SOLE[b.foot];
+  const plantR = legR * (b.legMake ? 0.72 : SOLE[b.foot]);
   const sole: Vec = add(plan.foot, [0, plantR, 0]);
-  const { mid, end } = solveTwoBone(root, madd(sole, dir, lowLen), bone, bone, poleOf(fore, body, b, x));
+  const { mid, end } = solveTwoBone(root, madd(sole, dir, lowLen), span * upper, span * lower, poleOf(fore, body, b, x));
   const name = `leg.${leg}`;
-  const [r0, r1, r2, r3] = fore ? LEG_TAPER.fore : LEG_TAPER.hind;
+  const [r0, r1, r2, r3] = taperOf(b, fore);
   cone(kit, `${name}.upper`, "coat", root, mid, legR * r0, legR * r1);
-  cone(kit, `${name}.lower`, "coat", mid, end, legR * r2, legR * r3, 0.45);
-  footParts(kit, b, name, end, sole, legR, plantR);
+  cone(kit, `${name}.lower`, "coat", mid, end, legR * r2, legR * r3, b.legMake ? 0.8 : 0.45);
+  if (b.legMake) softPaw(kit, b, name, sole, legR, fore);
+  else footParts(kit, b, name, end, sole, legR, plantR);
+}
+
+/** A leg's lowest bone: its share of the leg and how it leans at rest; and the two upper bones, as shares of what is left. */
+function lowOf(b: Build, fore: boolean): { share: number; lean: number; upper: number; lower: number } {
+  const low = LOWER[b.foot];
+  if (b.legMake) {
+    const [upper, lower] = fore ? [b.foreBone, b.foreBone] : b.legMake.hindBones;
+    return { share: 0, lean: 0, upper, lower };
+  }
+  if (fore) return { share: low.fore, lean: low.foreTilt, upper: b.foreBone, lower: b.foreBone };
+  // (A kangaroo's hind foot is long: it stands on it.)
+  return { share: bipedal(b) ? 0.42 : low.hind, lean: low.hindTilt, upper: 0.56, lower: 0.56 };
+}
+
+const taperOf = (b: Build, fore: boolean): readonly [number, number, number, number] => (fore ? b.legMake?.fore ?? LEG_TAPER.fore : b.legMake?.hind ?? LEG_TAPER.hind);
+
+/** The foot of a soft leg: a low oval paw the leg flows into with no neck above it, its pale fur running up into the leg. */
+function softPaw(kit: Kit, b: Build, name: string, sole: Vec, legR: number, fore: boolean): void {
+  if (b.extras.includes("toes")) { toedPaw(kit, name, sole, legR, fore); return; }
+  const role: Role = b.extras.includes("mitts") ? "belly" : b.extras.includes("socks") ? "dark" : "coat";
+  cap(kit, `${name}.paw`, role, madd(sole, [0, 0, 1], -legR * 0.2), madd(sole, [0, 0, 1], legR * 0.75), legR * 1.18, 0.62, UP, { melt: 0.9 });
+  // (A raccoon's forepaw is a hand: two lines over its front part three fingers, each a blade deep enough to follow the paw's curve.)
+  if (fore && b.extras.includes("fingers")) for (const x of [-1, 1]) cap(kit, `${name}.finger`, "alt", add(sole, [x * legR * 0.36, legR * 0.3, legR * 0.8]), add(sole, [x * legR * 0.44, legR * 0.05, legR * 1.5]), legR * 0.6, 0.16, [1, 0, 0], { decal: true });
+}
+
+/** A low flat paw of bare skin with its toes as nubs of their own, a hedgehog's: three to a forepaw and two to a hind one, all a body's parts can spare. */
+function toedPaw(kit: Kit, name: string, sole: Vec, legR: number, fore: boolean): void {
+  for (const x of fore ? [-1, 0, 1] : [-0.6, 0.6]) {
+    const nub = add(sole, [x * legR * 0.85, -legR * 0.3, legR * (1.7 - Math.abs(x) * 0.25)]);
+    cap(kit, `${name}.toe${String(x)}`, "accent", nub, nub, legR * 0.5, 0.75, UP, { melt: 0.15 });
+  }
+  cap(kit, `${name}.paw`, "accent", madd(sole, [0, 0, 1], -legR * 0.2), madd(sole, [0, 0, 1], legR * 0.5), legR * 1.18, 0.5, UP, { melt: 0.25 });
 }
 
 /** The lowest bone and what it stands on: a hoof's cannon and hoof, a flat sole, a pastern and paw. */
@@ -2825,6 +2902,9 @@ function headStations(b: Build, snout: number, hr: number): { stations: Station[
   return { stations: [...skull, ...muzzle], stop, tip };
 }
 
+/** How far a head's line lies below level for a nod of `nod`, no further than its build lets it. */
+const headDrop = (b: Build, nod: number): number => Math.max(-0.15 + nod, -(b.dip ?? Infinity));
+
 function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose, m: Moment): Head {
   const b = buildOf(actor);
   const size = actor.member.size;
@@ -2837,18 +2917,19 @@ function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose, m: Moment): Hea
   const pitch = q.headPitch + nod;
   const down = clamp(-pitch, 0, 1.4) / 1.25;
   const up = clamp(pitch, 0, 1.3) / 1.2;
+  const nose = nosing(b, q);
   let np = b.rise - bodyPitch * 0.6;
-  np = mix(mix(np, -0.9, down), 1.35, up);
+  np = mix(mix(mix(np, -0.9, down), 1.35, up), -0.12, nose);
   const yaw = clamp(q.headYaw, -2.4, 2.4) * 0.45 + q.curl * 1.1;
   // (A tortoise draws its head in when it tucks down.)
   const tuck = b.sit === "tuck" ? body.lie * 0.7 : 0;
-  const n1 = madd(n0, dirOf(yaw, np), Math.max(b.neck * size, r * 0.4) * (1 - tuck));
+  const n1 = madd(n0, dirOf(yaw, np), Math.max(b.neck * size, r * 0.4) * (1 - tuck) * (1 + nose * 0.3));
   const hr = b.head * size * CHARM;
-  cone(kit, "neck", "coat", n0, n1, r * 0.62, Math.max(hr * 0.55, r * 0.32));
+  cone(kit, "neck", "coat", n0, n1, r * 0.62 * b.neckGirth, Math.max(hr * 0.55 * b.neckGirth, r * 0.32));
   if (b.extras.includes("ruff")) cap(kit, "ruff", "coat", lerpV(n0, S, 0.4), lerpV(n0, n1, 0.35), chest * 0.82, 1, UP, { melt: 1.4 });
   if (b.extras.includes("bib")) decal(kit, "bib", "belly", add(S, [0, -chest * 0.35, chest * 0.75]), madd(n1, dirOf(yaw, np - 1.2), hr * 0.4), chest * 0.5);
-  const hd = dirOf(yaw * 1.8 + q.curl * 0.8, -0.15 + pitch * 0.55 - down * 0.45 - q.curl * 0.4);
-  const head: Head = { c: madd(n1, hd, hr * 0.55), d: hd, ...headAxes(hd, q.headRoll), r: hr, ...eyeOfSpecies(actor) };
+  const hd = dirOf(yaw * 1.8 + q.curl * 0.8, headDrop(b, (pitch * 0.55 - down * 0.45) * (1 - nose * 0.45)) - q.curl * 0.4);
+  const head: Head = { c: madd(madd(n1, hd, hr * 0.55), [0, 0, 1], -(b.curlIn ?? 0) * q.curl * r), d: hd, ...headAxes(hd, q.headRoll), r: hr, ...eyeOfSpecies(actor) };
   const outline = headStations(b, b.snout * size, hr);
   if (!outline) return head;
   const { stations } = outline;
@@ -2879,7 +2960,8 @@ function earOf(kit: Kit, part: string, kind: Ears, h: Head, x: number, back: num
     const len = h.r * (kind === "tuft" ? 0.7 : 0.95) * size;
     // (Pointed: broad at the root, narrowing to the tip.)
     cap(kit, part, kind === "tuft" ? "alt" : role, root, madd(root, dir, len), h.r * 0.28 * Math.sqrt(size) * base, 0.6, h.d, { r1: h.r * 0.09, melt: 0.6 });
-  } else if (kind === "round" || kind === "fluffy") roundEar(kit, part, kind === "fluffy", h, x, size);
+  } else if (kind === "cup") cupEar(kit, part, h, x, size);
+  else if (kind === "round" || kind === "fluffy" || kind === "rimmed") roundEar(kit, part, kind, h, x, size);
   else if (kind === "long") {
     // (Splayed in a V, so the pair reads from behind as well as from the side.)
     // (Broad and standing up off the head, so they clear the hunched back and still read when the head is a few pixels.)
@@ -2893,12 +2975,25 @@ function earOf(kit: Kit, part: string, kind: Ears, h: Head, x: number, back: num
   }
 }
 
-/** A round ear set out on top of the head, so even a mouse's clears its outline; a koala's with a pale fringe of fur. */
-function roundEar(kit: Kit, part: string, fluffy: boolean, h: Head, x: number, size: number): void {
-  const at = fluffy ? at3(h, -0.1, x * 0.8, 0.85) : at3(h, -0.2, x * 0.6, 0.98);
+/** A round ear set out on top of the head, so even a mouse's clears its outline; a koala's with a pale fringe of fur, a raccoon's white round its edge with the dark inside it. */
+function roundEar(kit: Kit, part: string, kind: Ears, h: Head, x: number, size: number): void {
+  const fluffy = kind === "fluffy";
+  const rimmed = kind === "rimmed";
+  // (A raccoon's sits wide on the skull's corner, thick and turned well outward, so its white rim shows from every side.)
+  const at = rimmed ? at3(h, -0.16, x * 0.7, 0.84) : fluffy ? at3(h, -0.1, x * 0.8, 0.85) : at3(h, -0.2, x * 0.6, 0.98);
   const er = h.r * 0.32 * size;
-  cap(kit, part, "coat", at, at, er, 0.55, h.d, { melt: 0.35 });
+  cap(kit, part, rimmed ? "accent" : "coat", at, at, er, rimmed ? 0.66 : 0.55, rimmed ? unit(madd(h.d, h.s, x * 0.72)) : h.d, { melt: 0.35 });
   if (fluffy) decal(kit, `${part}.fluff`, "belly", madd(at, h.s, x * er * 0.35), madd(at, h.s, x * er * 0.35), er * 0.75);
+  if (rimmed) decal(kit, `${part}.in`, "alt", at, at, er * 0.86);
+}
+
+/** A leathery cup set low on the side of the head and turned out and forward, its pale rim round the dark of its hollow (a hedgehog's, just under its spines). */
+function cupEar(kit: Kit, part: string, h: Head, x: number, size: number): void {
+  const at = at3(h, -0.2, x * 0.86, 0.62);
+  const er = h.r * 0.32 * size;
+  const face = unit(add(add(scale(h.d, 0.9), scale(h.s, x * 0.6)), scale(h.u, 0.2)));
+  cap(kit, part, "coat", at, at, er, 0.5, face, { melt: 0.3 });
+  decal(kit, `${part}.in`, "accent", madd(at, face, er * 0.3), madd(at, face, er * 0.3), er * 0.84);
 }
 
 /**
@@ -2908,7 +3003,7 @@ function roundEar(kit: Kit, part: string, fluffy: boolean, h: Head, x: number, s
  */
 function eyeOf(kit: Kit, part: string, h: Head, toward: Vec, r: number, open: boolean): void {
   const n = unit(sub(toward, h.c), h.d);
-  eyeAt(kit, part, h, madd(h.c, n, h.r * 0.92), n, r, open);
+  eyeAt(kit, part, h, madd(h.c, n, h.r * (h.eye?.set ? 0.97 : 0.92)), n, r, open);
 }
 
 /**
@@ -2923,6 +3018,12 @@ const FACE = 0.97;
 function eyeSpot(d: number, s: number, u: number): FacePoint {
   const k = (Math.sqrt(Math.max(1 - d * d, 0.2)) * FACE) / Math.max(Math.hypot(s, u), 1e-6);
   return [d, s * k, u * k];
+}
+
+/** Any direction from the head's middle, out to the face's surface. */
+function toSkin(p: FacePoint): FacePoint {
+  const k = FACE / Math.max(Math.hypot(...p), 1e-6);
+  return [p[0] * k, p[1] * k, p[2] * k];
 }
 
 /** A point on the face at a given height `u`: out to `s` across it, as far forward as the surface lies there. */
@@ -2968,36 +3069,76 @@ function eyeAt(kit: Kit, part: string, h: Head, at: Vec, n: Vec, r0: number, ope
   const across = unit(cross(n, h.u), h.s);
   const up = cross(across, n);
   // Set into the head, a shallow lens and not a ball stuck on it; a mammal's drawn out to an almond.
-  const c = madd(at, n, -r * 0.15);
+  const lens = style.set ? LOW_LENS : LENS;
+  const c = madd(at, n, -r * lens.sink);
   const long = r * 0.3 * style.almond;
-  cap(kit, part, "eye", madd(c, across, -long), madd(c, across, long), r, 0.8, n);
+  // (A bead is all pupil, so it needs none laid on it.)
+  cap(kit, part, style.pupil === "bead" ? "pupil" : "eye", madd(c, across, -long), madd(c, across, long), r, lens.flat, n);
+  pupilOf(kit, part, style.pupil, c, n, across, up, r);
+  ball(kit, `${part}.shine`, "shine", madd(madd(madd(c, n, r * lens.out), up, r * lens.high), across, -r * lens.aside), r * (style.set ? 0.12 : style.pupil === "bead" ? 0.24 : 0.19));
+}
+
+/** A lens: how far it sinks into the head, how flat it is, and where its spark sits on it (out along it, up it, and aside). */
+const LENS = { sink: 0.15, flat: 0.8, out: 0.82, high: 0.36, aside: 0.2 };
+const LOW_LENS = { sink: 0.2, flat: 0.55, out: 0.47, high: 0.3, aside: 0.16 };
+
+/** The pupil laid on a lens: its own shape, a cat's slit, a deer's bar, a mouse's eye all dark. */
+function pupilOf(kit: Kit, part: string, pupil: EyeStyle["pupil"], c: Vec, n: Vec, across: Vec, up: Vec, r: number): void {
   const front = madd(c, n, r * 0.74);
-  if (style.pupil === "slit") cap(kit, `${part}.pupil`, "pupil", madd(front, up, -r * 0.62), madd(front, up, r * 0.62), r * 0.15, 0.4, n);
-  else if (style.pupil === "bar") cap(kit, `${part}.pupil`, "pupil", madd(front, across, -r * 0.55), madd(front, across, r * 0.55), r * 0.19, 0.4, n);
-  else ball(kit, `${part}.pupil`, "pupil", style.pupil === "dark" ? madd(c, n, r * 0.56) : front, r * (style.pupil === "dark" ? 0.84 : 0.5), 0.45, n);
-  ball(kit, `${part}.shine`, "shine", madd(madd(madd(c, n, r * 0.82), up, r * 0.36), across, -r * 0.2), r * 0.19);
+  if (pupil === "slit") cap(kit, `${part}.pupil`, "pupil", madd(front, up, -r * 0.62), madd(front, up, r * 0.62), r * 0.15, 0.4, n);
+  else if (pupil === "bar") cap(kit, `${part}.pupil`, "pupil", madd(front, across, -r * 0.55), madd(front, across, r * 0.55), r * 0.19, 0.4, n);
+  else if (pupil !== "bead") ball(kit, `${part}.pupil`, "pupil", pupil === "dark" ? madd(c, n, r * 0.56) : front, r * (pupil === "dark" ? 0.84 : 0.5), 0.45, n);
+}
+
+/** Where the eyes sit on a round head, as face points; a build can set its own. */
+function roundEyes(b: Build): FacePoint[] {
+  const [d, s, u] = b.eyeSet ?? [0.62, 0.5, 0.28];
+  return [-1, 1].map((x) => [d, x * s, u]);
 }
 
 function faceOf(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
   const b = buildOf(actor);
+  if (actor.member.species === "cat") { catFace(kit, actor, h, q, asleep); return; }
   if (h.stations) { outlinedFace(kit, actor, h, q, asleep); return; }
   const snout = b.snout * actor.member.size;
   ball(kit, "head", "coat", h.c, h.r);
   // The muzzle tapers from the face to the nose: to a point on a fox, hardly at all on a capybara.
   const root = at3(h, 0.35, 0, -0.1);
-  const tip = madd(at3(h, 0.35, 0, -0.12), h.d, snout + h.r * 0.15);
+  const tip = madd(madd(at3(h, 0.35, 0, -0.12), h.d, snout + h.r * 0.15), h.u, h.r * (b.snoutUp ?? 0));
   const tipR = h.r * 0.5 * b.snoutTip;
   cone(kit, "snout", "coat", root, tip, h.r * 0.5, tipR);
   const jawRoot = at3(h, 0.3, 0, -0.32);
   const jawTip = madd(madd(jawRoot, h.d, snout * 0.95), h.u, -(snout + h.r) * q.mouth * 0.45);
   cone(kit, "jaw", "belly", jawRoot, jawTip, h.r * 0.36, Math.max(tipR * 0.7, h.r * 0.12));
-  if (b.extras.includes("bignose")) cap(kit, "nose", "nose", madd(tip, h.u, h.r * 0.2), madd(tip, h.u, -h.r * 0.12), h.r * 0.3, 0.7, h.d);
-  else ball(kit, "nose", "nose", tip, Math.max(tipR * 0.6, h.r * 0.12));
-  const eyes: FacePoint[] = [-1, 1].map((x) => [0.62, x * 0.5, 0.28]);
+  noseOf(kit, b, h, tip, tipR);
+  const eyes = roundEyes(b);
   eyes.forEach((spot, i) => { eyeOf(kit, `eye.${i === 0 ? "L" : "R"}`, h, onFace(h, spot), h.r * 0.25, !asleep); });
   faceMarks(kit, b, h, tip, eyes, h.r * 0.25 * (h.eye?.size ?? 1));
   if (actor.member.horned && b.extras.includes("antlers")) antlersOf(kit, h, actor.member.size);
-  earsOf(kit, b.ears, h, q.earBack, b.earLen, b.extras.includes("cheeks") ? "accent" : "coat", b.earBase);
+  if (b.extras.includes("jowls")) for (const x of [-1, 1]) jowlOf(kit, h, x);
+  earsOf(kit, b.ears, h, q.earBack, b.earLen, b.extras.includes("cheeks") || b.extras.includes("wet") ? "accent" : "coat", b.earBase);
+}
+
+/** A round head's nose on the end of its muzzle. */
+function noseOf(kit: Kit, b: Build, h: Head, tip: Vec, tipR: number): void {
+  if (b.extras.includes("bignose")) cap(kit, "nose", "nose", madd(tip, h.u, h.r * 0.2), madd(tip, h.u, -h.r * 0.12), h.r * 0.3, 0.7, h.d);
+  else if (b.extras.includes("button")) {
+    // (A broad rounded triangle, wide across the top, on the muzzle's blunt end, with a spark of wet light on it.)
+    const top = add(tip, add(scale(h.d, tipR * 0.75), scale(h.u, tipR * 0.42)));
+    cap(kit, "nose", "nose", top, madd(top, h.u, -h.r * 0.14), h.r * 0.21, 0.72, h.d, { r1: h.r * 0.085 });
+    ball(kit, "nose.shine", "shine", add(top, add(scale(h.d, h.r * 0.09), add(scale(h.u, h.r * 0.12), scale(h.s, -h.r * 0.09)))), h.r * 0.024);
+  } else if (b.extras.includes("wet")) {
+    // (A small ball on the very end of a pointed muzzle, a spark of wet light high on it.)
+    const end = madd(tip, h.d, tipR * 0.85);
+    ball(kit, "nose", "nose", end, tipR * 0.68);
+    ball(kit, "nose.shine", "shine", add(end, add(scale(h.d, tipR * 0.42), add(scale(h.u, tipR * 0.32), scale(h.s, -tipR * 0.22)))), tipR * 0.13);
+  // (A pointed muzzle ends in its nose; a blunt one's, a tortoise's, stays in it.)
+  } else ball(kit, "nose", "nose", madd(tip, h.d, b.snoutTip < 0.5 ? tipR * 0.8 : 0), Math.max(tipR * 0.6, h.r * 0.12));
+}
+
+/** A tuft of pale fur back from the cheek and out past the jaw to a soft point, which makes a broad head of a narrow muzzle from the front and breaks its outline from the side. */
+function jowlOf(kit: Kit, h: Head, x: number): void {
+  cap(kit, `jowl.${x < 0 ? "L" : "R"}`, "belly", at3(h, 0.4, x * 0.56, -0.36), at3(h, -0.38, x * 0.98, -0.56), h.r * 0.42, 1, UP, { r1: h.r * 0.17, melt: 1 });
 }
 
 /**
@@ -3021,7 +3162,7 @@ function outlinedFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): 
   const jawRoot = madd(along(stop - 0.1), h.u, (root.o - root.h * 0.5) * h.r);
   const jawEnd = madd(along(tip), h.u, (end.o - end.h * 0.5) * h.r - (tip - stop) * h.r * q.mouth * 0.5);
   cone(kit, "jaw", "coat", jawRoot, jawEnd, root.h * 0.5 * h.r, end.h * 0.55 * h.r);
-  const [ed, es, eu] = eyeSet(h);
+  const [ed, es, eu] = EYE_SET;
   const eyes = [-1, 1].map((x) => eyeSpot(stop + ed, x * es, eu));
   eyes.forEach((spot, i) => { outlinedEye(kit, `eye.${i === 0 ? "L" : "R"}`, h, spot, h.r * 0.22, !asleep); });
   faceMarks(kit, b, h, nose, eyes, h.r * 0.22 * (h.eye?.size ?? 1));
@@ -3029,8 +3170,106 @@ function outlinedFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): 
   earsOf(kit, b.ears, h, q.earBack, b.earLen, b.extras.includes("cheeks") ? "accent" : "coat", b.earBase);
 }
 
-/** Where the eyes sit on an outlined head (see `EyeStyle.set`): just behind the stop, on the sides, under the brow. */
-const eyeSet = (h: Head): readonly [number, number, number] => h.eye?.set ?? [-0.12, 0.62, 0.5];
+/**
+ * A cat's face: a round skull full in the cheek, a short wide muzzle of two
+ * whisker pads over a neat chin, a small nose, the slanted eyes painted flat
+ * into the skull and set forward, and broad ears on the corners of its head.
+ * (Paint: the first decal to cover a point keeps it, so the eyes come before
+ * the markings round them.)
+ */
+function catFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void {
+  const along = (k: number): Vec => madd(h.c, h.d, k * h.r);
+  // (A point on the face: along the head, then out and up from its axis, in head radii.)
+  const on: FaceAt = (d, s, u) => add(along(d), add(scale(h.s, s * h.r), scale(h.u, u * h.r)));
+  // (The skull lies across the head, so it is round from the side and broad from the front; this is a point on its skin.)
+  const skin: Skin = (s, u) => on(Math.sqrt(Math.max(0.88 ** 2 - Math.max(Math.abs(s) - 0.1, 0) ** 2 - u ** 2, 0.02)), s, u);
+  cap(kit, "head.0", "coat", on(0, -0.1, 0), on(0, 0.1, 0), h.r * 0.88);
+  // (The muzzle is one short wide pale roll across the face, parted down its middle into two whisker pads.)
+  cap(kit, "pad", "belly", on(0.78, -0.2, -0.22), on(0.78, 0.2, -0.22), h.r * 0.42, 0.86, h.u);
+  decal(kit, "mouth", "dark", on(1.26, 0, -0.1), on(1.16, 0, -0.4), h.r * 0.03);
+  cone(kit, "jaw", "belly", on(0.6, 0, -0.5), on(0.96, 0, -0.5 - q.mouth * 0.3), h.r * 0.24, h.r * 0.2);
+  cap(kit, "nose", "nose", on(1.17, 0, -0.05), on(1.15, 0, -0.11), h.r * 0.12, 0.6, h.d, { r1: h.r * 0.05 });
+  for (const x of [-1, 1]) catEye(kit, h, skin(x * 0.54, 0.13), x, !asleep);
+  const roles = coatFace(kit, actor, h, on, skin);
+  for (const x of [-1, 1]) {
+    catEar(kit, h, on, x, q.earBack, x < 0 ? roles[0] : roles[1]);
+    // (Two fine pale whiskers from each pad, fanned a little and drooping to their tips.)
+    for (const fan of [0, 1]) cap(kit, "whisker", "shine", on(0.9, x * 0.5, -0.2 - fan * 0.1), on(0.4, x * (1.3 - fan * 0.1), -0.1 - fan * 0.3), h.r * 0.012, 1, UP, { r1: h.r * 0.006, shadow: false });
+  }
+}
+
+/** A point on the face: along the head, out and up from its axis, in head radii. */
+type FaceAt = (d: number, s: number, u: number) => Vec;
+/** A point on the skin of the skull, from where it lies across the face. */
+type Skin = (s: number, u: number) => Vec;
+
+/** Coats with a tabby's marks on the face as on the body. */
+const TABBIES: ReadonlySet<string> = new Set(["tabby", "grey"]);
+
+/** What a coat paints on the face round the eyes; it gives back each ear's colour. */
+function coatFace(kit: Kit, actor: Who, h: Head, on: FaceAt, skin: Skin): readonly [Role, Role] {
+  if (TABBIES.has(actor.member.coat)) tabbyFace(kit, h, on, skin);
+  if (actor.member.coat !== "calico") return ["coat", "coat"];
+  // (Whichever side the black falls on is the animal's own.)
+  const x = ownPhase(actor) < 0.5 ? -1 : 1;
+  calicoPatch(kit, h, skin, x, "dark");
+  calicoPatch(kit, h, skin, -x, "alt");
+  return x < 0 ? ["dark", "alt"] : ["alt", "dark"];
+}
+
+/** A tabby's face: the dark M on the brow, two peaks over a dip between the eyes, and a line back from each eye's outer corner. */
+function tabbyFace(kit: Kit, h: Head, on: FaceAt, skin: Skin): void {
+  // (Each a thin blade, flat across its own line and deep into the head, so it meets the curve of the crown from end to end.)
+  const line = (a: Vec, b: Vec, wide: number): void => {
+    const n = unit(sub(lerpV(a, b, 0.5), h.c), h.d);
+    cap(kit, "brow", "alt", a, b, h.r * 0.2, wide / 0.2, unit(cross(sub(b, a), n), h.s), { decal: true });
+  };
+  for (const x of [-1, 1]) {
+    line(skin(x * 0.38, 0.44), skin(x * 0.24, 0.76), 0.06);
+    line(skin(x * 0.24, 0.76), skin(0, 0.46), 0.06);
+    line(skin(x * 0.8, 0.2), skin(x * 0.93, 0.1), 0.05);
+  }
+}
+
+/** A calico's patch on one side of its face, from the ear down round the eye: the eye framed in it, the nose and the blaze left white. */
+function calicoPatch(kit: Kit, h: Head, skin: Skin, x: number, role: Role): void {
+  decal(kit, "face", role, skin(x * 0.7, 0.62), skin(x * 0.56, 0.08), h.r * 0.46);
+}
+
+/** A cat's eye, painted flat into the skull: a dark almond tilted up to its outer corner, heavier along its upper lid, the iris in it, the slit tall and narrow down its middle, the one catch of light on the same side of both; shut, a dark line. */
+function catEye(kit: Kit, h: Head, at: Vec, x: number, open: boolean): void {
+  const part = `eye.${x < 0 ? "L" : "R"}`;
+  const n = unit(add(h.d, add(scale(h.s, x * 0.8), scale(h.u, 0.2))));
+  // (Across and up on the eye's own face, the outer corner lifted.)
+  const tilted = madd(h.s, h.u, x * 0.3);
+  const across = unit(madd(tilted, n, -dot(tilted, n)));
+  const up = cross(n, across);
+  const rise = dot(up, h.u) < 0 ? -1 : 1;
+  const point = (k: number, v = 0): Vec => add(at, add(scale(across, k * h.r), scale(up, v * rise * h.r)));
+  if (!open) { cap(kit, part, "dark", point(-0.27), point(0.27), h.r * 0.045, 1, UP, { melt: 0.2 }); return; }
+  // (Laid in order, nearest the eye's middle first; each is deep along the eye's axis, so it finds the skin however the skull curves there.)
+  cap(kit, `${part}.shine`, "shine", madd(point(0.07, 0.07), n, -h.r * 0.18), madd(point(0.07, 0.07), n, h.r * 0.18), h.r * 0.042, 1, UP, { decal: true });
+  // (The slit stands plumb on the head, whatever the eye's own tilt.)
+  const plumb = scale(h.u, h.r * 0.035);
+  cap(kit, `${part}.pupil`, "pupil", sub(at, plumb), add(at, plumb), h.r * 0.135, 0.3, across, { decal: true });
+  cap(kit, part, "eye", point(-0.1, -0.012), point(0.1, -0.012), h.r * 0.15, 0.95, up, { decal: true });
+  cap(kit, `${part}.rim`, "dark", point(-0.13, 0.012), point(0.15, 0.012), h.r * 0.2, 0.92, up, { r1: h.r * 0.17, decal: true });
+}
+
+/** A cat's ear: a broad low triangle, a little rounded at its tip, on the corner of its head, held up however the head tilts, its pink inside turned forward so both show. */
+function catEar(kit: Kit, h: Head, on: FaceAt, x: number, back: number, role: Role): void {
+  const part = `ear.${x < 0 ? "L" : "R"}`;
+  const root = on(-0.1, x * 0.6, 0.55);
+  const dir = unit(add(add(lerpV(h.u, UP, 0.65), scale(h.s, x * 0.34)), scale(h.d, -(0.02 + back * 0.8))));
+  const n = unit(madd(h.d, h.s, x * 0.5));
+  const r = h.r * 0.5;
+  cap(kit, part, role, root, madd(root, dir, h.r * 0.84), r, 0.56, n, { r1: h.r * 0.1, melt: 0.35 });
+  const inner = madd(madd(root, n, r * 0.4), dir, h.r * 0.24);
+  cap(kit, `${part}.in`, "accent", inner, madd(inner, dir, h.r * 0.5), r * 0.62, 0.46, n, { r1: h.r * 0.1, decal: true });
+}
+
+/** Where the eyes sit on an outlined head: just behind the stop, on the sides, under the brow. */
+const EYE_SET = [-0.12, 0.62, 0.5] as const;
 
 /**
  * A bandit's mask round one eye, found from the eye itself: one band from
@@ -3046,14 +3285,57 @@ function maskBand(kit: Kit, h: Head, eye: FacePoint, eyeR: number): void {
   const [d, s, u] = eye;
   const inner: FacePoint = [(d + bridge[0]) / 2, (s + bridge[1]) / 2, (u + bridge[2]) / 2];
   const out = [2 * d - inner[0], 2 * s - inner[1], 2 * u - inner[2] - 0.12] as const;
-  const k = FACE / Math.max(Math.hypot(...out), 1e-6);
-  decal(kit, "mask", "dark", onFace(h, inner), onFace(h, [out[0] * k, out[1] * k, out[2] * k]), eyeR * 1.6);
+  decal(kit, "mask", "dark", onFace(h, inner), onFace(h, toSkin(out)), eyeR * 1.6);
+}
+
+/**
+ * A long oval of paint laid on the head at `at` and drawn out along `run` by
+ * `reach`, narrowing from `r` to `r1` as it goes: `flat` is its width against
+ * its length, and it stays as deep as it is long, so it meets the head's curve
+ * from end to end.
+ */
+function facePatch(kit: Kit, part: string, role: Role, h: Head, at: Vec, run: Vec, reach: number, r: number, r1: number, flat: number, melt: number): void {
+  const n = unit(sub(at, h.c), h.d);
+  const along = unit(madd(run, n, -dot(run, n)), h.s);
+  cap(kit, part, role, at, madd(at, along, reach), r, flat, cross(n, along), { decal: true, r1, melt });
+}
+
+/** A raccoon's mask round one eye: an oval from just short of the bridge, where it barely meets its pair, back and down past the eye, narrowing toward the jaw's corner. */
+function banditMask(kit: Kit, h: Head, eye: FacePoint, band: number): void {
+  const [d, s, u] = eye;
+  const x = Math.sign(s) || 1;
+  const run = sub(onFace(h, toSkin([d - 0.62, x * 0.92, u - 0.5])), onFace(h, frontAt(x * 0.06, u + 0.06)));
+  facePatch(kit, "mask", "dark", h, onFace(h, eye), run, h.r * 0.5, band * 2.6, band * 1, 0.52, 1.1);
+}
+
+/** A pale brow over one eye's mask, found from the eye too: nearly level along the mask's top, out from over the eye, thin and fading at its outer end. */
+function browMark(kit: Kit, h: Head, eye: FacePoint, band: number): void {
+  const [d, s, u] = eye;
+  const x = Math.sign(s) || 1;
+  facePatch(kit, "brow", "accent", h, onFace(h, toSkin([d - 0.04, s * 0.74, u + 0.42])), scale(h.s, x), h.r * 0.24, band * 1.45, band * 0.6, 0.36, 1.1);
+}
+
+/**
+ * A raccoon's face: the black mask, a white brow over it, a white muzzle
+ * under it and a soft dark blaze down the nose between, broad on the forehead
+ * and gone before the nose. (The first decal to cover a point keeps it, so the
+ * black comes first and the white meets its edge clean.)
+ */
+function banditMarks(kit: Kit, h: Head, tip: Vec, eyes: readonly FacePoint[], eyeR: number): void {
+  // (A small eye in a big patch: the band is sized to the head's mask, not to the eye.)
+  const band = eyeR * 1.3;
+  for (const eye of eyes) { banditMask(kit, h, eye, band); browMark(kit, h, eye, band); }
+  const brow = frontAt(0, (eyes[0]?.[2] ?? 0) + 0.46);
+  // (A blade, flat across the face and deep into it, so it meets the curve down the bridge from end to end.)
+  cap(kit, "line", "alt", onFace(h, brow), add(tip, add(scale(h.u, h.r * 0.2), scale(h.d, -h.r * 0.14))), h.r * 0.56, 0.32, h.s, { decal: true, r1: h.r * 0.14, melt: 1.4 });
+  decal(kit, "muzzle", "accent", at3(h, 0.3, 0, -0.5), tip, h.r * 0.7);
 }
 
 /** Face markings, set across the head's surface so they paint it from any side. */
 function faceMarks(kit: Kit, b: Build, h: Head, tip: Vec, eyes: readonly FacePoint[], eyeR: number): void {
   const cheeks = b.extras.includes("cheeks");
   const mask = b.extras.includes("mask");
+  if (b.extras.includes("brows")) { banditMarks(kit, h, tip, eyes, eyeR); return; }
   if (b.extras.includes("muzzle")) decal(kit, "muzzle", cheeks ? "accent" : "belly", at3(h, 0.65, 0, -0.4), tip, h.r * 0.45);
   if (mask) for (const eye of eyes) maskBand(kit, h, eye, eyeR);
   // (A badger's white blaze runs from its nose over its crown, between dark stripes.)
@@ -3077,15 +3359,18 @@ function antlersOf(kit: Kit, h: Head, size: number): void {
 }
 
 /** Tails: how each rises and curls, its girth and segments, and its thickness down its length (root to tip). */
-const TAILS: Readonly<Record<Tail, { rise: number; curl: number; girth: number; n: number; profile: readonly number[] }>> = {
+const TAILS: Readonly<Record<Tail, { rise: number; curl: number; girth: number; n: number; profile: readonly number[]; root?: number }>> = {
   bushy: { rise: 0.1, curl: -0.12, girth: 0.6, n: 3, profile: [0.5, 0.95, 0.9, 0.4] },
   curl: { rise: 1.25, curl: 0.5, girth: 0.6, n: 4, profile: [0.55, 0.95, 1, 0.9, 0.55] },
   // (A thin tail falls from the rump and curves up toward its tip, a J, never a straight stick.)
   thin: { rise: 0.1, curl: 0.25, girth: 0.16, n: 4, profile: [1, 0.85, 0.7, 0.55, 0.4] },
   puff: { rise: 0.6, curl: 0, girth: 0.45, n: 1, profile: [1, 1] },
   ring: { rise: 0.35, curl: 0.05, girth: 0.45, n: 4, profile: [0.75, 1, 0.95, 0.85, 0.55] },
+  // (A raccoon's: full and blunt, carried low; its bands are painted along its length, more of them than it has segments.)
+  banded: { rise: 0.05, curl: -0.12, girth: 0.62, n: 3, profile: [0.72, 1.04, 1.06, 0.64], root: 1.7 },
   thick: { rise: -0.55, curl: 0.1, girth: 0.6, n: 3, profile: [1, 0.7, 0.45, 0.22] },
   fan: { rise: 0, curl: 0, girth: 0.4, n: 1, profile: [1, 1] },
+  stub: { rise: 0, curl: 0, girth: 0.16, n: 0, profile: [0] },
   none: { rise: 0, curl: 0, girth: 0, n: 0, profile: [0] },
 };
 
@@ -3099,33 +3384,62 @@ function tailLay(b: Build, body: QuadBody, q: Pose, t: number): (i: number) => V
   const wrap = (body.sit + body.loaf + body.haunch * 0.5) * (b.tail === "curl" || b.tail === "thick" ? 0 : 1);
   const settled = body.sit + body.lie + body.loaf;
   const hook = b.tail === "thin" && b.tailRise > 0.3 ? 0.9 * (1 - settled) : 0;
+  // (Nose down, a cat's tail eases into a low relaxed curve.)
+  const held = Math.max(0, 1 - settled) * (1 - nosing(b, q) * 0.8);
   return (i) => {
-    const wag = q.tailWag * 0.6 * Math.sin(t * 8 - i * 0.8) + 0.15 * Math.sin(t * 1.3 - i) + q.curl * 0.9 + wrap * (0.55 + i * 0.5);
-    const rise = shape.rise + b.tailRise * (1 - settled) + q.tailUp * 0.9 + shape.curl * i + (i === shape.n - 1 ? hook : 0) - q.sit * 0.7 - q.lie * 0.4 - wrap * 0.6;
+    const [climb, sway] = b.tailLine?.[i] ?? [0, 0, 0];
+    const wag = q.tailWag * 0.6 * Math.sin(t * 8 - i * 0.8) + 0.15 * Math.sin(t * 1.3 - i) + q.curl * 0.9 + wrap * (0.55 + i * 0.5) + sway * held;
+    const rise = shape.rise + b.tailRise * (1 - settled) + q.tailUp * 0.9 + shape.curl * i + (i === shape.n - 1 ? hook : 0) - q.sit * 0.7 - q.lie * 0.4 - wrap * 0.6 + climb * held;
     return dirOf(Math.PI + wag, rise);
   };
 }
 
+/** Where a banded tail's dark rings lie, as shares of its length; the last is its tip. */
+const TAIL_BANDS = [0.36, 0.51, 0.66, 0.81, 0.98] as const;
+
+/** A banded tail's dark rings, each a flat disc a touch wider than the tail where it lies, so it paints an even band right round it; the last is its whole tip. */
+function tailBands(kit: Kit, path: readonly Vec[], girth: number, profile: readonly number[]): void {
+  TAIL_BANDS.forEach((k, j) => {
+    const i = Math.min(Math.floor(k * (path.length - 1)), path.length - 2);
+    const f = k * (path.length - 1) - i;
+    const at = lerpV(path[i] ?? UP, path[i + 1] ?? UP, f);
+    const r = girth * mix(profile[i] ?? 1, profile[i + 1] ?? 1, f);
+    const along = unit(sub(path[i + 1] ?? UP, path[i] ?? UP));
+    cap(kit, `tail.ring.${j}`, "dark", at, at, r * (j < TAIL_BANDS.length - 1 ? 1.35 : 1.14), j < TAIL_BANDS.length - 1 ? 0.25 : 1, along, { decal: true, melt: 0.5 });
+  });
+}
+
+/** A tail segment's share of the tail: an even one, unless the tail has a line of its own. */
+const tailShare = (b: Build, i: number, n: number): number => b.tailLine?.[i]?.[2] ?? 1 / n;
+/** How far a tail segment melts into the last: the first, into the rump. */
+const tailMelt = (tail: Tail, i: number): number => (i === 0 ? TAILS[tail].root ?? 1 : 0.7);
+/** A tabby's tail ends dark. */
+const darkTipped = (who: Who): boolean => who.member.species === "cat" && TABBIES.has(who.member.coat);
+
 function quadTail(kit: Kit, actor: Who, body: QuadBody, q: Pose, t: number): void {
   const b = buildOf(actor);
   const shape = TAILS[b.tail];
+  // (A hedgehog's is a bare nub low on its rump, under the skirt.)
+  if (b.tail === "stub") { const root = add(body.P, [0, -body.r * 0.25, -body.r * 0.5]); cone(kit, "tail", "accent", root, add(root, [0, -body.r * 0.22, -body.r * 0.2]), body.r * shape.girth, body.r * shape.girth * 0.6, 0.5); return; }
   if (shape.n === 0) return;
   const hu = body.r * b.haunch;
   let at = add(body.P, [0, hu * 0.35, -hu * 0.8]);
   if (b.tail === "puff") { ball(kit, "tail", "belly", add(body.P, [0, hu * 0.55, -hu * 0.88]), body.r * shape.girth * b.tailGirth); return; }
-  const seg = (b.tailLen * actor.member.size) / shape.n;
   const girth = body.r * shape.girth * b.tailGirth;
   const lay = tailLay(b, body, q, t);
+  const path: Vec[] = [at];
   for (let i = 0; i < shape.n; i += 1) {
-    const reach = madd(at, lay(i), seg);
+    const reach = madd(at, lay(i), b.tailLen * actor.member.size * tailShare(b, i, shape.n));
     const r0 = girth * (shape.profile[i] ?? 1);
     const r1 = girth * (shape.profile[i + 1] ?? 1);
     const next: Vec = [reach[0], Math.max(reach[1], r1 * 0.9), reach[2]];
-    cap(kit, `tail.${i}`, "coat", at, next, r0, 1, UP, { r1, melt: i === 0 ? 1 : 0.7 });
+    cap(kit, `tail.${i}`, i === shape.n - 1 && darkTipped(actor) ? "dark" : "coat", at, next, r0, 1, UP, { r1, melt: tailMelt(b.tail, i) });
     // (A ringed tail's dark bands are painted round it, crisp, one between each pair of pale ones.)
     if (b.tail === "ring") decal(kit, `tail.ring.${i}`, "dark", lerpV(at, next, 0.75), lerpV(at, next, 0.75), mix(r0, r1, 0.75) * 1.12);
     at = next;
+    path.push(at);
   }
+  if (b.tail === "banded") tailBands(kit, path, girth, shape.profile);
   // (A fox's brush ends in white; a mouse's or a meerkat's tail in dark.)
   if (b.tail === "bushy") decal(kit, "tail.tip", "accent", at, at, girth * 0.75);
 }
@@ -3161,7 +3475,8 @@ function coatMarks(kit: Kit, actor: Who, b: Build, body: QuadBody): void {
   const ch = r * b.chest;
   const hu = r * b.haunch;
   const spot = (part: string, role: Role, at: Vec, radius: number): void => { decal(kit, part, role, at, at, radius); };
-  decal(kit, "belly", "belly", add(P, [0, -hu * 0.8, 0]), add(S, [0, -ch * 0.85, 0]), r * 0.58);
+  // (A grizzled coat grows paler to its belly by itself.)
+  if (!grizzled(actor)) decal(kit, "belly", "belly", add(P, [0, -hu * 0.8, 0]), add(S, [0, -ch * 0.85, 0]), r * 0.58);
   if (extras.includes("saddle")) decal(kit, "saddle", "alt", add(P, [0, hu * 0.95, 0]), add(S, [0, ch * 0.95, -ch * 0.2]), r * 0.62);
   if (extras.includes("rump")) spot("rump", "belly", add(P, [0, hu * 0.25, -hu * 0.95]), hu * 0.72);
   if (extras.includes("stripes") && !extras.includes("mask")) {
@@ -3184,34 +3499,27 @@ function shellOf(kit: Kit, body: QuadBody): void {
 }
 
 /**
- * A hedgehog's mantle of spines: a dark dome over its back with a clear brim
- * behind the pale face, flecked with the spines' pale tips, and a ragged edge
- * of short spines raked back along its sides and rump, so it reads as a
- * bristling coat and not as a loaf or as horns.
+ * A hedgehog's mantle: a low oval dome of its second colour from the rump to
+ * the brow, highest just behind the middle of its back, its edge a skirt that
+ * comes down near the ground over its flanks and overhangs the head's rear
+ * third, its peak run on down the forehead between the ears. The dome only
+ * says where the spines stand; they are grown on it as its grain (see
+ * `quillGrain`), so they keep to it and leave the face, the belly and the
+ * feet soft.
  */
+const MANTLE: readonly Station[] = [[0, 0.96, 0.7, 0.92], [0.37, 1.44, 0.7, 1.12], [1, 1.02, 0.7, 0.76], [1.8, 0.585, -0.185, 0.15]];
+function mantleLine(body: QuadBody, k: number): Vec { return add(lerpV(body.P, body.S, k), [0, body.r * 0.12, 0]); }
 function quillsOf(kit: Kit, body: QuadBody): void {
-  const { P, S, r } = body;
-  const back = unit(sub(P, S));
-  const front = lerpV(P, S, 0.72);
-  // A point over the mantle: `k` from its rump to its brim, `a` round from the top, `lift` out from its axis (its flank 1.15, its crown 0.98).
-  const at = (k: number, a: number, lift: number): Vec => add(lerpV(P, front, k), [Math.sin(a) * r * lift * 1.15, Math.cos(a) * r * lift * 0.98 + r * 0.25, 0]);
-  // (Behind the head, melting only a little, so its brim stands off the face and the flanks.)
-  cap(kit, "quills", "alt", add(P, [0, r * 0.25, -r * 0.15]), add(front, [0, r * 0.25, 0]), r * 1.15, 0.85, UP, { melt: 0.25 });
-  // (Within sdf-body's 48 parts a body: a dozen here, so the face is never the part left out.)
-  // The spines' pale tips, flecked over the dome.
-  for (let i = 0; i < 5; i += 1) {
-    const p = at(0.12 + i * 0.19, (i % 2 === 0 ? -0.45 : 0.45) * (i % 3 === 2 ? 0 : 1), 1);
-    decal(kit, "quill.tip", "belly", p, p, r * 0.17);
-  }
-  // The ragged edge: short spines raked back, along each flank and over the rump.
-  for (let i = 0; i < 6; i += 1) {
-    const k = Math.floor(i / 2) * 0.42;
-    const a = (i % 2 === 0 ? -1 : 1) * (1.1 - k * 0.6);
-    const out: Vec = [Math.sin(a), Math.cos(a), 0];
-    const base = at(k, a, 0.92);
-    const tip = add(base, add(scale(out, r * 0.32), scale(back, r * 0.38)));
-    cone(kit, "quill", i < 2 ? "belly" : "alt", base, tip, r * 0.15, r * 0.015, 0);
-  }
+  // (Melting only a little, so its brim stands off the face and the flanks.)
+  loft(kit, "quills", "alt", MANTLE, (k) => mantleLine(body, k), UP, [1, 0, 0], body.r, 0.2);
+}
+
+/** A hedgehog's skull drawn out into a broad blunt wedge down to the muzzle, which a round head alone never is, and the soft dark mask round its eyes and on down the bridge of its nose. */
+function wedgeFace(kit: Kit, b: Build, h: Head): void {
+  cone(kit, "wedge", "coat", at3(h, 0.1, 0, -0.08), at3(h, 0.95, 0, -0.14), h.r * 0.77, h.r * 0.44);
+  const bridge = at3(h, 1.18, 0, 0.2);
+  for (const eyeSpot of roundEyes(b)) cap(kit, "mask", "accent", madd(onFace(h, eyeSpot), h.d, -h.r * 0.12), bridge, h.r * 0.33, 1, UP, { decal: true, r1: h.r * 0.17, melt: 1.3 });
+  cap(kit, "mask.bridge", "accent", bridge, at3(h, 1.55, 0, 0.08), h.r * 0.17, 1, UP, { decal: true, r1: h.r * 0.2, melt: 1.3 });
 }
 
 function poseQuad(kit: Kit, actor: Who, m: Moment): void {
@@ -3221,6 +3529,7 @@ function poseQuad(kit: Kit, actor: Who, m: Moment): void {
   for (const leg of LEG) quadLeg(kit, actor, body, leg, quadFoot(actor, body, leg, q, m, head.c));
   quadTrunk(kit, actor, body);
   faceOf(kit, actor, head, q, m.segment.act === "sleep");
+  if (buildOf(actor).extras.includes("quills")) wedgeFace(kit, buildOf(actor), head);
   quadTail(kit, actor, body, q, m.t);
 }
 
@@ -3234,11 +3543,13 @@ function primateSpine(who: Who, m: Moment): PrimateBody {
   const size = who.member.size;
   const r = b.body * size;
   const leg = b.leg * size;
-  const arm = leg * (b.extras.includes("claws") ? 1.45 : 1.15);
+  const arm = leg * (b.extras.includes("claws") ? 2.2 : 1.15);
   const climbing = m.mode === "climb" && Math.abs(m.frame.y[1]) < 0.6;
   // (A monkey stands on all fours, as it walks: upright only to sit, reach, eat or hang.)
   const walking = !climbing && (m.moving > 0.05 || onFours(who, q));
   let { hipY, lean } = primateCarriage(climbing, walking, m.moving > 0.05, leg, r);
+  // (A sloth at rest sits low on its rump, curled a little forward round its middle.)
+  if (!climbing && !walking && b.extras.includes("claws")) { hipY = r * 1.1; lean = 0.26; }
   hipY = mix(hipY, r * 0.9, q.sit);
   lean = mix(lean, 0.12, q.sit) + q.reach * 0.25;
   let hips: Vec = [0, hipY + Math.abs(Math.sin(TAU * m.phase)) * r * 0.25 * m.moving, 0];
@@ -3263,12 +3574,22 @@ function primateCarriage(climbing: boolean, fours: boolean, moving: boolean, leg
 /** Standing about on all fours: a monkey (not a sloth or a loris, which only climb and hang) doing nothing with its hands. */
 const onFours = (who: Who, q: Pose): boolean => who.spec.build.tail !== "none" && q.sit < 0.3 && q.hang <= 0 && q.reach < 0.3 && q.hand < 0.3 && q.scratch <= 0;
 
+/** A hand down on what it walks on: a sloth's reaching wide and far ahead, on arms too long to do otherwise, hooked round the trunk when it climbs. */
+function handDown(who: Who, body: PrimateBody, x: number, step: { z: number; y: number }): Vec {
+  const { chest, w, arm, r } = body;
+  if (!who.spec.build.extras.includes("claws")) return [x * w, step.y, chest[2] + arm * 0.25 + step.z];
+  return body.climbing ? [x * w * 1.35, step.y + r * 0.1, chest[2] + arm * 0.62 + step.z] : [x * w * 1.8, step.y + r * 0.7, chest[2] + arm * 0.46 + step.z];
+}
+
+/** A sloth's hands at rest: raised in front of its chest and hooked, as if round a branch it has only just let go of. */
+const slothRest = (body: PrimateBody, x: number): Vec => add(body.chest, [x * body.w * (x < 0 ? 1.7 : 1.45), body.r * (x < 0 ? -0.55 : -1.3), body.arm * (x < 0 ? 0.56 : 0.5)]);
+
 function primateHand(who: Who, body: PrimateBody, x: number, m: Moment, head: Vec): Vec {
   const q = m.pose;
   const { chest, w, arm, r } = body;
   const walking = m.moving > 0.05 || body.climbing || onFours(who, q);
   const step = walking ? footCycle(m.phase - (x < 0 ? 0 : 0.5), 0.6, 0.6 * bodyStride(who), arm * 0.25) : { z: 0, y: 0 };
-  let hand: Vec = walking ? [x * w, step.y, chest[2] + arm * 0.25 + step.z] : add(chest, [x * w * 1.2, -arm * 0.85, arm * 0.2]);
+  let hand: Vec = walking ? handDown(who, body, x, step) : who.spec.build.extras.includes("claws") ? slothRest(body, x) : add(chest, [x * w * 1.2, -arm * 0.85, arm * 0.2]);
   hand = lerpV(hand, [x * w * 1.3, r * 0.4, arm * 0.45], q.sit);
   hand = lerpV(hand, add(chest, [x * w * 0.5, -r * 0.2 + 0.03 * Math.sin(m.t * 5 + x), arm * 0.75]), q.reach * (x > 0 ? 1 : 0.6));
   if (x > 0) hand = lerpV(hand, add(head, [w * 0.25, -r * 0.5, r * 0.55]), q.hand * (1 - q.scratch));
@@ -3339,6 +3660,7 @@ function primateTail(kit: Kit, who: Who, body: PrimateBody, m: Moment): void {
 }
 
 function posePrimate(kit: Kit, who: Who, m: Moment): void {
+  if (who.member.species === "sloth") { poseSloth(kit, who, m); return; }
   const q = m.pose;
   const b = who.spec.build;
   const body = primateSpine(who, m);
@@ -3353,12 +3675,173 @@ function posePrimate(kit: Kit, who: Who, m: Moment): void {
   primateTail(kit, who, body, m);
 }
 
+// ---------------------------------------------------------------- sloths
+
+/** The way down a body's back from its spine, whatever it is leaning. */
+const spineBack = (tdir: Vec): Vec => unit(cross(tdir, [1, 0, 0]), [0, 0, -1]);
+
+/**
+ * A sloth's body: small and lean under its coat, fuller low down, narrowing
+ * up into a thin neck, its skirt of fur running on past the hips so its
+ * thighs are lost in it.
+ */
+const SLOTH_BODY: readonly Station[] = [[-0.14, 0.8, 0.9, 0.94], [0.42, 1, 1.2, 1.12], [0.94, 0.86, 0.92, 0.9], [1.2, 0.48, 0.54, 0.54]];
+
+/** Along a sloth's spine, in a soft C: its back rounded out and its chest let in. */
+const slothSpine = (body: PrimateBody, k: number): Vec => madd(lerpV(body.hips, body.chest, k), spineBack(body.tdir), Math.sin(Math.PI * clamp(k, 0, 1)) * body.r * 0.3);
+
+function slothTorso(kit: Kit, body: PrimateBody): void {
+  const { tdir, r } = body;
+  const back = spineBack(tdir);
+  loft(kit, "torso", "coat", SLOTH_BODY, (k) => slothSpine(body, k), back, [1, 0, 0], r, 1);
+  // (Algae in the hair over the back and shoulders, soft at its edge and mottled over by the coat's pattern; the belly's shade is painted by the melt alone, so it has no edge.)
+  cap(kit, "moss", "belly", madd(slothSpine(body, 0.3), back, r * 0.3), madd(slothSpine(body, 1.1), back, r * 0.3), r * 1.05, 1, UP, { decal: true, under: true, melt: 2 });
+  cone(kit, "under", "alt", madd(slothSpine(body, -0.1), back, -r * 0.76), madd(slothSpine(body, 0.85), back, -r * 0.56), r * 0.5, r * 0.4);
+}
+
+/** A claw's two parts, as the arc from root to tip (in radians turned): horn, then a dark tip, thinning from `thick` to `end` of its root. */
+const CLAW: readonly (readonly [from: number, to: number, role: Role, thick: number, end: number])[] = [[0, 1.45, "horn", 1, 0.62], [1.45, 2.05, "dark", 0.62, 0.1]];
+
+/** One part of a claw, along the arc from `root` of radius `bend` out along `along` and round toward `curl`, from turn `from` to turn `to`. */
+function sickle(kit: Kit, part: string, role: Role, root: Vec, along: Vec, curl: Vec, bend: number, from: number, to: number, r: number, r1: number): void {
+  const on = (a: number): Vec => madd(madd(root, along, Math.sin(a) * bend), curl, (1 - Math.cos(a)) * bend);
+  const a = on(from);
+  const b = on(to);
+  cap(kit, `${part}.claw`, role, a, b, r, 1, UP, { r1, melt: 0, bow: sub(on((from + to) / 2), lerpV(a, b, 0.5)) });
+}
+
+/**
+ * Three long claws curving off a hand: out along `along` and round toward
+ * `palm`, one even sickle each. A sloth does not grip, it hangs on these.
+ */
+function hookClaws(kit: Kit, part: string, at: Vec, along: Vec, palm: Vec, width: number, len: number, r: number): void {
+  const curl = unit(madd(palm, along, -dot(palm, along)), [0, 0, -1]);
+  const across = cross(along, curl);
+  for (const i of [-1, 0, 1]) {
+    for (const [from, to, role, thick, end] of CLAW) sickle(kit, part, role, madd(at, across, i * width), along, curl, len / 2, from, to, r * thick, r * end);
+  }
+}
+
+/** Which way hair hangs off a limb along `along`: down, or down the trunk when it climbs, square to the limb. */
+function hangOff(body: PrimateBody, along: Vec): Vec {
+  const fall: Vec = body.climbing ? [0, 0, -1] : [0, -1, 0];
+  return unit(madd(fall, along, -dot(fall, along)), [0, -0.5, -0.5]);
+}
+
+/** A long thin arm, shaggy to a small fur mitten, with a soft bend at the elbow and hair hanging under the forearm. */
+function slothArm(kit: Kit, x: number, body: PrimateBody, target: Vec, m: Moment): void {
+  const { chest, tdir, w, r, arm } = body;
+  const side = x < 0 ? "L" : "R";
+  const root = madd(add(chest, [x * w * 0.86, 0, 0]), tdir, -r * 0.28);
+  // (Elbows out and down at rest, and down when a hand comes to its mouth; out from the trunk as it climbs.)
+  const pole = lerpV(m.mode === null ? [x * 0.8, -0.8, -0.15] : [x * 0.9, body.climbing ? 0.2 : -0.2, -0.45], [x * 0.7, -1, -0.3], m.pose.hand);
+  const { mid, end } = solveTwoBone(root, target, arm * 0.5, arm * 0.5, pole);
+  cone(kit, `arm.${side}.upper`, "coat", root, mid, r * 0.4, r * 0.3, 0.6);
+  cone(kit, `arm.${side}.lower`, "coat", mid, end, r * 0.34, r * 0.18, 0.5);
+  const along = unit(sub(end, mid));
+  const off = hangOff(body, along);
+  cap(kit, `arm.${side}.fringe`, "coat", madd(mid, off, r * 0.22), madd(lerpV(mid, end, 0.7), off, r * 0.14), r * 0.2, 0.6, cross(along, off), { r1: r * 0.06, melt: 0.5 });
+  const heel = madd(end, along, r * 0.26);
+  cone(kit, `arm.${side}.mitten`, "coat", end, heel, r * 0.2, r * 0.2, 0.5);
+  const down = m.mode === null ? 0 : 1;
+  const palm = lerpV(lerpV([-x * 0.9, -0.5, 0], [0, -1, -0.2], down), [0, -0.2, 1], m.pose.hang);
+  hookClaws(kit, `arm.${side}`, heel, along, palm, r * 0.16, r * 1.7, r * 0.075);
+}
+
+/** Where a sloth's foot goes: out past its skirt as it sits, gripping the trunk below its hips as it climbs. */
+function slothFoot(body: PrimateBody, target: Vec, q: Pose): Vec {
+  const { r, leg } = body;
+  if (body.climbing) return [target[0] * 1.5, r * 0.1, target[2] - leg * 0.1];
+  const out = (1 - q.hang) * (1 - q.sit);
+  return [target[0] * (1 + 0.8 * out), target[1] + r * 0.3 * (1 - q.hang), target[2] + leg * 0.62 * out];
+}
+
+/** A short leg lost in the coat as far as its foot, with two hooks. */
+function slothLeg(kit: Kit, x: number, body: PrimateBody, target: Vec, q: Pose): void {
+  const { hips, tdir, w, r } = body;
+  const side = x < 0 ? "L" : "R";
+  const root = madd(add(hips, [x * w * 0.62, 0, 0]), tdir, r * 0.1);
+  const foot = slothFoot(body, target, q);
+  const along = unit(sub(foot, root));
+  cone(kit, `leg.${side}.upper`, "coat", root, foot, r * 0.56, r * 0.26, 1);
+  const curl = unit(madd(body.climbing ? [0, -1, 0] : [0, -1, -0.2], along, -dot([0, -1, -0.2], along)), [0, -1, 0]);
+  // (Two will do, the same hooks as the hands'.)
+  for (const i of [-1, 1]) sickle(kit, `leg.${side}`, "horn", madd(foot, cross(along, curl), i * r * 0.1), along, curl, r * 0.56, 0, 1.8, r * 0.09, r * 0.012);
+}
+
+/**
+ * A sloth's face: a wide pale mask wrapped round the head to the temples,
+ * its edge as broken as the fur it lies in, about a blunt muzzle; each small
+ * eye in a dark stripe running back and down across the cheek, a tiny nose
+ * and a curved line under it that makes it look as if it is smiling.
+ * Everything is found from the eyes, so the stripes never drift off them.
+ */
+function slothFace(kit: Kit, h: Head, m: Moment): void {
+  const eyeR = h.r * 0.15;
+  const spots = [-1, 1].map((x) => frontAt(x * 0.5, 0.14));
+  spots.forEach((spot, i) => {
+    const x = i === 0 ? -1 : 1;
+    const run = sub(onFace(h, toSkin([-0.2, x * 0.8, spot[2] - 0.72])), onFace(h, spot));
+    facePatch(kit, "mask", "pupil", h, onFace(h, frontAt(x * 0.4, spot[2] + 0.03)), run, h.r * 1.02, eyeR * 1.4, eyeR * 0.4, 0.66, 0.4);
+  });
+  // (A pale lip laid over a dark bar a little below it, which leaves a crescent: the first paint keeps a point.)
+  const open = m.pose.mouth * 0.14;
+  for (const [part, role, u] of [["lip", "accent", -0.34], ["smile", "dark", -0.4 - open]] as const) {
+    cap(kit, part, role, at3(h, 1.08, -0.16, u), at3(h, 1.08, 0.16, u), h.r * 0.17, 1, UP, { decal: true, melt: 0.2 });
+  }
+  cap(kit, "face", "accent", at3(h, 0.42, -0.42, -0.06), at3(h, 0.42, 0.42, -0.06), h.r * 0.66, 1, UP, { decal: true, melt: 1.5 });
+  cap(kit, "muzzle", "accent", at3(h, 0.76, 0, -0.26), at3(h, 0.76, 0, -0.26), h.r * 0.5, 0.74, h.d, { melt: 0.6 });
+  cap(kit, "nose", "nose", at3(h, 1.14, -0.04, -0.2), at3(h, 1.14, 0.04, -0.2), h.r * 0.075, 0.7, h.d);
+  spots.forEach((spot, i) => { eyeOf(kit, `eye.${i === 0 ? "L" : "R"}`, h, onFace(h, spot), eyeR, m.segment.act !== "sleep"); });
+}
+
+/** Where a sloth's head sits: out ahead of its shoulders on a thin neck, so head and muzzle clear the outline from the side, the throat dark under them. */
+const slothPoll = (body: PrimateBody): Vec => madd(madd(body.chest, body.tdir, body.r * 1.3), spineBack(body.tdir), -body.r * (body.climbing ? 0.2 : 1.05));
+
+function slothHead(kit: Kit, who: Who, body: PrimateBody, m: Moment): Vec {
+  const q = m.pose;
+  const size = who.member.size;
+  const { chest, tdir, r } = body;
+  const hr = who.spec.build.head * size * CHARM;
+  const look = q.hang > 0.5 ? 0 : body.climbing ? 0.9 : m.moving > 0.05 ? 0.5 : 0;
+  // (It can turn its head right round: on a trunk it looks out over its shoulder.)
+  const hd = body.climbing ? unit([0.7, 0.72, 0.1]) : dirOf(q.headYaw * 0.8, -0.05 + q.headPitch * 0.6 + look * 0.7);
+  const fore = scale(spineBack(tdir), -1);
+  const c = slothPoll(body);
+  const hs = unit(cross(tdir, hd), [1, 0, 0]);
+  const axes = body.climbing ? { s: hs, u: cross(hd, hs) } : headAxes(hd, q.headRoll);
+  const h: Head = { c, d: hd, ...axes, r: hr, ...eyeOfSpecies(who) };
+  slothFace(kit, h, m);
+  cap(kit, "head", "coat", c, c, hr, 1, UP, { melt: 0.45 });
+  // (Out of sight just under the face: the fur lies short round a crisp part, so the mask stays smooth and the crown shaggy.)
+  cap(kit, "plate", "accent", at3(h, 0.38, 0, 0), at3(h, 0.38, 0, 0), hr * 0.6, 1, UP, { melt: 0, shadow: false });
+  cone(kit, "neck", "alt", madd(madd(chest, tdir, r * 0.5), fore, r * 0.4), madd(c, tdir, -hr * 0.55), r * 0.54, r * 0.5, 0.7);
+  return c;
+}
+
+/** Where a sloth's coat falls from: a whorl on the crown of its head, so it runs back off the skull and down its flanks and arms. */
+function slothCrown(who: Who, m: Moment): Vec {
+  const body = primateSpine(who, m);
+  const up = who.spec.build.head * who.member.size * CHARM;
+  return toWorld(m.frame, madd(madd(slothPoll(body), body.tdir, up * 0.8), spineBack(body.tdir), up * 0.5));
+}
+
+function poseSloth(kit: Kit, who: Who, m: Moment): void {
+  const body = primateSpine(who, m);
+  const head = slothHead(kit, who, body, m);
+  slothTorso(kit, body);
+  for (const x of [-1, 1]) {
+    slothArm(kit, x, body, primateHand(who, body, x, m, head), m);
+    slothLeg(kit, x, body, primateFoot(who, body, x, m), m.pose);
+  }
+}
+
 // ---------------------------------------------------------------- birds
 
 /** Beak colours; the rest of a bird's look is its coat. */
-const BEAKS: Partial<Record<SpeciesId, string>> = { songbird: "#3a2a1a", crow: "#1e1e24", owl: "#e8dcc4", parrot: "#2a2a2a", gull: "#f0c030", peacock: "#8a8a80", crane: "#c8c0a0", woodpecker: "#2a2a2a", kookaburra: "#2a2622", guineafowl: "#d8c8a0" };
+const BEAKS: Partial<Record<SpeciesId, string>> = { sloth: "#a8a08c", songbird: "#3a2a1a", crow: "#1e1e24", owl: "#e8dcc4", parrot: "#2a2a2a", gull: "#f0c030", peacock: "#8a8a80", crane: "#c8c0a0", woodpecker: "#2a2a2a", kookaburra: "#2a2622", guineafowl: "#d8c8a0" };
 /** Beaks by coat where a coat has its own: a barn owl's warm ivory, a great horned owl's dark grey, a snowy owl's black. */
-const COAT_BEAKS: Readonly<Record<string, string>> = { barn: "#ecd6c4", "great horned": "#3c3a3a", snowy: "#1c1c20" };
+const COAT_BEAKS: Readonly<Record<string, string>> = { barn: "#e0cdbc", "great horned": "#3c3a3a", snowy: "#1c1c20" };
 /** A sixth colour where a coat needs one, painted as its shell (no bird has one): a great horned owl's buff breast, between its white bib and its rufous face. */
 const COAT_SHELLS: Readonly<Record<string, string>> = { "great horned": "#d4c6aa" };
 
@@ -3397,7 +3880,7 @@ const WINGS: Partial<Record<SpeciesId, WingStyle>> = {
   woodpecker: { ...WING, rate: 24, span: 0.66, chord: 0.21, top: "coat", trail: "alt", tip: "coat", fold: ["coat", "alt"], glide: 0, bout: 1.1, bound: true, tail: "coat", spots: "belly" },
   parrot: { ...WING, rate: 19, span: 0.72, chord: 0.17, trail: "coat", fold: ["coat", "alt"], glide: 0.12, bout: 1.6 },
   crow: { ...WING, rate: 12, span: 0.86, chord: 0.24, fingers: 4, top: "alt", trail: "accent", tip: "alt", fold: ["alt", "alt"], glide: 0.4, bout: 3.2, dihedral: 0.1 },
-  owl: { ...WING, rate: 8, span: 0.92, chord: 0.32, top: "coat", fold: ["alt", "alt"], glide: 0.6, bout: 2.6, dihedral: 0.02 },
+  owl: { ...WING, rate: 8, span: 0.92, chord: 0.32, top: "coat", fold: ["coat", "alt"], glide: 0.6, bout: 2.6, dihedral: 0.02 },
   gull: { ...WING, rate: 7.5, span: 1.08, chord: 0.17, fingers: 2, trail: "belly", tip: "dark", fold: ["alt", "dark"], glide: 0.75, bout: 4.5, dihedral: 0.14 },
   peacock: { ...WING, rate: 12, span: 0.5, chord: 0.24, glide: 0.35, bout: 1.4 },
   crane: { ...WING, rate: 5, span: 1.1, chord: 0.2, fingers: 4, top: "coat", tip: "coat", fold: ["coat", "alt"], glide: 0.35, bout: 5, dihedral: 0.08 },
@@ -3419,7 +3902,7 @@ const STANCES: Partial<Record<SpeciesId, Stance>> = {
   woodpecker: { pitch: 0.82, walk: 0.5, fore: 0.16, aft: 0.2 },
   parrot: { pitch: 1, walk: 0.55, fore: 0.16, aft: 0.2 },
   crow: { pitch: 0.48, walk: 0.32, fore: 0.2, aft: 0.24 },
-  owl: { pitch: 1.4, walk: 1.0, fore: 0.13, aft: 0.13 },
+  owl: { pitch: 1.38, walk: 1.22, fore: 0.13, aft: 0.13 },
   gull: { pitch: 0.24, walk: 0.18, fore: 0.22, aft: 0.24 },
   peacock: { pitch: 0.22, walk: 0.18, fore: 0.2, aft: 0.24 },
   crane: { pitch: 0.16, walk: 0.12, fore: 0.2, aft: 0.22 },
@@ -3433,7 +3916,7 @@ function ownPhase(who: Who): number {
   return v - Math.floor(v);
 }
 
-interface BirdBody { readonly C: Vec; readonly K: Vec; readonly T: Vec; readonly r: number; readonly pitch: number; readonly flying: boolean; readonly flight: Flight }
+interface BirdBody { readonly C: Vec; readonly K: Vec; readonly T: Vec; readonly r: number; readonly pitch: number; readonly flying: boolean; readonly flight: Flight; readonly turn: number }
 
 /**
  * Where a bird is in its flight: beating hard to climb off, cruising on its
@@ -3464,9 +3947,32 @@ function flightOf(who: Who, m: Moment): Flight {
   return { launch, flare, glide: Math.max(held * cruise, coming * (1 - flare)), closed: shut * cruise * (1 - coming) };
 }
 
+/**
+ * An owl's proportions by coat, as shares of its kind's build, and its chest
+ * as a share of its shoulders' width: a barn owl slim and long in the leg, a
+ * great horned owl bulky and barrel-chested with a wide head, a snowy owl
+ * broad, low and stocky with a smaller head for its body.
+ */
+interface OwlShape { readonly body: number; readonly leg: number; readonly head: number; readonly chest: number }
+const OWL_SHAPE: OwlShape = { body: 1, leg: 1, head: 1, chest: 1 };
+const OWL_SHAPES: Readonly<Record<string, OwlShape>> = {
+  barn: { body: 0.94, leg: 1.12, head: 0.95, chest: 1.02 },
+  "great horned": { body: 1.06, leg: 1, head: 1.06, chest: 1.08 },
+  snowy: { body: 1.12, leg: 0.86, head: 0.96, chest: 1.02 },
+};
+const owlShapeOf = (coat: string): OwlShape => OWL_SHAPES[coat] ?? OWL_SHAPE;
+
+/** A bird's build, an owl's by its coat. */
+function birdBuild(who: Who): Build {
+  const b = who.spec.build;
+  if (who.member.species !== "owl") return b;
+  const shape = owlShapeOf(who.member.coat);
+  return { ...b, body: b.body * shape.body, leg: b.leg * shape.leg, head: b.head * shape.head };
+}
+
 function birdSpine(who: Who, m: Moment): BirdBody {
   const q = m.pose;
-  const b = who.spec.build;
+  const b = birdBuild(who);
   const size = who.member.size;
   const stance = STANCES[who.member.species] ?? STANCE;
   const r = b.body * size * 0.85;
@@ -3482,28 +3988,33 @@ function birdSpine(who: Who, m: Moment): BirdBody {
   // Standing or asleep, the low end of the body (its tail end, as it sits up) stays on top of what it stands on.
   const rest = Math.max(legH + r * 1.06 + q.hop * size * 0.3 - (m.segment.act === "sleep" ? r * 0.35 : 0), r + Math.max(0, along[1]) * aft);
   const C: Vec = flying ? [0, 0, 0] : drum ? [0, 0, -r * 0.4] : [0, rest, 0];
-  return { C, K: madd(C, along, stance.fore * size), T: madd(C, along, -aft), r, pitch, flying, flight };
+  return { C, K: madd(C, along, stance.fore * size), T: madd(C, along, -aft), r, pitch, flying, flight, turn: bodyTurn(who, m) };
 }
 
 /**
  * How far a bird turns its head and how it cocks it. An owl swivels its
  * whole head where another bird would turn its body: barely as it stands,
- * but looking about, right round over its left shoulder until its face looks
- * back past its own back (well past a right angle), its face kept level;
- * asleep, it sinks its head facing forward where another bird tucks its
- * bill back over its shoulder.
+ * but looking about, round over its shoulder until its face looks out past
+ * its own wing, its face kept level (its shoulders follow it a little, see
+ * `bodyTurn`); asleep, it sinks its head facing forward where another bird
+ * tucks its bill back over its shoulder.
  */
 function headTurn(who: Who, m: Moment): { readonly yaw: number; readonly roll: number; readonly tuck: number } {
   const q = m.pose;
   if (who.member.species !== "owl") return { yaw: q.headYaw, roll: q.headRoll, tuck: m.segment.act === "sleep" ? 1 : 0 };
   // (Cubed, so a glance stays small and a look goes all the way round.)
   const k = q.headYaw / 0.4;
-  return { yaw: -2.15 * Math.tanh(k * k * k), roll: q.headRoll, tuck: 0 };
+  return { yaw: -1.3 * Math.tanh(k * k * k), roll: q.headRoll, tuck: 0 };
+}
+
+/** How far a bird's shoulders turn after its head, on feet that stay put: an owl's only, so a long look is the whole bird's. */
+function bodyTurn(who: Who, m: Moment): number {
+  return who.member.species === "owl" && m.mode !== "fly" ? headTurn(who, m).yaw * 0.2 : 0;
 }
 
 function birdHead(kit: Kit, who: Who, body: BirdBody, m: Moment): Head {
   const q = m.pose;
-  const b = who.spec.build;
+  const b = birdBuild(who);
   const size = who.member.size;
   const drum = m.segment.act === "drum";
   const { yaw, roll, tuck } = headTurn(who, m);
@@ -3513,7 +4024,7 @@ function birdHead(kit: Kit, who: Who, body: BirdBody, m: Moment): Head {
   const neckDir = dirOf(yaw * 0.5 + tuck * 2.6, (drum ? 0.2 : 1.2 + upright * 0.35) - q.peck * 2.2 + q.headPitch * 0.5 - tuck * 0.9 - (body.flying ? 1.0 : 0));
   const neckTop = madd(neckBase, neckDir, Math.max(b.neck * size, body.r * 0.3) * (1 - tuck * 0.6));
   if (b.neck * size > body.r * 0.6) birdNeck(kit, who, neckBase, neckTop, body.r);
-  const hd = dirOf(yaw + tuck * 2.6, -0.1 + q.headPitch * 0.5 - q.peck * (drum ? 0.1 : 1.1) - (drum ? 1.2 : 0) + (body.flying ? 0.05 : 0));
+  const hd = dirOf(yaw + tuck * 2.6, (who.member.species === "owl" ? 0 : -0.1) + q.headPitch * 0.5 - q.peck * (drum ? 0.1 : 1.1) - (drum ? 1.2 : 0) + (body.flying ? 0.05 : 0));
   const hr = b.head * size * CHARM;
   const c = madd(madd(neckTop, hd, hr * 0.4 * (1 - upright * 0.85)), drum ? [0, 0, 1] : UP, drum ? q.peck * size * 0.12 : hr * upright * 0.15);
   return withSkull({ c, d: hd, ...headAxes(hd, roll), r: hr, ...eyeOfSpecies(who) }, b.skull);
@@ -3557,25 +4068,27 @@ function birdFace(kit: Kit, who: Who, h: Head, m: Moment): void {
 
 /**
  * An owl's face, by its coat: a barn owl's disc a heart (two lobes meeting
- * in a point under the bill, its crown dropping in a notch between them),
+ * in a point under the bill, split by a pale ridge down from its forehead),
  * every other one round in two halves either side of it; the disc's colour
- * and the line round its rim and how wide it is (a great horned owl's bold
- * and black, a barn owl's thin and rust, a snowy owl's faint); how deep the disc
- * is dished, in head radii (only a little: it lies nearly flush with the
- * head, so the crown never wraps it like a hood); its eyes' size and where
- * they sit across and up the face, in head radii; how far its crown runs flat
- * between its corners (a snowy owl's head rounder); its bill's length, in head
- * radii, and the hooked tip of it; and whether it sits in a tuft of bristles (a snowy owl's).
+ * and the line round its rim and how wide it is (a great horned owl's dark
+ * and only down its outer sides, a barn owl's thin and rust, a snowy owl's a
+ * faint grey); how deep the disc is dished, in head radii (only a little: it
+ * lies nearly flush with the head, so the crown never wraps it like a hood);
+ * its eyes' size and where they sit across and up the face, in head radii,
+ * and the ring painted round a round eye, as a share of it (a snowy owl's
+ * only a thin lid); how far its crown runs flat between its corners (a snowy
+ * owl's head rounder); its bill's length, in head radii, and the hooked tip
+ * of it; and whether it sits in a tuft of bristles (a snowy owl's).
  */
 interface OwlFace {
-  readonly heart: boolean; readonly disc: Role; readonly rim: Role; readonly ring: number; readonly dish: number;
-  readonly eye: number; readonly apart: number; readonly high: number; readonly crown: number; readonly bill: number; readonly tip: Role; readonly bristle: boolean;
+  readonly heart: boolean; readonly disc: Role; readonly rim: Role; readonly ring: number; readonly open: boolean; readonly dish: number;
+  readonly eye: number; readonly apart: number; readonly high: number; readonly lid: number; readonly crown: number; readonly bill: number; readonly tip: Role; readonly bristle: boolean;
 }
-const OWL_FACE: OwlFace = { heart: false, disc: "accent", rim: "dark", ring: 0.13, dish: 0.04, eye: 0.3, apart: 0.5, high: 0.1, crown: 0.4, bill: 0.3, tip: "dark", bristle: false };
+const OWL_FACE: OwlFace = { heart: false, disc: "accent", rim: "dark", ring: 0.13, open: false, dish: 0.04, eye: 0.3, apart: 0.46, high: 0.1, lid: 1.28, crown: 0.4, bill: 0.3, tip: "dark", bristle: false };
 const OWL_FACES: Readonly<Record<string, OwlFace>> = {
-  barn: { ...OWL_FACE, heart: true, disc: "belly", rim: "accent", ring: 0.08, dish: 0.02, eye: 0.13, apart: 0.4, high: 0.1, bill: 0.21 },
-  "great horned": { ...OWL_FACE, disc: "belly" },
-  snowy: { ...OWL_FACE, rim: "alt", ring: 0.07, dish: 0.05, eye: 0.3, apart: 0.36, high: 0.14, crown: 0.2, bill: 0.24, tip: "horn", bristle: true },
+  barn: { ...OWL_FACE, heart: true, disc: "belly", rim: "accent", ring: 0.05, dish: 0.02, eye: 0.17, apart: 0.36, high: 0.1, crown: 0.36, bill: 0.2 },
+  "great horned": { ...OWL_FACE, disc: "belly", open: true, lid: 1.2 },
+  snowy: { ...OWL_FACE, rim: "alt", ring: 0.06, dish: 0.05, eye: 0.27, apart: 0.4, high: 0.14, lid: 1.12, crown: 0.2, bill: 0.2, tip: "horn", bristle: true },
 };
 const owlFaceOf = (who: Who): OwlFace => OWL_FACES[who.member.coat] ?? OWL_FACE;
 
@@ -3590,23 +4103,23 @@ function onOwlFace(h: Head, face: OwlFace, s: number, u: number, out = 0): Vec {
 }
 
 /**
- * An owl's head: broad and flat-crowned, set on its shoulders with a notch
- * where they meet, its face a disc nearly flush with its front, both eyes
+ * An owl's head: broad and flat-crowned, sunk into its shoulders with no
+ * neck between them, its face a disc nearly flush with its front, both eyes
  * forward in it and the bill hooked down between them; a great horned owl's
  * ear tufts up from the corners of its crown.
  */
 function owlHead(kit: Kit, who: Who, head: Head, m: Moment): void {
   const face = owlFaceOf(who);
   const skull = owlSkull(face);
-  // (Carried a little forward over the breast, so the whole face shows above it.)
-  const h: Head = { ...head, c: madd(madd(head.c, [0, 0, 1], head.r * 0.18), UP, head.r * 0.02) };
+  // (Carried back, right over its toes.)
+  const h: Head = { ...head, c: madd(head.c, [0, 0, 1], -head.r * 0.05) };
   // (Wider than it is tall, so the crown runs flat between its corners, and flattened in front for the face;
   // sunk into the top of its body and melted into it, so no neck or notch shows between them.)
   cap(kit, "head", "coat", at3(h, skull.back, -face.crown, 0), at3(h, skull.back, face.crown, 0), h.r * skull.r, skull.flat, h.d, { melt: 0.9 });
-  owlFaceMarks(kit, who, h, face);
+  owlFaceMarks(kit, who, h, face, m.segment.act !== "sleep");
   owlDisc(kit, h, face);
-  // (A snowy owl's crown is plain white in front, painted after its disc so the disc shows whiter inside it: its bars stop short of its face.)
-  if (who.member.coat === "snowy") decal(kit, "brow", "coat", onOwlFace(h, face, -0.3, 0.45), onOwlFace(h, face, 0.3, 0.45), h.r * 0.55);
+  // (A barn owl's pale ridge, standing out of its heart down from its forehead to the bill.)
+  if (face.heart) cap(kit, "ridge", "horn", onOwlFace(h, face, 0, 0.58, -0.05), onOwlFace(h, face, 0, -0.06, -0.03), h.r * 0.075, 1, UP, { r1: h.r * 0.06, melt: 0 });
   for (const x of [-1, 1]) owlEye(kit, h, face, x, m.segment.act !== "sleep");
   owlBeak(kit, h, face, m.pose.mouth);
   if (who.member.coat === "great horned") owlTufts(kit, h);
@@ -3621,8 +4134,8 @@ function owlHead(kit: Kit, who: Who, head: Head, m: Moment): void {
  */
 function discHalf(kit: Kit, part: string, role: Role, h: Head, face: OwlFace, x: number, grow: number, finish: Finish): void {
   // (A heart's lobes overlap down its middle, so it reads as one white face and never as two goggles.)
-  const [top, end] = face.heart ? [[0.42, 0.22], [0.04, -0.58]] as const : [[0.52, 0.12], [0.3, -0.24]] as const;
-  const [r, r1] = face.heart ? [0.66 + grow, 0.26 + grow] : [0.72 + grow, 0.56 + grow];
+  const [top, end] = face.heart ? [[0.42, 0.22], [0.04, -0.52]] as const : [[0.52, 0.12], [0.3, -0.24]] as const;
+  const [r, r1] = face.heart ? [0.66 + grow, 0.26 + grow] : [0.66 + grow, 0.54 + grow];
   const n = unit(madd(h.d, h.s, x * 0.3));
   // (Painted, nearly round, so it marks the face the same however far the face curves back from it.)
   const thick = finish.carve === true ? 0.12 : r * 0.75;
@@ -3639,31 +4152,40 @@ function discHalf(kit: Kit, part: string, role: Role, h: Head, face: OwlFace, x:
 function owlDisc(kit: Kit, h: Head, face: OwlFace): void {
   // (Both halves' paint first, so inside either the rims, which are the halves grown a little, give way to it.)
   for (const x of [-1, 1]) discHalf(kit, `disc.${x < 0 ? "L" : "R"}`, face.disc, h, face, x, 0, { decal: true });
-  for (const x of [-1, 1]) discHalf(kit, `rim.${x < 0 ? "L" : "R"}`, face.rim, h, face, x, face.ring, { decal: true });
-  for (const x of [-1, 1]) discHalf(kit, `dish.${x < 0 ? "L" : "R"}`, face.disc, h, face, x, -0.04, { carve: true, melt: 0.6 });
+  for (const x of [-1, 1]) owlRim(kit, h, face, x);
+  if (face.heart) for (const x of [-1, 1]) discHalf(kit, `dish.${x < 0 ? "L" : "R"}`, face.disc, h, face, x, -0.04, { carve: true, melt: 0.6 });
+  // (A round disc's dish is one wide cut across both its halves.)
+  else cap(kit, "dish", face.disc, onOwlFace(h, face, -0.46, 0.1, 0.1 - face.dish), onOwlFace(h, face, 0.46, 0.1, 0.1 - face.dish), h.r * 0.62, 0.16, h.d, { carve: true, melt: 0.6 });
+}
+
+/** The line round a half of the disc: all the way round it, or (an `open` rim) a crescent down its outer side only. */
+function owlRim(kit: Kit, h: Head, face: OwlFace, x: number): void {
+  const part = `rim.${x < 0 ? "L" : "R"}`;
+  if (face.open) cap(kit, part, face.rim, onOwlFace(h, face, x * 0.94, 0.34), onOwlFace(h, face, x * 0.78, -0.24), h.r * 0.25, 1, UP, { r1: h.r * 0.2, decal: true });
+  else discHalf(kit, part, face.rim, h, face, x, face.ring, { decal: true });
 }
 
 /**
  * Marks on the face, painted before the disc so they lie over it: the dark
  * ring round a round eye; a barn owl's crown dropping in a notch between the
  * lobes of its heart down to the bill; a great horned owl's pale brows in a V over the bill (its white
- * throat is on its body, see `owlTorso`).
+ * throat is on its body, see `owlBib`).
  */
-function owlFaceMarks(kit: Kit, who: Who, h: Head, face: OwlFace): void {
+function owlFaceMarks(kit: Kit, who: Who, h: Head, face: OwlFace, open: boolean): void {
   const on = (s: number, u: number): Vec => onOwlFace(h, face, s, u);
   // (Each stands off the face at its upper end, so it still lies on the face where the face bulges out between its ends.)
-  if (who.member.coat === "barn") cap(kit, "notch", "coat", onOwlFace(h, face, 0, 0.92, 0.12), on(0, 0.08), h.r * 0.15, 1, UP, { r1: h.r * 0.03, decal: true });
+  if (who.member.coat === "barn") cap(kit, "notch", "coat", onOwlFace(h, face, 0, 0.92, 0.12), on(0, 0.14), h.r * 0.15, 1, UP, { r1: h.r * 0.03, decal: true });
   // (A round eye's dark ring painted round it on the disc, so it frames the eye however the face curves.)
-  if (!face.heart) for (const x of [-1, 1]) decal(kit, `eye.${x < 0 ? "L" : "R"}.ring`, "dark", onOwlFace(h, face, x * face.apart, face.high), onOwlFace(h, face, x * face.apart, face.high), h.r * face.eye * 1.3);
-  if (who.member.coat === "great horned") for (const x of [-1, 1]) cap(kit, `brow.${x < 0 ? "L" : "R"}`, "accent", onOwlFace(h, face, x * 0.05, 0.02, 0.02), onOwlFace(h, face, x * 0.52, 0.52, 0.05), h.r * 0.09, 1, UP, { r1: h.r * 0.06, decal: true });
+  if (open && !face.heart) for (const x of [-1, 1]) decal(kit, `eye.${x < 0 ? "L" : "R"}.ring`, "dark", onOwlFace(h, face, x * face.apart, face.high), onOwlFace(h, face, x * face.apart, face.high), h.r * face.eye * face.lid);
+  if (who.member.coat === "great horned") for (const x of [-1, 1]) cap(kit, `brow.${x < 0 ? "L" : "R"}`, "accent", onOwlFace(h, face, x * 0.03, -0.04, 0.02), onOwlFace(h, face, x * 0.56, 0.56, 0.05), h.r * 0.12, 1, UP, { r1: h.r * 0.07, decal: true });
 }
 
 /**
  * An owl's eye, big and forward in its disc, a little above its middle and
  * set flush into it, a flat lens that never stands out of the head's
- * outline side on: a barn owl's small and black, a great horned owl's or a
- * snowy owl's big and lemon yellow in a thick dark ring (painted on the
- * disc, see `owlFaceMarks`). Shut, a dark slit across the disc.
+ * outline side on: a barn owl's black, a great horned owl's or a
+ * snowy owl's big and lemon yellow in a dark ring, only a thin lid on a
+ * snowy owl (painted on the disc, see `owlFaceMarks`). Shut, a dark slit across the disc.
  */
 function owlEye(kit: Kit, h: Head, face: OwlFace, x: number, open: boolean): void {
   const part = `eye.${x < 0 ? "L" : "R"}`;
@@ -3671,9 +4193,9 @@ function owlEye(kit: Kit, h: Head, face: OwlFace, x: number, open: boolean): voi
   const n = unit(madd(h.d, h.s, x * 0.12));
   const surface = onOwlFace(h, face, x * face.apart, face.high, -face.dish);
   if (!open) {
-    // (Its ends drawn back round the face, so the slit lies on it and never stands off it.)
-    const lid = madd(surface, h.u, -r * 0.1);
-    const end = (k: number): Vec => madd(madd(lid, h.s, k * r * 0.6), n, -r * 0.2);
+    // (Up out of the dish, its ends drawn back round the face, so the slit lies on it and never stands off it.)
+    const lid = madd(madd(surface, h.u, -r * 0.1), n, h.r * face.dish);
+    const end = (k: number): Vec => madd(madd(lid, h.s, k * r * 0.6), n, -r * 0.1);
     cap(kit, part, "dark", end(-1), end(1), r * 0.1, 1, UP, { melt: 0 });
     return;
   }
@@ -3682,8 +4204,9 @@ function owlEye(kit: Kit, h: Head, face: OwlFace, x: number, open: boolean): voi
   // (Sunk so only a shallow lens of it stands proud, its pupil and its spark flat on it.)
   const c = madd(surface, n, -r * 0.15);
   ball(kit, part, "eye", c, r, 0.3, n);
-  ball(kit, `${part}.pupil`, "pupil", madd(c, n, r * 0.2), r * (h.eye?.pupil === "dark" ? 0.86 : 0.42), 0.25, n);
-  ball(kit, `${part}.shine`, "shine", madd(madd(madd(c, n, r * 0.28), up, r * 0.32), across, -r * 0.18), r * 0.2, 0.4, n);
+  const dark = h.eye?.pupil === "dark";
+  ball(kit, `${part}.pupil`, "pupil", madd(c, n, r * 0.2), r * (dark ? 0.76 : 0.42), 0.25, n);
+  ball(kit, `${part}.shine`, "shine", madd(madd(madd(c, n, r * 0.28), up, r * 0.32), across, -r * 0.18), r * (dark ? 0.28 : 0.2), 0.4, n);
 }
 
 /**
@@ -3693,14 +4216,14 @@ function owlEye(kit: Kit, h: Head, face: OwlFace, x: number, open: boolean): voi
  * bristles.
  */
 function owlBeak(kit: Kit, h: Head, face: OwlFace, mouth: number): void {
-  const wide = face.bill * 0.44;
+  const wide = face.bill * 0.46;
   const tall = face.bill;
-  const sunk = face.bristle ? 0.04 : 0;
+  const sunk = face.bristle ? 0.08 : face.heart ? 0.06 : 0;
   // (A heart's set low, down its ridge between the eyes.)
-  const root = onOwlFace(h, face, 0, face.high - face.bill * (face.heart ? 1 : 0.75), -sunk);
-  const knee = madd(madd(root, h.d, h.r * tall * 0.55), h.u, -h.r * tall * 0.5);
-  const tip = madd(madd(knee, h.d, -h.r * tall * 0.1), h.u, -h.r * tall * 0.42);
-  if (face.bristle) ball(kit, "beak.bristle", "accent", madd(root, h.u, -h.r * tall * 0.3), h.r * tall * 0.75, 0.55, h.d);
+  const root = onOwlFace(h, face, 0, face.high - face.bill * (face.heart ? 1.1 : 0.75), -sunk);
+  const knee = madd(madd(root, h.d, h.r * tall * 0.5), h.u, -h.r * tall * 0.4);
+  const tip = madd(madd(knee, h.d, -h.r * tall * 0.16), h.u, -h.r * tall * 0.46);
+  if (face.bristle) ball(kit, "beak.bristle", "accent", madd(root, h.u, -h.r * tall * 0.2), h.r * tall * 1.05, 0.62, h.d);
   cap(kit, "beak", "horn", root, knee, h.r * wide, 0.95, h.s, { r1: h.r * wide * 0.72 });
   cap(kit, "beak.tip", face.tip, knee, tip, h.r * wide * 0.72, 0.85, h.s, { r1: h.r * 0.025, melt: 0 });
   if (mouth > 0.05) cap(kit, "beak.lower", "horn", madd(root, h.u, -h.r * tall * 0.5), madd(madd(root, h.d, h.r * tall * 0.4), h.u, -h.r * tall * (0.5 + 0.6 * mouth)), h.r * wide * 0.5);
@@ -3713,9 +4236,9 @@ function owlBeak(kit: Kit, h: Head, face: OwlFace, mouth: number): void {
  */
 function owlTufts(kit: Kit, h: Head): void {
   for (const x of [-1, 1]) {
-    const root = at3(h, 0.3, x * 0.5, 0.72);
-    const dir = unit(add(add(h.u, scale(h.s, x * 0.5)), scale(h.d, -0.25)));
-    cap(kit, `ear.${x < 0 ? "L" : "R"}`, "alt", root, madd(root, dir, h.r * 0.82), h.r * 0.36, 0.4, h.d, { r1: h.r * 0.09, melt: 0.35, shadow: false });
+    const root = at3(h, 0.22, x * 0.42, 0.72);
+    const dir = unit(add(add(h.u, scale(h.s, x * 0.42)), scale(h.d, -0.2)));
+    cap(kit, `ear.${x < 0 ? "L" : "R"}`, "alt", root, madd(root, dir, h.r * 0.6), h.r * 0.4, 0.46, h.d, { r1: h.r * 0.11, melt: 0.35, shadow: false });
   }
 }
 
@@ -3869,7 +4392,7 @@ function wingOf(kit: Kit, who: Who, body: BirdBody, x: number, m: Moment): void 
 /** A folded wing: two plates along the flank, the hand over the tail (an owl's its own, see `owlFold`). */
 function foldedWing(kit: Kit, who: Who, body: BirdBody, x: number, [shoulder, elbow, tip]: readonly [Vec, Vec, Vec]): void {
   const style = wingStyle(who);
-  if (who.member.species === "owl") { owlFold(kit, who, style, body, x); return; }
+  if (who.member.species === "owl") { owlFold(kit, style, body, x); return; }
   const L = x < 0 ? "L" : "R";
   const side: Vec = [x, 0, 0];
   // (Thin and laid close along the flank, so a folded wing reads as a wing's edge on the body and not a lump on it.)
@@ -3877,50 +4400,64 @@ function foldedWing(kit: Kit, who: Who, body: BirdBody, x: number, [shoulder, el
   cap(kit, `wingtip.${L}`, style.fold[1], madd(elbow, side, -body.r * 0.12), tip, body.r * 0.48, 0.18, side, { r1: body.r * 0.26, melt: 0.3 });
 }
 
+/** A direction on an owl's body, turned with its shoulders (see `bodyTurn`). */
+function owlTurned(body: BirdBody, [x, y, z]: Vec): Vec {
+  const [c, s] = [Math.cos(body.turn), Math.sin(body.turn)];
+  return [x * c + z * s, y, z * c - x * s];
+}
+
 /**
  * A point on an owl, `up` its body radii up its middle (its feet nearly two
- * below), `out` to the side `x` and `back` toward its back (negative, its breast).
+ * below), `out` to the side `x` and `back` toward its back (negative, its
+ * breast). It twists on its hips as its shoulders turn, and leans away from
+ * where it looks to balance its head.
  */
 function owlAt(body: BirdBody, x: number): (up: number, out: number, back: number) => Vec {
-  const along = dirOf(0, body.pitch);
-  const over: Vec = [0, Math.cos(body.pitch), -Math.sin(body.pitch)];
-  return (up, out, back) => madd(madd(madd(body.C, along, up * body.r), [x, 0, 0], out * body.r), over, back * body.r);
-}
-
-/** How far out an owl's body egg (see `owlTorso`) reaches `up` its middle, in its radii. */
-function owlGirth(up: number): number {
-  if (up < -0.3) return Math.sqrt(Math.max(0, 1.44 - ((up + 0.3) / 0.86) ** 2));
-  if (up < 1.05) return mix(1.2, 0.86, (up + 0.3) / 1.35);
-  return Math.sqrt(Math.max(0, 0.74 - (up - 1.05) ** 2));
-}
-
-/** A point `lift` body radii off an owl's flank `up` its middle, `turn` round from its side toward its back (radians). */
-function owlFlank(body: BirdBody, x: number, up: number, turn: number, lift: number): Vec {
-  const g = owlGirth(up) + lift;
-  return owlAt(body, x)(up, g * Math.cos(turn), g * Math.sin(turn) * 0.92);
+  const along = owlTurned(body, add(dirOf(0, body.pitch), [-body.turn * 0.35, 0, 0]));
+  const over = owlTurned(body, [0, Math.cos(body.pitch), -Math.sin(body.pitch)]);
+  const side = owlTurned(body, [x, 0, 0]);
+  return (up, out, back) => madd(madd(madd(body.C, along, up * body.r), side, out * body.r), over, back * body.r);
 }
 
 /**
- * An owl's folded wing, pressed to its flank: a shell set inside the body so
- * only its outer face shows, lying close with no gap, broad at the wrist
- * under the face and tapering down and back; under its trailing edge the
- * primaries' tips, each a step longer than the one before, the longest
- * crossing its fellow's over the tail (a barn owl's wing its back's gold).
+ * An owl's body (see `owlTorso`), three rings from its shoulders down, each
+ * how far `up` its middle, its radius and how far toward its back, in its
+ * radii: its shoulders high and broad so its head sinks into them, and a
+ * near straight barrel from there to a full low end, a bullet with no waist
+ * (kept this near straight because the pixel look steps a turned-under
+ * surface a shade darker in one hard line); `OWL_DEEP` how far it runs front
+ * to back as a share of across.
  */
-function owlFold(kit: Kit, who: Who, style: WingStyle, body: BirdBody, x: number): void {
+const OWL_TRUNK = [[0.6, 1.02, 0.24], [-0.2, 1.07, 0.16], [-0.74, 1, 0.14]] as const;
+const OWL_DEEP = 0.84;
+
+/** Where an owl's folded primaries end, as `owlAt` takes them. */
+const OWL_PRIMARIES = [[-0.5, 1, 0.34], [-0.82, 0.84, 0.56], [-1.12, 0.52, 0.86]] as const;
+
+/**
+ * An owl's folded wing, one long leaf wrapped round its flank from shoulder
+ * to tail: a round part buried in the body so only its outer face stands
+ * proud, curving with the flank so no edge of it stands off the outline,
+ * broad under the shoulder and running to a point over the tail; from under
+ * its lower edge the primaries' tips, each a step longer and further back
+ * than the one before, so that edge comes down in stairs, in the wing's
+ * darker colour.
+ */
+function owlFold(kit: Kit, style: WingStyle, body: BirdBody, x: number): void {
   const r = body.r;
   const L = x < 0 ? "L" : "R";
-  const [panel, tips]: readonly [Role, Role] = who.member.coat === "barn" ? ["coat", "coat"] : style.fold;
-  // (Its middle `deep` inside the flank, so it stands out `lift` and its edge meets the body all round.)
-  const shell = (up: number, turn: number, rr: number, lift: number): Vec => owlFlank(body, x, up, turn, lift - rr);
-  cap(kit, `wing.${L}`, panel, shell(0.55, 0.35, 0.7, 0.15), shell(-0.45, 0.7, 0.42, 0.16), r * 0.7, 1, UP, { r1: r * 0.42, melt: 0.06, shadow: false });
-  // (From under the wing's lower end and down along the back, side by side, each further back a step longer and lower, the last in over the tail.)
-  const flat = unit(madd([x, 0, 0], [0, 0, -1], 0.5));
-  for (let i = 0; i < 4; i += 1) {
-    const low = -0.8 - i * 0.12;
-    const tip = owlAt(body, x)(low, 0.5 - i * 0.16, owlGirth(low) * 0.92 + i * 0.05);
-    cap(kit, `wingtip.${L}${String(i)}`, tips, owlFlank(body, x, -0.25 - i * 0.06, 0.6 + i * 0.1, 0), tip, r * 0.15, 0.25, flat, { r1: r * 0.04, melt: 0.06 });
-  }
+  const [panel, tips] = style.fold;
+  const at = owlAt(body, x);
+  const wrist = at(0.36, 0.48, 0.3);
+  const point = at(-1.1, 0.3, 0.78);
+  const face = owlTurned(body, unit([x * 0.8, 0, -0.6]));
+  cap(kit, `wing.${L}`, panel, wrist, point, r * 0.72, 0.94, face, { r1: r * 0.27, melt: 0.1 });
+  // (Fanned from under the wing's middle, each tip a step lower and further back along its edge, the longest last at its point.)
+  const root = at(-0.05, 0.93, 0.5);
+  OWL_PRIMARIES.forEach(([up, out, back], i) => {
+    // (Hardly melted, so each keeps its own edge and still wears the coat's pattern.)
+    cap(kit, `wingtip.${L}${String(i)}`, tips, root, at(up, out, back), r * 0.22, 0.4, face, { r1: r * 0.14, melt: 0.08 });
+  });
 }
 
 /** A row of pale spots across an open wing, from near its root out toward its tip. */
@@ -3931,18 +4468,12 @@ function wingSpots(kit: Kit, role: Role, L: string, root: Vec, tip: Vec, chord: 
   }
 }
 
-/**
- * An owl's tail, sitting: short and square, a flat fan out from under its
- * back, below the crossed tips of its wings (drawn across, so its end is
- * a straight edge and not a point).
- */
+/** An owl's tail, sitting: a short broad wedge fused into its rump and fanning a little, the crossed tips of its wings lying over its root. */
 function owlTail(kit: Kit, who: Who, body: BirdBody): void {
   const at = owlAt(body, 1);
-  const end = at(-1.15, 0, owlGirth(-1.15) * 0.92 + 0.08);
   // (Its face turned back, so it hangs on down the line of the back.)
   const fan = unit(sub(at(0.3, 0, 1), at(0, 0, 0)));
-  const role: Role = who.member.coat === "barn" ? "coat" : wingStyle(who).fold[0];
-  cap(kit, "tail.1", role, madd(end, [1, 0, 0], -body.r * 0.26), madd(end, [1, 0, 0], body.r * 0.26), body.r * 0.26, 0.5, fan, { melt: 0.3 });
+  cap(kit, "tail.1", wingStyle(who).fold[1], at(-0.74, 0, 0.78), at(-1.12, 0, 0.92), body.r * 0.46, 0.32, fan, { r1: body.r * 0.52, melt: 0.4 });
 }
 
 function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
@@ -4007,45 +4538,90 @@ function birdTorso(kit: Kit, b: Build, body: BirdBody): void {
 const owlUnder = (coat: string): Role => (coat === "great horned" ? "shell" : "belly");
 
 /**
- * An owl's body: one squat egg, broadest low down and nearly as wide as it
- * is tall, coming down nearly to its feet in a fluffy skirt over them, and
- * narrowing up into its head with no neck between; its pale underside
- * painted down its front and round under its wings, under the coat's
- * pattern so it is still barred or speckled (a snowy owl's over its bars,
- * its breast plain white).
+ * An owl's body: a compact upright bullet, its head sunk into broad shoulders
+ * and a near straight barrel below them, with a soft ruff of chest feathers
+ * under its face; its pale underside painted down its front and round under
+ * its wings, so the wing's own edge is where the coat begins, and under the
+ * coat's pattern so it is still barred or speckled (a snowy owl's over its
+ * bars and short of its belly, its chest plain white and its flanks marked).
  */
 function owlTorso(kit: Kit, coat: string, body: BirdBody): void {
   const r = body.r;
   const at = owlAt(body, 1);
-  // (Its underside a little flattened, so it sits low and round rather than on a point, and its shade gathers under it.)
-  cap(kit, "body", "coat", at(-0.3, 0, 0), at(1.05, 0, 0.08), r * 1.2, 0.86, sub(at(1, 0, 0), at(0, 0, 0)), { r1: r * 0.86 });
-  cap(kit, "breast", owlUnder(coat), at(-1.45, 0, -0.35), at(0.8, 0, -0.5), r * 1.15, 1, UP, { r1: r * 0.8, decal: true, under: coat !== "snowy" });
-  // (A great horned owl's white throat, a collar right across under its face.)
-  if (coat === "great horned") cap(kit, "bib", "accent", at(0.8, -0.62, -0.72), at(0.8, 0.62, -0.72), r * 0.17, 1, UP, { decal: true });
+  const [top, mid, low] = OWL_TRUNK;
+  const ring = (k: readonly [number, number, number]): Vec => at(k[0], 0, k[2]);
+  const over = sub(at(0, 0, 1), at(0, 0, 0));
+  const snowy = coat === "snowy";
+  cap(kit, "body", "coat", ring(mid), ring(top), r * mid[1], OWL_DEEP, over, { r1: r * top[1] * owlShapeOf(coat).chest });
+  cap(kit, "belly", "coat", ring(mid), ring(low), r * mid[1], OWL_DEEP, over, { r1: r * low[1] });
+  // (Its bars first, so they lie over the plain white of its breast.)
+  if (snowy) owlBars(kit, body);
+  cap(kit, "breast", owlUnder(coat), at(snowy ? 0.3 : -1.7, 0, -0.75), at(0.55, 0, -0.62), r * (snowy ? 0.7 : 1.4), 1, UP, { r1: r * (snowy ? 0.8 : 1.06), decal: true, under: !snowy });
 }
 
 /**
- * An owl's foot, under its skirt: only the top of its leg showing, feathered
- * and melted into its belly, on a broad foot of two toes forward and one
- * back, each with a dark hooked talon; a barn owl's toes bare and
- * grey-brown, a great horned or snowy owl's feathered in a slipper of the
- * belly's colour with only the claws showing.
+ * A great horned owl's white throat: a broad band under its face and turning
+ * with it, painted after the face so the face stays over it and only a
+ * crescent shows below the disc, its horns rising to either side.
+ */
+function owlBib(kit: Kit, h: Head): void {
+  cap(kit, "bib", "accent", at3(h, 0.5, -0.5, -0.92), at3(h, 0.5, 0.5, -0.92), h.r * 0.5, 1, UP, { decal: true });
+}
+
+/**
+ * An owl's legs by coat: the thigh's radius, the shank's, a toe's and a
+ * claw's, in body radii, and what colour its toes are: a barn owl's slim and
+ * pale, a great horned owl's thick and feathered on big dark talons, a snowy
+ * owl's white feather mitts with only the claws' tips showing black.
+ */
+interface OwlLeg { readonly thigh: number; readonly shank: number; readonly toe: number; readonly claw: number; readonly skin: Role }
+const OWL_LEG: OwlLeg = { thigh: 0.46, shank: 0.2, toe: 0.11, claw: 0.075, skin: "belly" };
+const OWL_LEGS: Readonly<Record<string, OwlLeg>> = {
+  barn: { ...OWL_LEG, thigh: 0.42, shank: 0.13, toe: 0.095, claw: 0.06, skin: "horn" },
+  "great horned": { ...OWL_LEG, shank: 0.25, toe: 0.12, claw: 0.095, skin: "shell" },
+  snowy: { ...OWL_LEG, thigh: 0.5, shank: 0.28, toe: 0.14, claw: 0.05 },
+};
+
+/**
+ * An owl's foot, under its belly: a feathered thigh melted into it, standing
+ * out a little past its flank as a soft tuft and breaking the shade that
+ * gathers there, tapering to its shank on a chunky foot of three toes, each
+ * with a dark hooked claw.
  */
 function owlFoot(kit: Kit, who: Who, body: BirdBody, x: number, foot: Vec): void {
   const r = body.r;
   const L = x < 0 ? "L" : "R";
-  const bare = who.member.coat === "barn";
-  const under = owlUnder(who.member.coat);
-  const heel = add(foot, [0, r * 0.12, r * 0.05]);
-  cap(kit, `leg.${L}`, under, add(foot, [-x * r * 0.08, r * 0.75, r * 0.05]), add(heel, [0, 0, bare ? 0 : r * 0.12]), r * 0.3, 1, UP, { r1: r * (bare ? 0.18 : 0.24), melt: 1 });
-  for (const [k, yaw, len] of [[0, -0.32, 0.46], [1, 0.32, 0.46], [2, Math.PI, 0.28]] as const) {
-    const dir = dirOf(yaw + x * 0.18, -0.12);
-    const tip = madd(heel, dir, r * len * (bare ? 1 : 0.75));
+  const leg = OWL_LEGS[who.member.coat] ?? OWL_LEG;
+  const heel = add(foot, [0, r * 0.13, 0]);
+  cap(kit, `leg.${L}`, owlUnder(who.member.coat), owlAt(body, x)(-1.06, 0.56, -0.04), heel, r * leg.thigh, 1, UP, { r1: r * leg.shank, melt: 0.65 });
+  for (const [k, yaw, len] of [[0, -0.6, 0.42], [1, 0, 0.5], [2, 0.6, 0.42]] as const) {
+    const dir = dirOf(yaw + x * 0.14, -0.1);
+    const tip = madd(heel, dir, r * len);
     // (Crisp, so the breast's paint never reaches down onto them.)
-    if (bare) cap(kit, `leg.${L}.toe${String(k)}`, "alt", heel, tip, r * 0.08, 1, UP, { r1: r * 0.06, melt: 0 });
+    cap(kit, `leg.${L}.toe${String(k)}`, leg.skin, heel, tip, r * leg.toe, 1, UP, { r1: r * leg.toe * 0.82, melt: 0 });
     // (A hooked claw, curling down to grip, crisp so the toe's colour never pales it.)
-    cap(kit, `leg.${L}.claw${String(k)}`, "dark", tip, madd(madd(tip, dir, r * 0.1), UP, -r * 0.1), r * 0.05, 1, UP, { r1: r * 0.015, melt: 0 });
+    cap(kit, `leg.${L}.claw${String(k)}`, "dark", madd(tip, dir, r * leg.toe * 0.3), madd(madd(tip, dir, r * 0.17), UP, -r * 0.1), r * leg.claw, 1, UP, { r1: r * 0.015, melt: 0 });
   }
+}
+
+/** Where a snowy owl's two bold chevrons lie on its belly, each tip how far `up` and `out` as `owlAt` takes them: big enough to last at a sprite's size, and breaking the shade that gathers low on its front. */
+const OWL_BELLY_MARKS = [[-0.4, -0.5], [-0.74, 0.3]] as const;
+
+/** A snowy owl's chevrons, each a V cupped down the lie (its pattern's own, finer ones leave a front nearly bare). */
+function owlBars(kit: Kit, body: BirdBody): void {
+  const at = owlAt(body, 1);
+  // (Each end on the curve of its belly, so both arms of the V lie on it.)
+  const on = (up: number, out: number): Vec => at(up, out, 0.16 - 0.88 * Math.sqrt(Math.max(0, 1 - (out * out) / 1.15)));
+  OWL_BELLY_MARKS.forEach(([up, out], i) => {
+    for (const x of [-1, 1]) cap(kit, `bar.${String(i)}${x < 0 ? "L" : "R"}`, "dark", on(up, out), on(up + 0.18, out + x * 0.32), body.r * 0.06, 1, UP, { r1: body.r * 0.04, decal: true, melt: 0.7 });
+  });
+}
+
+/** A barn owl's grey veil, soft and broken over its gold: down its crown and across its back and wings. */
+function owlVeil(kit: Kit, body: BirdBody, h: Head): void {
+  const at = owlAt(body, 1);
+  cap(kit, "veil.crown", "alt", at3(h, -0.5, 0, 0.8), at3(h, -0.95, 0, 0.2), h.r * 0.56, 1, UP, { decal: true, melt: 1.7 });
+  cap(kit, "veil.back", "alt", at(0.5, 0, 1.05), at(-0.6, 0, 1.15), body.r * 0.8, 1, UP, { decal: true, melt: 1.7 });
 }
 
 function poseBird(kit: Kit, who: Who, m: Moment): void {
@@ -4055,15 +4631,17 @@ function poseBird(kit: Kit, who: Who, m: Moment): void {
   birdMarks(kit, who, body);
   const head = birdHead(kit, who, body, m);
   birdFace(kit, who, head, m);
+  if (who.member.coat === "great horned") owlBib(kit, head);
   for (const x of [-1, 1]) wingOf(kit, who, body, x, m);
   if (who.member.species === "owl" && !body.flying) owlTail(kit, who, body);
   else birdTail(kit, who, body, m);
   birdLegs(kit, who, body, m);
+  if (who.member.coat === "barn") owlVeil(kit, body, head);
 }
 
 /** A bird's legs: tucked in or trailed behind in the air, on the ground walking or standing (an owl's feathered, on talons). */
 function birdLegs(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
-  const b = who.spec.build;
+  const b = birdBuild(who);
   const size = who.member.size;
   const legH = b.leg * size;
   // A long-legged bird trails its legs out behind it in the air; others tuck them in.
@@ -4286,26 +4864,27 @@ const WILD_SKINS: readonly (readonly [Morph, number])[] = [
 /** Iris colours: dark brown unless the species is known for other eyes. */
 /**
  * Eyes by species: the pupil's shape (a hunter's slit, a grazer's bar, a
- * small mammal's or a songbird's eye nearly all pupil, round otherwise), the
+ * small mammal's or a songbird's eye nearly all pupil, a raccoon's a plain dark
+ * bead with one hard spark on it, round otherwise), the
  * eye's size against the usual (a mouse's and a loris's big, a bear's small)
  * and whether a dark rim frames it (an owl's face disc and a parrot's bare
  * ring frame their own).
  */
 interface EyeStyle {
-  readonly pupil: "round" | "slit" | "bar" | "dark"; readonly size: number; readonly rim: boolean; readonly almond: number;
-  /** Where on an outlined head, as (along from the stop, out, up), when not the usual: a cat's big eyes forward on its face. */
-  readonly set?: readonly [number, number, number];
+  readonly pupil: "round" | "slit" | "bar" | "dark" | "bead"; readonly size: number; readonly rim: boolean; readonly almond: number;
+  /** Set low in the face, a flat dome with its spark on it: past the edge of the head it hides, and no fleck of it shows on the rim. */
+  readonly set?: boolean;
 }
 const EYE: EyeStyle = { pupil: "round", size: 1, rim: true, almond: 1 };
 const eye = (pupil: EyeStyle["pupil"], size = 1, rim = true, almond = 1): EyeStyle => ({ pupil, size, rim, almond });
 /** A bird's, a snake's, a lizard's eye is round, not an almond. */
 const roundEye = (pupil: EyeStyle["pupil"], size = 1, rim = true): EyeStyle => eye(pupil, size, rim, 0);
 const EYES: Partial<Record<SpeciesId, EyeStyle>> = {
-  fox: eye("slit", 1.15), cat: { ...eye("slit", 1.45), set: [0.02, 0.46, 0.4] }, gecko: roundEye("slit", 1.2), snake: roundEye("slit", 1.05, false),
+  fox: eye("slit", 1.15), cat: eye("slit"), gecko: roundEye("slit", 1.2), snake: roundEye("slit", 1.05, false),
   deer: eye("bar", 1.15), dikdik: eye("bar", 1.3), mongoose: eye("bar"),
-  rabbit: eye("dark", 1.2), mouse: eye("dark", 1.35), hedgehog: eye("dark", 1, false), squirrel: eye("dark", 1.15), marmot: eye("dark"), meerkat: eye("dark", 1.1),
-  capybara: eye("dark", 0.9), kangaroo: eye("dark", 1.1), raccoon: eye("dark"), redpanda: eye("dark"), tanuki: eye("dark"), badger: eye("dark", 0.8),
-  skunk: eye("dark", 0.95), possum: eye("dark", 1.3), sloth: eye("dark", 0.9), loris: eye("dark", 1.7),
+  rabbit: eye("dark", 1.2), mouse: eye("dark", 1.35), hedgehog: { ...roundEye("bead", 0.86, false), set: true }, squirrel: eye("dark", 1.15), marmot: eye("dark"), meerkat: eye("dark", 1.1),
+  capybara: eye("dark", 0.9), kangaroo: eye("dark", 1.1), raccoon: roundEye("bead", 0.72, false), redpanda: eye("dark"), tanuki: eye("dark"), badger: eye("dark", 0.8),
+  skunk: eye("dark", 0.95), possum: eye("dark", 1.3), sloth: eye("dark", 1, false), loris: eye("dark", 1.7),
   wolf: eye("round", 1.1), bear: eye("round", 0.8), koala: eye("round", 0.8), tortoise: roundEye("round", 0.9, false),
   songbird: roundEye("dark", 1.1), crow: roundEye("dark"), kookaburra: roundEye("dark", 0.75), woodpecker: roundEye("dark"), peacock: roundEye("dark"), guineafowl: roundEye("dark"),
   owl: roundEye("round", 1, false), parrot: roundEye("round", 1, false), gull: roundEye("round", 0.9, false), crane: roundEye("round", 0.9, false),
@@ -4318,9 +4897,15 @@ const COAT_EYES: Readonly<Record<string, { readonly style: EyeStyle; readonly ir
 };
 const eyeOfSpecies = (who: Who): Pick<Head, "eye"> => ({ eye: COAT_EYES[who.member.coat]?.style ?? EYES[who.member.species] ?? EYE });
 
+/** A cat's eyes and nose go by its coat: gold on black and orange, green on silver, a red cat's brick nose, a black cat's dark one. */
+const CAT_FACES: Readonly<Record<string, { readonly iris: string; readonly nose: string }>> = {
+  tabby: { iris: "#d8bc68", nose: "#c07c68" }, black: { iris: "#dcb44c", nose: "#2c2424" },
+  grey: { iris: "#a0b078", nose: "#c88c94" }, calico: { iris: "#b8a03c", nose: "#e49c9c" },
+};
+
 const IRIS: Partial<Record<SpeciesId, string>> = {
   fox: "#c8861c", wolf: "#d8a22a", cat: "#a8b830", bear: "#5a3418", deer: "#3a2414", tortoise: "#6a4a1a", owl: "#f0a820", gull: "#e8d878", parrot: "#e8d070",
-  crow: "#2a2420", snake: "#d8b040", gecko: "#c8a038", raccoon: "#2a1a10", crane: "#d84a20", peacock: "#3a2414",
+  crow: "#2a2420", snake: "#d8b040", gecko: "#c8a038", raccoon: "#3c2414", crane: "#d84a20", peacock: "#3a2414",
   macaque: "#8a5a2a", monkey: "#8a5a2a", koala: "#3a2a1a", kangaroo: "#3a2414", woodpecker: "#5a2418", crab: "#1a1410",
   tanuki: "#2a1a10", possum: "#1a1210", loris: "#5a2a10", mongoose: "#8a5a1a", kookaburra: "#3a2414", guineafowl: "#5a2414",
 };
@@ -4378,16 +4963,31 @@ function charcoal(hex: string, floor: number): string {
   return y >= floor ? hex : mixColor(hex, CHARCOAL, (floor - y) / Math.max(0.01, luma(CHARCOAL) - y));
 }
 
+/** Eye and nose: by coat where a coat has its own; a nose is its animal's dark, a cat's pink unless its coat says otherwise. */
+function faceColors(id: SpeciesId, coatName: string, accent: string, dark: string): Pick<Palette, "eye" | "nose"> {
+  const own = id === "cat" ? CAT_FACES[coatName] : undefined;
+  return { eye: COAT_EYES[coatName]?.iris ?? own?.iris ?? IRIS[id] ?? "#4a2a16", nose: id === "cat" ? own?.nose ?? accent : dark };
+}
+
 function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph, coatName = ""): Palette {
   const plain = morph === "normal" ? 0.32 : 0;
   const [coat, alt, belly, dark, accent] = colors.map((hex, i) => (i < 3 ? muted(hex, plain) : hex)) as unknown as CoatColors;
-  const base: Palette = { coat, alt, belly, dark, accent, eye: COAT_EYES[coatName]?.iris ?? IRIS[id] ?? "#4a2a16", pupil: "#070505", shine: "#ffffff", nose: dark, glow: accent, horn: COAT_BEAKS[coatName] ?? BEAKS[id] ?? "#cbb38c", shell: COAT_SHELLS[coatName] ?? alt };
+  const base: Palette = { coat, alt, belly, dark, accent, ...faceColors(id, coatName, accent, dark), pupil: id === "raccoon" ? IRIS.raccoon ?? "#070505" : "#070505", shine: "#ffffff", glow: accent, horn: COAT_BEAKS[coatName] ?? BEAKS[id] ?? "#cbb38c", shell: COAT_SHELLS[coatName] ?? alt };
   const skin = skinOf(base, morph);
   // Neon is dark on purpose: its glow carries it.
   if (morph === "neon") return skin;
-  // (A bird's black stays near black: sleek feathers, which sdf-body's sheen and rim already pick out, where a wolf's fur needs lifting to read.)
-  const lift = SPECIES[id].plan === "bird" ? 0.5 : 1;
+  const lift = blackLift(id, coatName);
   return { ...skin, coat: charcoal(skin.coat, 0.25 * lift), alt: charcoal(skin.alt, 0.19 * lift), belly: charcoal(skin.belly, 0.34 * lift) };
+}
+
+/**
+ * How far a black coat is lifted toward charcoal: a bird's stays near black (sleek feathers, which
+ * sdf-body's sheen and rim already pick out, where a wolf's fur needs lifting to read), and a black
+ * cat's nearly all the way, the blackest thing about, its eyes bright in it.
+ */
+function blackLift(id: SpeciesId, coatName: string): number {
+  if (SPECIES[id].plan === "bird") return 0.5;
+  return id === "cat" && coatName === "black" ? 0.3 : 1;
 }
 
 // ---------------------------------------------------------------- casting
@@ -4971,11 +5571,11 @@ export interface Body {
   /** Colours that light themselves (a neon skin's markings). */
   readonly lit?: readonly Role[];
   /** The coat's grain, for sdf-body: fur in locks, feathers in rows, a snake's scales; none on a bug's or crab's shell. */
-  readonly grain?: { readonly kind: "fur" | "feather" | "scale"; readonly size: number; readonly lie?: Vec };
+  readonly grain?: { readonly kind: "fur" | "feather" | "scale" | "spine"; readonly size: number; readonly lie?: Vec; readonly rise?: number; readonly crown?: Vec; readonly on?: Role };
   /** How its coat takes the light beyond its grain's own way (a crow's purple-green gloss). */
-  readonly material?: { readonly sheen?: number; readonly fuzz?: number; readonly gloss?: number; readonly iridescence?: number };
+  readonly material?: { readonly sheen?: number; readonly fuzz?: number; readonly gloss?: number; readonly iridescence?: number; readonly lift?: number; readonly neutral?: number };
   /** A pattern grown over its coat, its own (seeded) and in one of its colours: a tabby's stripes, an owl's bars, mottling on a plain coat. */
-  readonly pattern?: { readonly kind: "dapple" | "spots" | "stripes" | "streaks" | "bars" | "chevrons"; readonly role: Role; readonly color?: string; readonly scale: number; readonly contrast: number; readonly seed: number };
+  readonly pattern?: { readonly kind: "dapple" | "spots" | "stripes" | "streaks" | "bars" | "chevrons" | "mackerel" | "patches" | "grizzle" | "tips"; readonly role: Role; readonly color?: string; readonly second?: string; readonly trunk?: Vec; readonly dorsal?: number; readonly scale: number; readonly contrast: number; readonly seed: number };
   /** Where it bears on the tree (a branch it sits on, wood it climbs), or null on the ground and in the air. */
   readonly contact?: Vec | null;
   /** Its weight, to bend the wood it bears on: a bird is light for its size, a bear is not. */
@@ -5012,19 +5612,32 @@ const weightOf = (who: Who): number => who.member.heft ** 3 * (who.spec.plan ===
 
 /**
  * Nothing in nature is smooth: a coat parts into locks and feathers lie in
- * rows. A lock about a twentieth of the animal, a feather a fourteenth (a hedgehog's spines and a
- * tortoise's scutes coarser); a bug's or a crab's shell, and a glowing
+ * rows. A lock about a twentieth of the animal, a feather a fourteenth (a hedgehog's spines stand
+ * apart, a tortoise's scutes are coarser); a bug's or a crab's shell, and a glowing
  * spirit, stay smooth.
  */
 const GRAINS: Readonly<Record<Plan, "fur" | "feather" | "scale" | null>> = { quad: "fur", primate: "fur", bird: "feather", serpent: "scale", bug: null, crab: null };
-// (An owl's plumage is soft and fine: its rows lie close, not in ridges.)
-const COARSE: Partial<Record<SpeciesId, readonly ["fur" | "feather" | "scale", number]>> = { hedgehog: ["fur", 0.14], tortoise: ["scale", 0.12], owl: ["feather", 0.005] };
-function grainOf(who: Who): Pick<Body, "grain"> {
+// (An owl's plumage is soft and fine: its rows lie close, not in ridges; a cat's coat is short and sleek.)
+const COARSE: Partial<Record<SpeciesId, readonly ["fur" | "feather" | "scale" | "spine", number]>> = { hedgehog: ["spine", 0.115], tortoise: ["scale", 0.12], owl: ["feather", 0.005], cat: ["fur", 0.022], sloth: ["fur", 0.075] };
+// (A sloth's long coat falls away from the top of its back in shaggy locks that break its outline.)
+const SHAGS: Partial<Record<SpeciesId, { readonly lie: Vec; readonly rise: number }>> = { sloth: { lie: [0, -1, -0.15], rise: 4.4 } };
+/** A hedgehog's spines: set about the middle of its dome, they lie back along it from its forehead to its rump and a little down its flanks, and grow on its mantle alone. */
+function quillGrain(who: Who, m: Moment): { crown: Vec; lie: Vec; rise: number; on: Role } {
+  const body = quadSpine(who, m.pose, m);
+  const back = unit(sub(body.P, body.S), [0, 0, -1]);
+  return { crown: toWorld(m.frame, madd(mantleLine(body, 0.42), UP, body.r * 0.15)), lie: unit(madd(back, UP, -0.18)), rise: 0.8, on: "alt" };
+}
+/** What a coat's grain takes from how the animal lies this moment. */
+function grainPose(who: Who, m: Moment): Partial<ReturnType<typeof quillGrain>> {
+  if (who.member.species === "sloth") return { crown: slothCrown(who, m) };
+  return who.member.species === "hedgehog" ? quillGrain(who, m) : {};
+}
+function grainOf(who: Who, m: Moment): Pick<Body, "grain"> {
   const [kind, share] = COARSE[who.member.species] ?? [GRAINS[who.spec.plan], who.spec.plan === "serpent" ? 0.022 : who.spec.plan === "bird" ? 0.07 : 0.05];
   if (!kind || MORPHS[who.member.morph].glow > 0.5) return {};
   // (An upright bird's feathers lie down it, not back along it: in rows round an owl, not stripes up it.)
   const pitch = STANCES[who.member.species]?.pitch ?? 0;
-  return { grain: { kind, size: who.member.size * share, ...(pitch > 1.1 ? { lie: scale(dirOf(0, pitch), -1) } : {}) } };
+  return { grain: { kind, size: who.member.size * share, ...(pitch > 1.1 ? { lie: scale(dirOf(0, pitch), -1) } : {}), ...SHAGS[who.member.species], ...grainPose(who, m) } };
 }
 
 type CoatPattern = NonNullable<Body["pattern"]>;
@@ -5036,28 +5649,63 @@ type PatternSpec = readonly [CoatPattern["kind"], Role, number, number, string?]
  * mottled in its second colour, so no coat is one flat colour.
  */
 const PATTERNS: Partial<Record<SpeciesId, PatternSpec>> = {
-  owl: ["bars", "alt", 0.07, 0.5], snake: ["spots", "alt", 0.035, 0.45], cat: ["dapple", "alt", 0.3, 0.3],
+  hedgehog: ["tips", "belly", 1, 1], sloth: ["dapple", "alt", 0.2, 0.36, "#5e7038"], owl: ["bars", "alt", 0.07, 0.5], snake: ["spots", "alt", 0.035, 0.45], cat: ["dapple", "alt", 0.3, 0.08], raccoon: ["grizzle", "alt", 0.035, 1],
 };
 const COAT_PATTERNS: Readonly<Record<string, PatternSpec>> = {
-  tabby: ["stripes", "dark", 0.14, 0.55], grey: ["stripes", "dark", 0.14, 0.35], calico: ["dapple", "accent", 0.45, 0.85],
+  grey: ["stripes", "dark", 0.14, 0.35],
   sika: ["spots", "belly", 0.06, 0.8], fallow: ["spots", "belly", 0.07, 0.7], sparrow: ["streaks", "dark", 0.09, 0.55],
-  snowy: ["chevrons", "dark", 0.05, 1, "#3a2c22"], banded: ["dapple", "alt", 0.3, 0.1],
-  barn: ["chevrons", "dark", 0.05, 0.6], "great horned": ["bars", "dark", 0.075, 0.8], tawny: ["bars", "alt", 0.06, 0.7], ural: ["bars", "alt", 0.07, 0.6],
+  snowy: ["chevrons", "dark", 0.1, 1, "#3a2c22"], banded: ["dapple", "alt", 0.3, 0.1],
+  barn: ["chevrons", "dark", 0.085, 0.7], "great horned": ["bars", "dark", 0.055, 0.85], tawny: ["bars", "alt", 0.06, 0.7], ural: ["bars", "alt", 0.07, 0.6],
+};
+/** A cat's coats: a coat's name is only its own on a cat (a grey wolf is not a tabby). */
+const CAT_PATTERNS: Readonly<Record<string, PatternSpec>> = {
+  tabby: ["mackerel", "dark", 0.085, 0.8], grey: ["mackerel", "dark", 0.085, 0.68], calico: ["patches", "alt", 0.34, 1],
 };
 const MOTTLE: PatternSpec = ["dapple", "coat", 0.35, 0.3];
 /** Coats that shine in colours as they turn. */
 const MATERIALS: Partial<Record<SpeciesId, NonNullable<Body["material"]>>> = {
   crow: { gloss: 0.55, iridescence: 0.6 }, peacock: { gloss: 0.45, iridescence: 0.45 },
+  // (A cat's black goes unlifted, so a calico's patches and a tabby's stripes are black.)
+  cat: { lift: 0.3 },
+  // (The mask, the bands and the paws are the raccoon, so its black stays black too.)
+  raccoon: { lift: 0.22, neutral: 1 },
+  // (A pale edge along a sloth's back, where the light catches the tips of its coat.)
+  sloth: { fuzz: 0.85 },
 };
-function coatOf(who: Who): Pick<Body, "pattern" | "material"> {
-  const material = MATERIALS[who.member.species];
-  const plain = who.member.morph !== "normal" || !GRAINS[who.spec.plan];
-  const spec = plain ? null : COAT_PATTERNS[who.member.coat] ?? PATTERNS[who.member.species] ?? MOTTLE;
+/** A black cat is the exception: a quiet sheen and a rim along its back, head and haunch, so it keeps its shape. */
+const BLACK_CAT: NonNullable<Body["material"]> = { sheen: 0.6, fuzz: 0.3, lift: 0.42, neutral: 0.85 };
+const grizzled = (who: Who): boolean => patternOf(who)?.[0] === "grizzle";
+/** The pattern an animal wears, if any: its coat's own, then its species', then a soft mottle. */
+function patternOf(who: Who): PatternSpec | null {
+  if (who.member.morph !== "normal" || !GRAINS[who.spec.plan]) return null;
+  return (who.member.species === "cat" ? CAT_PATTERNS[who.member.coat] : undefined) ?? COAT_PATTERNS[who.member.coat] ?? PATTERNS[who.member.species] ?? MOTTLE;
+}
+
+function coatOf(who: Who, q: Pose): Pick<Body, "pattern" | "material"> {
+  const material = who.member.species === "cat" && who.member.coat === "black" ? BLACK_CAT : MATERIALS[who.member.species];
+  const spec = patternOf(who);
   // (Mottling is a darker shade of the coat itself, so it breaks a plain coat up without greying a pied one.)
   const color = spec === MOTTLE ? mixColor(who.member.palette.coat, "#000000", 0.22) : spec?.[4];
   const shade = color === undefined ? {} : { color };
-  const pattern = spec ? { kind: spec[0], role: spec[1], ...shade, scale: who.member.size * spec[2], contrast: contrastOf(who, spec), seed: Math.floor(ownPhase(who) * 9973) } : undefined;
+  const pattern = spec ? { kind: spec[0], role: spec[1], ...shade, ...trunkOf(who, spec[0], q), scale: who.member.size * spec[2], contrast: contrastOf(who, spec), seed: Math.floor(ownPhase(who) * 9973) } : undefined;
   return { ...(material ? { material } : {}), ...(pattern ? { pattern } : {}) };
+}
+
+/**
+ * Where the trunk ends for a pattern that goes by it: its legs begin below it
+ * standing, and only just off the ground once it sits or lies, the trunk
+ * down there with them. A calico's black patches lie among its orange.
+ */
+function trunkOf(who: Who, kind: CoatPattern["kind"], q: Pose): Pick<CoatPattern, "trunk" | "second" | "dorsal"> {
+  if (kind !== "mackerel" && kind !== "patches" && kind !== "grizzle") return {};
+  const b = buildOf(who);
+  const { size } = who.member;
+  const r = b.body * size;
+  const low = mix(shoulderOf(b, size) - r * 0.85, r * 0.15, Math.max(q.sit, q.lie));
+  const trunk: Vec = [low, -(b.len * size) / 2 - r * 0.75, (b.len * size) / 2 + r * 0.7];
+  // (The spine's dark line runs on a standing back only; sat up, the midline is its chest.)
+  const dorsal = mix(shoulderOf(b, size) + r * (kind === "grizzle" ? 0.1 : 0.5), size * 9, Math.max(q.sit, q.lie, q.curl) > 0.1 ? 1 : 0);
+  return { trunk, dorsal, ...(kind === "patches" ? { second: who.member.palette.dark } : kind === "grizzle" ? { second: who.member.palette.belly } : {}) };
 }
 
 /** How strongly a pattern shows: as its kind has it, but a snowy owl hen is barred far more heavily than the cock, who is nearly white. */
@@ -5071,7 +5719,7 @@ function bodyOf(id: string, who: Who, m: Moment, capsules: readonly Capsule[], s
   return {
     id, kind: who.member.species, label: who.member.label, action: m.segment.act, morph: who.member.morph,
     at: m.frame.o, front: m.frame.z, capsules, palette: who.member.palette, glow: MORPHS[who.member.morph].glow, lit: MORPHS[who.member.morph].lit ?? [],
-    contact: scene ? contactOf(m, scene) : null, weight: weightOf(who), ...grainOf(who), ...coatOf(who),
+    contact: scene ? contactOf(m, scene) : null, weight: weightOf(who), ...grainOf(who, m), ...coatOf(who, m.pose),
     ...(m.segment.meal === undefined ? {} : { meal: m.segment.meal }),
   };
 }

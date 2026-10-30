@@ -5405,6 +5405,8 @@ function trainFeathers(kit: Kit, who: Who, body: BirdBody, m: Moment, above: (ti
   }
 }
 
+const TAIL_FEATHERS = [-1, -0.5, 0, 0.5, 1];
+
 function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
   const b = who.spec.build;
   const size = who.member.size;
@@ -5415,11 +5417,13 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
   if (!b.extras.includes("train")) {
     // A fan of feathers, spread wide as it steers and lands, closed as it sits.
     const spread = clamp(0.1 + body.flight.flare * 0.45 + body.flight.glide * 0.2 + m.pose.fan * 0.4, 0, 0.6);
-    for (const k of [-1, 0, 1]) {
+    // (Thin, and broader at the tip than the root: each its own feather, not a stump off the rump.)
+    TAIL_FEATHERS.forEach((k, i) => {
       const dir = dirOf(Math.PI + 0.15 * m.pose.tailWag + k * spread, tilt);
-      const r = body.r * (k === 0 ? 0.42 : 0.34);
-      cap(kit, `tail.${String(k + 1)}`, wingStyle(who).tail, body.T, above(madd(body.T, dir, b.tailLen * size * (k === 0 ? 1 : 0.9)), r * 0.3), r, 0.22, unit(cross(dir, [1, 0, 0]), UP));
-    }
+      const r = body.r * 0.2;
+      const root = madd(body.T, dir, body.r * 0.3);
+      cap(kit, `tail.${String(i)}`, wingStyle(who).tail, root, above(madd(body.T, dir, b.tailLen * size * (1 - 0.1 * Math.abs(k))), r), r, 0.1, unit(cross(dir, [1, 0, 0]), UP), { r1: r * 1.3, melt: 0.1 });
+    });
     return;
   }
   trainFeathers(kit, who, body, m, above);

@@ -1117,7 +1117,8 @@ vec3 paint(vec3 p, out float lit, out float soft) {
   }
   gCover = cover; gLift = max(d, 0.0); gSkin = skin; gBare = bareAt(p, bare); gEyeD = eyeD; gMark = w;
   col = mix(col, uc, wu); lit = mix(lit, ul, wu);
-  col = mix(col, patternColor(p), pattern(p) * uPattern.z);
+  // (Bare skin is not coat: no pattern lands on it.)
+  col = mix(col, patternColor(p), pattern(p) * uPattern.z * (1.0 - skin));
   // (A coat is never one shade: it drifts paler and darker over the body, each animal's its own way.)
   if (uPattern.x > 0.5) col *= 1.0 + (fbm(bodyAt(p) / (uPattern.y * 7.0) + uPatSeed) - 0.5) * uPatGene.w;
   // (The cut shows its own colour as deep as it goes, what lies beneath toward its rim.)

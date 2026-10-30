@@ -424,7 +424,7 @@ export const SPECIES = {
     coats: [["grey", ["#7c7a74", "#4e4c48", "#e0dcd4", "#1e1c1a", "#d6d0c4"]], ["timber", ["#8a6a4a", "#4a3828", "#dcccb4", "#1c1610", "#cdb898"]], ["white", ["#e8e6e0", "#c8c4bc", "#ffffff", "#2a2826", "#ffffff"]], ["black", ["#2c2a2a", "#1a1818", "#4a4644", "#0c0a0a", "#5a5654"]]],
     temper: { howl: 2.4, sniff: 1.6, lie: 1.6, play: 1.4, look: 1.5, wander: 1.4, run: 0.6, graze: 0 }, friends: ["crow"] }),
   bear: define({ label: "Bear", plan: "quad", size: 0.9, rarity: "rare", weight: 8, regions: ["rockies", "alps", "tokyo"], speed: 0.8, winter: false, groups: [6, 0, 3, 0],
-    build: { len: 1.3, leg: 0.58, body: 0.36, neck: 0.42, rise: -0.05, head: 0.2, snout: 0.2, ears: "round", tail: "none", tailLen: 0.1, hip: 0.92, extras: ["hump", "muzzle"], foot: "plant", sit: "rump", legR: 1.5, chest: 1.15, earLen: 1.5, snoutTip: 0.6,
+    build: { len: 1.3, leg: 0.58, body: 0.36, neck: 0.42, rise: -0.05, head: 0.25, snout: 0.15, ears: "round", tail: "none", tailLen: 0.1, hip: 0.92, extras: ["hump", "muzzle"], foot: "plant", sit: "rump", legR: 1.5, chest: 1.15, earLen: 1.5, snoutTip: 0.8,
       // A round rump, a deep belly, the back rising to the hump over the shoulders; a broad skull dished down to a short, blunt muzzle.
       torso: [[-0.05, 0.8, 0.62, 0.78], [0.3, 0.78, 0.72, 0.85], [0.68, 0.92, 0.72, 0.88], [0.95, 1.05, 0.68, 0.82], [1.1, 0.75, 0.7, 0.7]],
       skull: [[-0.55, 0.6, 0.6, 0.68], [-0.08, 0.85, 0.72, 0.95], [0.35, 0.62, 0.62, 0.7]],
@@ -500,7 +500,7 @@ export const SPECIES = {
     coats: [["barn", ["#cab084", "#98938c", "#ffffff", "#4a2e18", "#b4804e"]], ["great horned", ["#8a6a4a", "#5a4430", "#b4703c", "#1e140c", "#fbf8f2"]], ["snowy", ["#e8edf6", "#c8d2e2", "#ebf0f9", "#2a2a2e", "#ffffff"]]],
     temper: { look: 3, preen: 1.6, sleep: 2, flap: 0.8, fly: 1.3, peck: 0, hop: 0, sing: 0 }, friends: ["crow"] }),
   parrot: define({ label: "Parrot", plan: "bird", size: 0.28, rarity: "rare", weight: 14, regions: ["bali", "sydney"], worlds: ["nature", "beach", "voxel", "vapor"], speed: 1, groups: [4, 4, 1, 3], pack: [3, 5],
-    build: { ...OUTLINE.psittacid, bill: 0.6, len: 1.2, leg: 0.2, body: 0.2, neck: 0.1, rise: 0.9, head: 0.16, snout: 0.14, ears: "none", tail: "fan", tailLen: 0.9, extras: ["crest"] },
+    build: { ...OUTLINE.psittacid, bill: 0.6, len: 1.2, leg: 0.2, body: 0.2, neck: 0.1, rise: 0.9, head: 0.16, snout: 0.1, ears: "none", tail: "fan", tailLen: 0.9, extras: ["crest"] },
     coats: [["macaw", ["#e2282e", "#2a5ad8", "#f0d020", "#141414", "#3ab84a"]], ["cockatoo", ["#f8f8f4", "#e8e4d8", "#ffffff", "#2a2a2a", "#f8d830"]], ["lorikeet", ["#2ab84a", "#3a4ad8", "#f06a20", "#141414", "#e83030"]]],
     temper: { preen: 2.4, sing: 2, eat: 1.6, flap: 1.6, look: 1.2, hang: 0.8, fly: 1.6 }, friends: ["monkey", "kangaroo", "koala"] }),
   gull: define({ label: "Gull", plan: "bird", size: 0.32, rarity: "common", weight: 36, regions: ["atlantic", "sydney", "bali", "tokyo"], worlds: ["beach", "city", "nature"], speed: 1.2, groups: [4, 3, 1, 3], pack: [3, 5],
@@ -3185,7 +3185,9 @@ function footParts(kit: Kit, b: Build, name: string, end: Vec, sole: Vec, legR: 
   const lowRole: Role = b.extras.includes("socks") ? "dark" : "coat";
   if (b.foot === "hoof") {
     cone(kit, `${name}.cannon`, lowRole, end, sole, legR * 0.55, legR * 0.48, 0.35);
-    cap(kit, `${name}.paw`, "dark", sole, add(sole, [0, -plantR * 0.4, plantR * 0.55]), plantR * 1.15, 1, UP, { r1: plantR * 0.8, melt: 0.2 });
+    // (Cloven: two toes of horn, wedged forward from the fetlock.)
+    const wide: Vec = [plantR * 0.55, 0, 0];
+    cap(kit, `${name}.paw`, "dark", sub(sole, wide), add(sole, wide), plantR * 0.62, 1, UP, { row: 2, reach: [0, -plantR * 0.5, plantR * 1.1], melt: 0.1 });
     return;
   }
   const toe = madd(sole, [0, 0, 1], plantR * (b.foot === "plant" ? 0.6 : 0.35));
@@ -5110,7 +5112,7 @@ function billRoot(who: Who, h: Head): { root: Vec; br: number } {
 interface Bill { readonly arch: number; readonly hook: number; readonly low: number }
 const BILL: Bill = { arch: 0.08, hook: 0.04, low: 0.88 };
 const BILLS: Partial<Readonly<Record<string, Bill>>> = {
-  songbird: { arch: 0.06, hook: 0, low: 0.86 }, crow: { arch: 0.13, hook: 0.07, low: 0.86 }, parrot: { arch: 0.34, hook: 0.42, low: 0.5 }, gull: { arch: 0.1, hook: 0.17, low: 0.84 },
+  songbird: { arch: 0.06, hook: 0, low: 0.86 }, crow: { arch: 0.13, hook: 0.07, low: 0.86 }, parrot: { arch: 0.42, hook: 0.3, low: 0.5 }, gull: { arch: 0.1, hook: 0.17, low: 0.84 },
   crane: { arch: 0.02, hook: 0, low: 0.96 }, woodpecker: { arch: 0.02, hook: 0, low: 0.95 }, kookaburra: { arch: 0.06, hook: 0.06, low: 0.92 }, guineafowl: { arch: 0.14, hook: 0.1, low: 0.8 }, peacock: { arch: 0.1, hook: 0.08, low: 0.84 },
 };
 
@@ -5373,7 +5375,6 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
     cap(kit, `train.${String(i)}`, "alt", body.T, tip, body.r * 0.14, 0.14, unit(lerpV(UP, [0, 0, 1], fan), UP), { r1: body.r * mix(0.5, 1.15, fan) });
     if (fan > 0.3) {
       ball(kit, `eyespot.${String(i)}`, "accent", lerpV(body.T, tip, 0.85), body.r * 0.4, 0.3, [0, 0, 1]);
-      ball(kit, `eyespot.${String(i)}.heart`, "dark", add(lerpV(body.T, tip, 0.85), [0, 0, -body.r * 0.1]), body.r * 0.2, 0.4, [0, 0, 1]);
     }
     // Closed, its eyespots show down each feather, a dark heart in each gold eye.
     else for (const [role, wide, detail] of [["accent", 0.13, undefined], ["dark", 0.06, 1]] as const) cap(kit, `eyespot.${String(i)}`, role, lerpV(body.T, tip, 0.4 + (i % 2) * 0.08), lerpV(body.T, tip, 0.96), body.r * wide, 1, UP, { row: 4, decal: true, ...(detail === undefined ? {} : { detail }) });
@@ -6771,6 +6772,8 @@ function eyesOf(who: Who, asleep: boolean): Pick<Body, "eye" | "palette"> {
 
 /** Bare skin's own light, for the animals whose skin shows: a macaque's face and seat, matte, the red of the blood under it. */
 function skinOfBody(who: Who): Pick<Body, "skin"> {
+  // (A guineafowl's head is bare skin, so its pearl spots stop at the neck.)
+  if (who.member.species === "guineafowl") return { skin: { role: "accent", chroma: 0.9, depth: 0.9 } };
   if (!macaqueKind(who) || who.member.species === "loris") return {};
   const { accent } = who.member.palette;
   // (A vervet's face is black, and only its lids a shade off it.)

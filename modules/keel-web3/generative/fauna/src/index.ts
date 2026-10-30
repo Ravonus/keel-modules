@@ -1526,7 +1526,8 @@ function springOf(who: Who): number {
 const PACE: Partial<Record<Action, number>> = { run: 3.2, hop: 1.4, fly: 4, climb: 0.8, stalk: 0.35 };
 
 /** Go somewhere: a move segment whose length (and so its time) comes from the path. */
-function travel(actor: Actor, to: Place, act: Action, scene: Scene, hurry = 1): void {
+function travel(actor: Actor, wanted: Place, act: Action, scene: Scene, hurry = 1): void {
+  const to = seatFor(actor, wanted, scene);
   const foot = act === "climb" ? trunkSide(actor, to, scene) : null;
   if (foot && actor.place.on === "ground") {
     leg(actor, foot, "wander", scene, hurry);
@@ -1556,6 +1557,18 @@ function trunkSide(actor: Actor, to: Place, scene: Scene): Place | null {
 }
 
 /** `loop` shapes a flight (a sortie round the tree); `speed` (scene units a second) then sets its pace. */
+/**
+ * Where a trip really ends: every way an animal is sent to a perch comes through
+ * here, so birds and snakes never settle on one taken or too tight for them. They
+ * take the next that fits, or the ground. (Those that groom sit close on purpose.)
+ */
+function seatFor(actor: Actor, to: Place, scene: Scene): Place {
+  if (to.on !== "perch" || !(liesAlong(actor) || actor.spec.plan === "bird")) return to;
+  const count = perchCount(scene);
+  for (let k = 0; k < count; k += 1) if (perchFits(actor, scene.stage, to.i + k) && perchFree(actor, scene, to.i + k)) return { on: "perch", i: to.i + k };
+  return groundSpot(actor.rand, scene.stage, actor.member.size, undefined, 0, takenBy(actor, scene));
+}
+
 function paceOf(actor: Actor, act: Action, mode: MoveMode, hurry: number, speed?: number): number {
   return speed !== undefined && mode === "fly" ? speed / actor.member.size : actor.spec.speed * (PACE[act] ?? 1) * hurry * (mode === "fly" ? 2.5 : 1);
 }
@@ -1870,7 +1883,11 @@ function mouthReach(actor: Actor, act: Action): number {
 /** Up to the branch a fruit hangs from, or over to where it lies, coming up from its own side to stop with its mouth over it. */
 function goToFood(actor: Actor, item: Food, act: Action, scene: Scene): void {
   if (item.perch !== undefined) {
-    if (actor.place.on !== "perch" || actor.place.i !== item.perch) travel(actor, { on: "perch", i: item.perch }, actor.spec.flies ? "fly" : "climb", scene);
+    if (actor.place.on !== "perch" || actor.place.i !== item.perch) {
+      // (Fruit is where it is: a bird goes to that very perch, taken or not.)
+      if (actor.spec.flies) leg(actor, { on: "perch", i: item.perch }, "fly", scene, 1);
+      else travel(actor, { on: "perch", i: item.perch }, "climb", scene);
+    }
     return;
   }
   const size = actor.member.size;
@@ -2340,7 +2357,7 @@ function perchScene(troupe: Troupe, scene: Scene): boolean {
   begin(pair, scene, false);
   const i = roomyPerch(scene.stage, Math.floor(troupe.rand() * 9973), a.member.size);
   if (a.place.on !== "perch" || a.place.i !== i) travel(a, { on: "perch", i }, "fly", scene);
-  travel(b, { on: "perch", i: roomyPerch(scene.stage, i + 1, b.member.size, i, (a.member.size + b.member.size) * 0.7) }, "fly", scene);
+  travel(b, { on: "perch", i: roomyPerch(scene.stage, i + 1, b.member.size, i, (a.member.size + b.member.size) * 0.75) }, "fly", scene);
   const start = Math.max(a.until, b.until);
   holdAs(a, "look", start, b, scene);
   const length = between(troupe.rand, [4, 8]);

@@ -1702,7 +1702,7 @@ function bugSpot(actor: Actor, scene: Scene): Place {
       if (perch && perch.p[1] <= ceiling) return { on: "perch", i };
     }
   }
-  return groundSpot(actor.rand, stage, actor.member.size, near, firefly ? 1.4 : 2.2, takenBy(actor, scene));
+  return groundSpot(actor.rand, stage, actor.member.size, near, firefly ? 2.8 : 2.2, takenBy(actor, scene));
 }
 
 /** A bug's flutter, seeded: where its loop comes, and how high and far out it may go. */
@@ -5734,8 +5734,10 @@ function bugCentre(who: Who, m: Moment): Vec {
   const phase = size * 977;
   const firefly = who.spec.build.extras.includes("glowtail");
   const drift: Vec = [Math.sin(t * 0.6 + phase) * 0.35, Math.sin(t * 0.9 + phase * 2) * 0.18, Math.cos(t * 0.5 + phase) * 0.35];
-  const wander = firefly ? drift : scale(drift, 0.3);
-  if (m.mode !== "fly") return m.segment.act === "sit" ? [0, size * 0.1, 0] : add([0, 0.35 + m.pose.lift * 0.4, 0], wander);
+  // (Fireflies hang well apart over the grass, never in a clump.)
+  // (Each keeps a spot of its own in the air, so a pack is spread through the dusk and never a heap on the grass.)
+  const wander = firefly ? add([Math.sin(phase * 91) * 1.5, 0.55 + 0.45 * Math.sin(phase * 53), Math.cos(phase * 67) * 1.5], scale(drift, 1.4)) : scale(drift, 0.3);
+  if (m.mode !== "fly") return m.segment.act === "sit" && !firefly ? [0, size * 0.1, 0] : add([0, 0.35 + m.pose.lift * 0.4, 0], wander);
   const airy = (place: Place): number => (place.on === "ground" ? 0.35 + m.pose.lift * 0.4 : size * 0.1);
   const flying = mix(airy(m.segment.from), airy(m.segment.to), smooth(clamp((t - m.segment.t0) / Math.max(0.01, m.segment.t1 - m.segment.t0), 0, 1)));
   const grounded = m.segment.from.on === "ground" || m.segment.to.on === "ground";
@@ -5771,9 +5773,9 @@ function poseBug(kit: Kit, who: Who, m: Moment): void {
   ball(kit, "thorax", "dark", madd(C, fw, size * 0.08), size * 0.085);
   ball(kit, "head", "dark", madd(C, fw, size * 0.24), size * 0.058);
   if (firefly) {
-    const blink = pulse(t + phase, 2.4 + (phase % 1.7), 0.3);
-    // (The lantern is its tail end, a bead that brightens: the light it throws is the scene's to draw.)
-    cap(kit, "lantern", "glow", madd(C, fw, -size * 0.28), madd(C, fw, -size * 0.5), size * (0.1 + 0.1 * blink), 1, UP, { r1: size * (0.085 + 0.1 * blink) });
+    const blink = pulse(t + phase, 2.4 + (phase % 1.7), 0.9);
+    // (The lantern is its tail end; lit, it swells past the bug itself, or a grove's pixels would never catch it.)
+    cap(kit, "lantern", "glow", madd(C, fw, -size * 0.28), madd(C, fw, -size * 0.5), size * (0.1 + 0.5 * blink), 1, UP, { r1: size * (0.085 + 0.45 * blink), shadow: false });
   }
   const open = perched ? 1.35 + 0.2 * Math.sin(t * 1.4 + phase) : 0.15 + 1.1 * (0.5 + 0.5 * Math.sin(t * (firefly ? 30 : 19) + phase));
   for (const x of [-1, 1]) {

@@ -371,8 +371,10 @@ float snow(vec3 eye, vec3 dir, float end) {
 // Sand the water has left: dark up to the highest line it reached, and a mirror where the last swash ran.
 vec3 wetSand(vec3 col, vec3 p, vec3 dir) {
   float top = uWet + 0.05 * sin(p.x * 0.37 + sin(p.z * 0.53) * 2.0) + 0.02 * sin(p.x * 1.7 + p.z * 1.3);
-  float wet = smoothstep(top, top - 0.12, p.y);
-  float fresh = smoothstep(uRunUp + 0.12, uRunUp - 0.5, p.y);
+  // Past the baked ground the mesh is too coarse to draw a tideline on.
+  float near = 1.0 - smoothstep(0.42, 0.5, max(abs(p.x), abs(p.z)) / uGroundSize);
+  float wet = smoothstep(top, top - 0.12, p.y) * near;
+  float fresh = smoothstep(uRunUp + 0.12, uRunUp - 0.5, p.y) * near;
   float fresnel = 0.02 + 0.98 * pow(1.0 - abs(dir.y), 5.0);
   return mix(col * (1.0 - 0.32 * wet - 0.2 * fresh), skyColor(reflect(dir, vec3(0.0, 1.0, 0.0))) * vec3(0.8, 0.76, 0.7), fresh * fresnel * 0.5);
 }
@@ -703,7 +705,40 @@ function bakeGround(lit: LitLike, sea: SeaLike, size: number, colorAt: OceanOpti
   return { height, color, top };
 }
 
-function seabedOf(lit: LitLike, sea: SeaLike, size: number, cells: number, colorAt: OceanOptions["colorAt"]): { mesh: NodeLike; geometry: GeometryLike; material: DisposableLike } {
+/** How far the far ground runs, as a share of the fine ground, and its cells a side across the fine ground. */
+const FAR_SPAN = 5;
+const FAR_CELLS = 40;
+
+/**
+ * The ground past the fine mesh, coarse and from the same answers. It reaches a
+ * cell in under the fine mesh and sinks there, so the two never leave a crack.
+ */
+function farGroundOf(lit: LitLike, sea: SeaLike, size: number, colorAt: OceanOptions["colorAt"]): GeometryLike {
+  const half = (FAR_SPAN * FAR_CELLS) / 2;
+  const inner = FAR_CELLS / 2;
+  const side = half * 2 + 1;
+  const step = size / FAR_CELLS;
+  const positions = new Float32Array(side * side * 3);
+  const index: number[] = [];
+  for (let row = -half; row <= half; row += 1) {
+    for (let column = -half; column <= half; column += 1) {
+      const [x, z] = [column * step, row * step];
+      const under = Math.abs(column) < inner && Math.abs(row) < inner;
+      const at = (row + half) * side + column + half;
+      positions.set([x, sea.seabedAt(x, z) - (under ? 3 : 0), z], at * 3);
+      const cut = Math.abs(column + 0.5) < inner - 1 && Math.abs(row + 0.5) < inner - 1;
+      if (column < half && row < half && !cut) index.push(at, at + side, at + 1, at + 1, at + side, at + side + 1);
+    }
+  }
+  const geometry = new lit.Geometry();
+  geometry.setAttribute("position", new lit.Attribute(positions, 3));
+  geometry.setIndex(index);
+  geometry.computeVertexNormals();
+  if (colorAt) paintBed(lit, geometry, positions, colorAt);
+  return geometry;
+}
+
+function seabedOf(lit: LitLike, sea: SeaLike, size: number, cells: number, colorAt: OceanOptions["colorAt"]): { mesh: NodeLike; geometry: GeometryLike; far: GeometryLike; material: DisposableLike } {
   const geometry = lit.plane(size, size, cells, cells);
   const position = geometry.getAttribute("position");
   if (position) {
@@ -717,9 +752,12 @@ function seabedOf(lit: LitLike, sea: SeaLike, size: number, cells: number, color
   geometry.computeVertexNormals();
   if (position && colorAt) paintBed(lit, geometry, position.array, colorAt);
   const material = new lit.LitMaterial({ color: colorAt ? "#ffffff" : "#8f8468", vertexColors: colorAt !== undefined, roughness: 0.95, metalness: 0 });
-  const mesh = new lit.Mesh(geometry, material);
-  mesh.receiveShadow = true;
-  return { mesh, geometry, material };
+  const near = new lit.Mesh(geometry, material);
+  near.receiveShadow = true;
+  const far = farGroundOf(lit, sea, size, colorAt);
+  const mesh = new lit.Group();
+  mesh.add(near, new lit.Mesh(far, material));
+  return { mesh, geometry, far, material };
 }
 
 export interface OceanOptions {
@@ -1118,7 +1156,7 @@ export function createOcean(lit: LitLike, options: OceanOptions): Ocean {
       renderer.render(present.stage, quadCamera);
     },
     dispose() {
-      for (const item of [baked.height, baked.color, scene, water, final, ...resolver.targets, quad, medium.material, copy.material, present.material, resolver.pass.material, surface.material, surface.disc, spray.quad, spray.material, bed.geometry, bed.material]) item.dispose();
+      for (const item of [baked.height, baked.color, scene, water, final, ...resolver.targets, quad, medium.material, copy.material, present.material, resolver.pass.material, surface.material, surface.disc, spray.quad, spray.material, bed.geometry, bed.far, bed.material]) item.dispose();
     },
   };
 }

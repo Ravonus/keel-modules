@@ -22,6 +22,8 @@ for (const swimmer of swim.at(t)) draw(poseSwimmer(swimmer));
   through a turn, and hold their own place in it. Round a shark they open a
   hole and beat faster. Because the shark is also a pure function of t, this
   needs no neighbour search.
+- **Shores.** Each species has a `shallowest` depth. `offShallows` walks a path
+  back down the seabed to that contour, so animals follow a shore without reaching it.
 - **Jellies.** They pulse, rise and sink on a slow swell, and are carried by the
   sea's own waves, fading with depth.
 

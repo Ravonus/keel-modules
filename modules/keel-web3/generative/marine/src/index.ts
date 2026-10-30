@@ -93,6 +93,8 @@ export interface Species {
   readonly size: number;
   /** Zones it lives in. */
   readonly zones: readonly string[];
+  /** The shallowest water it swims into, metres. */
+  readonly shallowest: number;
   /** Tail beats (or bell pulses) a second. */
   readonly beat: number;
   /** How far the tail swings, as a share of its length. */
@@ -105,17 +107,17 @@ export interface Species {
 
 export const SPECIES: Readonly<Record<string, Species>> = {
   sardine: {
-    label: "Sardine", plan: "fish", size: 0.34, zones: ["sunlit"], beat: 3.2, swing: 0.13, slim: 0.62,
+    label: "Sardine", plan: "fish", size: 0.34, zones: ["sunlit"], shallowest: 7, beat: 3.2, swing: 0.13, slim: 0.62,
     stations: [[0, 0.03], [0.1, 0.075], [0.3, 0.1], [0.55, 0.085], [0.78, 0.045], [0.9, 0.02]],
     palette: { back: "#2c6a86", flank: "#b9ced6", belly: "#eef3f2", fin: "#7f9ba6", eye: "#0c1014" },
   },
   shark: {
-    label: "Reef shark", plan: "fish", size: 2.3, zones: ["sunlit"], beat: 0.9, swing: 0.11, slim: 0.86,
+    label: "Reef shark", plan: "fish", size: 2.3, zones: ["sunlit"], shallowest: 6, beat: 0.9, swing: 0.11, slim: 0.86,
     stations: [[0, 0.018], [0.08, 0.055], [0.24, 0.1], [0.42, 0.098], [0.62, 0.062], [0.8, 0.028], [0.88, 0.015]],
     palette: { back: "#5e6c74", flank: "#7d8a90", belly: "#e6e8e4", fin: "#4f5c64", eye: "#090b0d" },
   },
   jelly: {
-    label: "Moon jelly", plan: "jelly", size: 0.42, zones: ["sunlit", "twilight"], beat: 0.55, swing: 0.2, slim: 1,
+    label: "Moon jelly", plan: "jelly", size: 0.42, zones: ["sunlit", "twilight"], shallowest: 2.5, beat: 0.55, swing: 0.2, slim: 1,
     stations: [],
     palette: { bell: "#cfe0ee", rim: "#f3c4d4", inner: "#e9a8c0", arm: "#e8dcea", tentacle: "#dbe6f2" },
   },
@@ -219,6 +221,36 @@ function inWater(sea: SeaLike, at: Vec, t: number, margin: number): Vec {
   return [at[0], clamp(at[1], floor, Math.max(floor, top)), at[2]];
 }
 
+/** How many steps a point takes down the slope, and the most a step moves it, metres. */
+const SHALLOW_STEPS = 4;
+const SHALLOW_STRIDE = 16;
+
+/**
+ * Turns a point away from a shore: where the water is too thin, it walks down
+ * the seabed to the contour it may swim on. Deeper points are left alone, so a
+ * path follows the shore instead of stopping at it.
+ *
+ * @param sea The water, whose seabed is read.
+ * @param at Where the point is.
+ * @param shallowest The least water it may have over the seabed, metres.
+ * @returns Where it may be.
+ */
+export function offShallows(sea: Pick<SeaLike, "seabedAt">, at: Vec, shallowest: number): Vec {
+  let [x, , z] = at;
+  for (let step = 0; step < SHALLOW_STEPS; step += 1) {
+    const short = sea.seabedAt(x, z) + shallowest;
+    if (short <= 0) break;
+    const east = sea.seabedAt(x + 1, z) - sea.seabedAt(x - 1, z);
+    const north = sea.seabedAt(x, z + 1) - sea.seabedAt(x, z - 1);
+    const slope = Math.hypot(east, north) / 2;
+    if (slope < 1e-6) break;
+    const stride = Math.min(short / slope, SHALLOW_STRIDE);
+    x -= (east / 2 / slope) * stride;
+    z -= (north / 2 / slope) * stride;
+  }
+  return [x, at[1], z];
+}
+
 /** A random point in a ball, more of them toward its middle. */
 function placeInBall(random: () => number): Vec {
   const toward = unit([random() * 2 - 1, random() * 2 - 1, random() * 2 - 1]);
@@ -264,12 +296,31 @@ function fearOf(sharks: readonly Path[], at: Vec, t: number): number {
   return sharks.reduce((most, shark) => Math.max(most, smooth(1 - length(sub(at, shark(t))) / (FEAR_RADIUS * 2))), 0);
 }
 
+/** How long ago a fish looks to see which way it is heading, seconds. */
+const LOOK_BACK = 0.14;
+
+/** Keeps fish off the bed, which is taken as a plane under the whole school. */
+function bedUnder(sea: SeaLike, center: Vec, margin: number): (at: Vec) => Vec {
+  const [x, , z] = center;
+  const height = sea.seabedAt(x, z);
+  const east = sea.seabedAt(x + 1, z) - height;
+  const north = sea.seabedAt(x, z + 1) - height;
+  return (at) => [at[0], Math.max(at[1], height + east * (at[0] - x) + north * (at[2] - z) + margin), at[2]];
+}
+
 function schoolAt(company: Company, school: readonly Fin[], sea: SeaLike, path: Path, sharks: readonly Path[], t: number): Swimmer[] {
   const species = speciesOf(company.id);
-  const held: Path = (when) => inWater(sea, path(when), when, SCHOOL_RADIUS * 0.8);
+  // One school, one turn: it moves as a body, and asking the seabed once saves hundreds of asks a frame.
+  const heldAt = (now: number): Path => {
+    const here = path(now);
+    const turn = sub(offShallows(sea, here, species.shallowest), here);
+    return (when) => inWater(sea, add(path(when), turn), when, SCHOOL_RADIUS * 0.8);
+  };
+  const [held, before] = [heldAt(t), heldAt(t - LOOK_BACK)];
+  const clear = bedUnder(sea, held(t), species.size);
   return school.map((fin, index) => {
-    const at = fishPlace(held, sharks, fin, t);
-    const front = unit(sub(at, fishPlace(held, sharks, fin, t - 0.14)));
+    const at = clear(fishPlace(held, sharks, fin, t));
+    const front = unit(sub(at, clear(fishPlace(before, sharks, fin, t - LOOK_BACK))));
     const beat = species.beat * TAU * t * (1 + 1.4 * fearOf(sharks, at, t));
     return { id: company.id, index, at, front, phase: beat + fin.phase, build: fin.build, seed: company.seed + index };
   });
@@ -294,8 +345,9 @@ function jellyAt(company: Company, sea: SeaLike, index: number, t: number): Swim
   // It rises a little on each pulse and sinks between, and the waves carry it to and fro with the water round it.
   const rest: Vec = [home[0], home[1] + Math.sin(t * rate + phase) * 2.4 + Math.sin(beat - 1) * 0.05, home[2]];
   const moved = sea.displace(rest[0], rest[2], t);
+  const kept = offShallows(sea, rest, species.shallowest);
   const carried = Math.exp(clamp(rest[1], -60, 0) * 0.14);
-  const at = inWater(sea, [rest[0] + (moved[0] - rest[0]) * carried, rest[1] + moved[1] * carried, rest[2] + (moved[2] - rest[2]) * carried], t, species.size);
+  const at = inWater(sea, [kept[0] + (moved[0] - rest[0]) * carried, rest[1] + moved[1] * carried, kept[2] + (moved[2] - rest[2]) * carried], t, species.size);
   return { id: company.id, index, at, front: unit([Math.sin(t * rate * 2 + phase) * tilt, 1, Math.cos(t * rate * 1.6 + phase) * tilt]), phase: beat, build: 0.8 + random() * 0.45, seed: company.seed + index };
 }
 
@@ -310,13 +362,19 @@ export function createSwim(cast: Cast, sea: SeaLike): Swim {
   const school = cast.companies.filter((company) => speciesOf(company.id).plan === "fish" && company.count > 8);
   const hunters = cast.companies.filter((company) => speciesOf(company.id).plan === "fish" && company.count <= 8);
   const drifters = cast.companies.filter((company) => speciesOf(company.id).plan === "jelly");
+  const kept = (company: Company, path: Path): Path => (t) => offShallows(sea, path(t), speciesOf(company.id).shallowest);
   const schoolPaths = new Map(school.map((company) => [company, { path: wanderOf(company, 0.075), fins: schoolOf(company) }]));
-  const hunterPaths = new Map(hunters.map((company) => [company, Array.from({ length: company.count }, (_, index) => wanderOf({ ...company, seed: company.seed + index * 104729 }, 0.06))]));
+  const hunterPaths = new Map(hunters.map((company) => [company, Array.from({ length: company.count }, (_, index) => kept(company, wanderOf({ ...company, seed: company.seed + index * 104729 }, 0.06)))]));
   const sharks = [...hunterPaths.values()].flat();
   return {
     at(t) {
       const swimmers: Swimmer[] = [];
-      for (const [company, { path, fins }] of schoolPaths) swimmers.push(...schoolAt(company, fins, sea, path, sharks, t));
+      // Every fish asks where every shark is, so each is worked out once for the moment.
+      const fixed = sharks.map((shark): Path => {
+        const [now, before] = [shark(t), shark(t - LOOK_BACK)];
+        return (when) => (when === t ? now : before);
+      });
+      for (const [company, { path, fins }] of schoolPaths) swimmers.push(...schoolAt(company, fins, sea, path, fixed, t));
       for (const [company, paths] of hunterPaths) swimmers.push(...loners(company, sea, paths, t));
       for (const company of drifters) for (let index = 0; index < company.count; index += 1) swimmers.push(jellyAt(company, sea, index, t));
       return swimmers;

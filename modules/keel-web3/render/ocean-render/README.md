@@ -81,7 +81,7 @@ so waves shoal over any ground, including a `generative/beach` shore.
 - `ocean.draw` writes straight to the screen with its own tone curve, so it does
   not yet feed `voxel-dither`.
 - The sky is a two-colour gradient and a sun, not `world-light`'s sky.
-- The ground is one fixed mesh that ends at `size`, with nothing past it.
+- Past `size` the ground is a coarse mesh out to five times as far. The baked map stops at `size`, so water beyond it reads the map's edge: far surf can sit a little off the true shore, and that ground has no traced shadows of its own.
 - `sea.surfaceAt` answers for the water's height at a place, so it does not follow a thrown lip.
 
 ## Preview

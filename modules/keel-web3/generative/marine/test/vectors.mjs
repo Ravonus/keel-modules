@@ -50,6 +50,32 @@ export default [
     expect: true,
   },
   {
+    name: "a point in thin water walks down the slope to the depth it may swim in",
+    run: ({ offShallows }) => {
+      const sea = { seabedAt: (x, z) => z * 0.1 - 10 };
+      const [x, y, z] = offShallows(sea, [3, -1, 90], 7);
+      return [x, y, Math.round(z * 1000) / 1000];
+    },
+    expect: [3, -1, 30],
+  },
+  {
+    name: "a point in deep enough water is left where it is",
+    run: ({ offShallows }) => offShallows({ seabedAt: () => -20 }, [3, -1, 90], 7),
+    expect: [3, -1, 90],
+  },
+  {
+    name: "nobody swims onto a beach",
+    run: ({ castFor, createSwim, SPECIES }) => {
+      const seabedAt = (x, z) => z * 0.1 - 2;
+      const sea = { seabedAt, surfaceAt: () => ({ height: 0 }), displace: (x, z) => [x, 0, z] };
+      const swim = createSwim(castFor({ seed: 3, sea, center: [0, 0] }), sea);
+      let thinnest = Infinity;
+      for (let t = 0; t < 40; t += 2) for (const one of swim.at(t)) thinnest = Math.min(thinnest, -seabedAt(one.at[0], one.at[2]) - SPECIES[one.id].shallowest);
+      return thinnest > -3.6;
+    },
+    expect: true,
+  },
+  {
     name: "the school opens a hole round its shark",
     run: ({ castFor, createSwim }) => {
       const swim = createSwim(castFor({ seed: 3, sea, center: [0, 0] }), sea);

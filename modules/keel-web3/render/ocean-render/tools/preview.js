@@ -73,6 +73,10 @@ const VIEWS = {
   break() {
     return { eye: [-4, 1.5, number("z", 109)], look: [30, 0.7, number("z", 109) + 5] };
   },
+  // Along the coast and past the fine ground, to show nothing ends.
+  coast() {
+    return { eye: [120, 34, 190], look: [800, 0, 150] };
+  },
   shore(all, t) {
     const walk = Math.sin(t * 0.08) * 0.5 + 0.5;
     const z = 92 + walk * 44;
@@ -140,7 +144,7 @@ function frame(t, frameMs) {
   const { eye, look } = VIEWS[view](all, t);
   // The camera rides over the swell rather than through it.
   const top = sea.surfaceAt(eye[0], eye[2], t, level).height;
-  camera.position.set(eye[0], ["above", "window", "shore", "beach", "surf", "break"].includes(view) ? eye[1] : Math.min(eye[1], top - 0.6), eye[2]);
+  camera.position.set(eye[0], ["above", "window", "shore", "beach", "surf", "break", "coast"].includes(view) ? eye[1] : Math.min(eye[1], top - 0.6), eye[2]);
   camera.lookAt(look[0], look[1], look[2]);
   camera.updateMatrixWorld();
   swarm.draw(all, eye, bodyLight);

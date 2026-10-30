@@ -810,7 +810,7 @@ const blendNumber = (shares: readonly [SpeciesId, number][], pick: (species: Spe
  */
 export function blendSpecies(mix: Readonly<Record<string, number>>): Species {
   const shares = mixShares(mix);
-  const major = SPECIES[shares[0]![0]];
+  const major = SPECIES[shares[0]?.[0] ?? "cherry"];
   if (shares.length === 1 || major.palm !== null) return major;
   const mean = (pick: (species: Species) => number): number => blendNumber(shares, pick);
   const round = (pick: (species: Species) => number): number => Math.max(1, Math.round(mean(pick)));
@@ -1053,6 +1053,14 @@ function isBelow(model: TreeModel, node: number, limb: number): boolean {
   return false;
 }
 
+/** Gives a node and everything below it to a strain. */
+function claimBelow(model: TreeModel, strain: Int32Array | Uint8Array | number[], node: number, index: number): void {
+  for (let child = node; child < model.count; child += 1) {
+    if (child === node || isBelow(model, child, node)) strain[child] = index;
+  }
+}
+
+// eslint-disable-next-line complexity, max-lines-per-function -- one long pass over a tree; splitting it risks changing the art.
 export function sectors(model: TreeModel, shares: readonly number[], seed = model.seed): Uint8Array {
   const strain = new Uint8Array(model.count);
   if (shares.length <= 1) return strain;
@@ -1083,7 +1091,7 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
   // at its share, not only the old tree.
   for (let index = limbs.length - 1; index > 0; index -= 1) {
     const other = Math.floor(random() * (index + 1));
-    [limbs[index], limbs[other]] = [limbs[other]!, limbs[index]!];
+    [limbs[index], limbs[other]] = [at(limbs, other), at(limbs, index)];
   }
   limbs.sort((a, b) => Math.round(at(model.birth, a) * 2) - Math.round(at(model.birth, b) * 2));
   const sum = shares.reduce((acc, share) => acc + Math.max(0, share), 0) || 1;
@@ -1160,9 +1168,7 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
       now[from] = at(now, from) - load;
       now[index] = at(now, index) + load;
       short -= load;
-      for (let child = node; child < model.count; child += 1) {
-        if (child === node || isBelow(model, child, node)) strain[child] = index;
-      }
+      claimBelow(model, strain, node, index);
     }
   }
   return strain;

@@ -884,6 +884,7 @@ const unit = (value: number): number => (value % 1000) / 1000;
  * metal or gems, see `TreeGround.planter.hard`) most old trees, not all, send
  * a root or two out through the wall, the longest first.
  */
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 export function rootBreaks(roots: readonly { readonly angle: number; readonly reach: number }[], trunk: number, ground: TreeGround, seed = 1): RootBreak[] {
   const heave = smoothstep(BREAK_FROM, BREAK_FULL, trunk);
   if (heave <= 0 || !ground.lip) return roots.map(() => NO_ROOT_BREAK);
@@ -990,12 +991,13 @@ function rootThroughWall(ground: TreeGround, step: RootStep, lip: number, plan: 
  * with the trunk, so saplings keep theirs short. A `rootBreaks` plan heaves an
  * old root higher, or sends it out through the planter's side.
  */
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 export function rootPath(root: { readonly angle: number; readonly reach: number }, trunk: number, ground: TreeGround, plan: RootBreak = NO_ROOT_BREAK): RootPoint[] {
   const wall = ground.wall ?? { depth: 1, flare: 0 };
   const burst = plan.burst > 0 && ground.lip !== undefined;
   const reach = ground.rootReach ?? ground.radius;
   const length = burst
-    ? Math.max(0.5, (ground.lip?.(root.angle) ?? reach) - 0.12 - trunk * 0.5) + BURST_OUT + Math.min(wall.depth, BURST_WALL) * (1 - plan.burst) + plan.hang
+    ? Math.max(0.5, ground.lip(root.angle) - 0.12 - trunk * 0.5) + BURST_OUT + Math.min(wall.depth, BURST_WALL) * (1 - plan.burst) + plan.hang
     : Math.min((0.3 + trunk * 16) * root.reach, reach + wall.depth * 1.4);
   const phase = root.angle * 7.3;
   const points: RootPoint[] = [];
@@ -1033,6 +1035,7 @@ const HOLE_TONE = 3;
  * cracks: smaller pieces); where it bursts through the side, a ring of broken
  * wall round the hole, one fallen lower, and the rim above split.
  */
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 export function rootShards(root: { readonly angle: number; readonly reach: number }, index: number, trunk: number, ground: TreeGround, plan: RootBreak, seed = 1): RootShard[] {
   if (plan.heave < 0.2 || !ground.lip) return [];
   const random = seededRandom((hash32((seed ^ Math.imul(index + 7, 0x85ebca6b)) >>> 0) ^ 0x2545f491) >>> 0);
@@ -1312,6 +1315,7 @@ function leafyNode(frame: TreeFrameLike, node: number, tipLimit: number): boolea
   return at(frame.grow, node) > 0.25 && at(frame.dead, node) < 0.25 && at(frame.fall, node) === 0 && at(frame.tips, node) <= tipLimit;
 }
 
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 function bearingNode(tree: Tree, frame: TreeFrameLike, spec: OrnamentSpecLike, node: number, own = false): boolean {
   if (frame.cycle < spec.from || at(frame.fall, node) > 0 || at(frame.dead, node) >= 0.2) return false;
   if (tree.strainOf && tree.strains[at(tree.strainOf, node)]?.bears === false && !own) return false;
@@ -1346,6 +1350,7 @@ function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): void {
 }
 
 /** Surface roots flare out from the trunk foot and thicken with it. */
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 function poseRoots(tree: Tree, frame: TreeFrameLike, array: Float32Array): void {
   const { model, ground } = tree;
   const trunk = at(frame.radius, 0);
@@ -1386,6 +1391,7 @@ function treeBreaks(tree: Tree, trunk: number): readonly RootBreak[] {
 const SHARD_COLORS = ["#5e4a3a", "#7a634f", "#958068"] as const;
 
 /** The planter chunks the roots broke loose, posed only when the trunk grows. */
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 function poseShards(tree: Tree, trunk: number): void {
   const mesh = tree.meshes.shards;
   if (!mesh) return;
@@ -1473,7 +1479,7 @@ function needleLeaf(tree: Tree, node: number): boolean {
 function strainSkin(tree: Tree, node: number): TreeSkin | null {
   const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
   const own = strain > 0 ? tree.strains[strain] : undefined;
-  return own && own.skin !== undefined ? own.skin : tree.skin;
+  return own?.skin !== undefined ? own.skin : tree.skin;
 }
 
 /**
@@ -1493,6 +1499,7 @@ function strainYear(tree: Tree, node: number, year: YearLike): YearLike {
   return tree.strainYears[at(tree.strainOf, node)] ?? year;
 }
 
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 function barkTone(tree: Tree, frame: TreeFrameLike, node: number): string {
   const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
   const trunk = (strain > 0 ? tree.strains[strain]?.bark : undefined) ?? strainColors(tree, node).trunk;
@@ -1741,7 +1748,6 @@ function poseLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year:
   const slots = model.leaves;
   const seedling = frame.visible <= 4;
   const tipLimit = leafTipLimit(tree);
-  const bare = year.leaf <= 0;
   if (motion.dead === true) { for (let index = 0; index < slots.count; index += 1) clearSlot(mesh.instanceMatrix.array, index); mesh.instanceMatrix.needsUpdate = true; return; }
   const pass = leafPass(tree, mesh, frame, year, motion);
   const flowering = floweringOf(tree, year);
@@ -1920,6 +1926,7 @@ function hangingSpot(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year: Y
   return { x: at(frame.x, node) + at(set.slots.dx, index), y: at(frame.y, node) + at(set.slots.dy, index) * 0.5 + set.look.lift * unit, z: at(frame.z, node) + at(set.slots.dz, index), unit };
 }
 
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 function ripeFruit(tree: Tree): TreeFruit[] {
   const frame = tree.lastFrame;
   const year0 = tree.lastYear;
@@ -2434,6 +2441,7 @@ function glowPetals(mesh: InstancedLike, colors: TreeColors): void {
 /** A skin's own leaf shape (crystal, coin) stays its flowers' shape too; a natural crown opens in sprays. */
 const sprayShape = (build: Build, options: TreeRenderOptions): GeometryLike | null => (build.smooth && !options.shapes?.leaf ? treeShapes(build.lit).spray : null);
 
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMeshes; flowers: OrnamentSet | null; fruits: OrnamentSet | null; kinds: OrnamentSet[] } {
   const { model, features, limits } = build;
   const shapes = shapesFor(build, options);
@@ -2463,6 +2471,7 @@ function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMe
 }
 
 /** One grown tree as live instanced meshes. Build once per model; call `update` every frame. */
+// eslint-disable-next-line complexity -- one long pass over a tree; splitting it risks changing the art.
 export function createTreeRender(lit: LitLike, model: TreeModelLike, options: TreeRenderOptions): TreeRender {
   const features = treeFeatures(options.features ?? {});
   const limits = { ...DEFAULT_LIMITS, ...options.limits };

@@ -2777,7 +2777,7 @@ function pawWork(plan: FootPlan, body: QuadBody, leg: LegId, q: Pose, t: number,
  * knee forward, the hock back); a foreleg's elbow sits behind.
  */
 /** Each foot's radius as a share of the leg's, and the leg's thickness down its two upper bones (root, knee, knee, joint). */
-const SOLE: Readonly<Record<Foot, number>> = { paw: 0.6, hoof: 0.45, plant: 0.55 };
+const SOLE: Readonly<Record<Foot, number>> = { paw: 0.6, hoof: 0.62, plant: 0.55 };
 const LEG_TAPER = { fore: [1.45, 0.95, 0.9, 0.68], hind: [1.95, 1.1, 1.0, 0.62] } as const;
 
 /** Which way a leg's middle joint bends: a knee forward, an elbow back, a folded knee out to the side. */
@@ -2918,6 +2918,8 @@ function legFinish(kit: Kit, actor: Who, lines: readonly LegLine[], m: Moment): 
   const shape = [gene(), gene(), gene()];
   if (b.foot !== "hoof" && !b.extras.includes("toes") && !b.extras.includes("fingers")) for (const line of lines) { let i = 0; pawDigits(kit, b, line, paw, clawsOut(paw, m), () => shape[i++] ?? 0.5); }
   for (const line of lines) legMass(kit, line);
+  // (A deer's slim leg shows its joints: a knobbed knee or hock, the fetlock over each hoof.)
+  if (b.foot === "hoof") for (const { name, mid, legR } of lines) cap(kit, `${name}.knee`, "coat", mid, mid, legR * 0.72, 0.9, [1, 0, 0], { melt: 0.5, shadow: false, detail: 2 });
 }
 
 /** The lowest bone and what it stands on: a hoof's cannon and hoof, a flat sole, a pastern and paw. */
@@ -2925,7 +2927,7 @@ function footParts(kit: Kit, b: Build, name: string, end: Vec, sole: Vec, legR: 
   const lowRole: Role = b.extras.includes("socks") ? "dark" : "coat";
   if (b.foot === "hoof") {
     cone(kit, `${name}.cannon`, lowRole, end, sole, legR * 0.55, legR * 0.48, 0.35);
-    cap(kit, `${name}.paw`, "dark", sole, add(sole, [0, -plantR * 0.4, plantR * 0.5]), plantR, 1, UP, { melt: 0.25 });
+    cap(kit, `${name}.paw`, "dark", sole, add(sole, [0, -plantR * 0.4, plantR * 0.55]), plantR * 1.15, 1, UP, { r1: plantR * 0.8, melt: 0.2 });
     return;
   }
   const toe = madd(sole, [0, 0, 1], plantR * (b.foot === "plant" ? 0.6 : 0.35));
@@ -3267,7 +3269,7 @@ function roundFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): voi
   noseOf(kit, b, h, tip, tipR);
   const eyes = roundEyes(b);
   eyes.forEach((spot, i) => { eyeOf(kit, `eye.${i === 0 ? "L" : "R"}`, h, onFace(h, spot), h.r * 0.25, !asleep); });
-  faceMarks(kit, b, h, tip, eyes, h.r * 0.25 * (h.eye?.size ?? 1));
+  faceMarks(kit, actor, h, tip, eyes, h.r * 0.25 * (h.eye?.size ?? 1));
   if (actor.member.horned && b.extras.includes("antlers")) antlersOf(kit, h, actor.member.size);
   if (b.extras.includes("jowls")) for (const x of [-1, 1]) jowlOf(kit, h, x);
   earsOf(kit, b.ears, h, q.earBack, b.earLen, b.extras.includes("cheeks") || b.extras.includes("wet") ? "accent" : "coat", b.earBase);
@@ -3319,7 +3321,7 @@ function outlinedFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): 
   const [ed, es, eu] = EYE_SET;
   const eyes = [-1, 1].map((x) => eyeSpot(stop + ed, x * es, eu));
   eyes.forEach((spot, i) => { outlinedEye(kit, `eye.${i === 0 ? "L" : "R"}`, h, spot, h.r * 0.22, !asleep); });
-  faceMarks(kit, b, h, nose, eyes, h.r * 0.22 * (h.eye?.size ?? 1));
+  faceMarks(kit, actor, h, nose, eyes, h.r * 0.22 * (h.eye?.size ?? 1));
   if (actor.member.horned && b.extras.includes("antlers")) antlersOf(kit, h, actor.member.size);
   earsOf(kit, b.ears, h, q.earBack, b.earLen, b.extras.includes("cheeks") ? "accent" : "coat", b.earBase);
 }
@@ -3366,8 +3368,9 @@ function coatFace(kit: Kit, actor: Who, h: Head, on: FaceAt, skin: Skin): readon
   if (actor.member.coat !== "calico") return ["coat", "coat"];
   // (Whichever side the black falls on is the animal's own.)
   const x = ownPhase(actor) < 0.5 ? -1 : 1;
-  calicoPatch(kit, h, skin, x, "dark");
-  calicoPatch(kit, h, skin, -x, "alt");
+  const gene = createRandom(markOf(actor) ^ 0x3c6ef372);
+  calicoPatch(kit, h, skin, x, "dark", gene);
+  calicoPatch(kit, h, skin, -x, "alt", gene);
   return x < 0 ? ["dark", "alt"] : ["alt", "dark"];
 }
 
@@ -3386,8 +3389,8 @@ function tabbyFace(kit: Kit, h: Head, on: FaceAt, skin: Skin): void {
 }
 
 /** A calico's patch on one side of its face, from the ear down round the eye: the eye framed in it, the nose and the blaze left white. */
-function calicoPatch(kit: Kit, h: Head, skin: Skin, x: number, role: Role): void {
-  decal(kit, "face", role, skin(x * 0.7, 0.62), skin(x * 0.56, 0.08), h.r * 0.46);
+function calicoPatch(kit: Kit, h: Head, skin: Skin, x: number, role: Role, gene: () => number): void {
+  decal(kit, "face", role, skin(x * mix(0.6, 0.8, gene()), mix(0.5, 0.72, gene())), skin(x * mix(0.44, 0.64, gene()), mix(-0.02, 0.2, gene())), h.r * mix(0.34, 0.56, gene()));
 }
 
 /** A cat's eye, painted flat into the skull: a dark almond tilted up to its outer corner, heavier along its upper lid, the iris in it, the slit tall and narrow down its middle, the one catch of light on the same side of both; shut, a dark line. */
@@ -3478,12 +3481,13 @@ function banditMarks(kit: Kit, h: Head, tip: Vec, eyes: readonly FacePoint[], ey
 }
 
 /** Face markings, set across the head's surface so they paint it from any side. */
-function faceMarks(kit: Kit, b: Build, h: Head, tip: Vec, eyes: readonly FacePoint[], eyeR: number): void {
+function faceMarks(kit: Kit, actor: Who, h: Head, tip: Vec, eyes: readonly FacePoint[], eyeR: number): void {
+  const b = buildOf(actor);
   const cheeks = b.extras.includes("cheeks");
   const mask = b.extras.includes("mask");
   if (b.extras.includes("brows")) { banditMarks(kit, h, tip, eyes, eyeR); return; }
   if (b.extras.includes("muzzle")) decal(kit, "muzzle", cheeks ? "accent" : "belly", at3(h, 0.65, 0, -0.4), tip, h.r * 0.45);
-  if (mask) for (const eye of eyes) maskBand(kit, h, eye, eyeR);
+  if (mask) { const wide = eyeR * mix(0.86, 1.2, createRandom(markOf(actor) ^ 0x6a09e667)()); for (const eye of eyes) maskBand(kit, h, eye, wide); }
   // (A badger's white blaze runs from its nose over its crown, between dark stripes.)
   if (mask && b.extras.includes("stripes")) decal(kit, "blaze", "accent", tip, at3(h, -0.4, 0, 1.0), h.r * 0.3);
   if (cheeks) for (const x of [-1, 1]) decal(kit, "cheek", "accent", at3(h, 0.4, x * 0.88, -0.15), at3(h, 0.7, x * 0.6, 0.5), h.r * 0.3);
@@ -3544,8 +3548,10 @@ function tailLay(b: Build, body: QuadBody, q: Pose, t: number): (i: number) => V
 const TAIL_BANDS = [0.36, 0.51, 0.66, 0.81, 0.98] as const;
 
 /** A banded tail's dark rings, each a flat disc a touch wider than the tail where it lies, so it paints an even band right round it; the last is its whole tip. */
-function tailBands(kit: Kit, path: readonly Vec[], girth: number, profile: readonly number[]): void {
-  TAIL_BANDS.forEach((k, j) => {
+function tailBands(kit: Kit, path: readonly Vec[], girth: number, profile: readonly number[], gene: () => number): void {
+  TAIL_BANDS.forEach((rest, j) => {
+    // (Each animal's rings fall a little differently; the tip stays a tip.)
+    const k = j < TAIL_BANDS.length - 1 ? rest + mix(-0.04, 0.04, gene()) : rest;
     const i = Math.min(Math.floor(k * (path.length - 1)), path.length - 2);
     const f = k * (path.length - 1) - i;
     const at = lerpV(path[i] ?? UP, path[i + 1] ?? UP, f);
@@ -3585,7 +3591,7 @@ function quadTail(kit: Kit, actor: Who, body: QuadBody, q: Pose, t: number): voi
     at = next;
     path.push(at);
   }
-  if (b.tail === "banded") tailBands(kit, path, girth, shape.profile);
+  if (b.tail === "banded") tailBands(kit, path, girth, shape.profile, createRandom(markOf(actor) ^ 0x1f83d9ab));
   // (A fox's brush ends in white; a mouse's or a meerkat's tail in dark.)
   if (b.tail === "bushy") decal(kit, "tail.tip", "accent", at, at, girth * 0.75);
 }
@@ -3736,7 +3742,7 @@ function primateStance(who: Who, m: Moment, climbing: boolean, walking: boolean)
 }
 
 /** The two that go on all fours and sit down to use their hands, a snow monkey and a long-tailed one. */
-const macaqueKind = (who: Who): boolean => who.member.species === "macaque" || who.member.species === "monkey";
+const macaqueKind = (who: Who): boolean => who.member.species === "macaque" || who.member.species === "monkey" || who.member.species === "loris";
 
 /** An arm's length against the leg: a snow monkey's a little the shorter, a long-tailed one's nearly as long, a sloth's over twice as long. */
 function armShare(who: Who): number {
@@ -3752,7 +3758,7 @@ function primateCarriage(climbing: boolean, fours: boolean, moving: boolean, leg
 }
 
 /** Standing about on all fours: a monkey (not a sloth or a loris, which only climb and hang) doing nothing with its hands. */
-const onFours = (who: Who, q: Pose): boolean => who.spec.build.tail !== "none" && q.sit < 0.3 && q.hang <= 0 && q.reach < 0.3 && q.hand < 0.3 && q.scratch <= 0;
+const onFours = (who: Who, q: Pose): boolean => (who.spec.build.tail !== "none" || who.member.species === "loris") && q.sit < 0.3 && q.hang <= 0 && q.reach < 0.3 && q.hand < 0.3 && q.scratch <= 0;
 
 /** A hand down on what it walks on: a sloth's reaching wide and far ahead, on arms too long to do otherwise, hooked round the trunk when it climbs. */
 function handDown(who: Who, body: PrimateBody, x: number, step: { z: number; y: number }): Vec {
@@ -3861,6 +3867,7 @@ function posePrimate(kit: Kit, who: Who, m: Moment): void {
   if (who.member.species === "sloth") { poseSloth(kit, who, m); return; }
   if (who.member.species === "macaque") { poseMacaque(kit, who, m); return; }
   if (who.member.species === "monkey") { poseMonkey(kit, who, m); return; }
+  if (who.member.species === "loris") { poseLoris(kit, who, m); return; }
   const q = m.pose;
   const b = who.spec.build;
   const body = primateSpine(who, m);
@@ -4330,6 +4337,43 @@ function monkeyPelt(who: Who, m: Moment, capsules: readonly Capsule[]): PeltSpec
     band: [mixColor(alt, dark, 0.3), 0.4], tip: [mixColor(coat, belly, 0.6), 0.24],
     back: mixColor(coat, alt, 0.7), front: belly, dorsal: 0.7, ventral: 0.8,
   };
+}
+
+/** A loris along its spine: long and low, a little deeper at the chest, with no tail to taper into. */
+const LORIS_BODY: readonly Station[] = [[-0.2, 0.74, 0.72, 0.74], [0.15, 1, 0.94, 0.98], [0.55, 0.9, 0.8, 0.84], [0.95, 0.98, 0.9, 0.92], [1.25, 0.6, 0.55, 0.6]];
+
+/** Its face: a round skull, a short pale muzzle, a dark ring round each huge eye, the pale stripe between them running up its brow, small ears set low in the fur. */
+function lorisFace(kit: Kit, h: Head, m: Moment): void {
+  const { r } = h;
+  cap(kit, "head", "coat", at3(h, -0.08, 0, 0.03), at3(h, -0.08, 0, 0.03), r, 0.95, h.u, { melt: 0.45 });
+  cap(kit, "muzzle", "belly", at3(h, 0.72, 0, -0.26), at3(h, 1, 0, -0.3), r * 0.34, 0.86, h.u, { r1: r * 0.24, melt: 0.6 });
+  cap(kit, "nose", "dark", at3(h, 1.24, 0, -0.26), at3(h, 1.24, 0, -0.26), r * 0.1, 0.75, h.d, { melt: 0.2 });
+  const eyes = [-1, 1].map((x) => ({ x, at: onFace(h, frontAt(x * 0.42, 0.14)) }));
+  for (const { x, at } of eyes) {
+    cap(kit, "ring", "dark", at, at3(h, 0.42, x * 0.46, -0.34), r * 0.3, 1, UP, { decal: true, r1: r * 0.14, melt: 1.2 });
+    cap(kit, "ring", "dark", at, at3(h, 0.3, x * 0.42, 0.62), r * 0.3, 1, UP, { decal: true, r1: r * 0.12, melt: 1.2 });
+  }
+  cap(kit, "stripe", "belly", at3(h, 0.96, 0, -0.12), at3(h, 0.3, 0, 0.92), r * 0.13, 1, UP, { decal: true, r1: r * 0.08, melt: 1.1 });
+  for (const { x, at } of eyes) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at, r * 0.125, m.segment.act !== "sleep");
+  macaqueEars(kit, h, 0.32, 0.16);
+}
+
+function poseLoris(kit: Kit, who: Who, m: Moment): void {
+  const body = primateSpine(who, m);
+  const { hips, chest, tdir, r, w, arm, leg } = body;
+  const head = macaqueHeadOf(who, body, m);
+  lorisFace(kit, head, m);
+  cone(kit, "neck", "coat", madd(chest, tdir, r * 0.4), madd(head.c, head.d, -head.r * 0.4), r * 0.62, head.r * 0.6);
+  const back = spineBack(tdir);
+  loft(kit, "torso", "coat", LORIS_BODY, (k) => macaqueSpine(body, k), back, [1, 0, 0], r, 1);
+  // (The dark line down its back, breaking up as it nears the rump.)
+  cap(kit, "stripe", "dark", madd(hips, back, r * 0.82), madd(chest, back, r * 0.9), r * 0.12, 1, UP, { decal: true, r1: r * 0.16, melt: 1.4 });
+  const sits = settled(who, m);
+  for (const x of [-1, 1]) {
+    const side = x < 0 ? "L" : "R";
+    monkeyLimb(kit, `arm.${side}`, madd(add(chest, [x * w * 0.8, 0, 0]), tdir, -r * 0.1), primateHand(who, body, x, m, head.c), arm, r * 0.3, [x * 0.35, -0.4, -1], x);
+    monkeyLimb(kit, `leg.${side}`, add(hips, [x * w * 0.66, 0, 0]), primateFoot(who, body, x, m), leg, r * 0.38, lerpV([0, 0, 1], [x * 0.55, 1, 0.3], sits), x);
+  }
 }
 
 function poseMonkey(kit: Kit, who: Who, m: Moment): void {
@@ -5562,10 +5606,13 @@ function faceColors(id: SpeciesId, coatName: string, accent: string, dark: strin
   return { eye: COAT_EYES[coatName]?.iris ?? own?.iris ?? IRIS[id] ?? "#3a2a1e", nose: id === "cat" ? own?.nose ?? accent : dark };
 }
 
+/** Whether a species' horn is its claws, a darker thing than a deer's antler or a tortoise's nail. */
+const clawed = (id: SpeciesId): boolean => { const b = SPECIES[id].build; return SPECIES[id].plan === "quad" && b.foot !== "hoof" && !b.extras.includes("shell"); };
+
 function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph, coatName = ""): Palette {
   const plain = morph === "normal" ? 0.32 : 0;
   const [coat, alt, belly, dark, accent] = colors.map((hex, i) => (i < 3 ? muted(hex, plain) : hex)) as unknown as CoatColors;
-  const base: Palette = { coat, alt, belly, dark, accent, ...faceColors(id, coatName, accent, dark), pupil: id === "raccoon" ? IRIS.raccoon ?? "#070505" : "#070505", shine: "#ffffff", glow: accent, horn: COAT_BEAKS[coatName] ?? BEAKS[id] ?? "#cbb38c", shell: COAT_SHELLS[coatName] ?? alt };
+  const base: Palette = { coat, alt, belly, dark, accent, ...faceColors(id, coatName, accent, dark), pupil: id === "raccoon" ? IRIS.raccoon ?? "#070505" : "#070505", shine: "#ffffff", glow: accent, horn: COAT_BEAKS[coatName] ?? BEAKS[id] ?? (clawed(id) ? "#5e5044" : "#cbb38c"), shell: COAT_SHELLS[coatName] ?? alt };
   const skin = skinOf(base, morph);
   // Neon is dark on purpose: its glow carries it.
   if (morph === "neon") return skin;
@@ -6259,7 +6306,7 @@ function plateGrain(who: Who, m: Moment, capsules: readonly Capsule[]): { crown:
 function grainPose(who: Who, m: Moment, capsules: readonly Capsule[]): Partial<ReturnType<typeof quillGrain>> & Partial<ReturnType<typeof plateGrain>> & { pelt?: PeltSpec } {
   if (who.member.species === "sloth") return { crown: slothCrown(who, m) };
   if (who.member.species === "macaque") return { pelt: macaquePelt(who, m, capsules) };
-  if (who.member.species === "monkey") return { pelt: monkeyPelt(who, m, capsules) };
+  if (who.member.species === "monkey" || who.member.species === "loris") return { pelt: monkeyPelt(who, m, capsules) };
   if (who.member.species === "tortoise") return plateGrain(who, m, capsules);
   return who.member.species === "hedgehog" ? quillGrain(who, m) : {};
 }
@@ -6346,7 +6393,7 @@ function eyesOf(who: Who, asleep: boolean): Pick<Body, "eye" | "palette"> {
 
 /** Bare skin's own light, for the animals whose skin shows: a macaque's face and seat, matte, the red of the blood under it. */
 function skinOfBody(who: Who): Pick<Body, "skin"> {
-  if (!macaqueKind(who)) return {};
+  if (!macaqueKind(who) || who.member.species === "loris") return {};
   const { accent } = who.member.palette;
   // (A vervet's face is black, and only its lids a shade off it.)
   if (who.member.coat === "vervet") return { skin: { role: "accent", chroma: 0.3, pale: mixColor(accent, "#6c5a54", 0.5), flush: 0.05, depth: 0.8 } };

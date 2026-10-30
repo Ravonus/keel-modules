@@ -1002,10 +1002,14 @@ float melt(int i, float m, float d, float di, out float h) {
   h = clamp(0.5 + 0.5 * (d - di) / k, 0.0, 1.0);
   return mix(d, di, h) - k * h * (1.0 - h);
 }
+// A flat part's distance is shrunk by its flatness to keep the march safe, so past a wing's edge it
+// reads several times too near. gFlat is that flatness at the last point asked about: what a test
+// of how many pixels off the surface a ray is must divide by, or a wing's ink grows that much wider.
+float gFlat = 1.0;
 // The surface alone, for the march, the normal and the occlusion. Crisp
 // parts join it after the melt, so nothing melts into an eye.
 float dist(vec3 p) {
-  float d = 1e9, c = 1e9, h, thick = 0.0, cover = 0.0, cut = 1e9, ck = 1e-6, bare = 1e9;
+  float d = 1e9, c = 1e9, h, thick = 0.0, cover = 0.0, cut = 1e9, ck = 1e-6, bare = 1e9, flatness = 1.0;
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
     float tag = uB[i].w;
@@ -1019,8 +1023,10 @@ float dist(vec3 p) {
     di = hull(p, di, mod(tag, 16.0));
     d = melt(i, m * 0.0625, d, di, h);
     thick = mix(thick, partThickness(i), h);
+    flatness = mix(flatness, clamp(length(uU[i].xyz), 0.05, 1.0), h);
     cover = mix(cover, grows(mod(tag, 16.0)), h);
   }
+  gFlat = flatness;
   // The carves cut in after the melt, their rims as soft as their own melt.
   if (cut < 1e8) { h = clamp(0.5 - 0.5 * (d + cut) / ck, 0.0, 1.0); d = mix(d, -cut, h) + ck * h * (1.0 - h); }
   // A body is never a smooth balloon: muscle, bone and fat lift and crease it, each animal its own
@@ -1302,8 +1308,9 @@ void main() {
   for (int s = 0; s < 120; s++) {
     if (s >= steps) break;
     d = dist(ro + rd * t);
-    if (d < max(eps, px * t * 0.35)) { hit = true; break; }
-    float gap = d / max(t, eps);
+    float seen = d / gFlat;
+    if (d < eps || seen < px * t * 0.35) { hit = true; break; }
+    float gap = seen / max(t, eps);
     if (gap < near) { near = gap; nearT = t; }
     // (Never under half a pixel: a ray grazing one part must still reach what lies behind it, not spend its steps there.)
     t += max(d * stride, px * t * 0.5);
@@ -1311,7 +1318,7 @@ void main() {
   }
   // (Steps run out grazing a thin part: within a pixel of it is on it.)
   // (Among spines, they are all round it: it never stops in the dark between them.)
-  if (!hit && t < tf && d < (spiny ? uGrain * 0.5 : max(eps * 12.0, px * t))) hit = true;
+  if (!hit && t < tf && (spiny ? d < uGrain * 0.5 : d / gFlat < max(eps * 12.0, px * t))) hit = true;
   vec3 p;
   if (!hit) {
     if (near > px * uInk || uGlow > 0.5) discard;
@@ -1495,8 +1502,10 @@ function span(lo: number[], hi: number[], axis: number, part: BodyPart): void {
   const a = part.a[axis] ?? 0;
   const b = part.b[axis] ?? 0;
   const r1 = part.r1 ?? part.r;
-  lo[axis] = Math.min(lo[axis] ?? Infinity, a - part.r, b - r1);
-  hi[axis] = Math.max(hi[axis] ?? -Infinity, a + part.r, b + r1);
+  // (A digit reaches past its row and a bowed part stands off its line: the box holds both, or a wing's tip is cut straight.)
+  const out = (part.reach?.[axis] ?? 0) + (part.bow?.[axis] ?? 0);
+  lo[axis] = Math.min(lo[axis] ?? Infinity, a - part.r + Math.min(out, 0), b - r1 + Math.min(out, 0));
+  hi[axis] = Math.max(hi[axis] ?? -Infinity, a + part.r + Math.max(out, 0), b + r1 + Math.max(out, 0));
 }
 
 /** The part's thin direction: its `up`, made square to its length. */

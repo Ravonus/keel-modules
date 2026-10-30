@@ -6647,6 +6647,8 @@ export interface PeltSpec {
 /** One posed animal (or plane): its capsules and the colours their roles take. */
 export interface Body {
   readonly id: string;
+  /** How much of it is there: traffic comes out of the sky and goes back into it. */
+  readonly fade?: number;
   readonly kind: SpeciesId | PlaneKind | "bat";
   readonly label: string;
   readonly action: Action;
@@ -7069,6 +7071,20 @@ function routeOf(kind: SkyKind, rand: () => number, reach: number): { from: Vec;
   // A shooting star falls as it crosses.
   return kind === "comet" ? { from: add(from, [0, 14, 0]), to: add(to, [0, -14, 0]) } : { from, to };
 }
+
+/** How long traffic takes to come out of the sky and go back into it, at most: a quarter of a short pass. */
+const SKY_FADE = 3;
+
+/** How much of a pass is there at `t`: none at either end, whole between. */
+export function skyFade(start: number, end: number, t: number): number {
+  const span = Math.min(SKY_FADE, (end - start) * 0.25);
+  return smooth(clamp(Math.min(t - start, end - t) / Math.max(1e-6, span), 0, 1));
+}
+
+const fading = (bodies: readonly Body[], pass: Pass, t: number): Body[] => {
+  const fade = skyFade(pass.start, pass.end, t);
+  return bodies.map((body) => ({ ...body, fade }));
+};
 
 function passOf(kind: SkyKind, start: number, rand: () => number, reach: number, plan: SkyPlan): Pass {
   const route = ROUTES[kind];
@@ -7794,7 +7810,7 @@ export function createHerd(cast: Cast): Herd {
         const crowded = passes.filter((pass) => pass.end > start).length >= SKY_AT_ONCE;
         return kind && !crowded ? passOf(kind, start, skyRand, reach, cast.sky) : null;
       });
-      return passes.filter((pass) => t >= pass.start && t < pass.end).flatMap((pass) => drawPass(pass, t));
+      return passes.filter((pass) => t >= pass.start && t < pass.end).flatMap((pass) => fading(drawPass(pass, t), pass, t));
     },
     command(t: number, order: Order, stage: Stage): string[] {
       troupes ??= troupesOf(cast, stage, pantry);

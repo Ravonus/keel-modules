@@ -518,6 +518,11 @@ export default [
     expect: [true, true, true, true, true, 0, true],
   },
   {
+    name: 'sky traffic comes out of the sky and goes back into it, whole between, however short the pass',
+    run: ({ skyFade }) => [skyFade(10, 40, 10), skyFade(10, 40, 11.5), skyFade(10, 40, 25), skyFade(10, 40, 40), skyFade(0, 4, 0.5), skyFade(0, 4, 2)],
+    expect: [0, 0.5, 1, 0, 0.5, 1],
+  },
+  {
     name: 'a climber finds its way over the wood: across a gap it can reach, not one it cannot, and round a perch that is crowded',
     run: ({ searchRoute }) => {
       const limb = (x, z) => [{ p: [0, 2, 0], r: 0.2 }, { p: [x * 0.5, 2, z * 0.5], r: 0.1 }, { p: [x, 2, z], r: 0.08 }];

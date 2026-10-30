@@ -73,6 +73,8 @@ export interface BodyInput {
   readonly palette: Readonly<Record<string, string>>;
   /** 0 lit as usual; 1 glows from its own colour. */
   readonly glow?: number;
+  /** How much of it is there, 0 to 1: under 1 it dissolves through an ordered dither, a pixel at a time, never see-through. */
+  readonly fade?: number;
   /** Roles that light themselves on this body only (an owl's eyes at night). */
   readonly lit?: readonly string[];
   /** The coat's grain; without one the surface is smooth. */
@@ -428,7 +430,7 @@ uniform int uCount;
 uniform vec3 uPal[ROLES];
 uniform float uLit[ROLES];
 uniform vec3 uMin, uMax;
-uniform float uK, uGlow, uInk, uSat;
+uniform float uK, uGlow, uInk, uSat, uFade;
 uniform vec3 uCenter, uSize;
 uniform vec3 uSun, uSunCol, uFill, uFillCol, uSky, uGround, uRim, uRimCol, uFront;
 uniform float uGrain, uGrainKind, uGrainRise;
@@ -1006,6 +1008,9 @@ float melt(int i, float m, float d, float di, out float h) {
 // reads several times too near. gFlat is that flatness at the last point asked about: what a test
 // of how many pixels off the surface a ray is must divide by, or a wing's ink grows that much wider.
 float gFlat = 1.0;
+// An ordered dither's threshold at a pixel, for a body fading in or out.
+float bayer2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
+float bayer4(vec2 a) { return bayer2(a * 0.5) * 0.25 + bayer2(a); }
 // The surface alone, for the march, the normal and the occlusion. Crisp
 // parts join it after the melt, so nothing melts into an eye.
 float dist(vec3 p) {
@@ -1284,6 +1289,7 @@ vec3 coatLight(vec3 n, vec3 rd, vec3 halfway, float rim) {
   return light;
 }
 void main() {
+  if (uFade < 1.0 && bayer4(gl_FragCoord.xy) >= uFade) discard;
   vec3 ro = uCenter + vEye * uSize;
   vec3 rd = normalize((vLocal - vEye) * uSize);
   float px = length(fwidth(rd));
@@ -1432,7 +1438,7 @@ function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxPar
     uMin: { value: new lit.Vector3() }, uMax: { value: new lit.Vector3() },
     uCenter: { value: new lit.Vector3() }, uSize: { value: new lit.Vector3(1, 1, 1) },
     uFill: { value: new lit.Vector3(0, 1, 0) }, uFillCol: { value: new lit.Vector3(0, 0, 0) },
-    uK: { value: 0.02 }, uGlow: { value: 0 }, uInk: { value: 0.85 }, uSat: { value: 1 },
+    uK: { value: 0.02 }, uGlow: { value: 0 }, uFade: { value: 1 }, uInk: { value: 0.85 }, uSat: { value: 1 },
     uSun: { value: new lit.Vector3(0, 1, 0) }, uSunCol: { value: new lit.Vector3(1, 1, 1) },
     uSky: { value: new lit.Vector3(0.6, 0.6, 0.7) }, uGround: { value: new lit.Vector3(0.2, 0.2, 0.2) },
     uRim: { value: new lit.Vector3(0, 0, 1) }, uRimCol: { value: new lit.Vector3(0, 0, 0) },
@@ -1591,6 +1597,7 @@ function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number,
   (slot.u.uCount as UniformLike<number>).value = count;
   (slot.u.uK as UniformLike<number>).value = k;
   (slot.u.uGlow as UniformLike<number>).value = Math.min(1, body.glow ?? 0);
+  (slot.u.uFade as UniformLike<number>).value = body.fade ?? 1;
   grainSlot(slot, body, state, roles);
   place(slot, min, max);
   slot.mesh.visible = count > 0;

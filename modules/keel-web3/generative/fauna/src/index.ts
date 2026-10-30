@@ -5342,6 +5342,30 @@ function owlTail(kit: Kit, who: Who, body: BirdBody): void {
   cap(kit, "tail.1", wingStyle(who).fold[1], at(-0.74, 0, 0.78), at(-1.12, 0, 0.92), body.r * 0.46, 0.32, fan, { r1: body.r * 0.52, melt: 0.4 });
 }
 
+/** How many separate feathers a spread train shows. */
+const TRAIN_SPREAD = 15;
+
+/** A peacock's train: tiers of separate long feathers, spread or closed. */
+function trainFeathers(kit: Kit, who: Who, body: BirdBody, m: Moment, above: (tip: Vec, r: number) => Vec): void {
+  const b = who.spec.build;
+  const size = who.member.size;
+  const fan = m.pose.fan;
+  // (Spread, tiers of separate long feathers, the shorter set before the longer and showing between them; closed, a tapering train.)
+  const count = fan > 0.3 ? TRAIN_SPREAD : 6;
+  for (let i = 0; i < count; i += 1) {
+    const a = (i / (count - 1) - 0.5) * 2.6;
+    const fore = fan > 0.3 && i % 2 === 1;
+    const spread = unit(add(scale(UP, Math.cos(a)), scale([1, 0, 0], Math.sin(a))));
+    const dir = unit(lerpV(dirOf(Math.PI + (i / (count - 1) - 0.5) * 0.75, -0.25), add(spread, [0, 0, fore ? -0.2 : -0.28]), fan));
+    // (Closed, the middle feathers run longest, so the train comes to a point behind; spread, they make an even fan.)
+    const tip = above(madd(body.T, dir, b.tailLen * size * mix(0.62 + 0.38 * Math.cos(a * 1.6), (fore ? 0.74 : 1) * (0.88 + 0.12 * Math.cos(a)), fan)), body.r * 0.42);
+    // (Each feather a thin shaft at its root and broad toward its end; its shaft, barbs and eye are the renderer's to paint.)
+    cap(kit, `train.${String(i)}`, fan > 0.3 ? "shell" : "alt", body.T, tip, body.r * 0.07, 0.14, unit(lerpV(UP, [0, 0, 1], fan), UP), { r1: body.r * mix(0.5, fore ? 0.82 : 0.95, fan), melt: mix(1, 0.08, fan) });
+    // Closed, its eyespots show down each feather, a dark heart in each gold eye.
+    if (fan <= 0.3) for (const [role, wide, detail] of [["accent", 0.13, undefined], ["dark", 0.06, 1]] as const) cap(kit, `eyespot.${String(i)}`, role, lerpV(body.T, tip, 0.4 + (i % 2) * 0.08), lerpV(body.T, tip, 0.96), body.r * wide, 1, UP, { row: 4, decal: true, ...(detail === undefined ? {} : { detail }) });
+  }
+}
+
 function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
   const b = who.spec.build;
   const size = who.member.size;
@@ -5359,29 +5383,7 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
     }
     return;
   }
-  const fan = m.pose.fan;
-  // (Spread, the web of fine plumes between the long feathers: a fan, not fingers.)
-  if (fan > 0.05) {
-    const reach = b.tailLen * size * fan;
-    ball(kit, "train.web", "alt", add(body.T, [0, reach * 0.3, -reach * 0.2]), reach * 0.8, 0.1, unit([0, 0.2, 1], UP));
-  }
-  for (let i = 0; i < 6; i += 1) {
-    const a = (i / 5 - 0.5) * 2.6;
-    const spread = unit(add(scale(UP, Math.cos(a)), scale([1, 0, 0], Math.sin(a))));
-    const dir = unit(lerpV(dirOf(Math.PI + (i / 5 - 0.5) * 0.75, -0.25), add(spread, [0, 0, -0.25]), fan));
-    // (Closed, the middle feathers run longest, so the train comes to a point behind; spread, they make an even fan.)
-    const tip = above(madd(body.T, dir, b.tailLen * size * mix(0.62 + 0.38 * Math.cos(a * 1.6), 0.85 + 0.15 * Math.cos(a), fan)), body.r * 0.42);
-    // (Each feather narrow at its root and broad toward its end, so the train tapers off the back, not a log.)
-    cap(kit, `train.${String(i)}`, "alt", body.T, tip, body.r * 0.14, 0.14, unit(lerpV(UP, [0, 0, 1], fan), UP), { r1: body.r * mix(0.5, 1.15, fan) });
-    // Spread, a gold eye laid clean on each feather, a dark heart in it.
-    if (fan > 0.3) {
-      const eye = lerpV(body.T, tip, 0.84);
-      decal(kit, `eyespot.heart.${String(i)}`, "dark", eye, eye, body.r * 0.28);
-      decal(kit, `eyespot.${String(i)}`, "accent", eye, eye, body.r * 0.62);
-    }
-    // Closed, its eyespots show down each feather, a dark heart in each gold eye.
-    else for (const [role, wide, detail] of [["accent", 0.13, undefined], ["dark", 0.06, 1]] as const) cap(kit, `eyespot.${String(i)}`, role, lerpV(body.T, tip, 0.4 + (i % 2) * 0.08), lerpV(body.T, tip, 0.96), body.r * wide, 1, UP, { row: 4, decal: true, ...(detail === undefined ? {} : { detail }) });
-  }
+  trainFeathers(kit, who, body, m, above);
 }
 
 /** Plumage painted on: a kookaburra's brown mantle over its pale body. */
@@ -5998,7 +6000,9 @@ function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph, coatName = "
   // Neon is dark on purpose: its glow carries it.
   if (morph === "neon") return skin;
   const lift = blackLift(id, coatName);
-  return { ...skin, coat: charcoal(skin.coat, 0.25 * lift), alt: charcoal(skin.alt, 0.19 * lift), belly: charcoal(skin.belly, 0.34 * lift) };
+  const lifted = { coat: charcoal(skin.coat, 0.25 * lift), alt: charcoal(skin.alt, 0.19 * lift), belly: charcoal(skin.belly, 0.34 * lift) };
+  // (A spread train wears the shell, so a feather's paint stops at the feathers and never lands on the wings.)
+  return { ...skin, ...lifted, ...(id === "peacock" ? { shell: lifted.alt } : {}) };
 }
 
 /**
@@ -6607,6 +6611,8 @@ export interface Body {
   readonly material?: { readonly sheen?: number; readonly fuzz?: number; readonly gloss?: number; readonly iridescence?: number; readonly lift?: number; readonly neutral?: number };
   /** The relief of muscle and bone over it, for a renderer that grows one (see sdf-body's Form). */
   readonly form?: { readonly amount: number; readonly size: number };
+  /** A display train's feathers, for sdf-body to paint. */
+  readonly vane?: { readonly role: Role; readonly heart: Role; readonly ring: Role; readonly gold: Role };
   /** Its eyes' lids, for a renderer that paints them (see sdf-body's Eye). */
   readonly eye?: { readonly role: Role; readonly lid: number; readonly slant: number; readonly color: string; readonly pupil: "round" | "slit" | "bar" | "dark"; readonly ring: boolean; readonly spark?: number };
   /** Bare skin's own light, for a renderer that holds it (see sdf-body's Skin). */
@@ -6695,11 +6701,11 @@ function grainOf(who: Who, m: Moment, capsules: readonly Capsule[]): Pick<Body, 
   const [kind, share] = COARSE[who.member.species] ?? [GRAINS[who.spec.plan], who.spec.plan === "serpent" ? 0.022 : who.spec.plan === "bird" ? 0.07 : 0.05];
   // (A shell keeps its plates in any light: they are what stops its dome at the rim.)
   if (!kind || (kind !== "plate" && MORPHS[who.member.morph].glow > 0.5)) return {};
-  // (A spread train is one great silk sheet: a body's feather rows, across it, would crumple it.)
-  if (m.pose.fan > 0.3 && who.spec.build.extras.includes("train")) return {};
   // (An upright bird's feathers lie down it, not back along it: in rows round an owl, not stripes up it.)
   const pitch = STANCES[who.member.species]?.pitch ?? 0;
-  return { grain: { kind, size: who.member.size * share, ...(pitch > 1.1 ? { lie: scale(dirOf(0, pitch), -1) } : {}), ...SHAGS[who.member.species], ...grainPose(who, m, capsules) } };
+  // (A spread train's feathers wear the renderer's barbs: the body's rows stay on the body.)
+  const on = m.pose.fan > 0.3 && who.spec.build.extras.includes("train") ? { on: "coat" as const } : {};
+  return { grain: { kind, size: who.member.size * share, ...on, ...(pitch > 1.1 ? { lie: scale(dirOf(0, pitch), -1) } : {}), ...SHAGS[who.member.species], ...grainPose(who, m, capsules) } };
 }
 
 type CoatPattern = NonNullable<Body["pattern"]>;
@@ -6788,10 +6794,15 @@ function skinOfBody(who: Who): Pick<Body, "skin"> {
 
 /** The relief over this animal's body, its own: strongest on a mammal's frame, slight under a bird's feathers. */
 function formOf(who: Who): Pick<Body, "form"> {
-  if (!GRAINS[who.spec.plan] || who.spec.plan === "serpent" || who.member.species === "peacock" || MORPHS[who.member.morph].glow > 0.5) return {};
+  if (!GRAINS[who.spec.plan] || who.spec.plan === "serpent" || MORPHS[who.member.morph].glow > 0.5) return {};
   const gene = createRandom(markOf(who) ^ 0x7c15d3a1);
   const r = who.spec.build.body * who.member.size;
   return { form: { amount: r * (who.spec.plan === "bird" ? 0.07 : who.spec.build.extras.includes("shell") ? 0.012 : macaqueKind(who) ? 0.05 : 0.17) * mix(0.75, 1.3, gene()), size: r * mix(0.85, 1.5, gene()) } };
+}
+
+/** A spread train's feathers, for the renderer to paint shaft, barbs and eye on. */
+function vaneOf(who: Who, m: Moment): Pick<Body, "vane"> {
+  return m.pose.fan > 0.3 && who.spec.build.extras.includes("train") ? { vane: { role: "shell", heart: "dark", ring: "coat", gold: "accent" } } : {};
 }
 
 /** The number all of this animal's marks grow from. */
@@ -6851,7 +6862,7 @@ function bodyOf(id: string, who: Who, m: Moment, capsules: readonly Capsule[], s
   return {
     id, kind: who.member.species, label: who.member.label, action: m.segment.act, morph: who.member.morph,
     at: m.frame.o, front: m.frame.z, capsules, glow: MORPHS[who.member.morph].glow, lit: MORPHS[who.member.morph].lit ?? [],
-    contact: scene ? contactOf(m, scene) : null, weight: weightOf(who), ...grainOf(who, m, capsules), ...coatOf(who, m.pose), ...eyesOf(who, m.segment.act === "sleep"), ...formOf(who), ...skinOfBody(who),
+    contact: scene ? contactOf(m, scene) : null, weight: weightOf(who), ...grainOf(who, m, capsules), ...coatOf(who, m.pose), ...eyesOf(who, m.segment.act === "sleep"), ...formOf(who), ...skinOfBody(who), ...vaneOf(who, m),
     ...(m.segment.meal === undefined ? {} : { meal: m.segment.meal }),
   };
 }

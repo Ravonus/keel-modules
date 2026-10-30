@@ -91,6 +91,21 @@ export interface BodyInput {
   readonly eye?: Eye;
   /** How this body's bare skin takes the light; without it skin is lit as the coat is. */
   readonly skin?: Skin;
+  /** Long display feathers, each painted from its own part; without it they are their role's plain colour. */
+  readonly vane?: Vane;
+}
+
+/**
+ * A display feather, painted on each part of `role` from that part's own
+ * length and width: a pale shaft down it, barbs slanting off the shaft either
+ * side, the edges darkening where the next feather shows past it, and near
+ * its end an eye: a `heart` in a `ring`, a band of `gold`, fading into the vane.
+ */
+export interface Vane {
+  readonly role: string;
+  readonly heart: string;
+  readonly ring: string;
+  readonly gold: string;
 }
 
 /**
@@ -447,6 +462,7 @@ uniform vec3 uPeltCast;   // how strong the dorsal and the ventral are
 uniform vec3 uPeltLine;   // how deep the band, how much of the hair is tip
 uniform vec3 uPeltRoot, uPeltBand, uPeltTip, uPeltBack, uPeltFront;
 uniform float uSkinRole;  // the role living skin wears; -1 for none
+uniform vec4 uVane;       // the role display feathers wear (-1 for none), and their eye's heart, ring and gold roles
 uniform vec3 uSkin;       // how much chroma it can hold, how far its blood wanders, how much of the light it gives back
 uniform vec3 uSkinPale;
 varying vec3 vLocal;
@@ -1044,6 +1060,24 @@ float dist(vec3 p) {
   }
   return min(d, c);
 }
+// A display feather's paint, from the part it lies on: along and across it, the barbs slant off the
+// shaft in a herringbone, its edge darkens, and at its end an eye sits in rings over the shaft.
+vec3 vanePaint(vec3 p, vec4 a, vec4 b, vec4 u, vec3 col) {
+  vec3 ax = b.xyz - a.xyz;
+  float len = max(length(ax), 1e-5), wide = max(abs(u.w), 1e-5);
+  ax /= len;
+  vec3 v = p - a.xyz;
+  float along = dot(v, ax), across = dot(v, normalize(cross(ax, u.xyz))), s = along / len;
+  float half_ = max(mix(a.w, wide, clamp(s, 0.0, 1.0)), 1e-5), t = abs(across) / half_;
+  float barb = 0.5 + 0.5 * sin((along / wide + t * 0.9) * 26.0);
+  col *= mix(0.74, 1.14, barb) * (1.0 - 0.45 * smoothstep(0.62, 1.0, t));
+  float e = length(vec2((s - 0.84) * len * 0.8, across)) / wide;
+  col = mix(col, uPal[int(uVane.w)] * mix(0.9, 1.1, barb), 1.0 - smoothstep(0.56, 0.74, e));
+  col = mix(col, uPal[int(uVane.z)], 1.0 - smoothstep(0.34, 0.4, e));
+  col = mix(col, uPal[int(uVane.y)], 1.0 - smoothstep(0.17, 0.21, e));
+  float shaft = (1.0 - smoothstep(0.015, 0.03, abs(across) / wide)) * step(0.74, e) * step(s, 0.84);
+  return mix(col, vec3(1.0), 0.6 * shaft);
+}
 // An eye, painted onto whatever surface lies over its lens, so no head's shape can bury it or leave
 // it standing proud: a black line round it, the iris lit from below, where light pooled through the
 // cornea comes out, with fibres to the pupil and a dark ring at its edge, the upper lid's shadow over
@@ -1079,6 +1113,8 @@ vec3 paint(vec3 p, out float lit, out float soft) {
   float eyeD = 1e9, eyeL = 0.0, bare = 1e9, skin = 0.0;
   vec3 iris = vec3(0.0);
   vec4 eyeA = vec4(0.0), eyeB = vec4(0.0), eyeU = vec4(0.0);
+  float vaneD = 1e9;
+  vec4 vaneA = vec4(0.0), vaneB = vec4(0.0), vaneU = vec4(0.0);
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
     float tag = uB[i].w, di = part(p, i);
@@ -1111,6 +1147,7 @@ vec3 paint(vec3 p, out float lit, out float soft) {
     }
     di = hull(p, di, float(role));
     d = melt(i, m * 0.0625, d, di, h);
+    if (abs(float(role) - uVane.x) < 0.5 && di < vaneD) { vaneD = di; vaneA = uA[i]; vaneB = uB[i]; vaneU = uU[i]; }
     col = mix(col, uPal[role], h); lit = mix(lit, uLit[role], h);
     cover = mix(cover, grows(float(role)), h);
     skin = mix(skin, abs(float(role) - uSkinRole) < 0.5 ? 1.0 : 0.0, h);
@@ -1119,6 +1156,7 @@ vec3 paint(vec3 p, out float lit, out float soft) {
   col = mix(col, uc, wu); lit = mix(lit, ul, wu);
   // (Bare skin is not coat: no pattern lands on it.)
   col = mix(col, patternColor(p), pattern(p) * uPattern.z * (1.0 - skin));
+  if (vaneD < 1e8) col = vanePaint(p, vaneA, vaneB, vaneU, col);
   // (A coat is never one shade: it drifts paler and darker over the body, each animal's its own way.)
   if (uPattern.x > 0.5) col *= 1.0 + (fbm(bodyAt(p) / (uPattern.y * 7.0) + uPatSeed) - 0.5) * uPatGene.w;
   // (The cut shows its own colour as deep as it goes, what lies beneath toward its rim.)
@@ -1397,7 +1435,7 @@ function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxPar
     uFlowN: { value: 0 }, uFlowA: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowB: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowU: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowFall: { value: new Array<number>(FLOWS).fill(0) },
     uPelt: { value: new lit.Vector4(0.4, 0, 0, 0) }, uPeltCast: { value: new lit.Vector3(0, 0, 0) }, uPeltLine: { value: new lit.Vector3(0, 0, 0) },
     uPeltRoot: { value: new lit.Color("#000000") }, uPeltBand: { value: new lit.Color("#000000") }, uPeltTip: { value: new lit.Color("#000000") }, uPeltBack: { value: new lit.Color("#000000") }, uPeltFront: { value: new lit.Color("#000000") },
-    uSkinRole: { value: -1 }, uSkin: { value: new lit.Vector3(1, 0, 0) }, uSkinPale: { value: new lit.Color("#000000") },
+    uVane: { value: new lit.Vector4(-1, 0, 0, 0) }, uSkinRole: { value: -1 }, uSkin: { value: new lit.Vector3(1, 0, 0) }, uSkinPale: { value: new lit.Color("#000000") },
   };
   const material = new lit.CustomMaterial({ uniforms: u, vertexShader: VERTEX, fragmentShader: shader, side: "back", depthTest: true, depthWrite: true });
   const mesh = new lit.Mesh(geometry, material);
@@ -1614,8 +1652,18 @@ function grainSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: numbe
 }
 
 /** What lies over the coat's own light: the eyes' lids and the body's relief. */
+/** A display feather's roles. (Its eye's may be worn by no part of this body, so they are painted here.) */
+function vaneSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
+  const uniform = slot.u.uVane?.value as Vector4Set;
+  const { vane } = body;
+  if (!vane) { uniform.set(-1, 0, 0, 0); return; }
+  uniform.set(roleIndex(state, vane.role, roles), roleIndex(state, vane.heart, roles), roleIndex(state, vane.ring, roles), roleIndex(state, vane.gold, roles));
+  paint(slot, body, state);
+}
+
 function skinSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
   eyeSlot(slot, body, state, roles);
+  vaneSlot(slot, body, state, roles);
   (slot.u.uForm?.value as Vector3Like).set(body.form?.amount ?? 0, Math.max(body.form?.size ?? 1, 1e-4), 0);
   peltSlot(slot, grainOf(body).pelt);
   bareSlot(slot, body, state, roles);

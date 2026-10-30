@@ -5363,7 +5363,7 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
   // (Spread, the web of fine plumes between the long feathers: a fan, not fingers.)
   if (fan > 0.05) {
     const reach = b.tailLen * size * fan;
-    ball(kit, "train.web", "alt", add(body.T, [0, reach * 0.3, -reach * 0.2]), reach * 0.68, 0.1, unit([0, 0.2, 1], UP));
+    ball(kit, "train.web", "alt", add(body.T, [0, reach * 0.3, -reach * 0.2]), reach * 0.8, 0.1, unit([0, 0.2, 1], UP));
   }
   for (let i = 0; i < 6; i += 1) {
     const a = (i / 5 - 0.5) * 2.6;
@@ -5373,8 +5373,11 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
     const tip = above(madd(body.T, dir, b.tailLen * size * mix(0.62 + 0.38 * Math.cos(a * 1.6), 0.85 + 0.15 * Math.cos(a), fan)), body.r * 0.42);
     // (Each feather narrow at its root and broad toward its end, so the train tapers off the back, not a log.)
     cap(kit, `train.${String(i)}`, "alt", body.T, tip, body.r * 0.14, 0.14, unit(lerpV(UP, [0, 0, 1], fan), UP), { r1: body.r * mix(0.5, 1.15, fan) });
+    // Spread, a gold eye laid clean on each feather, a dark heart in it.
     if (fan > 0.3) {
-      ball(kit, `eyespot.${String(i)}`, "accent", lerpV(body.T, tip, 0.85), body.r * 0.4, 0.3, [0, 0, 1]);
+      const eye = lerpV(body.T, tip, 0.84);
+      decal(kit, `eyespot.heart.${String(i)}`, "dark", eye, eye, body.r * 0.28);
+      decal(kit, `eyespot.${String(i)}`, "accent", eye, eye, body.r * 0.62);
     }
     // Closed, its eyespots show down each feather, a dark heart in each gold eye.
     else for (const [role, wide, detail] of [["accent", 0.13, undefined], ["dark", 0.06, 1]] as const) cap(kit, `eyespot.${String(i)}`, role, lerpV(body.T, tip, 0.4 + (i % 2) * 0.08), lerpV(body.T, tip, 0.96), body.r * wide, 1, UP, { row: 4, decal: true, ...(detail === undefined ? {} : { detail }) });
@@ -5768,7 +5771,7 @@ function poseBug(kit: Kit, who: Who, m: Moment): void {
   if (firefly) {
     const blink = pulse(t + phase, 2.4 + (phase % 1.7), 0.3);
     // (The lantern is its tail end, a bead that brightens: the light it throws is the scene's to draw.)
-    cap(kit, "lantern", "glow", madd(C, fw, -size * 0.28), madd(C, fw, -size * 0.46), size * (0.075 + 0.05 * blink), 1, UP, { r1: size * (0.06 + 0.05 * blink) });
+    cap(kit, "lantern", "glow", madd(C, fw, -size * 0.28), madd(C, fw, -size * 0.5), size * (0.1 + 0.1 * blink), 1, UP, { r1: size * (0.085 + 0.1 * blink) });
   }
   const open = perched ? 1.35 + 0.2 * Math.sin(t * 1.4 + phase) : 0.15 + 1.1 * (0.5 + 0.5 * Math.sin(t * (firefly ? 30 : 19) + phase));
   for (const x of [-1, 1]) {
@@ -6692,6 +6695,8 @@ function grainOf(who: Who, m: Moment, capsules: readonly Capsule[]): Pick<Body, 
   const [kind, share] = COARSE[who.member.species] ?? [GRAINS[who.spec.plan], who.spec.plan === "serpent" ? 0.022 : who.spec.plan === "bird" ? 0.07 : 0.05];
   // (A shell keeps its plates in any light: they are what stops its dome at the rim.)
   if (!kind || (kind !== "plate" && MORPHS[who.member.morph].glow > 0.5)) return {};
+  // (A spread train is one great silk sheet: a body's feather rows, across it, would crumple it.)
+  if (m.pose.fan > 0.3 && who.spec.build.extras.includes("train")) return {};
   // (An upright bird's feathers lie down it, not back along it: in rows round an owl, not stripes up it.)
   const pitch = STANCES[who.member.species]?.pitch ?? 0;
   return { grain: { kind, size: who.member.size * share, ...(pitch > 1.1 ? { lie: scale(dirOf(0, pitch), -1) } : {}), ...SHAGS[who.member.species], ...grainPose(who, m, capsules) } };
@@ -6783,7 +6788,7 @@ function skinOfBody(who: Who): Pick<Body, "skin"> {
 
 /** The relief over this animal's body, its own: strongest on a mammal's frame, slight under a bird's feathers. */
 function formOf(who: Who): Pick<Body, "form"> {
-  if (!GRAINS[who.spec.plan] || who.spec.plan === "serpent" || MORPHS[who.member.morph].glow > 0.5) return {};
+  if (!GRAINS[who.spec.plan] || who.spec.plan === "serpent" || who.member.species === "peacock" || MORPHS[who.member.morph].glow > 0.5) return {};
   const gene = createRandom(markOf(who) ^ 0x7c15d3a1);
   const r = who.spec.build.body * who.member.size;
   return { form: { amount: r * (who.spec.plan === "bird" ? 0.07 : who.spec.build.extras.includes("shell") ? 0.012 : macaqueKind(who) ? 0.05 : 0.17) * mix(0.75, 1.3, gene()), size: r * mix(0.85, 1.5, gene()) } };

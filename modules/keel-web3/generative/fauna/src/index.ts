@@ -508,7 +508,7 @@ export const SPECIES = {
     coats: [["herring", ["#f4f4f2", "#9aa4ae", "#ffffff", "#141414", "#f0c030"]], ["black-backed", ["#f4f4f2", "#2a2e34", "#ffffff", "#141414", "#f0c030"]]],
     temper: { look: 2, peck: 1.8, flap: 1.6, sing: 1.4, preen: 1.2, fly: 2.6 }, friends: ["crab"] }),
   peacock: define({ label: "Peacock", plan: "bird", size: 0.55, rarity: "epic", weight: 5, regions: ["bali"], speed: 0.7, groups: [5, 4, 2, 0],
-    build: { ...OUTLINE.galliform, bill: 0.32, len: 1, leg: 0.3, body: 0.18, neck: 0.3, rise: 1.1, head: 0.1, snout: 0.1, ears: "none", tail: "fan", tailLen: 1.2, extras: ["crown", "train"] },
+    build: { ...OUTLINE.galliform, bill: 0.32, len: 1, leg: 0.3, body: 0.18, neck: 0.32, neckGirth: 0.5, rise: 1.1, head: 0.08, snout: 0.11, ears: "none", tail: "fan", tailLen: 1.7, extras: ["crown", "train"] },
     coats: [["indian", ["#1a5ad8", "#2a8a5a", "#1a4ab8", "#0a1020", "#e8c040"]], ["white", ["#f8f8f4", "#e8e8e2", "#ffffff", "#2a2a2a", "#f0f0ea"]]],
     temper: { display: 3, peck: 1.8, look: 1.4, preen: 1.2, wander: 1, fly: 0.3, sing: 0 }, friends: [] }),
   crane: define({ label: "Crane", plan: "bird", size: 0.85, rarity: "epic", weight: 6, regions: ["tokyo", "nairobi"], speed: 0.8, groups: [3, 6, 2, 0],
@@ -5132,10 +5132,10 @@ function birdBeak(kit: Kit, who: Who, h: Head, beak: number, mouth: number): voi
 
 /** A peacock's crest: a fan of bare quills up off its crown, each with a small flag at its tip. */
 function peacockCrest(kit: Kit, h: Head): void {
-  const [a, b] = [at3(h, -0.08, -0.3, 0.8), at3(h, -0.08, 0.3, 0.8)];
-  const reach = add(scale(h.u, h.r * 1.05), scale(h.d, -h.r * 0.2));
-  cap(kit, "crown", "dark", a, b, h.r * 0.04, 1, UP, { row: 4, reach, melt: 0.1, shadow: false });
-  cap(kit, "crown.tip", "accent", add(a, reach), add(b, reach), h.r * 0.13, 1, UP, { row: 4, melt: 0.05, shadow: false });
+  const [a, b] = [at3(h, -0.1, -0.7, 0.7), at3(h, -0.1, 0.7, 0.7)];
+  const reach = add(scale(h.u, h.r * 1.3), scale(h.d, -h.r * 0.25));
+  cap(kit, "crown", "dark", a, b, h.r * 0.035, 1, UP, { row: 5, reach, melt: 0.1, shadow: false });
+  cap(kit, "crown.tip", "alt", add(a, reach), add(b, reach), h.r * 0.1, 0.7, h.d, { row: 5, melt: 0, shadow: false });
 }
 
 function birdCrest(kit: Kit, who: Who, h: Head): void {
@@ -5358,15 +5358,23 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
     return;
   }
   const fan = m.pose.fan;
+  // (Spread, the web of fine plumes between the long feathers: a fan, not fingers.)
+  if (fan > 0.05) {
+    const reach = b.tailLen * size * fan;
+    ball(kit, "train.web", "alt", add(body.T, [0, reach * 0.3, -reach * 0.2]), reach * 0.68, 0.1, unit([0, 0.2, 1], UP));
+  }
   for (let i = 0; i < 6; i += 1) {
     const a = (i / 5 - 0.5) * 2.6;
     const spread = unit(add(scale(UP, Math.cos(a)), scale([1, 0, 0], Math.sin(a))));
-    const dir = unit(lerpV(dirOf(Math.PI + (i / 5 - 0.5) * 0.3, -0.25), add(spread, [0, 0, -0.25]), fan));
+    const dir = unit(lerpV(dirOf(Math.PI + (i / 5 - 0.5) * 0.75, -0.25), add(spread, [0, 0, -0.25]), fan));
     // (Closed, the middle feathers run longest, so the train comes to a point behind; spread, they make an even fan.)
     const tip = above(madd(body.T, dir, b.tailLen * size * mix(0.62 + 0.38 * Math.cos(a * 1.6), 0.85 + 0.15 * Math.cos(a), fan)), body.r * 0.42);
     // (Each feather narrow at its root and broad toward its end, so the train tapers off the back, not a log.)
-    cap(kit, `train.${String(i)}`, "alt", body.T, tip, body.r * 0.18, 0.18, unit(cross(dir, [0, 0, 1]), UP), { r1: body.r * mix(0.42, 0.56, fan) });
-    if (fan > 0.3) ball(kit, `eyespot.${String(i)}`, "accent", lerpV(body.T, tip, 0.85), body.r * 0.32, 0.3, [0, 0, 1]);
+    cap(kit, `train.${String(i)}`, "alt", body.T, tip, body.r * 0.14, 0.14, unit(lerpV(UP, [0, 0, 1], fan), UP), { r1: body.r * mix(0.5, 1.15, fan) });
+    if (fan > 0.3) {
+      ball(kit, `eyespot.${String(i)}`, "accent", lerpV(body.T, tip, 0.85), body.r * 0.4, 0.3, [0, 0, 1]);
+      ball(kit, `eyespot.${String(i)}.heart`, "dark", add(lerpV(body.T, tip, 0.85), [0, 0, -body.r * 0.1]), body.r * 0.2, 0.4, [0, 0, 1]);
+    }
     // Closed, its eyespots show down each feather, a dark heart in each gold eye.
     else for (const [role, wide, detail] of [["accent", 0.13, undefined], ["dark", 0.06, 1]] as const) cap(kit, `eyespot.${String(i)}`, role, lerpV(body.T, tip, 0.4 + (i % 2) * 0.08), lerpV(body.T, tip, 0.96), body.r * wide, 1, UP, { row: 4, decal: true, ...(detail === undefined ? {} : { detail }) });
   }
@@ -5728,6 +5736,20 @@ function bugCentre(who: Who, m: Moment): Vec {
   return add([0, flying + Math.sin(t * 9 + phase) * size * 0.6 * m.moving, 0], grounded ? scale(wander, 1 - m.moving) : [0, 0, 0]);
 }
 
+/** A butterfly's wing, drawn flat: a dark margin, its colour set inside it, pale spots along the edge. */
+function butterflyWing(kit: Kit, part: string, root: Vec, tip: Vec, r: readonly [number, number], normal: Vec, spots: number): void {
+  const shape = (name: string, role: Role, to: Vec, k: number, flat: number): void => { cap(kit, `${part}.${name}`, role, root, to, r[0] * k, flat, normal, { r1: r[1] * k, melt: 0 }); };
+  shape("edge", "alt", tip, 1, 0.08);
+  shape("colour", "coat", lerpV(root, tip, 0.86), 0.8, 0.13);
+  const across = unit(cross(normal, sub(tip, root)));
+  for (let k = 0; k < spots; k += 1) ball(kit, `${part}.spot`, "accent", madd(tip, across, r[1] * ((k + 0.5) / spots - 0.5) * 1.5), r[1] * 0.12, 0.8, normal);
+}
+
+/** A firefly's wings: hard dark cases over its back, parted as it flies. */
+function fireflyWing(kit: Kit, part: string, C: Vec, dir: Vec, fw: Vec, normal: Vec, size: number): void {
+  cap(kit, part, "coat", madd(C, fw, size * 0.12), add(madd(C, dir, size * 0.32), scale(fw, -size * 0.3)), size * 0.08, 0.14, normal, { r1: size * 0.11, melt: 0 });
+}
+
 function poseBug(kit: Kit, who: Who, m: Moment): void {
   const size = who.member.size;
   const t = m.t;
@@ -5736,29 +5758,31 @@ function poseBug(kit: Kit, who: Who, m: Moment): void {
   const perched = m.segment.act === "sit";
   const C = bugCentre(who, m);
   const fw: Vec = [0, 0, 1];
-  cap(kit, "body", "dark", madd(C, fw, -size * 0.25), madd(C, fw, size * 0.22), size * 0.07);
-  ball(kit, "head", "dark", madd(C, fw, size * 0.28), size * 0.07);
+  const gene = createRandom(markOf(who) ^ 0x4b1f6a27);
+  const spots = 2 + Math.floor(gene() * 3);
+  const sweep = mix(-0.04, 0.08, gene());
+  cap(kit, "abdomen", "dark", madd(C, fw, -size * 0.04), madd(C, fw, -size * 0.42), size * 0.055, 1, UP, { r1: size * 0.024 });
+  ball(kit, "thorax", "dark", madd(C, fw, size * 0.08), size * 0.085);
+  ball(kit, "head", "dark", madd(C, fw, size * 0.24), size * 0.058);
   if (firefly) {
     const blink = pulse(t + phase, 2.4 + (phase % 1.7), 0.3);
-    ball(kit, "lantern", "glow", madd(C, fw, -size * 0.3), size * (0.25 + 1.1 * blink));
+    // (The lantern is its tail end, a bead that brightens: the light it throws is the scene's to draw.)
+    cap(kit, "lantern", "glow", madd(C, fw, -size * 0.28), madd(C, fw, -size * 0.46), size * (0.075 + 0.05 * blink), 1, UP, { r1: size * (0.06 + 0.05 * blink) });
   }
   const open = perched ? 1.35 + 0.2 * Math.sin(t * 1.4 + phase) : 0.15 + 1.1 * (0.5 + 0.5 * Math.sin(t * (firefly ? 30 : 19) + phase));
   for (const x of [-1, 1]) {
     const dir = unit(add(scale([x, 0, 0], Math.cos(open)), scale(UP, Math.sin(open))));
     const normal = unit(cross(dir, fw), UP);
-    const reach = firefly ? 0.35 : 1;
-    // Thin, broad wings that never melt into the body or each other: a
-    // forewing swept forward and a smaller hindwing, each with a dark edge
-    // and a pale spot painted on.
-    const fore = add(madd(C, dir, size * 0.5 * reach), scale(fw, size * 0.2));
-    const hind = add(madd(C, dir, size * 0.36 * reach), scale(fw, -size * 0.2));
-    cap(kit, `wing.${x}`, "coat", madd(C, fw, size * 0.06), fore, size * 0.1 * reach, 0.08, normal, { r1: size * 0.24 * reach, melt: 0 });
-    cap(kit, `hindwing.${x}`, "coat", madd(C, fw, -size * 0.04), hind, size * 0.08 * reach, 0.08, normal, { r1: size * 0.18 * reach, melt: 0 });
-    if (!firefly) {
-      decal(kit, "wingedge", "alt", madd(fore, dir, size * 0.12), madd(hind, dir, size * 0.1), size * 0.12);
-      decal(kit, "wingspot", "accent", add(madd(C, dir, size * 0.42), scale(fw, size * 0.16)), add(madd(C, dir, size * 0.42), scale(fw, size * 0.16)), size * 0.06);
+    const side = x < 0 ? "L" : "R";
+    if (firefly) fireflyWing(kit, `wing.${side}`, C, dir, fw, normal, size);
+    else {
+      // A forewing swept forward, a rounder hindwing behind it, overlapping as they do.
+      butterflyWing(kit, `wing.${side}`, madd(C, fw, size * 0.1), add(madd(C, dir, size * 0.74), scale(fw, size * (0.26 + sweep))), [size * 0.07, size * 0.27], normal, spots);
+      butterflyWing(kit, `hindwing.${side}`, madd(C, fw, size * 0.02), add(madd(C, dir, size * 0.46), scale(fw, -size * 0.26)), [size * 0.07, size * 0.25], normal, spots - 1);
     }
-    cap(kit, "antenna", "dark", madd(C, fw, size * 0.3), add(madd(C, fw, size * 0.5), [x * size * 0.12, size * 0.15, 0]), size * 0.012);
+    const tip = add(madd(C, fw, size * 0.62), [x * size * 0.2, size * 0.2, 0]);
+    cap(kit, "antenna", "dark", madd(C, fw, size * 0.28), tip, size * 0.011, 1, UP, { melt: 0, shadow: false });
+    ball(kit, "antenna.club", "dark", tip, size * 0.024);
   }
 }
 

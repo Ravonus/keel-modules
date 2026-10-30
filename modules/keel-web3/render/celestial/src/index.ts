@@ -468,10 +468,22 @@ class Canvas {
   }
 }
 
+/** One aspect as a dotted arc: on the ecliptic they would all lie on one line, so hard ones bow north and soft ones south. */
+function arc(canvas: Canvas, a: Body, b: Body, aspect: { kind: AspectKind; orb: number }, when: number, level: number) {
+  if (aspect.kind === "conjunction") return;
+  const sweep = near(b.longitude - a.longitude);
+  const hard = aspect.kind === "square" || aspect.kind === "opposition";
+  const bow = Math.abs(sweep) * 0.22 * (hard ? 1 : -1);
+  const steps = Math.ceil(Math.abs(sweep) / 0.7);
+  for (let step = 0; step <= steps; step += 1) {
+    const s = step / steps;
+    canvas.stamp(eclipticPoint(a.longitude + sweep * s, a.latitude + (b.latitude - a.latitude) * s + bow * Math.sin(Math.PI * s), when), 0.6, hard ? HARD_LIGHT : SOFT_LIGHT, 0.15 * (1 - aspect.orb / 10) * level);
+  }
+}
+
 /**
- * Paints what never moves against the stars into RGBA pixels: the real stars and zodiac, and the tree's own chart.
- * Its aspects bow off the ecliptic (on it they would all lie on one line), hard ones north and soft ones south, so
- * the chart reads as one more constellation, with the planets of its birth as its stars.
+ * Paints what never moves against the stars into RGBA pixels: the real stars and zodiac, and the tree's own chart,
+ * which reads as one more constellation, with the planets of its birth as its stars.
  */
 export function paintChart(sky: { stars: readonly Star[]; zodiac: readonly (readonly (readonly number[])[])[] }, chart: Chart, width: number, height: number, level = 1) {
   const canvas = new Canvas(new Uint8Array(width * height * 4), width, height);
@@ -483,19 +495,7 @@ export function paintChart(sky: { stars: readonly Star[]; zodiac: readonly (read
     for (const line of figure) for (let at = 1; at < line.length; at += 1) canvas.dots(sky.stars[line[at - 1]].direction, sky.stars[line[at]].direction, FIGURE_LIGHT, (index === sign ? 0.2 : 0.1) * level, 0.45);
   });
   for (let degree = 0; degree < 360; degree += 3) canvas.stamp(eclipticPoint(degree, 0, when), degree % 30 === 0 ? 0.9 : 0.5, FIGURE_LIGHT, (degree % 30 === 0 ? 0.26 : 0.07) * level);
-  for (const aspect of chart.aspects) {
-    if (aspect.kind === "conjunction") continue;
-    const a = chart.bodies[aspect.a];
-    const b = chart.bodies[aspect.b];
-    const sweep = near(b.longitude - a.longitude);
-    const hard = aspect.kind === "square" || aspect.kind === "opposition";
-    const bow = Math.abs(sweep) * 0.22 * (hard ? 1 : -1);
-    const steps = Math.ceil(Math.abs(sweep) / 0.7);
-    for (let step = 0; step <= steps; step += 1) {
-      const s = step / steps;
-      canvas.stamp(eclipticPoint(a.longitude + sweep * s, a.latitude + (b.latitude - a.latitude) * s + bow * Math.sin(Math.PI * s), when), 0.6, hard ? HARD_LIGHT : SOFT_LIGHT, 0.15 * (1 - aspect.orb / 10) * level);
-    }
-  }
+  for (const aspect of chart.aspects) arc(canvas, chart.bodies[aspect.a], chart.bodies[aspect.b], aspect, when, level);
   for (const id of BODY_IDS) {
     const body = chart.bodies[id];
     canvas.stamp(body.direction, id === "sun" || id === "moon" ? 1.8 : 1.2, BODY_LIGHT[id], 0.7 * level);
@@ -512,9 +512,10 @@ export function paintChart(sky: { stars: readonly Star[]; zodiac: readonly (read
 
 /**
  * Lays what changes day by day over a painted chart: a retrograde planet's real looping path, and a ring on any
- * birth place a planet is crossing now. `target` receives the chart with those on top.
+ * birth place a planet is crossing now. `target` receives the chart with those on top; a `web` above 0 adds the
+ * planets' live aspects at that strength.
  */
-export function paintTransits(base: Uint8Array, target: Uint8Array, width: number, height: number, skyAt: (timestamp: number) => Sky, chart: Chart, now: Sky, level = 1) {
+export function paintTransits(base: Uint8Array, target: Uint8Array, width: number, height: number, skyAt: (timestamp: number) => Sky, chart: Chart, now: Sky, level = 1, web = 0) {
   target.set(base);
   const canvas = new Canvas(target, width, height);
   for (const id of BODY_IDS) {
@@ -524,6 +525,18 @@ export function paintTransits(base: Uint8Array, target: Uint8Array, width: numbe
     for (const birth of BODY_IDS) {
       const gap = Math.abs(near(body.longitude - chart.bodies[birth].longitude));
       if (gap < 1.5) canvas.ring(chart.bodies[birth].direction, 2, BODY_LIGHT[id], 0.3 * (1 - gap / 1.5) * level);
+    }
+  }
+  if (web > 0) {
+    // The planets' aspects to one another now: a web that forms and lets go as they move.
+    const ids = BODY_IDS.filter((id) => id !== "moon");
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const a = now.bodies[ids[i]];
+        const b = now.bodies[ids[j]];
+        const gap = Math.abs(near(a.longitude - b.longitude));
+        for (const [kind, angle, allowed] of ASPECTS) if (Math.abs(gap - angle) <= allowed) arc(canvas, a, b, { kind, orb: Math.abs(gap - angle) }, now.timestamp, web);
+      }
     }
   }
   return target;

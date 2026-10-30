@@ -444,7 +444,7 @@ export const SPECIES = {
     coats: [["brown", ["#c0a88e", "#5e3a26", "#dcc8a8", "#1c1410", "#5e4432"]], ["blond", ["#dccdb8", "#c4b698", "#f2e6c8", "#907068", "#c8ae98"]]],
     temper: { sniff: 2.6, dig: 1.6, coil: 1.2, wander: 1.4, sleep: 1, run: 0, graze: 0 }, friends: [] }),
   mouse: define({ label: "Field mouse", plan: "quad", size: 0.07, rarity: "common", weight: 30, regions: ALL_REGIONS, speed: 2.4, active: "night", groups: [5, 2, 2, 2], pack: [3, 4],
-    build: { ...OUTLINE.murid, len: 0.95, leg: 0.3, body: 0.44, neck: 0.1, rise: 0.4, head: 0.28, snout: 0.2, ears: "round", tail: "thin", tailLen: 1.3, hip: 1.15, haunch: 1.3, chest: 0.85, sit: "haunch", earLen: 1.9, snoutTip: 0.35, tailRise: -0.7, legR: 0.8 },
+    build: { ...OUTLINE.murid, len: 1.02, leg: 0.3, body: 0.35, neck: 0.15, rise: 0.35, head: 0.25, snout: 0.24, ears: "round", tail: "thin", tailLen: 1.5, hip: 1.05, haunch: 1.2, chest: 0.85, sit: "haunch", earLen: 1.7, snoutTip: 0.28, tailRise: -0.7, legR: 0.8 },
     coats: [["field", ["#9a7a58", "#6a5038", "#efe2cc", "#1a120c", "#f0a8a8"]], ["grey", ["#7c7a78", "#55524f", "#d8d4cc", "#141210", "#f0a8a8"]]],
     temper: { sniff: 2.4, eat: 2, groom: 1.6, rear: 1.4, run: 1.4, wander: 1.2, graze: 0 }, friends: [] }),
   capybara: define({ label: "Capybara", plan: "quad", size: 0.5, rarity: "rare", weight: 9, regions: ["tokyo"], worlds: ["nature", "beach", "voxel"], speed: 0.6, groups: [3, 3, 3, 2], pack: [3, 4],
@@ -545,7 +545,7 @@ export const SPECIES = {
     coats: [["tanuki", ["#8a6c4a", "#4a3828", "#c8b08c", "#1a120c", "#e8dcc4"]], ["winter", ["#9a8060", "#5a4430", "#d8c4a4", "#1e140c", "#f0e6d4"]]],
     temper: { sniff: 2.2, dig: 1.6, eat: 1.4, sleep: 1.4, groom: 1.4, wander: 1.3, look: 1.2, graze: 0, run: 0.4 }, friends: ["crow"] }),
   marmot: define({ label: "Marmot", plan: "quad", size: 0.26, rarity: "uncommon", weight: 18, regions: ["alps", "rockies"], speed: 1, winter: false, groups: [3, 3, 3, 3], pack: [3, 5],
-    build: { ...OUTLINE.rodent, len: 1.12, leg: 0.36, body: 0.42, neck: 0.12, rise: 0.5, head: 0.25, snout: 0.13, ears: "round", tail: "bushy", tailLen: 0.5, hip: 1.1, foot: "plant", sit: "haunch", haunch: 1.25, snoutTip: 0.8, earLen: 0.7 },
+    build: { ...OUTLINE.rodent, len: 1.15, leg: 0.36, body: 0.38, neck: 0.2, rise: 0.6, head: 0.23, snout: 0.15, ears: "round", tail: "bushy", tailLen: 0.5, tailGirth: 0.6, hip: 1.05, foot: "plant", sit: "haunch", haunch: 1.15, snoutTip: 0.6, earLen: 0.7, extras: ["muzzle"] },
     coats: [["alpine", ["#8a6e4e", "#5e4a34", "#c8a878", "#1e160e", "#e8dcc8"]], ["yellow-bellied", ["#7a6450", "#4e3e30", "#d8a850", "#1a140e", "#efe4cc"]]],
     temper: { rear: 3, bask: 2, graze: 2, look: 2, groom: 1.2, dig: 1.4, run: 1.2, sleep: 1, wander: 0.8 }, friends: ["crow"] }),
   badger: define({ label: "Badger", plan: "quad", size: 0.3, rarity: "rare", weight: 9, regions: ["alps"], speed: 0.9, active: "night", groups: [5, 3, 3, 0],
@@ -1444,22 +1444,59 @@ function perchRoom(stage: Stage, i: number, size: number): boolean {
   return Math.hypot(perch.p[0] - axis.p[0], perch.p[2] - axis.p[2]) >= axis.r + size * 0.7;
 }
 
-/** A branch to sit on, thick enough to take the animal (a monkey keeps off the twigs a songbird uses) and out from the trunk. */
+/** How near a point lies to a stretch of wood, its surface taken off. */
+function offWood(p: Vec, a: Wood, b: Wood): number {
+  const ab = sub(b.p, a.p);
+  const ee = dot(ab, ab);
+  const k = ee < 1e-9 ? 0 : clamp(dot(sub(p, a.p), ab) / ee, 0, 1);
+  return length(sub(p, madd(a.p, ab, k))) - mix(a.r, b.r, k);
+}
+
+/** Whether a body sat on perch `i` keeps out of every limb but its own. */
+function woodClear(stage: Stage, i: number, size: number): boolean {
+  const list = stage.perches ?? [];
+  const perch = perchOf(stage, i);
+  if (!perch) return true;
+  const own = new Set((perch.path ?? []).map((wood) => wood.p));
+  const body = add(perch.p, [0, perch.r + size * 0.3, 0]);
+  const around = [body, madd(body, perch.d, size * 0.4), madd(body, perch.d, -size * 0.4)];
+  const clearOf = (wood: readonly Wood[], k: number): boolean => {
+    const [a, b] = [wood[k], wood[k + 1]];
+    return !a || !b || own.has(a.p) || own.has(b.p) || around.every((p) => offWood(p, a, b) >= size * 0.18);
+  };
+  return list.every((other) => (other.path ?? []).every((_, k, wood) => clearOf(wood, k)));
+}
+
+/** Whether no one in the troupe sits there, or is on the way, within a body's length. */
+function perchFree(actor: Actor, scene: Scene, i: number): boolean {
+  const at = placeTop({ on: "perch", i }, scene);
+  const wooded = (place: Place): boolean => place.on === "perch" || place.on === "trunk";
+  return actor.mates.every((mate) => mate === actor || !wooded(mate.place) || length(sub(placeTop(mate.place, scene), at)) >= (mate.member.size + actor.member.size) * 0.75);
+}
+
+/** A branch to sit on, thick enough to take the animal (a monkey keeps off the twigs a songbird uses), out from the trunk, with room among the wood and a place free of the others. */
 function randomPerch(actor: Actor, scene: Scene): Place {
   const size = actor.member.size;
   let i = 0;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
     i = Math.floor(actor.rand() * 9973);
-    if ((perchOf(scene.stage, i)?.r ?? 1) >= size * 0.12 && perchRoom(scene.stage, i, size)) break;
+    // (The last tries take any free place that will bear it, when a small tree has nothing better.)
+    const fits = (perchOf(scene.stage, i)?.r ?? 1) >= size * 0.12 && perchRoom(scene.stage, i, size) && (attempt >= 12 || woodClear(scene.stage, i, size));
+    if (fits && perchFree(actor, scene, i)) break;
   }
   return { on: "perch", i };
 }
 
-/** The branch spot nearest `i` in the list that has room for the animal, or `i` when none does. */
-function roomyPerch(stage: Stage, i: number, size: number): number {
+/** The branch spot nearest `i` in the list that has room for the animal, and keeps `apart` from `beside` when given, or `i` when none does. */
+function roomyPerch(stage: Stage, i: number, size: number, beside?: number, apart = 0): number {
   const count = stage.perches?.length ?? 0;
+  const near = beside === undefined ? null : perchOf(stage, beside)?.p ?? null;
+  const roomy = (j: number): boolean => {
+    const at = perchOf(stage, j)?.p;
+    return perchRoom(stage, j, size) && (!near || !at || length(sub(at, near)) >= apart);
+  };
   for (let k = 0; k < count; k += 1) {
-    for (const j of [i + k, i - k]) if (perchRoom(stage, j, size)) return j;
+    for (const j of [i + k, i - k]) if (roomy(j)) return j;
   }
   return i;
 }
@@ -2136,7 +2173,7 @@ function perchScene(troupe: Troupe, scene: Scene): boolean {
   begin(pair, scene, false);
   const i = roomyPerch(scene.stage, Math.floor(troupe.rand() * 9973), a.member.size);
   if (a.place.on !== "perch" || a.place.i !== i) travel(a, { on: "perch", i }, "fly", scene);
-  travel(b, { on: "perch", i: roomyPerch(scene.stage, i + 1, b.member.size) }, "fly", scene);
+  travel(b, { on: "perch", i: roomyPerch(scene.stage, i + 1, b.member.size, i, (a.member.size + b.member.size) * 0.7) }, "fly", scene);
   const start = Math.max(a.until, b.until);
   holdAs(a, "look", start, b, scene);
   const length = between(troupe.rand, [4, 8]);
@@ -2320,6 +2357,8 @@ function blendedPose(segment: Segment, prev: Segment | undefined, t: number): Po
 
 interface Moment {
   readonly frame: Frame;
+  /** For a body that lies along its way, a snake: that way in the world, from its head back. */
+  readonly trail?: readonly Vec[] | undefined;
   /** Gait phase, in strides. */
   readonly phase: number;
   /** 0 standing, 1 moving at full gait. */
@@ -2352,7 +2391,32 @@ const TURN_TIME = 0.4;
 /** How far the body travels in one gait cycle; a foot planted for `duty` of it moves back `duty` of this. */
 const bodyStride = (who: Who): number => who.member.size * Math.max(0.5, who.spec.build.len) * 1.1;
 
-function movingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, from = segment.yaw): { frame: Frame; phase: number; moving: number } {
+/** The way back from `share` along a path: where the body is now, then each bend behind it, nearest first. */
+function trailBehind(path: readonly PathPoint[], share: number): Vec[] {
+  const want = share * pathLength(path);
+  const back: Vec[] = [];
+  let walked = 0;
+  path.forEach((point, i) => {
+    const before = path[i - 1];
+    if (before) walked += length(sub(point.p, before.p));
+    if (walked < want) back.unshift(point.p);
+  });
+  return [alongPath(path, share).p, ...back];
+}
+
+/** The wood behind a perch, from its tip back to the trunk and down it. */
+function perchTrail(place: Place, scene: Scene, turns: number): Vec[] | undefined {
+  const way = branchWay(place, scene.stage);
+  if (!way) return undefined;
+  // (Winding round the trunk, each its own way, so two that share it lie apart.)
+  const wound = Array.from({ length: TRUNK_WINDS }, (_, i) => trunkPoint(scene.stage, way.foot.h * (1 - (i + 1) / TRUNK_WINDS), way.foot.a + (i + 1) * turns).p);
+  return [...[...way.points].reverse().map((point) => point.p), ...wound];
+}
+
+const TRUNK_WINDS = 10;
+const liesAlong = (actor: Actor): boolean => actor.spec.plan === "serpent" && actor.spec.build.leg === 0;
+
+function movingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, from = segment.yaw): { frame: Frame; phase: number; moving: number; trail?: readonly Vec[] } {
   const mode = segment.mode ?? "walk";
   const path = pathFor(mode, segment.from, segment.to, scene, actor.member.size, springOf(actor), segment.loop);
   const d = Math.max(0.01, segment.t1 - segment.t0);
@@ -2376,7 +2440,7 @@ function movingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, fr
   const moving = clamp(Math.min(1, (t - segment.t0) / 0.25, (segment.t1 - t) / 0.25), 0, 1);
   if (mode === "fly") return { frame: flyingFrame(actor, segment, t, path, share, at.p, fw), phase: at.travelled / stride, moving };
   const p = add(at.p, [0, hopLift(actor, segment, mode, at.travelled) * moving, 0]);
-  return { frame: frameOf(p, fw, at.up), phase: at.travelled / stride, moving };
+  return { frame: frameOf(p, fw, at.up), phase: at.travelled / stride, moving, ...(mode === "climb" && liesAlong(actor) ? { trail: trailBehind(path, share) } : {}) };
 }
 
 /**
@@ -2438,10 +2502,12 @@ function momentOf(actor: Actor, t: number, scene: Scene, partners: readonly Acto
   // turning), so the body never snaps round between them.
   const from = prev?.mode === null && prev.to.on === "ground" ? frameYaw(restingFrame(actor, prev, t, scene, partners)) : undefined;
   if (segment.mode) {
-    const { frame, phase, moving } = movingFrame(actor, segment, t, scene, from);
-    return { frame, phase, moving, pace: segment.pace, mode: segment.mode, segment, pose, t };
+    const { frame, phase, moving, trail } = movingFrame(actor, segment, t, scene, from);
+    return { frame, trail: trail && overLimbs(trail, actor, scene.stage), phase, moving, pace: segment.pace, mode: segment.mode, segment, pose, t };
   }
-  return { frame: restingFrame(actor, segment, t, scene, partners, from ?? segment.turn), phase: 0, moving: 0, pace: 0, mode: null, segment, pose, t };
+  const trail = liesAlong(actor) ? perchTrail(segment.to, scene, actor.index % 2 === 0 ? 0.7 : -0.7) : undefined;
+  const lying = trail && overLimbs(trail, actor, scene.stage);
+  return { frame: restingFrame(actor, segment, t, scene, partners, from ?? segment.turn), trail: lying, phase: 0, moving: 0, pace: 0, mode: null, segment, pose, t };
 }
 
 // ---------------------------------------------------------------- the kit: capsules in the animal's own frame
@@ -3490,7 +3556,7 @@ function faceMarks(kit: Kit, actor: Who, h: Head, tip: Vec, eyes: readonly FaceP
   const cheeks = b.extras.includes("cheeks");
   const mask = b.extras.includes("mask");
   if (b.extras.includes("brows")) { banditMarks(kit, h, tip, eyes, eyeR); return; }
-  if (b.extras.includes("muzzle")) decal(kit, "muzzle", cheeks ? "accent" : "belly", at3(h, 0.65, 0, -0.4), tip, h.r * 0.45);
+  if (b.extras.includes("muzzle")) decal(kit, "muzzle", cheeks || actor.member.species === "marmot" ? "accent" : "belly", at3(h, 0.65, 0, -0.4), tip, h.r * 0.45);
   if (mask) { const wide = eyeR * mix(0.86, 1.2, createRandom(markOf(actor) ^ 0x6a09e667)()); for (const eye of eyes) maskBand(kit, h, eye, wide); }
   // (A badger's white blaze runs from its nose over its crown, between dark stripes.)
   if (mask && b.extras.includes("stripes")) decal(kit, "blaze", "accent", tip, at3(h, -0.4, 0, 1.0), h.r * 0.3);
@@ -5301,6 +5367,25 @@ function birdLegs(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
 
 // ---------------------------------------------------------------- snakes and lizards
 
+/** A point `back` along an animal's trail, in its own frame; past the trail's end, straight on the way it was going. */
+function onTrail(m: Moment, back: number): Vec {
+  const way = m.trail ?? [];
+  let left = back;
+  let at: Vec = way[0] ?? m.frame.o;
+  let last: Vec = [0, 0, -1];
+  for (const next of way.slice(1)) {
+    const span = length(sub(next, at));
+    if (span < 1e-6) continue;
+    last = scale(sub(next, at), 1 / span);
+    if (span >= left) break;
+    left -= span;
+    at = next;
+  }
+  const { o, x, y, z } = m.frame;
+  const from = sub(madd(at, last, left), o);
+  return [dot(from, x), dot(from, y), dot(from, z)];
+}
+
 function serpentSpine(who: Who, m: Moment): Vec[] {
   const q = m.pose;
   const b = who.spec.build;
@@ -5314,7 +5399,7 @@ function serpentSpine(who: Who, m: Moment): Vec[] {
     const moving = m.moving * Math.sin(TAU * m.phase * 0.8 - i * 0.7) * size * 0.06 * (lizard ? 0.4 : 1) * Math.min(1, i / 3);
     // At rest a snake lies in a loose S, a lizard nearly straight.
     const rest = size * (lizard ? 0.07 : 0.12) * Math.sin(i * (lizard ? 0.55 : 0.62) + 0.2 * Math.sin(m.t * 0.3)) * (1 - m.moving);
-    const straight: Vec = [moving + rest, r0, -i * seg * 0.95];
+    const straight: Vec = m.trail ? add(onTrail(m, i * seg), [moving * 0.3, r0, 0]) : [moving + rest, r0, -i * seg * 0.95];
     // Coiled, one loose turn (an open ring at a distance, not a disc), the head reared up in the middle.
     const a = i * 0.55;
     const ring = r0 * (8.5 - i * 0.42);
@@ -5325,6 +5410,9 @@ function serpentSpine(who: Who, m: Moment): Vec[] {
   }
   return points;
 }
+
+/** A snake's girth along it, 0 at the neck, 1 at the tip: slim at the neck, fullest a third of the way down, to a fine tip. */
+const snakeGirth = (k: number): number => (k < 0.3 ? 0.78 + (k / 0.3) * 0.22 : 1 - Math.pow((k - 0.3) / 0.7, 1.6) * 0.85);
 
 function poseSerpent(kit: Kit, who: Who, m: Moment): void {
   const b = who.spec.build;
@@ -5338,23 +5426,59 @@ function poseSerpent(kit: Kit, who: Who, m: Moment): void {
     const c = points[i + 1];
     if (!a || !c) continue;
     // Slim at the neck, fullest a third of the way down, to a fine tip.
-    const girth = (k: number): number => r0 * (k < 0.3 ? 0.78 + (k / 0.3) * 0.22 : 1 - Math.pow((k - 0.3) / 0.7, 1.6) * 0.85);
-    const taper = girth(i / n);
-    cap(kit, `body.${i}`, banded && i % 2 === 1 ? "alt" : "coat", a, c, taper, 0.8, UP, { r1: girth((i + 1) / n) });
-    serpentMark(kit, who, lerpV(a, c, 0.5), r0 * taper, i, n);
+    const taper = snakeGirth(i / n);
+    cap(kit, `body.${i}`, banded && i % 2 === 1 ? "alt" : "coat", a, c, r0 * taper, 0.8, UP, { r1: r0 * snakeGirth((i + 1) / n) });
+    if (b.extras.includes("spots") && i % 2 === 0) ball(kit, "spot", "accent", add(lerpV(a, c, 0.5), [0, r0 * taper * 0.6, 0]), r0 * taper * 0.35, 0.5);
   }
+  if (b.leg === 0) snakeMarks(kit, who, points, r0);
   serpentHead(kit, who, points, m);
   if (b.leg > 0) lizardLegs(kit, who, points, m);
 }
 
-/** A gecko's spots; down a plain snake's back, saddle marks, so it reads as a snake and not a root. */
-function serpentMark(kit: Kit, who: Who, at: Vec, r: number, i: number, n: number): void {
-  const b = who.spec.build;
-  if (b.extras.includes("spots")) {
-    if (i % 2 === 0) ball(kit, "spot", "accent", add(at, [0, r * 0.6, 0]), r * 0.35, 0.5);
-    return;
+/** How a snake is marked, by coat: long lines down it or saddles across it. A plain one is its colour, and a banded one its rings. */
+const SNAKE_LINES: Readonly<Record<string, readonly (readonly [number, number])[]>> = {
+  garter: [[0, 0.94], [-0.8, 0.5], [0.8, 0.5]],
+  "red-bellied": [[-0.86, -0.2], [0.86, -0.2]],
+};
+const SNAKE_SADDLED: ReadonlySet<string> = new Set(["corn"]);
+
+/** Which way is out to the side of a spine going from `a` to `b`. */
+const spineSide = (a: Vec, b: Vec): Vec => unit(cross(UP, sub(b, a)));
+
+/** The long lines down a snake, laid on it every other bone so they follow its bends. */
+function snakeLines(kit: Kit, who: Who, points: readonly Vec[], r0: number): void {
+  const lines = SNAKE_LINES[who.member.coat] ?? [];
+  const role: Role = who.member.coat === "garter" ? "alt" : "belly";
+  const n = points.length - 1;
+  for (let i = 0; i + 2 <= n; i += 2) {
+    const [a, c] = [points[i], points[i + 2]];
+    if (!a || !c) continue;
+    const side = spineSide(a, c);
+    const [gA, gC] = [r0 * snakeGirth(i / n), r0 * snakeGirth((i + 2) / n)];
+    const on = (p: Vec, x: number, y: number, g: number): Vec => add(add(p, scale(side, x * g * 0.8)), [0, y * g * 0.8, 0]);
+    // (Sunk well into the body, so the line stays on the skin where the bones bend away from a straight run.)
+    lines.forEach(([x, y], line) => { cap(kit, `line.${line}`, role, on(a, x, y, gA), on(c, x, y, gC), gA * 0.24, 1, UP, { decal: true, r1: gC * 0.24 }); });
   }
-  if (who.member.coat !== "banded" && b.leg === 0 && i % 2 === 1 && i < n - 2) ball(kit, "saddle", "alt", add(at, [0, r * 0.55, 0]), r * 0.78, 0.45);
+}
+
+/** Saddles across a snake's back, as many and as far apart as its own mark says. */
+function snakeSaddles(kit: Kit, who: Who, points: readonly Vec[], r0: number): void {
+  const gene = createRandom(markOf(who) ^ 0x6c8e9cf5);
+  const n = points.length - 1;
+  const gap = mix(1.5, 2.3, gene());
+  for (let k = 1 + gene(); k < n - 1.5; k += gap) {
+    const i = Math.floor(k);
+    const [a, c] = [points[i], points[i + 1]];
+    if (!a || !c) continue;
+    const at = add(lerpV(a, c, k - i), [0, r0 * 0.8, 0]);
+    const side = scale(spineSide(a, c), r0 * mix(0.5, 0.8, gene()) * (1 - k / n / 2));
+    decal(kit, "saddle", "alt", sub(at, side), add(at, side), r0 * 0.42);
+  }
+}
+
+function snakeMarks(kit: Kit, who: Who, points: readonly Vec[], r0: number): void {
+  snakeLines(kit, who, points, r0);
+  if (SNAKE_SADDLED.has(who.member.coat)) snakeSaddles(kit, who, points, r0);
 }
 
 function serpentHead(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void {
@@ -5364,8 +5488,10 @@ function serpentHead(kit: Kit, who: Who, points: readonly Vec[], m: Moment): voi
   const head = points[0] ?? [0, r0, 0];
   const hd = unit(sub(head, points[1] ?? [0, r0, -1]));
   const h: Head = { c: madd(head, hd, b.head * size * 0.4), d: hd, ...headAxes(hd, 0), r: b.head * size, ...eyeOfSpecies(who) };
-  ball(kit, "head", "coat", h.c, h.r, 0.75);
-  for (const x of [-1, 1]) eyeOf(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.3, x * 0.6, 0.35), h.r * 0.24, true);
+  // (A wedge, broad behind the jaws and flat, wider than the neck it sits on.)
+  cap(kit, "head", "coat", at3(h, -0.35, 0, 0), at3(h, 0.8, 0, -0.08), h.r * 0.92, 0.62, h.u, { r1: h.r * 0.52, melt: 0.8 });
+  // (Set into the flat of the head's side, not on the sphere an eye usually sits on.)
+  for (const x of [-1, 1]) eyeAt(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.3, x * 0.7, 0.2), unit(add(scale(h.s, x), scale(h.u, 0.5))), h.r * 0.2, true);
   if (m.pose.mouth > 0.2 && m.segment.act === "flick") cap(kit, "tongue", "accent", at3(h, 1, 0, -0.1), madd(at3(h, 1, 0, -0.1), hd, h.r * 1.4 * m.pose.mouth), h.r * 0.08);
 }
 
@@ -6367,7 +6493,7 @@ type PatternSpec = readonly [CoatPattern["kind"], Role, number, number, (string 
 const PATTERNS: Partial<Record<SpeciesId, PatternSpec>> = {
   macaque: ["dapple", "alt", 0.24, 0.16], monkey: ["dapple", "alt", 0.2, 0.14],
   guineafowl: ["spots", "shine", 0.022, 1],
-  hedgehog: ["tips", "belly", 1, 1], sloth: ["dapple", "alt", 0.2, 0.36, "#5e7038"], owl: ["bars", "alt", 0.07, 0.5], snake: ["spots", "alt", 0.035, 0.45], cat: ["dapple", "alt", 0.3, 0.08], raccoon: ["grizzle", "alt", 0.035, 1],
+  hedgehog: ["tips", "belly", 1, 1], sloth: ["dapple", "alt", 0.2, 0.36, "#5e7038"], owl: ["bars", "alt", 0.07, 0.5], snake: ["dapple", "alt", 0.05, 0.16], cat: ["dapple", "alt", 0.3, 0.08], raccoon: ["grizzle", "alt", 0.035, 1],
 };
 const COAT_PATTERNS: Readonly<Record<string, PatternSpec>> = {
   grey: ["stripes", "dark", 0.14, 0.35],
@@ -7120,6 +7246,8 @@ export interface Ring { readonly x: number; readonly z: number; readonly r: numb
 export interface Footprint { readonly rings: readonly Ring[]; readonly weight: number; readonly team: number; readonly self: number; readonly faces: number }
 
 const SHOVE_PASSES = 4;
+const MOST_RINGS = 6;
+const ROOTED = 1e9;
 
 /** Animals that have turned to each other (a sniff, a groom, a nose to a nose) may come this much closer, their trunks still apart. */
 const SNUG = 0.5;
@@ -7159,35 +7287,132 @@ export function shoveApart(prints: readonly (Footprint | null)[]): (readonly [nu
   return shove;
 }
 
-/** An animal's footprint, from the thick parts of its body as posed; none while it is off the ground. */
-function footprintOf(actor: Actor, m: Moment, capsules: readonly Capsule[], team: number): Footprint | null {
-  if (m.mode === "fly" || m.mode === "climb" || m.segment.from.on !== "ground" || m.segment.to.on !== "ground") return null;
+/** Where a body is thickest, as points along its trunk a ring apart: close enough that another body can't lie across the gap, and through the middle too, for two bodies head to tail would have their ends push equally both ways. */
+function trunkOfBody(m: Moment, capsules: readonly Capsule[]): { centres: Vec[]; r: number } | null {
   const thick = capsules.filter((c) => c.decal !== true && c.carve !== true);
   const most = thick.reduce((high, c) => Math.max(high, c.r), 0);
   if (most <= 0) return null;
-  const { o, z } = m.frame;
-  const along = thick.filter((c) => c.r >= most * 0.6).flatMap((c) => [dot(sub(c.a, o), z), dot(sub(c.b, o), z)]);
+  const { o, x, y, z } = m.frame;
+  const big = thick.filter((c) => c.r >= most * 0.6).flatMap((c) => [c.a, c.b]);
+  const along = big.map((p) => dot(sub(p, o), z));
+  const mean = (axis: Vec): number => big.reduce((sum, p) => sum + dot(sub(p, o), axis), 0) / big.length;
+  // (Beside its own heading too: a body curled up lies off to one side of it.)
+  const from = add(add(o, scale(x, mean(x))), scale(y, mean(y)));
   const r = most * 1.25;
-  const ring = (k: number): Ring => ({ x: o[0] + z[0] * k, z: o[2] + z[2] * k, r });
   const [low, high] = [Math.min(...along), Math.max(...along)];
-  // (A ring in the middle too: two bodies lying head to tail would have their ends push equally both ways, and stay put.)
-  return { rings: high - low > r ? [ring(low + r * 0.5), ring((low + high) / 2), ring(high - r * 0.5)] : [ring((low + high) / 2)], weight: actor.member.size * actor.member.size, team, self: actor.index, faces: TOUCH_ACTS.includes(m.segment.act) ? m.segment.face : -1 };
+  const span = Math.max(0, high - low - r);
+  const gaps = Math.min(MOST_RINGS - 1, Math.ceil(span / r));
+  return { centres: Array.from({ length: gaps + 1 }, (_, i) => madd(from, z, (low + high) / 2 + (gaps === 0 ? 0 : span * (i / gaps - 0.5)))), r };
+}
+
+/** An animal's footprint, from the thick parts of its body as posed; none while it is off the ground. */
+function footprintOf(actor: Actor, m: Moment, capsules: readonly Capsule[], team: number): Footprint | null {
+  if (m.mode === "fly" || m.mode === "climb" || m.segment.from.on !== "ground" || m.segment.to.on !== "ground") return null;
+  const body = trunkOfBody(m, capsules);
+  if (!body) return null;
+  return { rings: body.centres.map((p) => ({ x: p[0], z: p[2], r: body.r })), weight: actor.member.size * actor.member.size, team, self: actor.index, faces: TOUCH_ACTS.includes(m.segment.act) ? m.segment.face : -1 };
+}
+
+/** A trail lifted over each limb that lies across it, so a snake on the trunk drapes over the branches it meets. */
+function overLimbs(trail: readonly Vec[], actor: Actor, stage: Stage): Vec[] {
+  const limbs = limbsOf(stage);
+  const r = actor.spec.build.body * actor.member.size * 2.4;
+  return trail.map((p) => add(p, clearOfLimbs({ balls: [p], r, weight: 1, side: UP }, limbs)));
+}
+
+/** A body in the tree: its trunk in the air, how hard it is to move, and which way it steps aside. */
+export interface WoodPrint { readonly balls: readonly Vec[]; readonly r: number; readonly weight: number; readonly side: Vec; readonly own?: readonly Wood[] }
+
+const onWood = (place: Place): boolean => place.on === "perch" || place.on === "trunk";
+
+/** An animal's place in the tree; none on the ground, in the air, or on another's back. */
+function woodPrintOf(actor: Actor, m: Moment, capsules: readonly Capsule[], stage: Stage): WoodPrint | null {
+  const { from, to } = m.segment;
+  if (m.mode === "fly" || !(onWood(from) || onWood(to)) || from.on === "back" || to.on === "back") return null;
+  const body = trunkOfBody(m, capsules);
+  if (!body) return null;
+  // (One sat still is harder to shift: it's the climber going by that swings round it.)
+  const weight = actor.member.size * actor.member.size * (m.moving > 0.2 ? 1 : 4);
+  const limb = (place: Place): readonly Wood[] => (place.on === "perch" ? perchOf(stage, place.i)?.path ?? [] : []);
+  // (A snake lies along its way, not its heading.)
+  const balls = m.trail ? capsules.filter((c) => c.part.startsWith("body.")).filter((_, i) => i % 2 === 0).map((c) => c.a) : body.centres;
+  return { balls, r: body.r * 0.8, weight, side: m.frame.x, own: [...limb(from), ...limb(to)] };
+}
+
+/** Every stretch of branch in the tree. */
+const limbsOf = (stage: Stage): (readonly [Wood, Wood])[] => (stage.perches ?? []).flatMap((perch) => (perch.path ?? []).slice(1).map((wood, k): readonly [Wood, Wood] => [(perch.path ?? [])[k] ?? wood, wood]));
+
+/** How far a body leans to go round the deepest limb in its way that isn't one it is on. A function of where it is now, so it swings round the wood and back. */
+export function clearOfLimbs(print: WoodPrint, limbs: readonly (readonly [Wood, Wood])[]): Vec {
+  const own = print.own ?? [];
+  let lean: Vec = [0, 0, 0];
+  let deepest = 0;
+  for (const ball of print.balls) for (const [a, b] of limbs) {
+    const gap = print.r * 0.7 - offWood(ball, a, b);
+    if (gap <= deepest || own.some((wood) => sameWood(wood, a) || sameWood(wood, b))) continue;
+    const ab = sub(b.p, a.p);
+    const k = clamp(dot(sub(ball, a.p), ab) / Math.max(1e-9, dot(ab, ab)), 0, 1);
+    deepest = gap;
+    lean = scale(unit(sub(ball, madd(a.p, ab, k)), print.side), gap);
+  }
+  return lean;
+}
+
+/**
+ * How far each body in the tree leans clear of the others. Two meeting on a
+ * limb each keep to their own right, so they swing round each other as they
+ * pass and never pop through; a function of where they are now, like `shoveApart`.
+ */
+export function passOnWood(prints: readonly (WoodPrint | null)[]): Vec[] {
+  const lean = prints.map((): Vec => [0, 0, 0]);
+  const pair = (i: number, j: number): void => {
+    const [a, b] = [prints[i], prints[j]];
+    if (!a || !b) return;
+    for (const pa of a.balls) for (const pb of b.balls) {
+      const d = add(sub(pa, pb), sub(lean[i] ?? [0, 0, 0], lean[j] ?? [0, 0, 0]));
+      const gap = a.r + b.r - length(d);
+      if (gap <= 0) continue;
+      const out = unit(add(unit(d, a.side), scale(sub(a.side, b.side), 0.5)), a.side);
+      const share = b.weight / (a.weight + b.weight);
+      lean[i] = madd(lean[i] ?? [0, 0, 0], out, gap * share);
+      lean[j] = madd(lean[j] ?? [0, 0, 0], out, -gap * (1 - share));
+    }
+  };
+  for (let pass = 0; pass < SHOVE_PASSES; pass += 1) for (let i = 0; i < prints.length; i += 1) for (let j = i + 1; j < prints.length; j += 1) pair(i, j);
+  return lean;
+}
+
+/** The trunk at the ground, as a footprint nothing can move. */
+function treePrint(stage: Stage): Footprint | null {
+  const trunk = stage.trunk;
+  if (!trunk) return null;
+  const { p, r } = trunkAxis(trunk, 0);
+  return { rings: [{ x: p[0], z: p[2], r }], weight: ROOTED, team: -1, self: -1, faces: -1 };
 }
 
 /** A whole posed body moved along the ground. */
-function shoved(m: Moment, capsules: Capsule[], [x, z]: readonly [number, number]): { m: Moment; capsules: Capsule[] } {
-  if (x === 0 && z === 0) return { m, capsules };
-  const by: Vec = [x, 0, z];
+function shoved(m: Moment, capsules: Capsule[], by: Vec): { m: Moment; capsules: Capsule[] } {
+  if (by[0] === 0 && by[1] === 0 && by[2] === 0) return { m, capsules };
   return { m: { ...m, frame: { ...m.frame, o: add(m.frame.o, by) } }, capsules: capsules.map((c) => ({ ...c, a: add(c.a, by), b: add(c.b, by) })) };
+}
+
+/** A shove along the ground, over its rises and dips. */
+function overGround(stage: Stage, { frame: { o } }: Moment, [x, z]: readonly [number, number]): Vec {
+  return x === 0 && z === 0 ? [0, 0, 0] : [x, groundY(stage, o[0] + x, o[2] + z) - groundY(stage, o[0], o[2]), z];
 }
 
 interface Posed { readonly id: string; readonly actor: Actor; readonly m: Moment; readonly capsules: Capsule[]; readonly scene: Scene }
 
 /** Everyone as posed, pushed clear of each other and made into bodies. */
 function settledBodies(posed: readonly Posed[], prints: readonly (Footprint | null)[]): Body[] {
-  const shoves = shoveApart(prints);
+  const shoves = shoveApart([...prints, ...posed.slice(0, 1).map(({ scene }) => treePrint(scene.stage))]);
+  const limbs = posed[0] ? limbsOf(posed[0].scene.stage) : [];
+  const woodPrints = posed.map(({ actor, m, capsules, scene }) => woodPrintOf(actor, m, capsules, scene.stage));
+  const leans = passOnWood(woodPrints);
   return posed.map(({ id, actor, m, capsules, scene }, i) => {
-    const moved = shoved(m, capsules, shoves[i] ?? [0, 0]);
+    const print = woodPrints[i];
+    const lean = add(leans[i] ?? [0, 0, 0], print ? clearOfLimbs(print, limbs) : [0, 0, 0]);
+    const moved = shoved(m, capsules, add(overGround(scene.stage, m, shoves[i] ?? [0, 0]), lean));
     actor.pos = moved.m.frame.o;
     return bodyOf(id, actor, moved.m, moved.capsules, scene);
   });

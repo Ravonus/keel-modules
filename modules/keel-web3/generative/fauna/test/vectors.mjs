@@ -500,4 +500,19 @@ export default [
     },
     expect: [2, true, 0, true, true, 0, true],
   },
+  {
+    name: 'nothing is pushed into the tree: bodies on the wood swing round each other to their own right, and round any limb that is not theirs',
+    run: ({ shoveApart, passOnWood, clearOfLimbs }) => {
+      const at = (x, weight, self) => ({ rings: [{ x, z: 0, r: 1 }], weight, team: 0, self, faces: -1 });
+      const tree = { rings: [{ x: 0, z: 0, r: 0.5 }], weight: 1e9, team: -1, self: -1, faces: -1 };
+      const [pushed, rooted] = shoveApart([at(0.5, 1, 0), tree]);
+      const on = (z, side) => ({ balls: [[0, 1, z]], r: 0.2, weight: 1, side });
+      const [north, south] = passOnWood([on(0.01, [1, 0, 0]), on(-0.01, [-1, 0, 0])]);
+      const limb = [{ p: [-1, 1, 0], r: 0.05 }, { p: [1, 1, 0], r: 0.05 }];
+      const round = clearOfLimbs(on(0.02, [0, 1, 0]), [limb]);
+      const mine = clearOfLimbs({ ...on(0.02, [0, 1, 0]), own: limb }, [limb]);
+      return [pushed[0] > 0, Math.abs(rooted[0]) < 1e-6, north[0] > 0, south[0] < 0, round[2] > 0, mine[2]];
+    },
+    expect: [true, true, true, true, true, 0],
+  },
 ];

@@ -1,0 +1,19 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "quality",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "One setting for how good a scene looks: levels from low to ultra picked from the device, spent by where the camera is, and a governor that lowers render scale to hold the frame rate. Pure and renderer-free.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "level", "label": "Quality", "type": "select", "required": false, "options": [
+      { "value": "auto", "label": "Automatic" },
+      { "value": "low", "label": "Low" },
+      { "value": "medium", "label": "Medium" },
+      { "value": "high", "label": "High" },
+      { "value": "ultra", "label": "Ultra" }
+    ], "default": "auto" }
+  ]
+}

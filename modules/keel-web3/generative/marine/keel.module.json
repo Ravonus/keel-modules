@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "marine",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Seeded ocean life: a school that parts round the shark following it and jellies carried by the waves, each animal a pure function of seed and time, posed as capsule parts any renderer can draw. Deterministic and renderer-free.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" }
+}

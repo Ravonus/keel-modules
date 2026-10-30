@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ocean Preview</title>
+    <!-- Local tool, never published: ?view=school|shark|jelly|window|above|shore|beach &t=12 (hold a moment) &seed=7 &wind=7 -->
+    <script type="importmap">
+      {
+        "imports": {
+          "keel://module/lit.js": "/lit.mjs",
+          "keel://module/ocean.js": "/modules/generative/ocean.mjs",
+          "keel://module/beach.js": "/modules/generative/beach.mjs",
+          "keel://module/marine.js": "/modules/generative/marine.mjs",
+          "keel://module/ocean-render.js": "/modules/render/ocean-render.mjs",
+          "keel://module/sdf-body.js": "/modules/render/sdf-body.mjs",
+          "keel://module/quality.js": "/modules/render/quality.mjs"
+        }
+      }
+    </script>
+    <style>
+      html, body { margin: 0; height: 100%; background: #04121c; overflow: hidden; color: #dcecf2; font: 13px ui-sans-serif, system-ui, sans-serif; }
+      #stage, #stage canvas { display: block; width: 100%; height: 100%; }
+      .bar { position: fixed; left: 12px; top: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .bar button { font: inherit; color: inherit; background: #0b2a3ccc; border: 1px solid #2d5a70; border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+      .bar button[aria-pressed="true"] { background: #2d7a96; }
+      #info { position: fixed; left: 12px; bottom: 12px; font: 11px Menlo, monospace; color: #9fc3d0; }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div class="bar" id="bar"></div>
+    <div id="info"></div>
+    <script type="module" src="/preview.js"></script>
+  </body>
+</html>

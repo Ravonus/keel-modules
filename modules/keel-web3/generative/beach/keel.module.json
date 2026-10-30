@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "beach",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A seeded shore as a pure function: the ground from offshore bar through surf zone, wet sand, berm and dunes, what covers it, and its colour. Stands alone, or joins a sea from generative/ocean by handing it its ground. Deterministic and renderer-free.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" }
+}

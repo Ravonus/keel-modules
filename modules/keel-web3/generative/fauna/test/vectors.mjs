@@ -502,17 +502,31 @@ export default [
   },
   {
     name: 'nothing is pushed into the tree: bodies on the wood swing round each other to their own right, and round any limb that is not theirs',
-    run: ({ shoveApart, passOnWood, clearOfLimbs }) => {
+    run: ({ shoveApart, passOnWood, clearOfLimbs, woodMapOf }) => {
       const at = (x, weight, self) => ({ rings: [{ x, z: 0, r: 1 }], weight, team: 0, self, faces: -1 });
       const tree = { rings: [{ x: 0, z: 0, r: 0.5 }], weight: 1e9, team: -1, self: -1, faces: -1 };
       const [pushed, rooted] = shoveApart([at(0.5, 1, 0), tree]);
       const on = (z, side) => ({ balls: [[0, 1, z]], r: 0.2, weight: 1, side });
       const [north, south] = passOnWood([on(0.01, [1, 0, 0]), on(-0.01, [-1, 0, 0])]);
       const limb = [{ p: [-1, 1, 0], r: 0.05 }, { p: [1, 1, 0], r: 0.05 }];
-      const round = clearOfLimbs(on(0.02, [0, 1, 0]), [limb]);
-      const mine = clearOfLimbs({ ...on(0.02, [0, 1, 0]), own: limb }, [limb]);
+      const map = woodMapOf({ radius: 4, top: 0, perches: [{ p: limb[1].p, d: [1, 0, 0], r: 0.05, path: limb }] });
+      const round = clearOfLimbs(on(0.02, [0, 1, 0]), map);
+      const mine = clearOfLimbs({ ...on(0.02, [0, 1, 0]), own: limb }, map);
       return [pushed[0] > 0, Math.abs(rooted[0]) < 1e-6, north[0] > 0, south[0] < 0, round[2] > 0, mine[2]];
     },
     expect: [true, true, true, true, true, 0],
+  },
+  {
+    name: 'a climber finds its way over the wood: across a gap it can reach, not one it cannot, and round a perch that is crowded',
+    run: ({ searchRoute }) => {
+      const limb = (x, z) => [{ p: [0, 2, 0], r: 0.2 }, { p: [x * 0.5, 2, z * 0.5], r: 0.1 }, { p: [x, 2, z], r: 0.08 }];
+      const perch = (x, z) => ({ p: [x, 2, z], d: [1, 0, 0], r: 0.08, path: limb(x, z) });
+      const stage = { radius: 4, top: 0, perches: [perch(1, 0), perch(1, 0.4), perch(1, 0.8), perch(1.25, 0.4)] };
+      const across = searchRoute(stage, 0, 2, 0.5, () => 0);
+      const tooSmall = searchRoute(stage, 0, 2, 0.05, () => 0);
+      const round = searchRoute(stage, 0, 2, 0.5, (i) => (i === 1 ? 3 : 0));
+      return [across.via, tooSmall, round.via];
+    },
+    expect: [[1], null, [3]],
   },
 ];

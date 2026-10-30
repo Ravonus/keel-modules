@@ -1218,6 +1218,63 @@ function branchWay(place: Place, stage: Stage): { points: PathPoint[]; foot: { h
   return { points, foot, wood };
 }
 
+/**
+ * The tree's wood as a map: every stretch of branch once, however many perches
+ * run along it, known by its two ends, and filed in a grid of the air so a body
+ * asks only about the wood around it. Built once for a frame's stage.
+ */
+export interface WoodMap { readonly edges: readonly WoodEdge[]; readonly cells: ReadonlyMap<number, readonly number[]>; readonly thickest: number }
+export interface WoodEdge { readonly a: Wood; readonly b: Wood; readonly keys: readonly [string, string] }
+
+const WOOD_CELL = 0.25;
+const woodMaps = new WeakMap<Stage, WoodMap>();
+const woodKey = (w: Wood): string => `${Math.round(w.p[0] * 1e3)},${Math.round(w.p[1] * 1e3)},${Math.round(w.p[2] * 1e3)}`;
+const cellOf = (v: number): number => Math.floor(v / WOOD_CELL) + 512;
+const cellKey = (x: number, y: number, z: number): number => (x * 1024 + y) * 1024 + z;
+
+/** Each grid cell between two corners. */
+function cellsBetween(low: Vec, high: Vec, visit: (key: number) => void): void {
+  for (let x = cellOf(low[0]); x <= cellOf(high[0]); x += 1) for (let y = cellOf(low[1]); y <= cellOf(high[1]); y += 1) for (let z = cellOf(low[2]); z <= cellOf(high[2]); z += 1) visit(cellKey(x, y, z));
+}
+
+const corner = (a: Vec, b: Vec, pick: (x: number, y: number) => number, by: number): Vec => [pick(a[0], b[0]) + by, pick(a[1], b[1]) + by, pick(a[2], b[2]) + by];
+
+function fileEdge(cells: Map<number, number[]>, edge: WoodEdge, i: number): void {
+  const pad = Math.max(edge.a.r, edge.b.r);
+  cellsBetween(corner(edge.a.p, edge.b.p, Math.min, -pad), corner(edge.a.p, edge.b.p, Math.max, pad), (key) => {
+    const cell = cells.get(key);
+    if (cell) cell.push(i);
+    else cells.set(key, [i]);
+  });
+}
+
+export function woodMapOf(stage: Stage): WoodMap {
+  const known = woodMaps.get(stage);
+  if (known) return known;
+  const seen = new Set<string>();
+  const edges: WoodEdge[] = [];
+  for (const perch of stage.perches ?? []) for (const [k, b] of (perch.path ?? []).entries()) {
+    const a = perch.path?.[k - 1];
+    if (!a) continue;
+    const keys = [woodKey(a), woodKey(b)] as const;
+    if (seen.has(`${keys[0]}|${keys[1]}`)) continue;
+    seen.add(`${keys[0]}|${keys[1]}`);
+    edges.push({ a, b, keys });
+  }
+  const cells = new Map<number, number[]>();
+  edges.forEach((edge, i) => { fileEdge(cells, edge, i); });
+  const map = { edges, cells, thickest: edges.reduce((most, e) => Math.max(most, e.a.r, e.b.r), 0) };
+  woodMaps.set(stage, map);
+  return map;
+}
+
+/** The wood filed within `reach` of a point. */
+function woodNear(map: WoodMap, p: Vec, reach: number): WoodEdge[] {
+  const found = new Set<number>();
+  cellsBetween(sub(p, [reach, reach, reach]), add(p, [reach, reach, reach]), (key) => { for (const i of map.cells.get(key) ?? []) found.add(i); });
+  return [...found].flatMap((i) => map.edges[i] ?? []);
+}
+
 const sameWood = (a: Wood | undefined, b: Wood | undefined): boolean => !!a && !!b && length(sub(a.p, b.p)) < 1e-4;
 
 type BranchWay = NonNullable<ReturnType<typeof branchWay>>;
@@ -1300,6 +1357,8 @@ interface Segment {
   readonly mode: MoveMode | null;
   /** Gait speed, in sizes a second (0 when it stays put). */
   readonly pace: number;
+  /** The perches it goes by on a route over the wood (see `searchRoute`). */
+  readonly via?: readonly number[];
   /** The heading it turns from as it settles, when that is not `yaw`. */
   readonly turn?: number;
   /** The food it eats while it stays (a `Food.key`). */
@@ -1328,6 +1387,8 @@ interface Actor {
   back: Anchor | null;
   /** Its troupe, itself included, to keep out of each other's way. */
   mates: readonly Actor[];
+  /** Which share of the tree's limbs is its troupe's, of how many, so troupes keep to their own without watching each other. */
+  limbs: readonly [number, number];
   /** The whole herd's meals, so no fruit is eaten twice. */
   readonly pantry: Pantry;
 }
@@ -1365,14 +1426,92 @@ function modeFor(actor: Actor, act: Action, from: Place, to: Place): MoveMode {
   return "walk";
 }
 
-function pathFor(mode: MoveMode, from: Place, to: Place, scene: Scene, size: number, spring = 0, loop?: Loop): PathPoint[] {
+const HOP_REACH = 1.4;
+const HOP_COST = 1.6;
+/** Going over wood it wouldn't sit on: thinner will do, for a step. */
+const PASS_OVER = 0.05;
+const CROWD_COST = 6;
+/** Past this many perches a route isn't worth searching for: the way by the trunk is good enough. */
+const MOST_ROUTED = 240;
+
+/** A step between two perches: along their limb when they share one, else a hop across the air. */
+function routeStep(from: Place, to: Place, stage: Stage): PathPoint[] {
+  const [a, b] = [anchorOf(from, stage, []), anchorOf(to, stage, [])];
+  const fork = sameLimb(branchWay(from, stage), branchWay(to, stage));
+  return [{ p: a.p, up: a.up }, ...(fork ?? []), { p: b.p, up: b.up }];
+}
+
+/** A climber's way by the perches of its route. */
+function routePath(from: Place, to: Place, via: readonly number[], stage: Stage): PathPoint[] {
+  const stops: Place[] = [from, ...via.map((i): Place => ({ on: "perch", i })), to];
+  return stops.slice(1).flatMap((stop, k) => routeStep(stops[k] ?? stop, stop, stage));
+}
+
+/** What a step between two perches costs a climber: none it can't take. */
+function stepCost(a: Perch, b: Perch, size: number): number {
+  const d = length(sub(a.p, b.p));
+  const key = (perch: Perch): string | null => { const root = perch.path?.[1]; return root ? woodKey(root) : null; };
+  if (key(a) !== null && key(a) === key(b)) return d;
+  return d <= size * HOP_REACH ? d * HOP_COST : Infinity;
+}
+
+/** The cheapest perch not yet settled. */
+function nearestOpen(costs: readonly number[], settled: ReadonlySet<number>): number {
+  let best = -1;
+  costs.forEach((cost, i) => { if (!settled.has(i) && cost < Infinity && (best < 0 || cost < (costs[best] ?? Infinity))) best = i; });
+  return best;
+}
+
+/**
+ * The cheapest way over the perches from one to another (Dijkstra, the wood
+ * being a graph), mates' places dear, or null when none joins them. Searched
+ * once, when the trip is planned, and kept with it: the trip is the same at any
+ * frame rate, and only its own troupe's places bear on it.
+ */
+export function searchRoute(stage: Stage, start: number, goal: number, size: number, crowd: (i: number) => number): { via: number[]; cost: number } | null {
+  const list = stage.perches ?? [];
+  const costs = list.map((): number => Infinity);
+  const before = list.map((): number => -1);
+  const settled = new Set<number>();
+  costs[start] = 0;
+  for (let at = start; at >= 0 && at !== goal; at = nearestOpen(costs, settled)) {
+    settled.add(at);
+    const from = list[at];
+    const reached = costs[at] ?? 0;
+    list.forEach((next, i) => {
+      if (!from || settled.has(i) || (i !== goal && next.r < size * PASS_OVER)) return;
+      const cost = reached + stepCost(from, next, size) + crowd(i);
+      if (cost < (costs[i] ?? Infinity)) { costs[i] = cost; before[i] = at; }
+    });
+  }
+  if ((costs[goal] ?? Infinity) === Infinity) return null;
+  const via: number[] = [];
+  for (let i = before[goal] ?? -1; i >= 0 && i !== start; i = before[i] ?? -1) via.unshift(i);
+  return { via, cost: costs[goal] ?? Infinity };
+}
+
+/** Where a climber goes by on its way between two branches, when that beats going round by the trunk. */
+function routeVia(actor: Actor, from: Place, to: Place, scene: Scene): readonly number[] | undefined {
+  const { stage } = scene;
+  const count = stage.perches?.length ?? 0;
+  if (from.on !== "perch" || to.on !== "perch" || count === 0 || count > MOST_ROUTED) return undefined;
+  const wrap = (i: number): number => ((i % count) + count) % count;
+  const size = actor.member.size;
+  const crowd = (i: number): number => (perchFree(actor, scene, i) ? 0 : size * CROWD_COST);
+  const found = searchRoute(stage, wrap(from.i), wrap(to.i), size, crowd);
+  if (!found || found.via.length === 0) return undefined;
+  const byTrunk = pathLength(climbPath(from, to, anchorOf(from, stage, []), anchorOf(to, stage, []), stage, size));
+  return found.cost < byTrunk ? found.via : undefined;
+}
+
+function pathFor(mode: MoveMode, from: Place, to: Place, scene: Scene, size: number, spring = 0, loop?: Loop, via?: readonly number[]): PathPoint[] {
   const a = anchorOf(from, scene.stage, scene.backs);
   const b = anchorOf(to, scene.stage, scene.backs);
   const onWood = to.on === "perch" || to.on === "trunk";
   if (mode === "fly" && loop?.kind === "sortie") return sortiePath(a, b, scene.stage, size, loop, from.on !== "ground", onWood);
   if (mode === "fly" && loop?.kind === "flutter") return flutterPath(a, b, scene.stage, size, loop);
   if (mode === "fly") return flyPath(a, b, scene.stage, size, onWood);
-  if (mode === "climb") return climbPath(from, to, a, b, scene.stage, size);
+  if (mode === "climb") return via ? routePath(from, to, via, scene.stage) : climbPath(from, to, a, b, scene.stage, size);
   return walkPath(a, b, scene.stage, size, spring);
 }
 
@@ -1417,17 +1556,22 @@ function trunkSide(actor: Actor, to: Place, scene: Scene): Place | null {
 }
 
 /** `loop` shapes a flight (a sortie round the tree); `speed` (scene units a second) then sets its pace. */
+function paceOf(actor: Actor, act: Action, mode: MoveMode, hurry: number, speed?: number): number {
+  return speed !== undefined && mode === "fly" ? speed / actor.member.size : actor.spec.speed * (PACE[act] ?? 1) * hurry * (mode === "fly" ? 2.5 : 1);
+}
+
 function leg(actor: Actor, there: Place, act: Action, scene: Scene, hurry: number, loop?: Loop, speed?: number): void {
   const to: Place = there.on === "ground" ? onGround(scene.stage, actor.member.size, there.x, there.z) : there;
   const mode = modeFor(actor, act, actor.place, to);
   // A bug never flies straight: it flutters, on its own seeded jinks and loops.
   const way = loop ?? (mode === "fly" && actor.spec.plan === "bug" ? flutterOf(actor, scene) : undefined);
-  const path = pathFor(mode, actor.place, to, scene, actor.member.size, springOf(actor), way);
-  const pace = speed !== undefined && mode === "fly" ? speed / actor.member.size : actor.spec.speed * (PACE[act] ?? 1) * hurry * (mode === "fly" ? 2.5 : 1);
+  const via = mode === "climb" ? routeVia(actor, actor.place, to, scene) : undefined;
+  const path = pathFor(mode, actor.place, to, scene, actor.member.size, springOf(actor), way, via);
+  const pace = paceOf(actor, act, mode, hurry, speed);
   const duration = Math.max(0.5, pathLength(path) / Math.max(0.02, pace * actor.member.size));
   const end = alongPath(path, 1);
   const t0 = actor.until;
-  actor.segments.push({ act, t0, t1: t0 + duration, from: actor.place, to, yaw: actor.yaw, face: -1, mode, pace, ...(way && mode === "fly" ? { loop: way } : {}) });
+  actor.segments.push({ act, t0, t1: t0 + duration, from: actor.place, to, yaw: actor.yaw, face: -1, mode, pace, ...(way && mode === "fly" ? { loop: way } : {}), ...(via ? { via } : {}) });
   actor.until = t0 + duration;
   actor.place = to;
   if (Math.hypot(end.fw[0], end.fw[2]) > 0.2) actor.yaw = Math.atan2(end.fw[0], end.fw[2]);
@@ -1454,24 +1598,30 @@ function offWood(p: Vec, a: Wood, b: Wood): number {
 
 /** Whether a body sat on perch `i` keeps out of every limb but its own. */
 function woodClear(stage: Stage, i: number, size: number): boolean {
-  const list = stage.perches ?? [];
   const perch = perchOf(stage, i);
   if (!perch) return true;
-  const own = new Set((perch.path ?? []).map((wood) => wood.p));
+  const own = new Set((perch.path ?? []).map(woodKey));
+  const map = woodMapOf(stage);
   const body = add(perch.p, [0, perch.r + size * 0.3, 0]);
   const around = [body, madd(body, perch.d, size * 0.4), madd(body, perch.d, -size * 0.4)];
-  const clearOf = (wood: readonly Wood[], k: number): boolean => {
-    const [a, b] = [wood[k], wood[k + 1]];
-    return !a || !b || own.has(a.p) || own.has(b.p) || around.every((p) => offWood(p, a, b) >= size * 0.18);
-  };
-  return list.every((other) => (other.path ?? []).every((_, k, wood) => clearOf(wood, k)));
+  const reach = size * 0.18 + map.thickest;
+  return around.every((p) => woodNear(map, p, reach).every((edge) => own.has(edge.keys[0]) || own.has(edge.keys[1]) || offWood(p, edge.a, edge.b) >= size * 0.18));
 }
 
 /** Whether no one in the troupe sits there, or is on the way, within a body's length. */
 function perchFree(actor: Actor, scene: Scene, i: number): boolean {
   const at = placeTop({ on: "perch", i }, scene);
   const wooded = (place: Place): boolean => place.on === "perch" || place.on === "trunk";
-  return actor.mates.every((mate) => mate === actor || !wooded(mate.place) || length(sub(placeTop(mate.place, scene), at)) >= (mate.member.size + actor.member.size) * 0.75);
+  const limb = limbOf(scene.stage, i);
+  // (A snake takes up its whole limb, lying along it.)
+  const shares = (mate: Actor): boolean => (liesAlong(actor) || liesAlong(mate)) && mate.place.on === "perch" && limbOf(scene.stage, mate.place.i) === limb;
+  return actor.mates.every((mate) => mate === actor || !wooded(mate.place) || (!shares(mate) && length(sub(placeTop(mate.place, scene), at)) >= (mate.member.size + actor.member.size) * 0.75));
+}
+
+/** Which limb a perch is on, as a number that doesn't depend on the order perches are listed. */
+function limbOf(stage: Stage, i: number): number {
+  const root = perchOf(stage, i)?.path?.[1]?.p ?? perchOf(stage, i)?.p ?? [0, 0, 0];
+  return Math.abs(Math.round(Math.atan2(root[2], root[0]) * 3 + root[1] * 7));
 }
 
 /** A branch to sit on, thick enough to take the animal (a monkey keeps off the twigs a songbird uses), out from the trunk, with room among the wood and a place free of the others. */
@@ -1482,7 +1632,8 @@ function randomPerch(actor: Actor, scene: Scene): Place {
     i = Math.floor(actor.rand() * 9973);
     // (The last tries take any free place that will bear it, when a small tree has nothing better.)
     const fits = (perchOf(scene.stage, i)?.r ?? 1) >= size * 0.12 && perchRoom(scene.stage, i, size) && (attempt >= 12 || woodClear(scene.stage, i, size));
-    if (fits && perchFree(actor, scene, i)) break;
+    const ours = attempt >= 8 || limbOf(scene.stage, i) % actor.limbs[1] === actor.limbs[0];
+    if (fits && ours && perchFree(actor, scene, i)) break;
   }
   return { on: "perch", i };
 }
@@ -1493,7 +1644,7 @@ function roomyPerch(stage: Stage, i: number, size: number, beside?: number, apar
   const near = beside === undefined ? null : perchOf(stage, beside)?.p ?? null;
   const roomy = (j: number): boolean => {
     const at = perchOf(stage, j)?.p;
-    return perchRoom(stage, j, size) && (!near || !at || length(sub(at, near)) >= apart);
+    return perchRoom(stage, j, size) && woodClear(stage, j, size) && (!near || !at || length(sub(at, near)) >= apart);
   };
   for (let k = 0; k < count; k += 1) {
     for (const j of [i + k, i - k]) if (roomy(j)) return j;
@@ -2405,20 +2556,24 @@ function trailBehind(path: readonly PathPoint[], share: number): Vec[] {
 }
 
 /** The wood behind a perch, from its tip back to the trunk and down it. */
-function perchTrail(place: Place, scene: Scene, turns: number): Vec[] | undefined {
+function perchTrail(place: Place, scene: Scene): Vec[] | undefined {
   const way = branchWay(place, scene.stage);
   if (!way) return undefined;
-  // (Winding round the trunk, each its own way, so two that share it lie apart.)
-  const wound = Array.from({ length: TRUNK_WINDS }, (_, i) => trunkPoint(scene.stage, way.foot.h * (1 - (i + 1) / TRUNK_WINDS), way.foot.a + (i + 1) * turns).p);
+  // (Winding round the trunk at one pitch: two that share it, from different limbs, never cross.)
+  const wound = Array.from({ length: TRUNK_WINDS }, (_, i) => {
+    const h = way.foot.h * (1 - (i + 1) / TRUNK_WINDS);
+    return trunkPoint(scene.stage, h, way.foot.a + (way.foot.h - h) * TRUNK_PITCH).p;
+  });
   return [...[...way.points].reverse().map((point) => point.p), ...wound];
 }
 
 const TRUNK_WINDS = 10;
+const TRUNK_PITCH = 11;
 const liesAlong = (actor: Actor): boolean => actor.spec.plan === "serpent" && actor.spec.build.leg === 0;
 
 function movingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, from = segment.yaw): { frame: Frame; phase: number; moving: number; trail?: readonly Vec[] } {
   const mode = segment.mode ?? "walk";
-  const path = pathFor(mode, segment.from, segment.to, scene, actor.member.size, springOf(actor), segment.loop);
+  const path = pathFor(mode, segment.from, segment.to, scene, actor.member.size, springOf(actor), segment.loop, segment.via);
   const d = Math.max(0.01, segment.t1 - segment.t0);
   const u = clamp((t - segment.t0) / d, 0, 1);
   const stride = bodyStride(actor);
@@ -2505,7 +2660,7 @@ function momentOf(actor: Actor, t: number, scene: Scene, partners: readonly Acto
     const { frame, phase, moving, trail } = movingFrame(actor, segment, t, scene, from);
     return { frame, trail: trail && overLimbs(trail, actor, scene.stage), phase, moving, pace: segment.pace, mode: segment.mode, segment, pose, t };
   }
-  const trail = liesAlong(actor) ? perchTrail(segment.to, scene, actor.index % 2 === 0 ? 0.7 : -0.7) : undefined;
+  const trail = liesAlong(actor) ? perchTrail(segment.to, scene) : undefined;
   const lying = trail && overLimbs(trail, actor, scene.stage);
   return { frame: restingFrame(actor, segment, t, scene, partners, from ?? segment.turn), trail: lying, phase: 0, moving: 0, pace: 0, mode: null, segment, pose, t };
 }
@@ -5394,6 +5549,8 @@ function serpentSpine(who: Who, m: Moment): Vec[] {
   const n = lizard ? 8 : 12;
   const r0 = b.body * size;
   const seg = size / n;
+  // (A coil wants the ground: on the wood it stays laid along the branch.)
+  const flat = lizard || m.trail ? 0 : q.curl;
   const points: Vec[] = [];
   for (let i = 0; i <= n; i += 1) {
     const moving = m.moving * Math.sin(TAU * m.phase * 0.8 - i * 0.7) * size * 0.06 * (lizard ? 0.4 : 1) * Math.min(1, i / 3);
@@ -5405,8 +5562,8 @@ function serpentSpine(who: Who, m: Moment): Vec[] {
     const ring = r0 * (8.5 - i * 0.42);
     const coil: Vec = [Math.cos(a) * ring, r0 + (n - i) * r0 * 0.2, Math.sin(a) * ring - r0 * 8.5];
     const lift = Math.max(0, 3 - i) / 3;
-    const rear = lizard ? 0 : q.curl * lift * size * 0.14;
-    points.push(add(lerpV(straight, coil, lizard ? 0 : q.curl), [0, rear + lift * (q.headPitch * size * 0.08 + q.mouth * size * 0.02), 0]));
+    const rear = flat === 0 ? 0 : q.curl * lift * size * 0.14;
+    points.push(add(lerpV(straight, coil, flat), [0, rear + lift * (q.headPitch * size * 0.08 + q.mouth * size * 0.02), 0]));
   }
   return points;
 }
@@ -7044,6 +7201,8 @@ export interface Herd {
   readonly cast: Cast;
   /** Every resident animal posed at `t` seconds, on this frame's stage. */
   at(t: number, stage: Stage): Body[];
+  /** What the last `at` left passing through what, for testing a scene: it reads each animal's own route, so a branch it walks never counts. */
+  clipping(): Clipping;
   /** What is passing over at `t`: birds, bats, craft, lights; `now` says what the sky is like, so what comes fits it. */
   sky(t: number, now?: SkyNow): Body[];
   /**
@@ -7074,7 +7233,7 @@ function actorOf(member: CastMember, index: number, seed: number, centre: Place,
   const spec = specOf(member);
   const near = anchorOf(centre, stage, []).p;
   const place: Place = startsUp(member, stage, rand) ? { on: "perch", i: Math.floor(rand() * 9973) } : groundSpot(rand, stage, member.size, near, member.size * 3 + 0.3, taken);
-  const actor: Actor = { index, member, spec, rand, day: matrixOf(spec, {}), night: matrixOf(spec, { night: true }), moods: new Map(), segments: [], until: 0, place, yaw: rand() * TAU, last: "stand", pos: anchorOf(place, stage, []).p, back: null, mates: [], pantry };
+  const actor: Actor = { index, member, spec, rand, day: matrixOf(spec, {}), night: matrixOf(spec, { night: true }), moods: new Map(), segments: [], until: 0, place, limbs: [0, 1], yaw: rand() * TAU, last: "stand", pos: anchorOf(place, stage, []).p, back: null, mates: [], pantry };
   stay(actor, spec.plan === "bug" ? "hover" : "stand", 0.3 + rand() * 1.5);
   return actor;
 }
@@ -7091,7 +7250,13 @@ function troupesOf(cast: Cast, stage: Stage, pantry: Pantry): Troupe[] {
       const taken = actors.filter((actor) => actor.place.on === "ground").map((actor) => ({ p: anchorOf(actor.place, stage, []).p, size: actor.member.size }));
       actors.push(actorOf(member, i, cast.seed + g * 101, centre, stage, taken, pantry));
     });
-    for (const actor of actors) actor.mates = actors;
+    const scene: Scene = { stage, backs: [] };
+    for (const actor of actors) {
+      actor.mates = actors;
+      actor.limbs = [g, cast.groups.length];
+    }
+    // (Dropped in at random to begin with: any that landed on another moves along.)
+    for (const actor of actors) if (actor.place.on === "perch" && !(perchFree(actor, scene, actor.place.i) && woodClear(stage, actor.place.i, actor.member.size))) actor.place = randomPerch(actor, scene);
     return { kind: group.kind, actors, rand, cohesion: COHESION[group.kind] };
   });
 }
@@ -7315,7 +7480,7 @@ function footprintOf(actor: Actor, m: Moment, capsules: readonly Capsule[], team
 
 /** A trail lifted over each limb that lies across it, so a snake on the trunk drapes over the branches it meets. */
 function overLimbs(trail: readonly Vec[], actor: Actor, stage: Stage): Vec[] {
-  const limbs = limbsOf(stage);
+  const limbs = woodMapOf(stage);
   const r = actor.spec.build.body * actor.member.size * 2.4;
   return trail.map((p) => add(p, clearOfLimbs({ balls: [p], r, weight: 1, side: UP }, limbs)));
 }
@@ -7325,37 +7490,66 @@ export interface WoodPrint { readonly balls: readonly Vec[]; readonly r: number;
 
 const onWood = (place: Place): boolean => place.on === "perch" || place.on === "trunk";
 
+/** The wood a trip goes by, which is no obstacle to it: the limbs at either end, and those of its route. */
+function ownWood({ from, to, via = [] }: Segment, stage: Stage): Wood[] {
+  const limb = (place: Place): readonly Wood[] => (place.on === "perch" ? perchOf(stage, place.i)?.path ?? [] : []);
+  return [...limb(from), ...limb(to), ...via.flatMap((i) => limb({ on: "perch", i }))];
+}
+
 /** An animal's place in the tree; none on the ground, in the air, or on another's back. */
 function woodPrintOf(actor: Actor, m: Moment, capsules: readonly Capsule[], stage: Stage): WoodPrint | null {
   const { from, to } = m.segment;
-  if (m.mode === "fly" || !(onWood(from) || onWood(to)) || from.on === "back" || to.on === "back") return null;
+  if (!(onWood(from) || onWood(to)) || from.on === "back" || to.on === "back") return null;
   const body = trunkOfBody(m, capsules);
   if (!body) return null;
   // (One sat still is harder to shift: it's the climber going by that swings round it.)
   const weight = actor.member.size * actor.member.size * (m.moving > 0.2 ? 1 : 4);
-  const limb = (place: Place): readonly Wood[] => (place.on === "perch" ? perchOf(stage, place.i)?.path ?? [] : []);
   // (A snake lies along its way, not its heading.)
   const balls = m.trail ? capsules.filter((c) => c.part.startsWith("body.")).filter((_, i) => i % 2 === 0).map((c) => c.a) : body.centres;
-  return { balls, r: body.r * 0.8, weight, side: m.frame.x, own: [...limb(from), ...limb(to)] };
+  return { balls, r: body.r * 0.8, weight, side: m.frame.x, own: ownWood(m.segment, stage) };
 }
 
-/** Every stretch of branch in the tree. */
-const limbsOf = (stage: Stage): (readonly [Wood, Wood])[] => (stage.perches ?? []).flatMap((perch) => (perch.path ?? []).slice(1).map((wood, k): readonly [Wood, Wood] => [(perch.path ?? [])[k] ?? wood, wood]));
-
 /** How far a body leans to go round the deepest limb in its way that isn't one it is on. A function of where it is now, so it swings round the wood and back. */
-export function clearOfLimbs(print: WoodPrint, limbs: readonly (readonly [Wood, Wood])[]): Vec {
-  const own = print.own ?? [];
+export function clearOfLimbs(print: WoodPrint, map: WoodMap): Vec {
+  const own = new Set((print.own ?? []).map(woodKey));
+  const keep = print.r * 0.85;
   let lean: Vec = [0, 0, 0];
   let deepest = 0;
-  for (const ball of print.balls) for (const [a, b] of limbs) {
-    const gap = print.r * 0.7 - offWood(ball, a, b);
-    if (gap <= deepest || own.some((wood) => sameWood(wood, a) || sameWood(wood, b))) continue;
+  for (const ball of print.balls) for (const { a, b, keys } of woodNear(map, ball, keep + map.thickest)) {
+    const gap = keep - offWood(ball, a, b);
+    // (A branch forking off its own is one it touches: it only goes round the rest.)
+    if (gap <= deepest || own.has(keys[0]) || own.has(keys[1])) continue;
     const ab = sub(b.p, a.p);
     const k = clamp(dot(sub(ball, a.p), ab) / Math.max(1e-9, dot(ab, ab)), 0, 1);
     deepest = gap;
     lean = scale(unit(sub(ball, madd(a.p, ab, k)), print.side), gap);
   }
   return lean;
+}
+
+/** What `Herd.clipping` found: bodies through wood not their own, and pairs of bodies through each other. */
+export interface Clipping { readonly wood: readonly string[]; readonly bodies: readonly (readonly [string, string])[] }
+
+/** Points down the thick of a body, each with its radius. */
+function bodyCores(body: Body): { p: Vec; r: number }[] {
+  const thick = body.capsules.filter((c) => c.decal !== true && c.carve !== true);
+  const most = thick.reduce((high, c) => Math.max(high, c.r), 0);
+  return thick.filter((c) => c.r >= most * 0.6).flatMap((c) => [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: lerpV(c.a, c.b, k), r: c.r })));
+}
+
+function inWood(cores: readonly { p: Vec; r: number }[], own: ReadonlySet<string>, map: WoodMap): boolean {
+  return cores.some(({ p, r }) => woodNear(map, p, r * 0.55 + map.thickest).some(({ a, b, keys }) => !own.has(keys[0]) && !own.has(keys[1]) && offWood(p, a, b) + mix(a.r, b.r, 0.5) * 0.7 < r * 0.55));
+}
+
+const inOther = (a: readonly { p: Vec; r: number }[], b: readonly { p: Vec; r: number }[]): boolean => a.some((x) => b.some((y) => length(sub(x.p, y.p)) < 0.6 * (x.r + y.r)));
+
+/** Reads a frame for what really passes through what, knowing each animal's own way over the wood. */
+function clippingOf(frame: readonly { body: Body; own: readonly Wood[] }[], map: WoodMap): Clipping {
+  const cores = frame.map(({ body }) => bodyCores(body));
+  const wood = frame.filter(({ own }, i) => inWood(cores[i] ?? [], new Set(own.map(woodKey)), map)).map(({ body }) => body.id);
+  const bodies: (readonly [string, string])[] = [];
+  frame.forEach(({ body }, i) => { for (let j = i + 1; j < frame.length; j += 1) { const other = frame[j]; if (other && inOther(cores[i] ?? [], cores[j] ?? [])) bodies.push([body.id, other.body.id]); } });
+  return { wood, bodies };
 }
 
 /**
@@ -7406,7 +7600,8 @@ interface Posed { readonly id: string; readonly actor: Actor; readonly m: Moment
 /** Everyone as posed, pushed clear of each other and made into bodies. */
 function settledBodies(posed: readonly Posed[], prints: readonly (Footprint | null)[]): Body[] {
   const shoves = shoveApart([...prints, ...posed.slice(0, 1).map(({ scene }) => treePrint(scene.stage))]);
-  const limbs = posed[0] ? limbsOf(posed[0].scene.stage) : [];
+  const stage = posed[0]?.scene.stage;
+  const limbs = stage ? woodMapOf(stage) : { edges: [], cells: new Map<number, number[]>(), thickest: 0 };
   const woodPrints = posed.map(({ actor, m, capsules, scene }) => woodPrintOf(actor, m, capsules, scene.stage));
   const leans = passOnWood(woodPrints);
   return posed.map(({ id, actor, m, capsules, scene }, i) => {
@@ -7421,6 +7616,7 @@ function settledBodies(posed: readonly Posed[], prints: readonly (Footprint | nu
 /** The scene's living cast: call `at` every frame with the stage, and `sky` for what flies over. */
 export function createHerd(cast: Cast): Herd {
   let troupes: Troupe[] | null = null;
+  let read = (): Clipping => ({ wood: [], bodies: [] });
   const pantry: Pantry = new Map();
   const passes: Pass[] = [];
   const clock = { last: 0 };
@@ -7454,8 +7650,11 @@ export function createHerd(cast: Cast): Herd {
           prints.push(footprintOf(actor, m, capsules, g));
         }
       });
-      return settledBodies(posed, prints);
+      const bodies = settledBodies(posed, prints);
+      read = () => clippingOf(bodies.map((body, i) => ({ body, own: ownWood(posed[i]?.m.segment ?? FLY_SEGMENT, stage) })), woodMapOf(stage));
+      return bodies;
     },
+    clipping: () => read(),
     sky(t: number, now: SkyNow = {}): Body[] {
       const reach = now.radius ?? 1;
       passesUntil(passes, clock, skyRand, cast.sky.every, t, (start) => {

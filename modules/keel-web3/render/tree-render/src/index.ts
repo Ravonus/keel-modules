@@ -2903,11 +2903,11 @@ function bakeClumps(lit: LitLike, bake: Bake, variant: ForestVariant, cells: num
   const m = new Float32Array(16);
   for (const mass of masses.values()) {
     const x = mass.x / mass.n, y = mass.y / mass.n, z = mass.z / mass.n;
-    // A needle bough is a thin tier, not a ball; and the lump sits inside the leaves, never past them.
-    const r = cell * Math.min(needles ? 0.5 : 0.72, 0.28 + 0.07 * Math.sqrt(mass.n));
-    m.fill(0); m[0] = r; m[5] = r * (needles ? 0.4 : 0.8); m[10] = r; m[12] = x; m[13] = y; m[14] = z; m[15] = 1;
+    // The lump sits well inside the leaves, never past them: it only fills the gaps.
+    const r = cell * Math.min(0.5, 0.2 + 0.05 * Math.sqrt(mass.n));
+    m.fill(0); m[0] = r; m[5] = r * 0.8; m[10] = r; m[12] = x; m[13] = y; m[14] = z; m[15] = 1;
     // Under the leaves, so it reads as the shadowed heart of the mass.
-    const s = (mass.shade / mass.n) * 0.78;
+    const s = (mass.shade / mass.n) * 0.7;
     appendShape(bake, template, m, [s, s, s], { leaf: [mass.rank / mass.n, mass.tone], stalk: [x, y, z], wind: (y / height) ** 2 });
   }
 }
@@ -2915,7 +2915,8 @@ function bakeClumps(lit: LitLike, bake: Bake, variant: ForestVariant, cells: num
 function bakedGeometry(lit: LitLike, variant: ForestVariant, spec: RungSpec): GeometryLike {
   const bake: Bake = { positions: [], normals: [], colors: [], leaf: [], stalk: [], wind: [] };
   bakeWood(lit, bake, variant, spec.wood, spec.sides);
-  if (spec.clumps > 0) bakeClumps(lit, bake, variant, spec.clumps);
+  // A conifer's boughs are its branches and needles: a lump there would only float.
+  if (spec.clumps > 0 && NEEDLE_KINDS[variant.model.species.id] === undefined) bakeClumps(lit, bake, variant, spec.clumps);
   bakeLeaves(lit, bake, variant, spec.leaves, spec.fill, spec.leafSize, spec.needles);
   const geometry = new lit.Geometry();
   geometry.setAttribute("position", new lit.Attribute(new Float32Array(bake.positions), 3));
@@ -3162,7 +3163,7 @@ function ladderTree(lit: ForestLitLike, variant: ForestVariant, options: ForestO
   const specs: readonly (readonly [RungSpec, number])[] = [
     [{ wood: 0.012, sides: 9, leaves: 6000, fill: 4, leafSize: 0.7, needles: 24, clumps: 0 }, lod.x * LADDER_CLOSE],
     [{ wood: options.minRadius ?? 0.025, sides: 6, leaves: options.maxLeaves ?? 1600, fill: 1, needles: 9, clumps: 0 }, lod.x],
-    [{ wood: 0.06, sides: 3, leaves: 220, fill: 1, needles: 4, clumps: 6 }, lod.x * LADDER_LAYERED],
+    [{ wood: 0.03, sides: 3, leaves: 280, fill: 1, leafSize: 1.3, needles: 4, clumps: 6 }, lod.x * LADDER_LAYERED],
   ];
   let from = 0;
   const rungs = specs.map(([spec, to], index): Rung => {

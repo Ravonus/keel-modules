@@ -493,7 +493,7 @@ export const SPECIES = {
     temper: { sing: 2.6, peck: 2.2, hop: 2, preen: 1.6, look: 1.4, fly: 2.2 }, friends: ["deer", "rabbit", "bear", "capybara", "tortoise", "squirrel"] }),
   crow: define({ label: "Crow", plan: "bird", size: 0.24, rarity: "common", weight: 34, regions: ALL_REGIONS, worlds: ["nature", "voxel", "city", "synth", "crystal"], speed: 1.2, active: "day", groups: [5, 3, 1, 3], pack: [3, 5],
     build: { ...OUTLINE.corvid, bill: 0.5, len: 1.15, leg: 0.24, body: 0.2, neck: 0.12, rise: 0.3, head: 0.15, snout: 0.2, ears: "none", tail: "fan", tailLen: 0.5 },
-    coats: [["crow", ["#23262e", "#1b1e28", "#2e3038", "#08080a", "#2c3040"]], ["hooded", ["#8a8a8e", "#1a1a1e", "#9a9a9e", "#0a0a0c", "#2a2a2e"]]],
+    coats: [["crow", ["#23262e", "#1b1e28", "#2e3038", "#08080a", "#2c3040"]], ["hooded", ["#66676c", "#1a1a1e", "#74757a", "#0a0a0c", "#2a2a2e"]]],
     temper: { peck: 2.4, look: 2, hop: 1.6, flap: 1.2, sing: 0.8, fly: 2 }, friends: ["deer", "cat", "wolf"] }),
   owl: define({ label: "Owl", plan: "bird", size: 0.3, rarity: "rare", weight: 10, regions: ["rockies", "atlantic", "alps", "tokyo", "nairobi"], worlds: ["nature", "voxel", "crystal", "city"], speed: 0.8, active: "night", groups: [8, 2, 2, 0],
     build: { ...OUTLINE.strigid, bill: 0.3, len: 0.9, leg: 0.26, body: 0.37, neck: 0.04, rise: 1.2, head: 0.25, snout: 0.06, ears: "tuft", tail: "fan", tailLen: 0.3 },
@@ -2666,8 +2666,24 @@ function movingFrame(actor: Actor, segment: Segment, t: number, scene: Scene, fr
   if (mode !== "climb" && turning < 1) fw = dirOf(turnToward(from, Math.atan2(fw[0], fw[2]), smooth(turning)), Math.asin(clamp(fw[1], -1, 1)));
   const moving = clamp(Math.min(1, (t - segment.t0) / 0.25, (segment.t1 - t) / 0.25), 0, 1);
   if (mode === "fly") return { frame: flyingFrame(actor, segment, t, path, share, at.p, fw), phase: at.travelled / stride, moving };
-  const p = add(at.p, [0, hopLift(actor, segment, mode, at.travelled) * moving, 0]);
+  const p = add(mode === "climb" ? outOfWood(at.p, scene.stage) : at.p, [0, hopLift(actor, segment, mode, at.travelled) * moving, 0]);
   return { frame: frameOf(p, fw, at.up), phase: at.travelled / stride, moving, ...(mode === "climb" && liesAlong(actor) ? { trail: trailBehind(path, share) } : {}) };
+}
+
+/** A point on a way, brought out of any wood it cuts: a straight stretch between two bends runs through the bend's inside, and through a fork's other limb. */
+function outOfWood(p: Vec, stage: Stage): Vec {
+  const map = woodMapOf(stage);
+  let out: Vec = [0, 0, 0];
+  let deepest = 0;
+  for (const { a, b } of woodNear(map, p, map.thickest)) {
+    const depth = -offWood(p, a, b);
+    if (depth <= deepest) continue;
+    const ab = sub(b.p, a.p);
+    const k = clamp(dot(sub(p, a.p), ab) / Math.max(1e-9, dot(ab, ab)), 0, 1);
+    deepest = depth;
+    out = scale(unit(sub(p, madd(a.p, ab, k)), UP), depth);
+  }
+  return add(p, out);
 }
 
 /**
@@ -5385,6 +5401,9 @@ function owlTail(kit: Kit, who: Who, body: BirdBody): void {
 const TRAIN_SPREAD = 15;
 
 /** A peacock's train: tiers of separate long feathers, spread or closed. */
+/** A feather's flat face, square to its own length: the outermost of a fan still shows its face and not its edge. */
+const featherFace = (dir: Vec, want: Vec): Vec => unit(madd(want, dir, -dot(want, dir)), want);
+
 function trainFeathers(kit: Kit, who: Who, body: BirdBody, m: Moment, above: (tip: Vec, r: number) => Vec): void {
   const b = who.spec.build;
   const size = who.member.size;
@@ -5399,7 +5418,7 @@ function trainFeathers(kit: Kit, who: Who, body: BirdBody, m: Moment, above: (ti
     // (Closed, the middle feathers run longest, so the train comes to a point behind; spread, they make an even fan.)
     const tip = above(madd(body.T, dir, b.tailLen * size * mix(0.62 + 0.38 * Math.cos(a * 1.6), (fore ? 0.74 : 1) * (0.88 + 0.12 * Math.cos(a)), fan)), body.r * 0.42);
     // (Each feather a thin shaft at its root and broad toward its end; its shaft, barbs and eye are the renderer's to paint.)
-    cap(kit, `train.${String(i)}`, fan > 0.3 ? "shell" : "alt", body.T, tip, body.r * 0.07, 0.14, unit(lerpV(UP, [0, 0, 1], fan), UP), { r1: body.r * mix(0.5, fore ? 0.82 : 0.95, fan), melt: mix(1, 0.08, fan) });
+    cap(kit, `train.${String(i)}`, fan > 0.3 ? "shell" : "alt", body.T, tip, body.r * 0.07, 0.14, featherFace(dir, unit(lerpV(UP, [0, 0, 1], fan), UP)), { r1: body.r * mix(0.5, fore ? 0.82 : 0.95, fan), melt: mix(1, 0.08, fan) });
     // Closed, its eyespots show down each feather, a dark heart in each gold eye.
     if (fan <= 0.3) for (const [role, wide, detail] of [["accent", 0.13, undefined], ["dark", 0.06, 1]] as const) cap(kit, `eyespot.${String(i)}`, role, lerpV(body.T, tip, 0.4 + (i % 2) * 0.08), lerpV(body.T, tip, 0.96), body.r * wide, 1, UP, { row: 4, decal: true, ...(detail === undefined ? {} : { detail }) });
   }
@@ -5775,7 +5794,7 @@ function lizardLegs(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void
 /** Where a bug's body is: drifting over its spot, settled on a leaf, or flying between, at the same heights. */
 /** A firefly's own spot in the air, off its seed: anywhere round it, near or well out, low or high. */
 const fireflySpot = (seed: number): Vec => {
-  const out = 0.7 + 1.1 * ((seed * 13) % 1);
+  const out = 0.7 + 2 * Math.sqrt((seed * 13) % 1);
   return [Math.cos(seed * TAU) * out, 0.2 + 0.8 * ((seed * 37) % 1), Math.sin(seed * TAU) * out];
 };
 

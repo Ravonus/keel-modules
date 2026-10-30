@@ -423,6 +423,10 @@ export const SPECIES = {
     build: { ...OUTLINE.canid, taper: RUNNER_TAPER, len: 1.35, leg: 0.7, body: 0.25, neck: 0.3, rise: 0.55, head: 0.17, snout: 0.24, ears: "point", tail: "bushy", tailLen: 0.75, extras: ["ruff", "bib", "saddle", "muzzle"], earLen: 1.15, snoutTip: 0.45, chest: 1.25, haunch: 0.9, tailRise: -0.5, tailGirth: 0.9, legR: 0.95 },
     coats: [["grey", ["#7c7a74", "#4e4c48", "#e0dcd4", "#1e1c1a", "#d6d0c4"]], ["timber", ["#8a6a4a", "#4a3828", "#dcccb4", "#1c1610", "#cdb898"]], ["white", ["#e8e6e0", "#c8c4bc", "#ffffff", "#2a2826", "#ffffff"]], ["black", ["#2c2a2a", "#1a1818", "#4a4644", "#0c0a0a", "#5a5654"]]],
     temper: { howl: 2.4, sniff: 1.6, lie: 1.6, play: 1.4, look: 1.5, wander: 1.4, run: 0.6, graze: 0 }, friends: ["crow"] }),
+  dog: define({ label: "Dog", plan: "quad", size: 0.46, rarity: "uncommon", weight: 22, regions: ALL_REGIONS, worlds: ["city", "synth", "vapor", "nature"], speed: 1.2, groups: [3, 2, 1, 5],
+    build: { ...OUTLINE.canid, taper: RUNNER_TAPER, len: 1.1, leg: 0.52, body: 0.3, neck: 0.22, rise: 0.55, head: 0.2, snout: 0.2, ears: "point", tail: "bushy", tailLen: 0.8, extras: ["muzzle", "bib"], earLen: 0.8, snoutTip: 0.5, chest: 1.2, haunch: 0.95, tailRise: -0.2, tailGirth: 0.8, legR: 0.95 },
+    coats: [["golden", ["#c89a58", "#a87a3c", "#f0dcb4", "#2a1c10", "#e8cc98"]], ["black", ["#2a2826", "#1a1816", "#d8d0c4", "#0c0a08", "#f0ece4"]], ["brown", ["#7a5236", "#583822", "#c8a888", "#1c120a", "#b89878"]]],
+    temper: { sniff: 2.2, play: 2, sit: 1.8, sleep: 1.4, look: 1.6, wander: 1.8, run: 1, dig: 0.8, shake: 0.6, graze: 0 }, friends: ["cat", "deer"] }),
   bear: define({ label: "Bear", plan: "quad", size: 0.9, rarity: "rare", weight: 8, regions: ["rockies", "alps", "tokyo"], speed: 0.8, winter: false, groups: [6, 0, 3, 0],
     build: { len: 1.3, leg: 0.58, body: 0.36, neck: 0.42, rise: -0.05, head: 0.25, snout: 0.15, ears: "round", tail: "none", tailLen: 0.1, hip: 0.92, extras: ["hump", "muzzle"], foot: "plant", sit: "rump", legR: 1.5, chest: 1.15, earLen: 1.5, snoutTip: 0.8,
       // A round rump, a deep belly, the back rising to the hump over the shoulders; a broad skull dished down to a short, blunt muzzle.
@@ -2876,9 +2880,9 @@ const foreLeg = (leg: LegId): boolean => leg.startsWith("F");
 const QUAD_GAITS = {
   walk: { at: { HL: 0, FL: 0.25, HR: 0.5, FR: 0.75 }, duty: 0.64, lift: 0.14, bob: 0.02, flex: 0.01, air: 0 },
   trot: { at: { FL: 0, HR: 0, FR: 0.5, HL: 0.5 }, duty: 0.45, lift: 0.2, bob: 0.03, flex: 0.02, air: 0 },
-  gallop: { at: { HL: 0, HR: 0.1, FL: 0.42, FR: 0.52 }, duty: 0.3, lift: 0.26, bob: 0.03, flex: 0.08, air: 0.12 },
-  bound: { at: { HL: 0, HR: 0.04, FL: 0.5, FR: 0.54 }, duty: 0.32, lift: 0.3, bob: 0.04, flex: 0.1, air: 0.3 },
-  hop: { at: { HL: 0, HR: 0, FL: 0.5, FR: 0.5 }, duty: 0.32, lift: 0.3, bob: 0.03, flex: 0.04, air: 0.4 },
+  gallop: { at: { HL: 0, HR: 0.1, FL: 0.42, FR: 0.52 }, duty: 0.26, lift: 0.26, bob: 0.03, flex: 0.08, air: 0.2 },
+  bound: { at: { HL: 0, HR: 0.04, FL: 0.5, FR: 0.54 }, duty: 0.24, lift: 0.3, bob: 0.04, flex: 0.1, air: 0.6 },
+  hop: { at: { HL: 0, HR: 0, FL: 0.5, FR: 0.5 }, duty: 0.28, lift: 0.3, bob: 0.03, flex: 0.04, air: 0.7 },
 } as const;
 type QuadGait = (typeof QUAD_GAITS)[keyof typeof QUAD_GAITS];
 
@@ -2924,12 +2928,20 @@ function airborne(gait: QuadGait, phase: number): number {
   return Math.sin((Math.PI * (u - last)) / Math.max(1e-6, next - last));
 }
 
+/** Which way a leap is going: rising toward 1 on the way up, falling toward -1 on the way down, 0 on the ground. */
+function leaping(gait: QuadGait, phase: number): number {
+  const up = airborne(gait, phase + 0.012) - airborne(gait, phase - 0.012);
+  return clamp(up * 9, -1, 1);
+}
+
 function strideOf(gait: QuadGait, m: Moment, q: Pose, size: number, r: number, free: number): { lift: number; flex: number; reach: number } {
   const cyc = TAU * m.phase;
-  const bob = gait.bob * size * Math.cos(cyc * 2) + gait.air * size * airborne(gait, m.phase);
+  const arc = airborne(gait, m.phase);
+  // (A leap gathers on the ground: it sinks over its feet, drives up nose first and comes down nose first.)
+  const bob = gait.bob * size * Math.cos(cyc * 2) + gait.air * size * (arc - 0.08 * (1 - arc) ** 2);
   const hop = q.hop * 0.3 * size * (gait.air > 0 ? 2 : 1.6);
   const lift = -q.crouch * 0.25 * size + free * bob + q.lift * r + hop;
-  return { lift, flex: free * gait.flex * size * Math.sin(cyc), reach: free * gait.flex * size * 0.7 * Math.cos(cyc) };
+  return { lift, flex: free * size * (gait.flex * Math.sin(cyc) + gait.air * 0.55 * leaping(gait, m.phase)), reach: free * (gait.flex * size * 0.7 * Math.cos(cyc) + gait.air * size * 0.3 * arc) };
 }
 
 /** How far into each way of resting: an action's sit becomes this animal's own sit (a deer lies, a bear sits back). */
@@ -2990,8 +3002,10 @@ function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
   const gait = quadGait(actor, m);
   const free = m.moving * (1 - sit) * (1 - down) * (1 - up);
   const { lift, flex, reach } = strideOf(gait, m, q, size, r, free);
-  P = add(P, [0, lift - flex, -reach]);
-  S = add(S, [0, lift + flex, reach]);
+  // (However hard it lands, the belly stays out of the ground.)
+  const belly = free > 0 ? r * 1.5 : -Infinity;
+  P = [P[0], Math.max(P[1] + lift - flex, Math.min(P[1], belly)), P[2] - reach];
+  S = [S[0], Math.max(S[1] + lift + flex, Math.min(S[1], belly)), S[2] + reach];
   return { P, S, r, w: r * (b.stance ?? 0.72), L, legF: (shY - r * 0.45) * (bipedal(b) ? b.fore : 1), legH: hipY - r * 0.2, sit, loaf, lie, rump, haunch, rear, gait, free };
 }
 
@@ -3062,8 +3076,11 @@ function quadFoot(actor: Who, body: QuadBody, leg: LegId, q: Pose, m: Moment, he
     const lift = gait.lift * (fore ? body.legF : body.legH);
     const c = footCycle(m.phase - gait.at[leg], gait.duty, gait.duty * bodyStride(actor), lift);
     // (In a leap every foot is off the ground with the body: a rabbit's hop, a deer's bound.)
-    const air = gait.air * actor.member.size * airborne(gait, m.phase);
-    foot = add(foot, [0, (c.y + air) * body.free, c.z * body.free]);
+    const arc = airborne(gait, m.phase);
+    const air = gait.air * actor.member.size * arc;
+    // (Up there the legs reach out: the hind pair trailing from the push, the fore pair stretching for the ground.)
+    const reach = (fore ? 1 : -1) * gait.air * body.legH * 1.1 * arc;
+    foot = add(foot, [0, (c.y + air * 0.8) * body.free, (c.z + reach) * body.free]);
     // Swinging, the paw flips back under the wrist and the toes trail the hock.
     const swing = (c.y / Math.max(1e-9, lift)) * body.free;
     tilt += swing * (fore ? 1.5 : -0.95);
@@ -6934,7 +6951,23 @@ function contrastOf(who: Who, spec: PatternSpec): number {
   return Math.min(1, spec[3] * (sex === "male" ? 0.85 : 1.5));
 }
 
-function bodyOf(id: string, who: Who, m: Moment, capsules: readonly Capsule[], scene?: Scene): Body {
+/** Standing on the ground and upright, so the ground is under every part of it. */
+const onFloor = (m: Moment): boolean => m.mode !== "fly" && m.mode !== "climb" && m.segment.act !== "hang" && m.segment.from.on === "ground" && m.segment.to.on === "ground" && m.frame.y[1] > 0.9;
+
+/** No part goes through the ground: a rolling head, a lying belly or a planted paw rests on it. */
+function aboveFloor(capsules: readonly Capsule[], m: Moment): readonly Capsule[] {
+  if (!onFloor(m)) return capsules;
+  const floor = m.frame.o[1];
+  return capsules.map((c) => {
+    const lowA = floor + c.r - c.a[1];
+    const lowB = floor + (c.r1 ?? c.r) - c.b[1];
+    if (lowA <= 0 && lowB <= 0) return c;
+    return { ...c, a: lowA > 0 ? [c.a[0], c.a[1] + lowA, c.a[2]] : c.a, b: lowB > 0 ? [c.b[0], c.b[1] + lowB, c.b[2]] : c.b };
+  });
+}
+
+function bodyOf(id: string, who: Who, m: Moment, drawn: readonly Capsule[], scene?: Scene): Body {
+  const capsules = aboveFloor(drawn, m);
   return {
     id, kind: who.member.species, label: who.member.label, action: m.segment.act, morph: who.member.morph,
     at: m.frame.o, front: m.frame.z, capsules, glow: MORPHS[who.member.morph].glow, lit: MORPHS[who.member.morph].lit ?? [],
@@ -7872,4 +7905,161 @@ export function pickBody(bodies: readonly Body[], origin: Vec, direction: Vec, s
     }
   }
   return best;
+}
+
+/** What a foot comes down on. */
+export type Tread = "snow" | "sand" | "dirt";
+
+/** One foot's mark on the ground, where and as the critter actually set it down. */
+export interface Print {
+  readonly id: string;
+  readonly kind: string;
+  readonly shape: PrintShape;
+  readonly hind: boolean;
+  readonly x: number;
+  readonly z: number;
+  /** The way it was walking. */
+  readonly front: readonly [number, number];
+  readonly size: number;
+  readonly tread: Tread;
+  readonly born: number;
+}
+
+export type PrintShape = Foot | "bird" | "hand" | "pincer" | "drag";
+
+/** How long a print lasts on each ground, in seconds, and how dark it starts: dirt barely takes one. */
+export const TREADS: Readonly<Record<Tread, { readonly life: number; readonly depth: number }>> = {
+  snow: { life: 48, depth: 0.85 },
+  sand: { life: 20, depth: 0.6 },
+  dirt: { life: 7, depth: 0.32 },
+};
+
+/** A print's blobs, foot-sized, across and along the way it walks: [across, along, half width, half length]. */
+const PRINT_BLOBS: Readonly<Record<PrintShape, readonly (readonly [number, number, number, number])[]>> = {
+  paw: [[0, -0.18, 0.34, 0.3], [-0.42, 0.22, 0.15, 0.19], [-0.15, 0.48, 0.15, 0.2], [0.15, 0.48, 0.15, 0.2], [0.42, 0.22, 0.15, 0.19]],
+  hoof: [[-0.2, 0.05, 0.16, 0.5], [0.2, 0.05, 0.16, 0.5]],
+  plant: [[0, -0.2, 0.36, 0.56], [-0.42, 0.5, 0.13, 0.15], [-0.21, 0.62, 0.13, 0.16], [0, 0.66, 0.13, 0.16], [0.21, 0.62, 0.13, 0.16], [0.42, 0.5, 0.13, 0.15]],
+  bird: [[0, 0.3, 0.07, 0.62], [-0.3, 0.42, 0.07, 0.42], [0.3, 0.42, 0.07, 0.42], [0, -0.35, 0.07, 0.28]],
+  hand: [[0, -0.2, 0.3, 0.42], [-0.48, 0.02, 0.1, 0.26], [-0.2, 0.46, 0.1, 0.24], [0, 0.5, 0.1, 0.26], [0.2, 0.46, 0.1, 0.24]],
+  pincer: [[0, 0, 0.14, 0.34]],
+  drag: [[0, 0, 0.42, 0.62]],
+};
+
+/** Which capsules of a body leave a mark, by its plan: a foot's last bone, or a snake's belly at one point along it. */
+const TREADERS: Readonly<Partial<Record<Plan, RegExp>>> = {
+  quad: /^leg\.[FH][LR]\.paw$/,
+  primate: /^(?:leg|arm)\.[LR]\.paw$/,
+  bird: /^leg\.[LR]\.toe\.1$/,
+  crab: /^leg\.-?1\.\d\.lower$/,
+  serpent: /^body\.5$/,
+};
+
+const printShapeOf = (species: (typeof SPECIES)[SpeciesId], part: string): PrintShape => {
+  if (species.plan === "bird") return "bird";
+  if (species.plan === "crab") return "pincer";
+  if (species.plan === "serpent") return "drag";
+  if (species.plan === "primate") return part.startsWith("arm") ? "hand" : "plant";
+  return species.build.foot;
+};
+
+export interface Tracks {
+  /** Everything down on the ground now, oldest first. */
+  readonly prints: readonly Print[];
+  /** Reads where the bodies' feet are this frame and stamps those that have just come down. */
+  step(bodies: readonly Body[], t: number): void;
+  /** Lifts prints off one ground at once (the snow they were in has melted). */
+  clear(tread: Tread): void;
+  /** Paints the prints into a square rgba map of `extent` either side of the origin, its rows running from +z, as a plane's uvs do. */
+  paint(pixels: Uint8Array, side: number, extent: number, t: number, tint: (tread: Tread) => readonly [number, number, number]): void;
+}
+
+/**
+ * The ground's memory of who walked it. A foot leaves a print each time it comes down, so a critter's track
+ * is its own: its foot's shape and size, spaced by its own gait, a rabbit's bound or a deer's walk. `tread`
+ * says what is underfoot at a point (null where nothing takes a print) and `floor` how high that ground is.
+ */
+export function createTracks(options: {
+  readonly floor: number;
+  readonly tread: (x: number, z: number) => Tread | null;
+  readonly limit?: number;
+}): Tracks {
+  const limit = options.limit ?? 360;
+  let prints: Print[] = [];
+  const feet = new Map<string, { down: boolean; x: number; z: number; seen: number }>();
+  const treader = new Map<string, boolean>();
+  const treads = (plan: Plan, part: string): boolean => {
+    const key = `${plan}:${part}`;
+    let is = treader.get(key);
+    if (is === undefined) { is = TREADERS[plan]?.test(part) ?? false; treader.set(key, is); }
+    return is;
+  };
+  return {
+    get prints() { return prints; },
+    clear(tread) { prints = prints.filter((p) => p.tread !== tread); },
+    step(bodies, t) {
+      prints = prints.filter((p) => t - p.born < TREADS[p.tread].life && p.born <= t);
+      for (const body of bodies) {
+        const species = SPECIES[body.kind as SpeciesId] as (typeof SPECIES)[SpeciesId] | undefined;
+        if (!species || (body.fade ?? 1) < 0.5) continue;
+        for (const c of body.capsules) {
+          if (!treads(species.plan, c.part)) continue;
+          const low = c.a[1] < c.b[1] ? c.a : c.b;
+          const key = `${body.id}:${c.part}`;
+          const reach = Math.min(0.05, Math.max(0.026, c.r * 0.5));
+          const height = low[1] - c.r - options.floor;
+          const foot = feet.get(key) ?? { down: false, x: low[0], z: low[2], seen: t };
+          const moved = Math.hypot(low[0] - foot.x, low[2] - foot.z);
+          const size = Math.max(c.r * 2.8, 0.1);
+          const drag = species.plan === "serpent";
+          foot.seen = t;
+          feet.set(key, foot);
+          // Up again once it has clearly left the ground; down, the print is made the once.
+          if (height > reach * 1.6) foot.down = false;
+          if (height > reach || (foot.down && !(drag && moved > size * 0.8))) continue;
+          foot.down = true;
+          foot.x = low[0];
+          foot.z = low[2];
+          const tread = options.tread(low[0], low[2]);
+          if (tread === null) continue;
+          const f = Math.hypot(body.front[0], body.front[2]) || 1;
+          prints.push({ id: body.id, kind: body.kind, shape: printShapeOf(species, c.part), hind: c.part.includes(".H"), x: low[0], z: low[2], front: [body.front[0] / f, body.front[2] / f], size, tread, born: t });
+        }
+      }
+      if (prints.length > limit) prints = prints.slice(prints.length - limit);
+      for (const [key, foot] of feet) if (t - foot.seen > 4 || t < foot.seen) feet.delete(key);
+    },
+    paint(pixels, side, extent, t, tint) {
+      pixels.fill(0);
+      const scale = side / (2 * extent);
+      for (const p of prints) {
+        const { life, depth } = TREADS[p.tread];
+        const age = (t - p.born) / life;
+        if (age < 0 || age >= 1) continue;
+        const alpha = depth * (1 - age * age) * 255;
+        const [red, green, blue] = tint(p.tread);
+        const [fx, fz] = p.front;
+        for (const [across, along, w, l] of PRINT_BLOBS[p.shape]) {
+          const stretch = p.hind ? 1.2 : 1;
+          const cx = p.x + (fz * across + fx * along * stretch) * p.size;
+          const cz = p.z + (-fx * across + fz * along * stretch) * p.size;
+          const reach = Math.max(w, l * stretch) * p.size;
+          const c0 = Math.max(0, Math.floor((cx - reach + extent) * scale)), c1 = Math.min(side - 1, Math.ceil((cx + reach + extent) * scale));
+          const r0 = Math.max(0, Math.floor((extent - cz - reach) * scale)), r1 = Math.min(side - 1, Math.ceil((extent - cz + reach) * scale));
+          for (let r = r0; r <= r1; r += 1) {
+            for (let c = c0; c <= c1; c += 1) {
+              const dx = (c + 0.5) / scale - extent - cx, dz = extent - (r + 0.5) / scale - cz;
+              const u = (fz * dx - fx * dz) / (w * p.size), v = (fx * dx + fz * dz) / (l * stretch * p.size);
+              if (u * u + v * v > 1) continue;
+              const at = (r * side + c) * 4;
+              if (pixels[at + 3]! >= alpha) continue;
+              pixels[at] = red;
+              pixels[at + 1] = green;
+              pixels[at + 2] = blue;
+              pixels[at + 3] = alpha;
+            }
+          }
+        }
+      }
+    },
+  };
 }

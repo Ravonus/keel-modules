@@ -535,4 +535,35 @@ export default [
     },
     expect: [[1], null, [3]],
   },
+  {
+    name: 'a foot leaves one print each time it comes down, shaped like its own, and dirt lets go of it long before snow',
+    run: ({ createTracks, poseSpecies, TREADS }) => {
+      const tracks = createTracks({ floor: 0, tread: (x) => (x < 0 ? 'snow' : 'dirt') });
+      const walk = (kind, id, shift, seconds) => { for (let t = 0; t < seconds; t += 1 / 30) { const body = poseSpecies(kind, 'wander', t, { seed: 3 }); tracks.step([{ ...body, id, capsules: body.capsules.map((c) => ({ ...c, a: [c.a[0] + shift, c.a[1], c.a[2]], b: [c.b[0] + shift, c.b[1], c.b[2]] })) }], t); } };
+      walk('deer', 'deer', -9, 2);
+      const deer = tracks.prints.length;
+      tracks.step([], 2.1);
+      const a = createTracks({ floor: 0, tread: () => 'dirt' }), b = createTracks({ floor: 0, tread: () => null });
+      const fox = poseSpecies('fox', 'stand', 0, { seed: 3 });
+      for (let t = 0; t < 1; t += 0.1) { a.step([fox], t); b.step([fox], t); }
+      a.step([], 7.5);
+      return [deer > 3 && deer < 30, tracks.prints.every((p) => p.shape === 'hoof' && p.tread === 'snow'), b.prints.length, a.prints.length, TREADS.dirt.life < TREADS.sand.life && TREADS.sand.life < TREADS.snow.life];
+    },
+    expect: [true, true, 0, 0, true],
+  },
+  {
+    name: 'a print paints where it was set, pointing the way the critter went',
+    run: ({ createTracks }) => {
+      const tracks = createTracks({ floor: 0, tread: () => 'snow' });
+      const ball = { kind: 'deer', id: 'd', front: [1, 0, 0], capsules: [{ part: 'leg.FL.paw', a: [1, 0.1, -2], b: [1, 0.4, -2], r: 0.1 }] };
+      tracks.step([ball], 0);
+      const side = 80, pixels = new Uint8Array(side * side * 4);
+      tracks.paint(pixels, side, 4, 1, () => [10, 20, 30]);
+      let xs = 0, zs = 0, n = 0, wide = [99, -99], long = [99, -99];
+      for (let r = 0; r < side; r += 1) for (let c = 0; c < side; c += 1) if (pixels[(r * side + c) * 4 + 3] > 0) { const x = (c + 0.5) / 10 - 4, z = 4 - (r + 0.5) / 10; xs += x; zs += z; n += 1; wide = [Math.min(wide[0], z), Math.max(wide[1], z)]; long = [Math.min(long[0], x), Math.max(long[1], x)]; }
+      return [Math.abs(xs / n - 1) < 0.25, Math.abs(zs / n + 2) < 0.25, long[1] - long[0] > wide[1] - wide[0]];
+    },
+    expect: [true, true, true],
+  },
 ];
+

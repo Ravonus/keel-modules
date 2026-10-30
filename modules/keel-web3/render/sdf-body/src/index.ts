@@ -1009,7 +1009,7 @@ float gFlat = 1.0;
 // The surface alone, for the march, the normal and the occlusion. Crisp
 // parts join it after the melt, so nothing melts into an eye.
 float dist(vec3 p) {
-  float d = 1e9, c = 1e9, h, thick = 0.0, cover = 0.0, cut = 1e9, ck = 1e-6, bare = 1e9, flatness = 1.0;
+  float d = 1e9, c = 1e9, h, thick = 0.0, cover = 0.0, cut = 1e9, ck = 1e-6, bare = 1e9, flatness = 1.0, crispFlat = 1.0;
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
     float tag = uB[i].w;
@@ -1019,14 +1019,15 @@ float dist(vec3 p) {
     float m = floor(mod(tag, 1024.0) * 0.0625);
     float di = part(p, i);
     if (carve) { if (di < cut) { cut = di; ck = max(uK * m * 0.0625, 1e-6); } continue; }
-    if (m < 0.5) { c = min(c, di); continue; }
+    if (m < 0.5) { if (di < c) { c = di; crispFlat = clamp(length(uU[i].xyz), 0.05, 1.0); } continue; }
     di = hull(p, di, mod(tag, 16.0));
     d = melt(i, m * 0.0625, d, di, h);
     thick = mix(thick, partThickness(i), h);
     flatness = mix(flatness, clamp(length(uU[i].xyz), 0.05, 1.0), h);
     cover = mix(cover, grows(mod(tag, 16.0)), h);
   }
-  gFlat = flatness;
+  // (A crisp part never melts in, but it counts the same: a butterfly's wings are nothing else.)
+  gFlat = c < d ? crispFlat : flatness;
   // The carves cut in after the melt, their rims as soft as their own melt.
   if (cut < 1e8) { h = clamp(0.5 - 0.5 * (d + cut) / ck, 0.0, 1.0); d = mix(d, -cut, h) + ck * h * (1.0 - h); }
   // A body is never a smooth balloon: muscle, bone and fat lift and crease it, each animal its own

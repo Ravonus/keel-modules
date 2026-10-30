@@ -27,7 +27,12 @@ export type Vec = readonly [number, number, number];
  * `r1` tapers it: r at a, r1 at b (a muzzle to its nose, a tail to its tip, a leg to its ankle).
  * `melt` scales how far it melts into the rest (0 a crisp seam, 1 the body's own, up to 2).
  * A `decal` is paint only: it changes no surface, and colours the body where it lies inside it
- * (a fox's white bib, a deer's rump, a mask round the eyes).
+ * (a fox's white bib, a deer's rump, a mask round the eyes); one `under` the pattern takes the
+ * coat's pattern over it, as its ground (an owl's pale breast, still barred). A `carve` cuts
+ * into the rest instead (its edge as soft as its melt) and paints the cut in its own colour,
+ * what lies beneath showing through toward the cut's rim (an owl's dished face, darker at its edge).
+ * `shadow: false` keeps a part out of the shadow (a small part standing off the body, whose shadow
+ * would fall as a speck apart from the rest).
  */
 export interface BodyPart {
   readonly a: Vec;
@@ -39,6 +44,9 @@ export interface BodyPart {
   readonly r1?: number;
   readonly melt?: number;
   readonly decal?: boolean;
+  readonly under?: boolean;
+  readonly carve?: boolean;
+  readonly shadow?: boolean;
 }
 
 export interface BodyInput {
@@ -78,13 +86,16 @@ export interface Material {
  * A pattern grown over the coat in the body's own frame: `dapple` soft
  * blotches that break up a plain coat, `spots`, `stripes` in bands across
  * the body, `streaks` running along it (a thrush's breast), `bars` fine
- * across it (an owl's). `role` is the colour it is painted in, `scale` its
+ * across it (a hawk's), `chevrons` one apart from the next, each a
+ * feather's dark tip cupped down the lie (a snowy owl's). `role` is the colour it is painted in, `scale` its
  * feature size in the parts' units, `contrast` how strongly it shows, and
  * `seed` makes each animal's its own.
  */
 export interface Pattern {
-  readonly kind: "dapple" | "spots" | "stripes" | "streaks" | "bars";
+  readonly kind: "dapple" | "spots" | "stripes" | "streaks" | "bars" | "chevrons";
   readonly role: string;
+  /** A colour of its own (hex) in place of its role's: a shade of the coat. */
+  readonly color?: string;
   readonly scale: number;
   readonly contrast: number;
   readonly seed: number;
@@ -97,10 +108,14 @@ export interface Pattern {
  * stand up, `scale` in finer rows. `size` is one lock's or row's width, in
  * the parts' units. It only ever raises the surface, so a thin wing or ear
  * never wears through, and fades out where it would be finer than a pixel.
+ * `lie` is the way it lies, in the body's frame (x to its side, y up, z
+ * forward): back along the body and a little down by default, straight down
+ * an upright bird (an owl's breast feathers).
  */
 export interface Grain {
   readonly kind: "fur" | "feather" | "scale";
   readonly size: number;
+  readonly lie?: Vec;
 }
 
 /** The scene's light, as the bodies see it. Directions point toward the light. */
@@ -211,7 +226,7 @@ const FIELD = /* glsl */ `
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
 uniform vec4 uA[MAXP];     // a, r at a
-uniform vec4 uB[MAXP];     // b, tag: role + 16 x melt (16ths; 0 crisp) + 1024 when a decal
+uniform vec4 uB[MAXP];     // b, tag: role + 16 x melt (16ths; 0 crisp) + 1024 when a decal (+ 2048 under the pattern), 2048 alone a carve
 uniform vec4 uU[MAXP];     // thin axis x flatness, r at b
 uniform int uCount;
 uniform vec3 uPal[ROLES];
@@ -248,16 +263,15 @@ vec3 bodyAt(vec3 p) {
   vec3 v = p - uOrigin;
   return vec3(dot(v, uSide), dot(v, uUp), dot(v, uFwd));
 }
-// The coat lies back along the body and a little down.
-const vec3 AFT = vec3(0.0, -0.33, -0.944);
+// The coat lies back along the body and a little down (uAft, the grain's lie).
 float grain(vec3 p) {
   vec3 q = bodyAt(p) / uGrain;
-  float along = dot(q, AFT);
-  vec3 across = q - AFT * along;
+  float along = dot(q, uAft);
+  vec3 across = q - uAft * along;
   if (uGrainKind < 0.5) {
     // (Drawn out five times along the lie, so locks streak back like hair, not pebbles.)
-    float n = noise3(across * 1.3 + AFT * along * 0.2);
-    float fine = noise3(across * 3.4 + AFT * along * 0.5);
+    float n = noise3(across * 1.3 + uAft * along * 0.2);
+    float fine = noise3(across * 3.4 + uAft * along * 0.5);
     return (1.0 - abs(2.0 * n - 1.0)) * 0.65 + 0.35 * fine;
   }
   // Each row broken across into scallops, every other row offset half a feather, as feathers overlap.
@@ -286,6 +300,21 @@ float part(vec3 p, int i) {
   return (length(v) - r) * slope;
 }
 
+// Chevrons: a grid laid along the lie, every other row offset half a cell, and in each cell
+// one feather's dark tip, a V cupped down the lie. Some cells are bare, more of them toward
+// the body's front, so a breast is plainer than a back.
+float chevron(vec3 q, vec3 b) {
+  vec3 helper = abs(uAft.y) > 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+  vec3 e1 = normalize(cross(uAft, helper)), e2 = cross(uAft, e1);
+  vec3 g = vec3(dot(q, uAft) * 1.2, dot(q, e1), dot(q, e2));
+  g.yz += 0.5 * mod(floor(g.x), 2.0);
+  vec3 cell = floor(g), f = g - cell - 0.5;
+  float across = length(f.yz);
+  float v = abs(f.x - 0.12 + 0.75 * across);
+  float mark = (1.0 - smoothstep(0.08, 0.13, v)) * (1.0 - smoothstep(0.3, 0.38, across));
+  float bare = mix(0.15, 0.65, smoothstep(-0.2, 0.5, b.z / max(length(uSize) * 0.25, 1e-4)));
+  return mark * step(bare, hash3(cell * 1.7 + 0.3));
+}
 // The pattern's share at p, 0 to 1, grown in the body's frame (see Pattern).
 float fbm(vec3 q) { return noise3(q) * 0.62 + noise3(q * 2.1 + 3.7) * 0.38; }
 float pattern(vec3 p) {
@@ -299,7 +328,14 @@ float pattern(vec3 p) {
   float wander = fbm(q * 0.7) * 1.6;
   if (kind < 3.5) return smoothstep(0.35, 0.75, sin(q.z * 3.14159 + wander * 2.0)) * smoothstep(-0.6, 0.4, b.y / uPattern.y);
   if (kind < 4.5) return smoothstep(0.62, 0.78, noise3(vec3(q.x * 2.6, q.y * 2.6, q.z * 0.35)));
-  return smoothstep(0.55, 0.85, sin(q.z * 6.2832 + wander));
+  // (Bars run across the lie of the coat, down a level body and round an upright one, each
+  // broken into short marks across, as an owl's are: rows of chevrons, never whole rings.)
+  float along = dot(q, uAft);
+  if (kind < 5.5) {
+    float dash = smoothstep(0.38, 0.62, noise3((q - uAft * along) * 1.3 + floor(along) * 3.17));
+    return smoothstep(0.55, 0.85, sin(along * 6.2832 + wander)) * dash;
+  }
+  return chevron(q, b);
 }
 // How thick part i is at its thinnest: its smaller radius, squashed by its flatness.
 float partThickness(int i) {
@@ -314,45 +350,66 @@ float melt(int i, float m, float d, float di, out float h) {
 // The surface alone, for the march, the normal and the occlusion. Crisp
 // parts join it after the melt, so nothing melts into an eye.
 float dist(vec3 p) {
-  float d = 1e9, c = 1e9, h, thick = 0.0;
+  float d = 1e9, c = 1e9, h, thick = 0.0, cut = 1e9, ck = 1e-6;
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
     float tag = uB[i].w;
-    if (tag >= 1023.5) continue;
-    float m = floor(tag * 0.0625);
+    bool carve = tag >= 2047.5 && tag < 3071.5;
+    if (tag >= 1023.5 && !carve) continue;
+    float m = floor(mod(tag, 1024.0) * 0.0625);
     float di = part(p, i);
+    if (carve) { if (di < cut) { cut = di; ck = max(uK * m * 0.0625, 1e-6); } continue; }
     if (m < 0.5) { c = min(c, di); continue; }
     d = melt(i, m * 0.0625, d, di, h);
     thick = mix(thick, partThickness(i), h);
   }
+  // The carves cut in after the melt, their rims as soft as their own melt.
+  if (cut < 1e8) { h = clamp(0.5 - 0.5 * (d + cut) / ck, 0.0, 1.0); d = mix(d, -cut, h) + ck * h * (1.0 - h); }
   // (Near the surface only: the grain costs noise, and far off it changes nothing. A thin
   // part, a wing, an ear, a tail feather, a leg, takes less of it, so its edge stays clean.)
   if (gFade > 0.0 && d < uGrain * 1.5) {
     // (And none right round a crisp part: fur lies short about an eye, a nose, a bill.)
-    float amount = (uGrainKind < 0.5 ? 0.24 : 0.14) * gFade * smoothstep(0.6, 2.5, thick / uGrain) * smoothstep(0.0, uGrain * 1.2, c);
+    float amount = (uGrainKind < 0.5 ? 0.18 : 0.14) * gFade * smoothstep(0.6, 2.5, thick / uGrain) * smoothstep(0.0, uGrain * 1.2, c);
     d -= uGrain * amount * grain(p) * smoothstep(1.5, 0.5, d / uGrain);
   }
   return min(d, c);
 }
-// The colour, melted by the same weights, then decals on the melted coat,
-// then crisp parts over both: once a pixel.
+// The colour, melted by the same weights, then the decals under the pattern,
+// the pattern, a carve's cut, the decals on it, then crisp parts over all: once a pixel.
 vec3 paint(vec3 p, out float lit, out float soft) {
-  float d = 1e9, c = 1e9, h, w = 0.0, cl = 0.0, dl = 0.0;
-  vec3 col = vec3(0.0), cc = vec3(0.0), dc = vec3(0.0); lit = 0.0;
+  float d = 1e9, c = 1e9, h, w = 0.0, cl = 0.0, dl = 0.0, wu = 0.0, ul = 0.0, cut = 1e9, vl = 0.0, deep = 1e-6, ck = 1e-6;
+  vec3 col = vec3(0.0), cc = vec3(0.0), dc = vec3(0.0), uc = vec3(0.0), vc = vec3(0.0); lit = 0.0;
   for (int i = 0; i < MAXP; i++) {
     if (i >= uCount) break;
     float tag = uB[i].w, di = part(p, i);
+    float under = step(2047.5, tag);
+    tag -= under * 2048.0;
     float decal = step(1023.5, tag);
     tag -= decal * 1024.0;
     float m = floor(tag * 0.0625);
     int role = int(tag - m * 16.0 + 0.5);
-    if (decal > 0.5) { float s = clamp(0.5 - di / max(uA[i].w * 0.12, 1e-5), 0.0, 1.0); if (s > w) { w = s; dc = uPal[role]; dl = uLit[role]; } continue; }
+    if (under > 0.5 && decal < 0.5) {
+      if (di < cut) { cut = di; vc = uPal[role]; vl = uLit[role]; deep = max(partThickness(i) * 0.6, 1e-5); ck = max(uK * m * 0.0625, 1e-6); }
+      continue;
+    }
+    if (decal > 0.5) {
+      float s = clamp(0.5 - di / max(uA[i].w * 0.12, 1e-5), 0.0, 1.0);
+      if (under > 0.5) { if (s > wu) { wu = s; uc = uPal[role]; ul = uLit[role]; } }
+      else if (s > w) { w = s; dc = uPal[role]; dl = uLit[role]; }
+      continue;
+    }
     if (m < 0.5) { if (di < c) { c = di; cc = uPal[role]; cl = uLit[role]; } continue; }
     d = melt(i, m * 0.0625, d, di, h);
     col = mix(col, uPal[role], h); lit = mix(lit, uLit[role], h);
   }
+  col = mix(col, uc, wu); lit = mix(lit, ul, wu);
   col = mix(col, uPatCol, pattern(p) * uPattern.z);
+  // (The cut shows its own colour as deep as it goes, what lies beneath toward its rim.)
+  float cv = cut < 1e8 ? smoothstep(0.0, deep, -d) : 0.0;
+  col = mix(col, vc, cv); lit = mix(lit, vl, cv);
   col = mix(col, dc, w); lit = mix(lit, dl, w);
+  // (A crisp part set in a cut, an eye in a dished face, shows over the cut surface, not the one it cut.)
+  if (cut < 1e8) { h = clamp(0.5 - 0.5 * (d + cut) / ck, 0.0, 1.0); d = mix(d, -cut, h) + ck * h * (1.0 - h); }
   soft = 1.0;
   if (c < d) { col = cc; lit = cl; soft = 0.0; }
   return col;
@@ -372,7 +429,7 @@ const float INV_PI = 0.3183098862;
 // caught round a furred edge, a feather's or scale's gloss, and the colours
 // a glossy black shifts through as it turns.
 vec3 coatLight(vec3 n, vec3 rd, vec3 halfway, float rim) {
-  vec3 hair = normalize(uSide * AFT.x + uUp * AFT.y + uFwd * AFT.z);
+  vec3 hair = normalize(uSide * uAft.x + uUp * uAft.y + uFwd * uAft.z);
   float th = dot(hair, halfway);
   vec3 sun = uSunCol * INV_PI;
   vec3 light = sun * uMat.x * 0.35 * pow(sqrt(max(1.0 - th * th, 0.0)), 24.0) * max(dot(n, uSun), 0.0);
@@ -449,7 +506,7 @@ void main() {
     // its colour, so a black wolf shows its shape instead of a flat silhouette.
     // (The coat's only: an eye's pupil stays black and glossy.)
     float dark = (1.0 - smoothstep(0.03, 0.2, dot(base, vec3(0.2126, 0.7152, 0.0722)))) * (1.0 - glow) * soft;
-    col += dark * INV_PI * (uSunCol * 0.22 * pow(max(dot(n, halfway), 0.0), 2.5) + uSky * 0.45 * rim);
+    col += dark * INV_PI * (uSunCol * 0.13 * pow(max(dot(n, halfway), 0.0), 2.5) + uSky * 0.3 * rim);
     // (Muted colours only: a brown coat leaves the greys, a vivid fox is left as it is.)
     float hi = max(max(col.r, col.g), col.b);
     float vivid = smoothstep(0.35, 0.7, (hi - min(min(col.r, col.g), col.b)) / max(hi, 1e-4));
@@ -540,8 +597,8 @@ function boundsOf(parts: readonly BodyPart[], count: number, blend: number, inkP
   let radius = 0;
   for (let i = 0; i < count; i += 1) {
     const part = parts[i];
-    // (A decal has no surface: it never widens the box.)
-    if (!part || part.decal === true) continue;
+    // (A decal has no surface and a carve only takes one away: neither widens the box.)
+    if (!part || surfaceless(part)) continue;
     for (let axis = 0; axis < 3; axis += 1) span(lo, hi, axis, part);
     radius += meanRadius(part);
   }
@@ -551,6 +608,11 @@ function boundsOf(parts: readonly BodyPart[], count: number, blend: number, inkP
   const pad = Math.max(mean * 0.5, inkPad > 0 ? Math.max(inkPad, Math.max(hx - lx, hy - ly, hz - lz) / 12) : 0);
   return { min: [lx - pad, ly - pad, lz - pad], max: [hx + pad, hy + pad, hz + pad], k: mean * blend };
 }
+
+/** A part that adds no surface of its own: a decal (paint only) or a carve (it cuts one away). */
+const surfaceless = (part: BodyPart): boolean => part.decal === true || part.carve === true;
+/** A part that casts a shadow: one with a surface, not kept out of it. */
+const casts = (part: BodyPart): boolean => !surfaceless(part) && part.shadow !== false;
 
 /** A part's mean thickness, along a taper. */
 const meanRadius = (part: BodyPart): number => (part.r + (part.r1 ?? part.r)) / 2;
@@ -597,10 +659,12 @@ function paint(slot: Slot, body: BodyInput, state: ShaderState): void {
   }
 }
 
-/** The tag a part carries to the shader: its role, its melt in 16ths (0 crisp), and 1024 for a decal. */
-export function tagOf(role: number, crisp: boolean, part: Pick<BodyPart, "melt" | "decal">): number {
-  const melt = crisp ? 0 : Math.round(Math.max(0, Math.min(2, part.melt ?? 1)) * 16);
-  return role + 16 * melt + (part.decal === true ? 1024 : 0);
+/** The tag a part carries to the shader: its role, its melt in 16ths (0 crisp), 1024 for a decal and 2048 more for one under the pattern, 2048 alone for a carve. */
+export function tagOf(role: number, crisp: boolean, part: Pick<BodyPart, "melt" | "decal" | "under" | "carve">): number {
+  // (A carve is never crisp: its melt is how soft its rim is.)
+  const melt = crisp && part.carve !== true ? 0 : Math.round(Math.max(0, Math.min(2, part.melt ?? 1)) * 16);
+  if (part.carve === true) return role + 16 * Math.max(1, melt) + 2048;
+  return role + 16 * melt + (part.decal === true ? (part.under === true ? 3072 : 1024) : 0);
 }
 
 function writePart(part: BodyPart, a: Vector4Like, b: Vector4Like, u: Vector4Like, tag: number): void {
@@ -639,6 +703,8 @@ function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number,
 }
 
 const SMOOTH: Grain = { kind: "fur", size: 0 };
+/** The way a coat lies when its grain names none: back along the body and a little down. */
+const AFT: Vec = [0, -0.33, -0.944];
 const GRAIN_KINDS: Readonly<Record<Grain["kind"], number>> = { fur: 0, feather: 1, scale: 2 };
 const grainOf = (body: BodyInput): Grain => (body.grain && body.grain.size > 0 ? body.grain : SMOOTH);
 
@@ -648,7 +714,7 @@ const MATERIALS: Readonly<Record<Grain["kind"], Required<Material>>> = {
   feather: { sheen: 0.15, fuzz: 0.1, gloss: 0.35, iridescence: 0 },
   scale: { sheen: 0, fuzz: 0, gloss: 0.7, iridescence: 0 },
 };
-const PATTERN_KINDS: Readonly<Record<Pattern["kind"], number>> = { dapple: 1, spots: 2, stripes: 3, streaks: 4, bars: 5 };
+const PATTERN_KINDS: Readonly<Record<Pattern["kind"], number>> = { dapple: 1, spots: 2, stripes: 3, streaks: 4, bars: 5, chevrons: 6 };
 
 interface Vector4Set { set(x: number, y: number, z: number, w: number): unknown }
 
@@ -665,13 +731,19 @@ function grainSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: numbe
   set("uSide", side);
   set("uUp", up);
   set("uFwd", fwd);
+  set("uAft", unitOr(grain.lie ?? AFT, AFT));
   const m = { ...(grain.size > 0 ? MATERIALS[grain.kind] : MATERIALS.scale), ...(grain.size > 0 ? {} : { gloss: 0 }), ...body.material };
   (slot.u.uMat?.value as Vector4Set).set(m.sheen, m.fuzz, m.gloss, m.iridescence);
+  patternSlot(slot, body, state, roles);
+}
+
+/** The pattern over the coat, in its own colour or its role's; none when it has no contrast. */
+function patternSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
   const pattern = body.pattern;
   if (!pattern || pattern.contrast <= 0) { (slot.u.uPattern?.value as Vector4Set).set(0, 1, 0, 0); return; }
   roleIndex(state, pattern.role, roles);
   (slot.u.uPattern?.value as Vector4Set).set(PATTERN_KINDS[pattern.kind], Math.max(pattern.scale, 1e-4), Math.min(1, pattern.contrast), (pattern.seed % 97) * 1.37);
-  (slot.u.uPatCol?.value as ColorLike).set(body.palette[pattern.role] ?? "#000000");
+  (slot.u.uPatCol?.value as ColorLike).set(pattern.color ?? body.palette[pattern.role] ?? "#000000");
 }
 
 /** Set the marching box: its bounds for the ray, and the mesh that draws it. */
@@ -715,7 +787,7 @@ function castShadows(proxy: ReturnType<typeof shadowProxy>, bodies: readonly Bod
   let n = 0;
   for (const body of bodies) {
     for (const part of body.capsules) {
-      if (part.decal === true) continue;
+      if (!casts(part)) continue;
       const r = meanRadius(part) * ((part.flat ?? 1) < 1 ? 0.6 : 1);
       // A round part is one sphere; a long one three along its length.
       const steps = part.a[0] === part.b[0] && part.a[1] === part.b[1] && part.a[2] === part.b[2] ? 1 : 3;

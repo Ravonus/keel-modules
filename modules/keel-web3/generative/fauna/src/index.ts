@@ -493,7 +493,7 @@ export const SPECIES = {
     temper: { sing: 2.6, peck: 2.2, hop: 2, preen: 1.6, look: 1.4, fly: 2.2 }, friends: ["deer", "rabbit", "bear", "capybara", "tortoise", "squirrel"] }),
   crow: define({ label: "Crow", plan: "bird", size: 0.24, rarity: "common", weight: 34, regions: ALL_REGIONS, worlds: ["nature", "voxel", "city", "synth", "crystal"], speed: 1.2, active: "day", groups: [5, 3, 1, 3], pack: [3, 5],
     build: { ...OUTLINE.corvid, bill: 0.5, len: 1.15, leg: 0.24, body: 0.2, neck: 0.12, rise: 0.3, head: 0.15, snout: 0.2, ears: "none", tail: "fan", tailLen: 0.5 },
-    coats: [["crow", ["#23262e", "#2c3346", "#2e3038", "#08080a", "#4a5068"]], ["hooded", ["#8a8a8e", "#1a1a1e", "#9a9a9e", "#0a0a0c", "#2a2a2e"]]],
+    coats: [["crow", ["#23262e", "#1b1e28", "#2e3038", "#08080a", "#2c3040"]], ["hooded", ["#8a8a8e", "#1a1a1e", "#9a9a9e", "#0a0a0c", "#2a2a2e"]]],
     temper: { peck: 2.4, look: 2, hop: 1.6, flap: 1.2, sing: 0.8, fly: 2 }, friends: ["deer", "cat", "wolf"] }),
   owl: define({ label: "Owl", plan: "bird", size: 0.3, rarity: "rare", weight: 10, regions: ["rockies", "atlantic", "alps", "tokyo", "nairobi"], worlds: ["nature", "voxel", "crystal", "city"], speed: 0.8, active: "night", groups: [8, 2, 2, 0],
     build: { ...OUTLINE.strigid, bill: 0.3, len: 0.9, leg: 0.26, body: 0.37, neck: 0.04, rise: 1.2, head: 0.25, snout: 0.06, ears: "tuft", tail: "fan", tailLen: 0.3 },
@@ -5418,7 +5418,7 @@ function birdTail(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
     // A fan of feathers, spread wide as it steers and lands, closed as it sits.
     const spread = clamp(0.1 + body.flight.flare * 0.45 + body.flight.glide * 0.2 + m.pose.fan * 0.4, 0, 0.6);
     // (The rump narrows into it, so the tail grows out of the body and doesn't end it.)
-    cap(kit, "rump", "coat", lerpV(body.C, body.T, 0.7), madd(body.T, dirOf(Math.PI, tilt), body.r * 0.75), body.r * 0.66, 1, UP, { r1: body.r * 0.2, melt: 1 });
+    cap(kit, "rump", "coat", lerpV(body.C, body.T, 0.2), madd(body.T, dirOf(Math.PI, tilt), body.r * 0.9), body.r * 0.86, 1, UP, { r1: body.r * 0.18, melt: 1.6 });
     // (Thin, and broader at the tip than the root: each its own feather, not a stump off the rump.)
     TAIL_FEATHERS.forEach((k, i) => {
       const dir = dirOf(Math.PI + 0.15 * m.pose.tailWag + k * spread, tilt);
@@ -6790,7 +6790,8 @@ const CAT_PATTERNS: Readonly<Record<string, PatternSpec>> = {
 const MOTTLE: PatternSpec = ["dapple", "coat", 0.35, 0.3];
 /** Coats that shine in colours as they turn. */
 const MATERIALS: Partial<Record<SpeciesId, NonNullable<Body["material"]>>> = {
-  crow: { gloss: 0.55, iridescence: 0.6 }, peacock: { gloss: 0.45, iridescence: 0.45 },
+  // (Black, with its gloss on top: lifted as a wolf's coat is, a crow goes grey at noon.)
+  crow: { gloss: 0.55, iridescence: 0.6, lift: 0.25 }, peacock: { gloss: 0.45, iridescence: 0.45 },
   // (A cat's black goes unlifted, so a calico's patches and a tabby's stripes are black.)
   cat: { lift: 0.3 },
   // (The mask, the bands and the paws are the raccoon, so its black stays black too.)

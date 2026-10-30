@@ -1218,6 +1218,11 @@ export interface VoxelDither {
   tagDetail(root: NodeLike): void;
   /** Draws `scene` from `camera` through the look into the renderer's current target. */
   render(scene: unknown, camera: CameraLike): void;
+  /**
+   * The same for a renderer with passes of its own: `paint` fills the target
+   * current when it is called, colour and depth, as `camera` sees it.
+   */
+  renderWith(paint: () => void, camera: CameraLike): void;
   dispose(): void;
 }
 
@@ -1310,7 +1315,7 @@ function writeRays(uniforms: Record<string, Uniform>, rays: RaySpec | null, view
 
 interface Pipeline {
   resize(grid: PixelGrid): void;
-  draw(renderer: RendererLike, scene: unknown, view: CameraLike, settings: DitherSettings, rays: RaySpec | null, detail: ReadonlySet<NodeLike>): void;
+  draw(renderer: RendererLike, scene: unknown, view: CameraLike, settings: DitherSettings, rays: RaySpec | null, detail: ReadonlySet<NodeLike>, paint?: () => void): void;
   dispose(): void;
 }
 
@@ -1391,11 +1396,15 @@ function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeli
       detailTarget.setSize(grid.width * fine, grid.height * fine);
       detailLook.setSize(grid.width * fine, grid.height * fine);
     },
-    draw(renderer, scene, view, settings, rays, detail) {
+    draw(renderer, scene, view, settings, rays, detail, paint) {
       const previous = renderer.getRenderTarget();
-      const fine = split > 1 && detail.size > 0;
+      // Someone else's passes fill the world alone: they know nothing of the detail grid.
+      const fine = paint === undefined && split > 1 && detail.size > 0;
       layerDetail(detail, fine);
-      drawScene(renderer, scene, view, targets, fine);
+      if (paint) {
+        renderer.setRenderTarget(target);
+        paint();
+      } else drawScene(renderer, scene, view, targets, fine);
       camera.near.value = view.near;
       camera.far.value = view.far;
       camera.ortho.value = view.isOrthographicCamera === true ? 1 : 0;
@@ -1475,9 +1484,8 @@ export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: 
       Object.assign(uniforms.uFilter ?? {}, { value: filterUniform(parts) });
     },
     tagDetail(root) { detail.add(root); },
-    render(scene, view) {
-      pipeline.draw(renderer, scene, view, settings, rays, detail);
-    },
+    render(scene, view) { pipeline.draw(renderer, scene, view, settings, rays, detail); },
+    renderWith(paint, view) { pipeline.draw(renderer, null, view, settings, rays, detail, paint); },
     dispose() {
       pipeline.dispose();
       cel.dispose();

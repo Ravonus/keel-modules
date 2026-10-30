@@ -3,6 +3,33 @@ const near = (a, b, within) => Math.abs(a - b) < within;
 
 export default [
   {
+    name: "a beach's slope never counts as a rock face",
+    run: ({ steepOf }) => [steepOf(0.085), steepOf(0.4), steepOf(1.4), steepOf(3)],
+    expect: [0, 0, 1, 1],
+  },
+  {
+    name: "a wave hits a steep face hard, and open water and a gentle slope not at all",
+    run: ({ crashAt }) => {
+      const most = (depth, steep) => { let top = 0; for (let t = 0; t < 30; t += 0.05) top = Math.max(top, crashAt(depth, steep, 4, 9, t)); return top; };
+      return [most(1, 1) > 0.5, most(1, 0), most(12, 1)];
+    },
+    expect: [true, 0, 0],
+  },
+  {
+    name: "water surges up a rock in the sea, and the sea's own height knows it",
+    run: ({ createSea, surfCrash }) => {
+      const stands = (x, z) => (Math.hypot(x, z) < 6 ? 8 - Math.hypot(x, z) * 3 : -6);
+      const plain = createSea({ seed: 3, ground: () => -1.2 });
+      const rocky = createSea({ seed: 3, ground: stands });
+      let most = 0;
+      for (let t = 0; t < 30; t += 0.1) most = Math.max(most, rocky.surfaceAt(3.2, 0, t).height);
+      let flat = 0;
+      for (let t = 0; t < 30; t += 0.1) flat = Math.max(flat, surfCrash(1, 0, 3.2, 0, t, 7));
+      return [most > 0.6, flat, typeof plain.surfaceAt(0, 0, 1).height];
+    },
+    expect: [true, 0, "number"],
+  },
+  {
     name: "the same seed makes the same sea",
     run: ({ createSea }) => createSea({ seed: 7 }).surfaceAt(3, 4, 5).height === createSea({ seed: 7 }).surfaceAt(3, 4, 5).height,
     expect: true,

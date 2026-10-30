@@ -59,6 +59,8 @@ interface InstancesLike extends NodeLike {
 }
 interface TextureLike { readonly isTexture?: boolean }
 interface TargetLike extends DisposableLike {
+  readonly width: number;
+  readonly height: number;
   readonly texture: TextureLike;
   readonly depthTexture: TextureLike;
   setSize(width: number, height: number): void;
@@ -177,6 +179,22 @@ float surfBurst(float depth, vec2 p, float time) {
   float landing = smoothstep(1.9, 1.0, depth) * smoothstep(0.2, 0.6, depth);
   return landing * (1.0 - smoothstep(0.0, 0.18, sawAt(depth, p, time))) * setsAt(p, time);
 }
+// As generative/ocean's steepOf, on the same three metres of ground.
+float steepAt(vec2 p) {
+  vec2 slope = vec2(groundAt(p + vec2(1.5, 0.0)) - groundAt(p - vec2(1.5, 0.0)), groundAt(p + vec2(0.0, 1.5)) - groundAt(p - vec2(0.0, 1.5))) / 3.0;
+  return smoothstep(0.5, 1.4, length(slope));
+}
+// As generative/ocean's crashAt, a part at a time.
+float crashReach(float depth) { return smoothstep(-0.6, 0.0, depth) * (1.0 - smoothstep(1.5, 3.5, depth)); }
+float crashFront(vec2 p, float time) {
+  float saw = sawAt(1.0, p, time);
+  return pow(1.0 - saw, 3.0) * clamp(saw / 0.06, 0.0, 1.0) * setsAt(p, time);
+}
+// How close rock stands round this water: unlike steepAt it reaches out past the thin ring a face's foot is, for white water to fill.
+float rockNear(vec2 p) {
+  float top = max(max(groundAt(p + vec2(8.0, 0.0)), groundAt(p - vec2(8.0, 0.0))), max(groundAt(p + vec2(0.0, 8.0)), groundAt(p - vec2(0.0, 8.0))));
+  return smoothstep(2.0, 4.5, top - groundAt(p)) * smoothstep(-1.0, 0.5, top - uShore);
+}
 // Which way is up the shore here.
 vec2 shoreward(vec2 p) {
   vec2 slope = vec2(groundAt(p + vec2(1.5, 0.0)) - groundAt(p - vec2(1.5, 0.0)), groundAt(p + vec2(0.0, 1.5)) - groundAt(p - vec2(0.0, 1.5)));
@@ -236,7 +254,9 @@ float caustic(vec2 p, float t) {
   return pow(net(p, t), 7.0) + pow(net(p.yx * 1.37 + 4.1, t * 1.21), 7.0) * 0.8;
 }
 // What the water adds of its own and lets through, over a stretch of it.
-vec3 scatterOver(float depth, vec3 through) { return uScatter * uSunCol * exp(-uAbsorb * max(depth, 0.0)) * (vec3(1.0) - through); }
+// What lights the water from within: the sun, or once it is low the whole sky.
+vec3 waterLight() { return max(uSunCol, uZenith * 3.0); }
+vec3 scatterOver(float depth, vec3 through) { return uScatter * waterLight() * exp(-uAbsorb * max(depth, 0.0)) * (vec3(1.0) - through); }
 `;
 
 // Real rays through the real scene: the ground is a height map and each animal a
@@ -323,7 +343,9 @@ uniform mat4 uProjInv, uCamWorld;
 uniform vec3 uEye;
 uniform float uTime;
 uniform int uShafts, uSnow;
-uniform float uWet, uRunUp;
+uniform float uWet, uRunUp, uPrintLife;
+uniform sampler2D uPrints;
+uniform vec3 uRockColor;
 ${WATER_LIGHT}
 ${GROUND}
 ${TRACE}
@@ -350,7 +372,7 @@ vec3 shafts(vec3 eye, vec3 dir, float a, float b) {
     }
     s += step;
   }
-  return tint * uScatter * uSunCol * 0.42 / float(max(uShafts, 1)) * reach * 0.18;
+  return tint * uScatter * waterLight() * 0.42 / float(max(uShafts, 1)) * reach * 0.18;
 }
 // Marine snow: drifting specks in shells round the eye.
 float snow(vec3 eye, vec3 dir, float end) {
@@ -367,6 +389,90 @@ float snow(vec3 eye, vec3 dir, float end) {
     d *= 1.55;
   }
   return sum;
+}
+float lump(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float low = mix(mix(hash3(i).x, hash3(i + vec3(1, 0, 0)).x, f.x), mix(hash3(i + vec3(0, 1, 0)).x, hash3(i + vec3(1, 1, 0)).x, f.x), f.y);
+  float high = mix(mix(hash3(i + vec3(0, 0, 1)).x, hash3(i + vec3(1, 0, 1)).x, f.x), mix(hash3(i + vec3(0, 1, 1)).x, hash3(i + vec3(1, 1, 1)).x, f.x), f.y);
+  return mix(low, high, f.z);
+}
+// Rock as it weathers: beds tilted and folded rather than level, of uneven thickness, split by joints, and stained downward by seeps.
+vec3 stoneAt(vec3 col, vec3 p, vec3 n) {
+  float lit = dot(col, vec3(0.3, 0.6, 0.1)) / max(dot(texture2D(uGroundColor, clamp(p.xz / uGroundSize + 0.5, 0.0, 1.0)).rgb, vec3(0.3, 0.6, 0.1)), 0.04);
+  float fold = (lump(vec3(p.xz * 0.012, 2.0)) - 0.5) * 16.0 + (lump(p * vec3(0.05, 0.03, 0.05)) - 0.5) * 5.0;
+  float bed = p.y + dot(p.xz, vec2(0.16, -0.09)) + fold;
+  float beds = lump(vec3(bed * 0.55, p.xz * 0.02)) * 0.6 + lump(vec3(bed * 1.7, p.xz * 0.05)) * 0.3 + lump(vec3(bed * 5.0, p.xz * 0.2)) * 0.1;
+  float joints = smoothstep(0.03, 0.09, abs(lump(vec3(p.xz * 0.16, bed * 0.05)) - 0.5));
+  float crag = lump(p * 0.7) * 0.6 + lump(p * 2.1) * 0.3 + lump(p * 6.0) * 0.1;
+  float seep = lump(vec3(p.xz * 0.35, p.y * 0.015));
+  float tone = lump(vec3(p.xz * 0.018, p.y * 0.04) + 9.0);
+  vec3 stone = uRockColor * mix(vec3(0.82, 0.86, 0.95), vec3(1.2, 1.02, 0.8), tone) * min(lit, 2.5);
+  stone *= (0.5 + 1.0 * beds) * (0.68 + 0.64 * crag) * (0.62 + 0.38 * joints) * (1.0 - 0.3 * smoothstep(0.55, 0.75, seep));
+  return mix(stone, stone * 1.3, smoothstep(0.1, 0.5, n.y) * 0.5);
+}
+float blob(vec2 q, vec2 at, vec2 size) { return 1.0 - smoothstep(0.72, 1.1, length((q - at) / size)); }
+// A bare foot in metres, heel to toe along +y, deepest in the heel and ball, with sand pushed up round it.
+float footAt(vec2 q) {
+  float foot = max(max(blob(q, vec2(0.0, -0.085), vec2(0.04, 0.052)), blob(q, vec2(0.0, 0.055), vec2(0.05, 0.04))), blob(q, vec2(0.02, -0.01), vec2(0.024, 0.06)) * 0.6);
+  for (int i = 0; i < 5; i++) {
+    float f = float(i);
+    foot = max(foot, blob(q, vec2(-0.036 + f * 0.0185, 0.122 - f * f * 0.0035), vec2(0.0135 - f * 0.0008, 0.016)) * 0.8);
+  }
+  float rim = blob(q, vec2(0.0, 0.0), vec2(0.1, 0.19));
+  return foot - 0.35 * rim * (1.0 - foot);
+}
+// How deep the prints are here: the map holds at most one to a cell, so four cells cover any point.
+float pressAt(vec2 p) {
+  vec2 base = floor(p - 0.5);
+  float most = 0.0;
+  for (int z = 0; z < 2; z++) {
+    for (int x = 0; x < 2; x++) {
+      vec2 cell = base + vec2(float(x), float(z));
+      vec4 print = texture2D(uPrints, (mod(cell, PRINT_GRID) + 0.5) / PRINT_GRID);
+      vec2 q = p - cell - print.rg;
+      if (print.r < 0.0 || dot(q, q) > 0.09) continue;
+      float side = print.b > 7.0 ? 1.0 : -1.0;
+      float h = print.b > 7.0 ? print.b - 10.0 : print.b;
+      vec2 ahead = vec2(sin(h), cos(h));
+      vec2 q2 = vec2((q.x * ahead.y - q.y * ahead.x) * side, dot(q, ahead));
+      float left = 1.0 - clamp((uTime - print.a) / uPrintLife, 0.0, 1.0);
+      float deep = footAt(q2) * left;
+      most = abs(deep) > abs(most) ? deep : most;
+    }
+  }
+  return most;
+}
+// What the ground's mesh is too coarse to carry: strata and tide marks on rock, and grain, wind ripples, shells and footprints in sand.
+vec3 groundDetail(vec3 col, vec3 p, float dist) {
+  if (dist > 240.0) return col;
+  vec3 n = normalize(cross(dFdx(p), dFdy(p)));
+  float rock = 1.0 - smoothstep(0.62, 0.84, abs(n.y));
+  // Rocks stand further off the baked ground than sand does, and a boat further still.
+  if (abs(p.y - groundAt(p.xz)) > 3.5 + 3.0 * rock) return col;
+  float fade = 1.0 - smoothstep(70.0, 240.0, dist);
+  float warp = sin(p.x * 0.31 + p.z * 0.27) * 0.7 + sin(p.x * 0.93 - p.z * 0.71) * 0.25;
+  vec3 stone = col;
+  if (rock > 0.01) stone = stoneAt(col, p, n);
+  stone = mix(stone, stone * vec3(0.42, 0.47, 0.38), smoothstep(uRunUp + 1.4, uRunUp - 0.1, p.y));
+  float ripple = sin(p.z * 2.3 + warp * 3.6) * (1.0 - smoothstep(4.0, 60.0, dist));
+  float close = 1.0 - smoothstep(1.5, 16.0, dist);
+  vec3 cellOf = hash3(vec3(floor(p.xz * 70.0), 3.0));
+  vec2 shellAt = p.xz * 9.0;
+  vec3 shell = hash3(vec3(floor(shellAt), 8.0));
+  float pip = 1.0 - smoothstep(0.08, 0.14, length(fract(shellAt) - 0.2 - shell.yz * 0.6));
+  float dry = smoothstep(uWet - 0.1, uWet + 0.25, p.y);
+  vec3 sand = col * (1.0 + 0.06 * ripple * dry + (cellOf.x - 0.5) * 0.2 * close);
+  sand = mix(sand, sand * 1.22, step(0.96, shell.x) * pip * smoothstep(16.0, 4.0, dist));
+  if (dist < 60.0 && rock < 0.5) {
+    vec2 toSun = normalize(uSunDir.xz + 1e-4);
+    float here = pressAt(p.xz);
+    float there = pressAt(p.xz + toSun * 0.022);
+    float low = clamp(1.3 - uSunDir.y, 0.35, 1.0);
+    sand *= 1.0 - 0.2 * max(here, 0.0) * (1.0 - smoothstep(35.0, 60.0, dist)) + clamp((there - here) * -2.4 * low, -0.45, 0.4);
+  }
+  return mix(col, mix(sand, stone, rock), fade);
 }
 // Sand the water has left: dark up to the highest line it reached, and a mirror where the last swash ran.
 vec3 wetSand(vec3 col, vec3 p, vec3 dir) {
@@ -388,7 +494,7 @@ void main() {
   float dist = far ? FAR : length(ray);
   vec3 dir = normalize(ray);
   vec3 col = far ? skyColor(dir) : texture2D(uColor, vUv).rgb;
-  if (!far) col = wetSand(col, eye + dir * dist, dir);
+  if (!far) col = wetSand(groundDetail(col, eye + dir * dist, dist), eye + dir * dist, dir);
   float sun = far ? 1.0 : sunlit(eye + dir * dist + vec3(0.0, 0.15, 0.0));
   if (!far) col *= 0.42 + 0.58 * sun;
   float toPlane = abs(dir.y) > 1e-4 ? (uLevel - eye.y) / dir.y : FAR * 2.0;
@@ -410,7 +516,7 @@ void main() {
     col = col * through + scatterOver(mid, through);
     if (under) {
       col += shafts(eye, dir, a, b);
-      col += snow(eye, dir, b) * uScatter * uSunCol * 1.6;
+      col += snow(eye, dir, b) * uScatter * waterLight() * 1.6;
     }
   }
   gl_FragColor = vec4(col, 1.0);
@@ -423,6 +529,8 @@ varying vec2 vRest;
 varying vec3 vWorld;
 varying float vDepth;
 varying vec2 vAlong;
+varying float vSteep;
+varying float vNear;
 uniform float uLevel;
 void main() {
   vec2 rest = position.xz + cameraPosition.xz;
@@ -431,7 +539,9 @@ void main() {
   vDepth = depthAt(rest);
   // A lip needs the mesh's fine rings, so far off a breaker only lifts.
   vAlong = vDepth < 3.5 ? shoreward(rest) * smoothstep(90.0, 45.0, dist) : vec2(0.0);
-  vWorld = displaced(rest, dist, max(vDepth, 0.0)) + breaker(rest, vDepth, vAlong) + vec3(0.0, uLevel, 0.0);
+  vSteep = vDepth < 3.5 && dist < 320.0 ? steepAt(rest) : 0.0;
+  vNear = vDepth < 14.0 && dist < 320.0 ? rockNear(rest) : 0.0;
+  vWorld = displaced(rest, dist, max(vDepth, 0.0)) + breaker(rest, vDepth, vAlong) + vec3(0.0, uLevel + 0.16 * uWind * vSteep * crashReach(vDepth) * crashFront(rest, uTime), 0.0);
   gl_Position = projectionMatrix * viewMatrix * vec4(vWorld, 1.0);
 }
 `;
@@ -444,9 +554,34 @@ varying vec2 vRest;
 varying vec3 vWorld;
 varying float vDepth;
 varying vec2 vAlong;
+varying float vSteep;
+varying float vNear;
 uniform sampler2D uDepth, uBelow;
 uniform vec2 uRes;
 uniform float uTraceNear;
+uniform int uWakeCount;
+uniform vec4 uWake[MAX_WAKES];
+uniform vec2 uWakeSize[MAX_WAKES];
+// White water round a hull and streaming behind it in a Kelvin wake's two arms.
+float wakeFoam(vec2 p) {
+  float most = 0.0;
+  for (int i = 0; i < uWakeCount; i++) {
+    vec2 q = p - uWake[i].xy;
+    vec2 ahead = uWake[i].zw;
+    float speed = uWakeSize[i].x;
+    float len = uWakeSize[i].y;
+    float along = dot(q, ahead);
+    float back = -along - len * 0.5;
+    float side = abs(q.x * ahead.y - q.y * ahead.x);
+    float hull = 1.0 - smoothstep(0.75, 1.15, length(vec2(along / (len * 0.55), side / (len * 0.2))));
+    most = max(most, hull * (0.3 + min(speed * 0.25, 0.6)));
+    if (speed < 0.3 || back < 0.0 || back > speed * 16.0) continue;
+    float arm = 1.0 - smoothstep(0.0, 0.3 + back * 0.08, abs(side - len * 0.1 - back * 0.34));
+    float keel = 1.0 - smoothstep(0.0, len * 0.14 + back * 0.05, side);
+    most = max(most, max(arm * 0.7, keel) * exp(-back / (speed * 5.0)));
+  }
+  return most;
+}
 vec3 ripple(vec2 p, float dist) {
   vec2 q = p * 3.1;
   vec2 r = vec2(sin(q.x + sin(q.y * 1.7 + uTime * 1.6) + uTime * 1.3), sin(q.y * 1.3 + sin(q.x * 1.9 - uTime * 1.4) - uTime * 1.1));
@@ -479,7 +614,7 @@ void main() {
     vec3 bent = refract(-v, n, 1.333);
     bool mirror = dot(bent, bent) < 0.5;
     bool trace = dist < uTraceNear;
-    vec3 beyond = mirror ? uScatter * uSunCol * 0.55 : skyColor(bent) * (1.0 - fresnel) * 0.9;
+    vec3 beyond = mirror ? uScatter * waterLight() * 0.55 : skyColor(bent) * (1.0 - fresnel) * 0.9;
     vec3 col = !trace ? beyond : mirror ? traced(vWorld, reflect(-v, n), beyond, true) : traced(vWorld, bent, beyond, false);
     // Only what survives the water to the eye: the water's own light is already there underneath.
     gl_FragColor = vec4(mix(texture2D(uBelow, uv).rgb, col, exp(-uAbsorb.g * dist)), 1.0);
@@ -497,18 +632,20 @@ void main() {
   float saw = surfSaw(vDepth, vRest);
   float build = surfBuild(vDepth) * surfSets(vRest);
   // The face stays glass until it has fallen: white runs along the lip, then fills the bore behind it.
-  float crown = smoothstep(0.03, 0.07, saw) * (1.0 - smoothstep(0.07, 0.17, saw));
+  float crown = smoothstep(0.03, 0.07, saw) * (1.0 - smoothstep(0.07, 0.17, saw)) * smoothstep(3.6, 2.6, vDepth);
   float fallen = smoothstep(2.4, 1.2, vDepth);
   float face = mix(smoothstep(0.0, 0.05, saw), 1.0, smoothstep(1.2, 0.7, vDepth));
   float bore = face * (1.0 - smoothstep(0.05, 0.3 + 0.3 * lace, saw)) * fallen;
   float spent = smoothstep(2.2, 0.5, vDepth) * smoothstep(0.55, 0.05, saw) * 0.7;
   float edge = smoothstep(0.2, 0.03, vWorld.y - groundAt(vRest));
-  float white = max(max(crown, bore) * build, max(spent, edge));
+  // A wave that hits rock goes white all at once, and the water round the rock stays broken between hits.
+  float crash = vNear * smoothstep(-0.6, 0.0, vDepth) * (0.5 + 1.6 * crashFront(vRest, uTime));
+  float white = max(max(max(crown, bore) * build, max(spent, edge)), max(crash, uWakeCount > 0 ? wakeFoam(vRest) : 0.0));
   foam = max(foam, smoothstep(0.3, 0.62, white + (lace - 0.5) * 0.5 + (grain - 0.5) * 0.4) * step(0.02, white));
   float body = (0.1 + 0.2 * smoothstep(0.0, 5.0, vDepth)) + foam * 0.7;
   // Sun coming through the thin water of the face.
   float glass = smoothstep(0.07, 0.0, saw) * build * (1.0 - foam);
-  vec3 lit = uScatter * uSunCol * (0.2 + 0.5 * max(n.x * uSunDir.x + n.z * uSunDir.z + 0.2, 0.0) + 1.3 * glass) + vec3(0.9) * foam;
+  vec3 lit = uScatter * waterLight() * (0.2 + 0.5 * max(n.x * uSunDir.x + n.z * uSunDir.z + 0.2, 0.0) + 1.3 * glass) + vec3(0.9) * foam;
   // The water bends what lies under it: look it up where the bent ray lands.
   vec3 below = texture2D(uBelow, uv + n.xz * 0.05 / (1.0 + dist * 0.04)).rgb;
   vec3 col = mix(mix(below, lit, clamp(body, 0.0, 1.0)), sky, fresnel) + uSunCol * glitter * max(0.0, 1.0 - foam);
@@ -546,13 +683,18 @@ void main() {
   float age = uTime - born;
   vec3 toss = hash3(vec3(cell, round_) + 7.0);
   vec2 from = (cell + toss.xy) * SPRAY_CELL;
-  float burst = surfBurst(depthAt(from), from, born);
+  float depth = depthAt(from);
+  float burst = surfBurst(depth, from, born);
+  // A wave on a rock face throws its water straight up and back out to sea, far higher than one on sand.
+  float hit = depth > -0.6 && depth < 14.0 ? rockNear(from) * crashFront(from, born) * 1.3 : 0.0;
+  float blast = step(burst, hit);
+  burst = max(burst, hit);
   if (burst < 0.3) { skip(); return; }
   vec2 along = shoreward(from);
-  vec2 drift = along * (1.0 + 3.0 * toss.y) + vec2(toss.z - 0.5, toss.x - 0.5) * 1.5;
-  float rise = (0.5 + 0.5 * toss.z) * uWind * 0.8 * burst;
+  vec2 drift = along * (1.0 + 3.0 * toss.y) * (1.0 - 2.0 * blast) + vec2(toss.z - 0.5, toss.x - 0.5) * (1.5 + blast);
+  float rise = (0.5 + 0.5 * toss.z) * uWind * 0.8 * burst * (1.0 + 1.5 * blast);
   float height = uLevel + 0.14 * uWind + rise * age - 4.2 * age * age;
-  float size = (0.1 + 0.26 * toss.x * toss.x) * (1.0 + age * 3.0) * (0.5 + burst);
+  float size = (0.1 + 0.26 * toss.x * toss.x) * (1.0 + age * 3.0) * (0.5 + burst) * (1.0 + blast);
   vec4 view = viewMatrix * vec4(from.x + drift.x * age, height, from.y + drift.y * age, 1.0);
   view.xy += position.xy * size;
   vLeft = burst * smoothstep(0.0, 0.08, age) * pow(1.0 - age / life, 1.5);
@@ -576,11 +718,17 @@ void main() {
 
 const PRESENT = /* glsl */ `
 varying vec2 vUv;
-uniform sampler2D uColor;
+uniform sampler2D uColor, uSceneDepth, uSurfaceDepth;
 uniform float uExposure;
 void main() {
   vec3 col = 1.0 - exp(-texture2D(uColor, vUv).rgb * uExposure);
+#ifdef INTO_TARGET
+  // Whoever reads this target sets its own look, and needs to know how far each pixel is.
+  gl_FragColor = vec4(col, 1.0);
+  gl_FragDepth = min(texture2D(uSceneDepth, vUv).r, texture2D(uSurfaceDepth, vUv).r);
+#else
   gl_FragColor = vec4(pow(col, vec3(1.0 / 2.2)), 1.0);
+#endif
 }
 `;
 
@@ -760,6 +908,103 @@ function seabedOf(lit: LitLike, sea: SeaLike, size: number, cells: number, color
   return { mesh, geometry, far, material };
 }
 
+/** A rock to stand on the ground: `generative/beach`'s `rocksWithin` fits. */
+export interface RockLike {
+  readonly at: Vec;
+  readonly radius: number;
+  readonly height: number;
+  readonly yaw: number;
+}
+
+/** A wobbly lump, its foot at y = 0 and top at y = 1: a ball's facets, knocked in and out and left unsmoothed. */
+function lumpPositions(rounds: number): number[] {
+  const corners: Vec[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]];
+  const at = (index: number): Vec => corners[index] ?? [0, 1, 0];
+  let faces: Vec[][] = [[0, 1, 2], [2, 1, 3], [3, 1, 5], [5, 1, 0], [2, 4, 0], [3, 4, 2], [5, 4, 3], [0, 4, 5]].map((face) => [at(face[0] ?? 0), at(face[1] ?? 0), at(face[2] ?? 0)]);
+  const middle = (a: Vec, b: Vec): Vec => unit([a[0] + b[0], a[1] + b[1], a[2] + b[2]]);
+  for (let round = 0; round < rounds; round += 1) {
+    faces = faces.flatMap(([a = at(0), b = at(0), c = at(0)]) => {
+      const [ab, bc, ca] = [middle(a, b), middle(b, c), middle(c, a)];
+      return [[a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]];
+    });
+  }
+  const knocked = ([x, y, z]: Vec): Vec => {
+    const push = 1 + 0.17 * Math.sin(x * 5.1 + y * 3.3) * Math.sin(z * 4.7 - y * 2.9) + 0.08 * Math.sin(x * 11 + z * 13 + y * 9) + 0.035 * Math.sin(x * 29 - z * 23 + y * 31);
+    const up = Math.max(y, -0.2);
+    return [x * push, (0.08 + up * 0.92) * (1 + 0.12 * Math.sin(x * 4 + z * 3)), z * push];
+  };
+  return faces.flatMap((face) => face.flatMap((corner) => [...knocked(corner)]));
+}
+
+/** Every rock as an instance of one lump, turned and stretched by its own numbers. */
+function rocksOf(lit: LitLike, rocks: readonly RockLike[], color: Vec): { group: NodeLike; geometry: GeometryLike; material: DisposableLike } {
+  const geometry = new lit.Geometry();
+  geometry.setAttribute("position", new lit.Attribute(new Float32Array(lumpPositions(4)), 3));
+  geometry.computeVertexNormals();
+  const hex = `#${color.map((channel) => Math.round(Math.pow(Math.min(channel, 1), 1 / 2.2) * 255).toString(16).padStart(2, "0")).join("")}`;
+  const material = new lit.LitMaterial({ color: hex, roughness: 0.96, metalness: 0 });
+  const group = new lit.Instances(geometry, material, Math.max(rocks.length, 1));
+  group.count = rocks.length;
+  group.frustumCulled = false;
+  rocks.forEach((rock, index) => {
+    const [c, s] = [Math.cos(rock.yaw), Math.sin(rock.yaw)];
+    const stretch = 0.8 + 0.4 * ((rock.yaw * 7) % 1);
+    group.instanceMatrix.array.set([c * rock.radius, 0, -s * rock.radius, 0, 0, rock.height, 0, 0, s * rock.radius * stretch, 0, c * rock.radius * stretch, 0, rock.at[0], rock.at[1], rock.at[2], 1], index * 16);
+  });
+  group.instanceMatrix.needsUpdate = true;
+  return { group, geometry, material };
+}
+
+/** One foot in the sand: `generative/beach`'s `Print` fits. */
+export interface PrintLike {
+  readonly x: number;
+  readonly z: number;
+  readonly y: number;
+  readonly heading: number;
+  readonly foot: number;
+}
+
+/** Cells a side of the wrapping map of footprints, a metre each. */
+const PRINT_GRID = 256;
+
+/** Prints that are there from the start and fade for nobody: only the water takes them. */
+const FOREVER = 1e9;
+
+/** The footprints: a map the sand reads, and which of them the water or the wind has yet to take. */
+function printsOf(lit: LitLike, life: number): { texture: DataTextureLike; press(print: PrintLike, born: number): void; sweep(runUp: number, t: number): void } {
+  const data = new Float32Array(PRINT_GRID * PRINT_GRID * 4).fill(-1);
+  const texture = new lit.DataTexture(data, PRINT_GRID, PRINT_GRID, "rgba", "float");
+  const held = new Map<number, { readonly y: number; readonly born: number }>();
+  const wrap = (value: number): number => ((value % PRINT_GRID) + PRINT_GRID) % PRINT_GRID;
+  texture.needsUpdate = true;
+  return {
+    texture,
+    press(print, born) {
+      const [cx, cz] = [Math.floor(print.x), Math.floor(print.z)];
+      const cell = wrap(cz) * PRINT_GRID + wrap(cx);
+      const heading = ((print.heading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      data.set([print.x - cx, print.z - cz, heading + (print.foot > 0 ? 10 : 0), born], cell * 4);
+      held.set(cell, { y: print.y, born });
+      texture.needsUpdate = true;
+    },
+    sweep(runUp, t) {
+      for (const [cell, print] of held) {
+        if (print.y >= runUp && t - print.born < life) continue;
+        data.fill(-1, cell * 4, cell * 4 + 4);
+        held.delete(cell);
+        texture.needsUpdate = true;
+      }
+    },
+  };
+}
+
+/** The footprints, with those already on the sand pressed in. */
+function laidPrints(lit: LitLike, laid: readonly PrintLike[], life: number): ReturnType<typeof printsOf> {
+  const prints = printsOf(lit, life);
+  for (const print of laid) prints.press(print, FOREVER);
+  return prints;
+}
+
 export interface OceanOptions {
   readonly sea: SeaLike;
   /** Per-metre absorption of red, green and blue: a little murkier than `generative/ocean`'s `CLEAR_WATER` by default, so a scene ends in blue. */
@@ -775,6 +1020,14 @@ export interface OceanOptions {
   readonly exposure?: number;
   /** Seconds wet sand takes to dry a metre down from the highest line the water reached. */
   readonly dryTime?: number;
+  /** Rocks to stand on the ground, drawn whole: `generative/beach`'s `rocksWithin` fits. */
+  readonly rocks?: readonly RockLike[];
+  /** The rocks' colour, linear RGB. */
+  readonly rockColor?: Vec;
+  /** Footprints already on the sand: `generative/beach`'s `trails` fits. They last until the water reaches them. */
+  readonly prints?: readonly PrintLike[];
+  /** Seconds the wind takes to fill a new footprint. */
+  readonly printLife?: number;
   /** `render/quality`'s createQuality, or anything answering the same. The default is steady high settings. */
   readonly quality?: QualityLike;
 }
@@ -817,6 +1070,61 @@ export interface Caster {
   readonly tint: Vec;
 }
 
+/** The part of `render/world-light`'s WorldLight this module reads. */
+export interface WorldLightLike {
+  readonly sun: WorldBody;
+  readonly moon: WorldBody;
+  readonly sky: { readonly top: string; readonly horizon: string };
+  /** 0 day to 1 full night. */
+  readonly night: number;
+}
+
+interface WorldBody {
+  readonly direction: Vec;
+  readonly color: string;
+  readonly intensity: number;
+}
+
+/** A hex colour as linear RGB. */
+function linearOf(hex: string): Vec {
+  const channel = (at: number): number => {
+    const value = Number.parseInt(hex.slice(at, at + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  };
+  return [channel(1), channel(3), channel(5)];
+}
+
+/**
+ * Turns `render/world-light`'s light into the light `draw` takes: the sun by
+ * day and the moon by night, with the sky's own colours.
+ *
+ * @param world What `worldLight` answered.
+ * @returns The sun, sky and their colours; add the tide and casters to it.
+ */
+export function lightFromWorld(world: WorldLightLike): Pick<OceanLight, "sun" | "sunColor" | "zenith" | "horizon"> {
+  const body = world.night > 0.5 ? world.moon : world.sun;
+  const color = linearOf(body.color);
+  return {
+    // (A body on the horizon still lights the water, and the shaders divide by its height.)
+    sun: [body.direction[0], Math.max(body.direction[1], 0.03), body.direction[2]],
+    sunColor: [color[0] * body.intensity, color[1] * body.intensity, color[2] * body.intensity],
+    zenith: linearOf(world.sky.top),
+    horizon: linearOf(world.sky.horizon),
+  };
+}
+
+/** A hull moving through the water. */
+export interface Wake {
+  readonly x: number;
+  readonly z: number;
+  /** Unit direction of travel, x then z. */
+  readonly ahead: readonly [number, number];
+  /** Metres per second. */
+  readonly speed: number;
+  /** The hull's length, metres. */
+  readonly length: number;
+}
+
 export interface OceanLight {
   /** Toward the sun. */
   readonly sun: Vec;
@@ -828,6 +1136,8 @@ export interface OceanLight {
   readonly level?: number;
   /** The animals, for the rays: `swarm.casters`. */
   readonly casters?: readonly Caster[];
+  /** Boats, for the white water round and behind them. */
+  readonly wakes?: readonly Wake[];
   /** How long the last frame took, milliseconds, for the quality to hold the frame rate. */
   readonly frameMs?: number;
 }
@@ -837,6 +1147,8 @@ export interface Ocean {
   readonly group: NodeLike;
   /** Whether a point is below the water at t. */
   isUnder(x: number, y: number, z: number, t: number): boolean;
+  /** Presses a foot into the sand at t: the wind fills it in `printLife`, and the water takes it sooner. */
+  press(print: PrintLike, t: number): void;
   /** Draws the scene with the water over it, to the screen. */
   draw(renderer: RendererLike, scene: unknown, camera: CameraLike, t: number, light: OceanLight): void;
   dispose(): void;
@@ -845,8 +1157,11 @@ export interface Ocean {
 /** The most spheres a ray can meet. */
 const MAX_CASTERS = 32;
 
+/** The most hulls that leave a wake. */
+const MAX_WAKES = 8;
+
 /** Cells a side of the wrapping grid spray is thrown from, and their size in metres. */
-const SPRAY_GRID = 90;
+const SPRAY_GRID = 130;
 const SPRAY_CELL = 0.9;
 
 /** Cells a side of the ground baked for the surface to read its depth from. */
@@ -857,8 +1172,8 @@ const DEFAULT_HORIZON: Vec = [0.74, 0.84, 0.93];
 
 interface Pass { readonly stage: NodeLike; readonly material: DisposableLike }
 
-function passOf(lit: LitLike, quad: GeometryLike, uniforms: Uniforms, fragmentShader: string, defines: Readonly<Record<string, unknown>> = {}): Pass {
-  const material = new lit.CustomMaterial({ defines, uniforms, vertexShader: FULLSCREEN, fragmentShader, depthTest: false, depthWrite: false });
+function passOf(lit: LitLike, quad: GeometryLike, uniforms: Uniforms, fragmentShader: string, defines: Readonly<Record<string, unknown>> = {}, depth: Readonly<Record<string, unknown>> = { depthTest: false, depthWrite: false }): Pass {
+  const material = new lit.CustomMaterial({ defines, uniforms, vertexShader: FULLSCREEN, fragmentShader, ...depth });
   const mesh = new lit.Mesh(quad, material);
   mesh.frustumCulled = false;
   const stage = new lit.Stage();
@@ -883,6 +1198,16 @@ function waveUniform(lit: LitLike, packed: Float32Array): Vector4Like[] {
   return vectors;
 }
 
+/** The last pass, as it goes to the screen or into a target someone else reads. */
+function presenterOf(lit: LitLike, quad: GeometryLike, scene: TargetLike, final: TargetLike, exposure: number): { screen: Pass; target: Pass; uniforms: Uniforms } {
+  const uniforms: Uniforms = { uColor: { value: final.texture }, uExposure: { value: exposure }, uSceneDepth: { value: scene.depthTexture }, uSurfaceDepth: { value: final.depthTexture } };
+  return {
+    uniforms,
+    screen: passOf(lit, quad, uniforms, PRESENT),
+    target: passOf(lit, quad, uniforms, PRESENT, { INTO_TARGET: 1 }, { depthTest: true, depthWrite: true, depthFunc: "always" }),
+  };
+}
+
 function setVec(uniform: Uniform | undefined, value: Vec): void {
   (uniform?.value as Vector3Like | undefined)?.set(value[0], value[1], value[2]);
 }
@@ -895,6 +1220,9 @@ function lightUniforms(lit: LitLike, absorption: Vec, scatter: Vec): Uniforms {
     uShore: { value: 0 }, uWet: { value: 0 }, uRunUp: { value: 0 }, uSprayShare: { value: 0 }, uReflectSteps: { value: 0 }, uShadowSteps: { value: 0 }, uCasterCount: { value: 0 }, uTraceFar: { value: 0 }, uTraceNear: { value: 0 }, uShafts: { value: 0 }, uSnow: { value: 0 },
     uCaster: { value: Array.from({ length: MAX_CASTERS }, () => new lit.Vector4()) },
     uCasterTint: { value: Array.from({ length: MAX_CASTERS }, () => new lit.Vector3()) },
+    uWakeCount: { value: 0 },
+    uWake: { value: Array.from({ length: MAX_WAKES }, () => new lit.Vector4()) },
+    uWakeSize: { value: Array.from({ length: MAX_WAKES }, () => new lit.Vector2()) },
   };
 }
 
@@ -934,6 +1262,24 @@ function writeLight(shared: Uniforms, light: OceanLight, level: number, under: b
   if (shared.uShore) shared.uShore.value = level;
   if (shared.uUnder) shared.uUnder.value = under ? 1 : 0;
   if (shared.uTime) shared.uTime.value = t;
+}
+
+function writeWakes(shared: Uniforms, wakes: readonly Wake[]): void {
+  const [spots, sizes] = [shared.uWake?.value as Vector4Like[], shared.uWakeSize?.value as Vector2Like[]];
+  const count = Math.min(wakes.length, MAX_WAKES);
+  for (let index = 0; index < count; index += 1) {
+    const wake = wakes[index];
+    if (wake) {
+      spots[index]?.set(wake.x, wake.z, wake.ahead[0], wake.ahead[1]);
+      sizes[index]?.set(wake.speed, wake.length);
+    }
+  }
+  if (shared.uWakeCount) shared.uWakeCount.value = count;
+}
+
+function writeMovers(shared: Uniforms, light: OceanLight, settings: OceanSettings): void {
+  writeWakes(shared, light.wakes ?? []);
+  writeSettings(shared, settings, light.casters ?? []);
 }
 
 function writeSettings(shared: Uniforms, settings: OceanSettings, casters: readonly Caster[]): void {
@@ -1065,7 +1411,7 @@ function drawWorld(rig: Rig, renderer: RendererLike, stage: unknown, camera: Cam
 }
 
 function surfaceOf(lit: LitLike, uniforms: Uniforms, defines: Readonly<Record<string, unknown>>): { stage: NodeLike; disc: GeometryLike; material: DisposableLike } {
-  const material = new lit.CustomMaterial({ defines, uniforms, vertexShader: SURFACE_VERTEX, fragmentShader: SURFACE_FRAGMENT, side: "double", depthWrite: true, depthTest: true });
+  const material = new lit.CustomMaterial({ defines, uniforms, vertexShader: SURFACE_VERTEX, fragmentShader: SURFACE_FRAGMENT, side: "both", depthWrite: true, depthTest: true });
   const disc = surfaceGeometry(lit, 150, 220, 1400);
   const mesh = new lit.Mesh(disc, material);
   mesh.frustumCulled = false;
@@ -1080,12 +1426,28 @@ function sprayOf(lit: LitLike, stage: NodeLike, uniforms: Uniforms, defines: Rea
   const cells = new Float32Array(SPRAY_GRID * SPRAY_GRID * 2);
   for (let index = 0; index < SPRAY_GRID * SPRAY_GRID; index += 1) cells.set([index % SPRAY_GRID, Math.floor(index / SPRAY_GRID)], index * 2);
   quad.setAttribute("aCell", new lit.InstanceAttribute(cells, 2));
-  const material = new lit.CustomMaterial({ defines: { ...defines, SPRAY_GRID: `${SPRAY_GRID}.0`, SPRAY_CELL: SPRAY_CELL.toFixed(2) }, uniforms, vertexShader: SPRAY_VERTEX, fragmentShader: SPRAY_FRAGMENT, side: "double", transparent: true, depthWrite: false, depthTest: true });
+  const material = new lit.CustomMaterial({ defines: { ...defines, SPRAY_GRID: `${SPRAY_GRID}.0`, SPRAY_CELL: SPRAY_CELL.toFixed(2) }, uniforms, vertexShader: SPRAY_VERTEX, fragmentShader: SPRAY_FRAGMENT, side: "both", transparent: true, depthWrite: false, depthTest: true });
   const mesh = new lit.Instances(quad, material, SPRAY_GRID * SPRAY_GRID);
   mesh.frustumCulled = false;
   mesh.renderOrder = 1;
   stage.add(mesh);
   return { mesh, quad, material };
+}
+
+/** The full-size picture rebuilt from this frame and past ones. */
+function upscaled(resolver: Resolver, renderer: RendererLike, quadCamera: unknown, final: TargetLike, size: Size, width: number, height: number, camera: CameraLike): TargetLike {
+  (resolver.uniforms.uTexel?.value as Vector2Like).set(1 / width, 1 / height);
+  const shown = resolver.resolve(renderer, quadCamera, final, final, size.x, size.y, camera);
+  resolver.past.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  return shown;
+}
+
+/** What this frame spends, and its size. A target's owner picks its size and rebuilds the picture itself. */
+function frameFor(renderer: RendererLike, into: TargetLike | null, spent: OceanSettings, size: Vector2Like): { settings: OceanSettings; width: number; height: number } {
+  if (into) size.set(into.width, into.height);
+  else renderer.getDrawingBufferSize(size);
+  const settings = into ? { ...spent, upscale: false, renderScale: 1 } : spent;
+  return { settings, width: Math.max(1, Math.floor(size.x * settings.renderScale)), height: Math.max(1, Math.floor(size.y * settings.renderScale)) };
 }
 
 function placeOf(sea: SeaLike, eye: CameraLike["position"], level: number, t: number): OceanPlace {
@@ -1105,8 +1467,10 @@ export function createOcean(lit: LitLike, options: OceanOptions): Ocean {
   const baseLevel = options.level ?? 0;
   const seabedSize = options.size ?? 320;
   const baked = bakeGround(lit, sea, seabedSize, options.colorAt);
-  const shared: Uniforms = { ...lightUniforms(lit, options.absorption ?? [0.38, 0.085, 0.05], options.scatter ?? [0.012, 0.13, 0.2]), uWind: { value: sea.wind }, uGround: { value: baked.height }, uGroundColor: { value: baked.color }, uGroundSize: { value: seabedSize }, uGroundTop: { value: baked.top } };
-  const defines = { WAVES: sea.packed.length / 8, GROUND_CELLS: `${GROUND_CELLS}.0`, MAX_CASTERS };
+  const printLife = options.printLife ?? 900;
+  const prints = laidPrints(lit, options.prints ?? [], printLife);
+  const shared: Uniforms = { ...lightUniforms(lit, options.absorption ?? [0.38, 0.085, 0.05], options.scatter ?? [0.012, 0.13, 0.2]), uWind: { value: sea.wind }, uGround: { value: baked.height }, uGroundColor: { value: baked.color }, uGroundSize: { value: seabedSize }, uGroundTop: { value: baked.top }, uPrints: { value: prints.texture }, uPrintLife: { value: printLife }, uRockColor: { value: new lit.Vector3(...(options.rockColor ?? [0.3, 0.25, 0.2])) } };
+  const defines = { WAVES: sea.packed.length / 8, GROUND_CELLS: `${GROUND_CELLS}.0`, MAX_CASTERS, MAX_WAKES, PRINT_GRID: `${PRINT_GRID}.0` };
   const quad = lit.plane(2, 2);
   const quadCamera = new lit.OrthoCamera(-1, 1, 1, -1, 0, 1);
   const [scene, water, final] = [sceneTarget(lit), colorTarget(lit), sceneTarget(lit)];
@@ -1114,8 +1478,7 @@ export function createOcean(lit: LitLike, options: OceanOptions): Ocean {
   const mediumUniforms: Uniforms = { ...shared, uColor: { value: scene.texture }, uDepth: { value: scene.depthTexture }, uProjInv: { value: new lit.Matrix4() }, uCamWorld: { value: new lit.Matrix4() }, uEye: { value: new lit.Vector3() } };
   const medium = passOf(lit, quad, mediumUniforms, MEDIUM, defines);
   const copy = passOf(lit, quad, { uColor: { value: water.texture } }, COPY);
-  const presentUniforms: Uniforms = { uColor: { value: final.texture }, uExposure: { value: options.exposure ?? 1.5 } };
-  const present = passOf(lit, quad, presentUniforms, PRESENT);
+  const present = presenterOf(lit, quad, scene, final, options.exposure ?? 1.5);
   const surfaceUniforms: Uniforms = { ...shared, uWave: { value: waveUniform(lit, sea.packed) }, uDepth: { value: scene.depthTexture }, uBelow: { value: water.texture }, uRes: { value: new lit.Vector2(1, 1) } };
   const surface = surfaceOf(lit, surfaceUniforms, defines);
   const spray = sprayOf(lit, surface.stage, surfaceUniforms, defines);
@@ -1124,39 +1487,36 @@ export function createOcean(lit: LitLike, options: OceanOptions): Ocean {
   const group = new lit.Group();
   const bed = seabedOf(lit, sea, seabedSize, Math.round(seabedSize / 1.8), options.colorAt);
   group.add(bed.mesh);
+  const rocks = rocksOf(lit, options.rocks ?? [], options.rockColor ?? [0.3, 0.25, 0.2]);
+  group.add(rocks.group);
   const wetLine = wetLineOf(shared, sea.wind, options.dryTime ?? 3600);
   return {
     group,
     isUnder: (x, y, z, t) => y < sea.surfaceAt(x, z, t, baseLevel).height,
+    press: (print, t) => { prints.press(print, t); },
     draw(renderer, stage, camera, t, light) {
       const level = light.level ?? baseLevel;
       if (light.frameMs !== undefined) options.quality?.frame(light.frameMs);
       const place = placeOf(sea, camera.position, level, t);
-      const settings = options.quality?.at(place) ?? STEADY;
+      const into = renderer.getRenderTarget() as TargetLike | null;
+      const { settings, width, height } = frameFor(renderer, into, options.quality?.at(place) ?? STEADY, size);
       writeLight(shared, light, level, place.under, t);
       wetLine(level, t);
-      writeSettings(shared, settings, light.casters ?? []);
-      renderer.getDrawingBufferSize(size);
-      const width = Math.max(1, Math.floor(size.x * settings.renderScale));
-      const height = Math.max(1, Math.floor(size.y * settings.renderScale));
-      const [previous, clears] = [renderer.getRenderTarget(), renderer.autoClear];
+      prints.sweep(shared.uRunUp?.value as number, t);
+      writeMovers(shared, light, settings);
+      const clears = renderer.autoClear;
       const undo = settings.upscale ? jitter(camera, resolver.frame, width, height) : null;
       drawWorld(rig, renderer, stage, camera, width, height);
       undo?.();
       renderer.autoClear = true;
-      let shown = final;
-      if (settings.upscale) {
-        (resolver.uniforms.uTexel?.value as Vector2Like).set(1 / width, 1 / height);
-        shown = resolver.resolve(renderer, quadCamera, final, final, size.x, size.y, camera);
-        resolver.past.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-      }
-      if (presentUniforms.uColor) presentUniforms.uColor.value = shown.texture;
+      const shown = settings.upscale ? upscaled(resolver, renderer, quadCamera, final, size, width, height, camera) : final;
+      if (present.uniforms.uColor) present.uniforms.uColor.value = shown.texture;
       renderer.autoClear = clears;
-      renderer.setRenderTarget(previous);
-      renderer.render(present.stage, quadCamera);
+      renderer.setRenderTarget(into);
+      renderer.render(present[into ? "target" : "screen"].stage, quadCamera);
     },
     dispose() {
-      for (const item of [baked.height, baked.color, scene, water, final, ...resolver.targets, quad, medium.material, copy.material, present.material, resolver.pass.material, surface.material, surface.disc, spray.quad, spray.material, bed.geometry, bed.far, bed.material]) item.dispose();
+      for (const item of [baked.height, baked.color, prints.texture, rocks.geometry, rocks.material, scene, water, final, ...resolver.targets, quad, medium.material, copy.material, present.screen.material, present.target.material, resolver.pass.material, surface.material, surface.disc, spray.quad, spray.material, bed.geometry, bed.far, bed.material]) item.dispose();
     },
   };
 }

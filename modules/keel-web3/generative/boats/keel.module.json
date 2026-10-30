@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "boats",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A seeded fleet on any sea: dinghies, fishing boats and sloops that sail, swing at anchor or sit beached until the tide lifts them, each pose a pure function of seed and time and floating on the sea's own waves, with their hulls as plain triangles. Deterministic and renderer-free.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" }
+}

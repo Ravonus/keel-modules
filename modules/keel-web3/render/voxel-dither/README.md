@@ -106,5 +106,9 @@ renderer.setAnimationLoop(() => {
 });
 ```
 
+`look.renderWith(paint, camera)` is `render` for a scene that draws itself:
+`paint` runs with the look's target bound and must leave linear light and depth
+in it. `render/ocean-render` draws this way.
+
 Build the renderer with `antialias: false`: the art-pixel grid resolves every
 edge.

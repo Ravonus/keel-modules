@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "boat-render",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Draws a generative/boats fleet for keel/lit as one instanced hull per kind, and hands render/ocean-render the casters and wakes that put each boat in the water's reflections and white water.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" }
+}

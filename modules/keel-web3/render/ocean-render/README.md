@@ -73,15 +73,39 @@ ground's colour: `generative/beach`'s fits), `exposure` and `quality`
 The ground under `sea.seabedAt` is baked once into a 256-cell map across `size`,
 so waves shoal over any ground, including a `generative/beach` shore.
 
+Also `rocks` and `rockColor` (`generative/beach`'s `rocksWithin` and `rockColor`), `prints`
+(its `trails`, which last until the water reaches them) and `printLife` (seconds the
+wind takes to fill a new print). `ocean.press(print, t)` adds a print as something walks.
+`draw`'s light also takes `wakes`, which `render/boat-render` gives.
+
+The MEDIUM pass adds what the ground's mesh is too coarse to carry: strata, joints and
+staining on anything steep, and grain, ripples, shells and footprints in sand.
+
+Waves hit rock by the closed-form `crashAt` in `generative/ocean`: water surges up the
+face, the sea round it goes white, and spray goes straight up and back out to sea.
+
 `createSwarm(lit, options)`: `bodies`, `pose`, `species`, `near` (default 16) and
 `most` (the most of a species drawn far, default 512).
 
+## Fitting the world
+
+`lightFromWorld(worldLight(...))` turns `render/world-light`'s moment into the light
+`ocean.draw` takes: the sun by day, the moon by night, with its sky colours and the
+sun held just above the horizon. Low in the sky the water falls back on the sky's
+own light, so dusk stays blue.
+
+`ocean.draw` paints the bound render target when there is one: its tone curve and
+depth, no gamma and no upscaling, so whoever reads the target sets the look. That is
+how `render/voxel-dither` takes it:
+
+```ts
+look.renderWith(() => ocean.draw(renderer, scene, camera, seconds, light), camera);
+```
+
 ## Limits for now
 
-- `ocean.draw` writes straight to the screen with its own tone curve, so it does
-  not yet feed `voxel-dither`.
-- The sky is a two-colour gradient and a sun, not `world-light`'s sky.
 - Past `size` the ground is a coarse mesh out to five times as far. The baked map stops at `size`, so water beyond it reads the map's edge: far surf can sit a little off the true shore, and that ground has no traced shadows of its own.
+- Footprints are one to a square metre of a 256 m map, so a crowd overwrites itself.
 - `sea.surfaceAt` answers for the water's height at a place, so it does not follow a thrown lip.
 
 ## Preview
@@ -90,8 +114,10 @@ so waves shoal over any ground, including a `generative/beach` shore.
 node modules/keel-web3/render/ocean-render/tools/serve.mjs
 ```
 
-It serves `http://localhost:4197`. Add `?view=school|shark|jelly|window|surf|break|shore|beach|above`, `&quality=low|medium|high|ultra`, `&tide=low|mid|high` and
-`&t=30` to hold a moment. It needs a sibling `keel-engine` checkout for keel/lit
+It serves `http://localhost:4197`. Add `?view=school|shark|jelly|window|surf|break|shore|beach|cliff|rocks|prints|harbor|above`, `&quality=low|medium|high|ultra`, `&tide=low|mid|high` and
+`&t=30` to hold a moment, `&hour=18.6` for `world-light`'s sky at that hour and
+`&kind=cove`, `&sand=golden`, `&boats=0` and
+`&look=pixel` for that `voxel-dither` style (the pixels button turns it on). It needs a sibling `keel-engine` checkout for keel/lit
 (or `KEEL_ENGINE`).
 
 Near animals need `render/sdf-body`. In a checkout without it, set

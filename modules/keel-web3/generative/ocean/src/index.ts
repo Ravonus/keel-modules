@@ -258,6 +258,59 @@ export function surfBurst(depth: number, x: number, z: number, t: number): numbe
   return landing * (1 - smooth(clamp(surfSaw(depth, x, z, t) / 0.18, 0, 1))) * surfSets(x, z, t);
 }
 
+/**
+ * How steep the ground is for waves to crash against it: 0 on any beach, 1 on a rock face.
+ *
+ * @param slope Metres of rise per metre across.
+ * @returns From 0 to 1.
+ */
+export function steepOf(slope: number): number {
+  return smooth(clamp((slope - 0.5) / 0.9, 0, 1));
+}
+
+/** Where a face takes the water: from just above the tide down to the depth a wave hits with its whole height. */
+const crashReach = (depth: number): number => smooth(clamp((depth + 0.6) / 0.6, 0, 1)) * smooth(clamp((3.5 - depth) / 2, 0, 1));
+
+const crashFront = (x: number, z: number, t: number): number => {
+  const saw = surfSaw(1, x, z, t);
+  return Math.pow(1 - saw, 3) * clamp(saw / 0.06, 0, 1) * surfSets(x, z, t);
+};
+
+/**
+ * How hard a wave is hitting a rock face. A wave has no slope to break on here,
+ * so it arrives whole, along the face at once.
+ *
+ * @param depth Water over the ground.
+ * @param steep What `steepOf` says of the ground here.
+ * @param x Where on the water.
+ * @param z Where on the water.
+ * @param t Seconds.
+ * @returns From 0 to 1.
+ */
+export function crashAt(depth: number, steep: number, x: number, z: number, t: number): number {
+  return steep * crashReach(depth) * crashFront(x, z, t);
+}
+
+/**
+ * How far water surges up a rock face as a wave hits it. Added to `surfaceAt`.
+ *
+ * @param depth Water over the ground.
+ * @param steep What `steepOf` says of the ground here.
+ * @param x Where on the water.
+ * @param z Where on the water.
+ * @param t Seconds.
+ * @param wind The sea's wind, which sets the surf's size.
+ * @returns Metres added to the water's height.
+ */
+export function surfCrash(depth: number, steep: number, x: number, z: number, t: number, wind: number): number {
+  return 0.16 * wind * crashAt(depth, steep, x, z, t);
+}
+
+/** How steep the ground is at a place, over the same three metres the shaders read. */
+function steepHere(ground: (x: number, z: number) => number, x: number, z: number): number {
+  return steepOf(Math.hypot(ground(x + 1.5, z) - ground(x - 1.5, z), ground(x, z + 1.5) - ground(x, z - 1.5)) / 3);
+}
+
 function displaceBy(waves: readonly Wave[], x: number, z: number, t: number, depth: number): Vec3 {
   let dx = 0;
   let dy = 0;
@@ -337,7 +390,8 @@ export function createSea(input: SeaInput = {}): Sea {
         sx += x - moved[0];
         sz += z - moved[2];
       }
-      return { height: level + displaceBy(waves, sx, sz, t, water)[1] + surfAt(signed, x, z, t, wind), normal: normalBy(waves, sx, sz, t, water) };
+      const crash = signed > -0.6 && signed < 3.5 ? surfCrash(signed, steepHere(seabedAt, x, z), x, z, t, wind) : 0;
+      return { height: level + displaceBy(waves, sx, sz, t, water)[1] + surfAt(signed, x, z, t, wind) + crash, normal: normalBy(waves, sx, sz, t, water) };
     },
     seabedAt,
     currentAt(x, y, z, t) {

@@ -19,6 +19,7 @@ tideTimes(hours);           // the next high and low waters
 surfAt(depth, x, z, t, wind); // breakers and swash near a shore
 surfThrow(depth, x, z, t, wind); // how far a lip is thrown up the shore
 surfBurst(depth, x, z, t); // how hard the surf is crashing, 0 to 1
+crashAt(depth, steepOf(slope), x, z, t); // how hard a wave is hitting a rock face, 0 to 1
 ```
 
 - **Waves.** Gerstner waves on deep water's dispersion (`omega = sqrt(g k)`),

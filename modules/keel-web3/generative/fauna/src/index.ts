@@ -1597,15 +1597,15 @@ function offWood(p: Vec, a: Wood, b: Wood): number {
 }
 
 /** Whether a body sat on perch `i` keeps out of every limb but its own. */
-function woodClear(stage: Stage, i: number, size: number): boolean {
+function woodClear(stage: Stage, i: number, r: number): boolean {
   const perch = perchOf(stage, i);
   if (!perch) return true;
   const own = new Set((perch.path ?? []).map(woodKey));
   const map = woodMapOf(stage);
-  const body = add(perch.p, [0, perch.r + size * 0.3, 0]);
-  const around = [body, madd(body, perch.d, size * 0.4), madd(body, perch.d, -size * 0.4)];
-  const reach = size * 0.18 + map.thickest;
-  return around.every((p) => woodNear(map, p, reach).every((edge) => own.has(edge.keys[0]) || own.has(edge.keys[1]) || offWood(p, edge.a, edge.b) >= size * 0.18));
+  const body = add(perch.p, [0, perch.r + r, 0]);
+  const around = [body, madd(body, perch.d, r), madd(body, perch.d, -r)];
+  const keep = r * 0.6;
+  return around.every((p) => woodNear(map, p, keep + map.thickest).every((edge) => own.has(edge.keys[0]) || own.has(edge.keys[1]) || offWood(p, edge.a, edge.b) >= keep));
 }
 
 /** Whether no one in the troupe sits there, or is on the way, within a body's length. */
@@ -1624,18 +1624,34 @@ function limbOf(stage: Stage, i: number): number {
   return Math.abs(Math.round(Math.atan2(root[2], root[0]) * 3 + root[1] * 7));
 }
 
-/** A branch to sit on, thick enough to take the animal (a monkey keeps off the twigs a songbird uses), out from the trunk, with room among the wood and a place free of the others. */
-function randomPerch(actor: Actor, scene: Scene): Place {
+const bodyRadius = (actor: Actor): number => actor.spec.build.body * actor.member.size;
+
+/** How much limb a perch has behind it. */
+function limbLength(stage: Stage, i: number): number {
+  const path = perchOf(stage, i)?.path ?? [];
+  return path.slice(1).reduce((sum, wood, k) => sum + length(sub(wood.p, path[k]?.p ?? wood.p)), 0);
+}
+
+/** Whether a body fits on a perch: wood that will bear it, out from the trunk, clear of other limbs, and long enough for a snake to lie on. */
+function perchFits(actor: Actor, stage: Stage, i: number): boolean {
   const size = actor.member.size;
-  let i = 0;
+  const r = bodyRadius(actor);
+  if ((perchOf(stage, i)?.r ?? 1) < r * 0.2 || !woodClear(stage, i, r)) return false;
+  return liesAlong(actor) ? limbLength(stage, i) >= size : perchRoom(stage, i, size);
+}
+
+/**
+ * A branch to sit on that fits the animal and is free of the others, or a spot
+ * on the ground when the tree has no room left: a small tree holds only so many.
+ */
+function randomPerch(actor: Actor, scene: Scene): Place {
+  const { stage } = scene;
+  const ours = (i: number): boolean => limbOf(stage, i) % actor.limbs[1] === actor.limbs[0];
   for (let attempt = 0; attempt < 16; attempt += 1) {
-    i = Math.floor(actor.rand() * 9973);
-    // (The last tries take any free place that will bear it, when a small tree has nothing better.)
-    const fits = (perchOf(scene.stage, i)?.r ?? 1) >= size * 0.12 && perchRoom(scene.stage, i, size) && (attempt >= 12 || woodClear(scene.stage, i, size));
-    const ours = attempt >= 8 || limbOf(scene.stage, i) % actor.limbs[1] === actor.limbs[0];
-    if (fits && ours && perchFree(actor, scene, i)) break;
+    const i = Math.floor(actor.rand() * 9973);
+    if ((attempt >= 8 || ours(i)) && perchFits(actor, stage, i) && perchFree(actor, scene, i)) return { on: "perch", i };
   }
-  return { on: "perch", i };
+  return groundSpot(actor.rand, stage, actor.member.size, undefined, 0, takenBy(actor, scene));
 }
 
 /** The branch spot nearest `i` in the list that has room for the animal, and keeps `apart` from `beside` when given, or `i` when none does. */
@@ -1644,7 +1660,7 @@ function roomyPerch(stage: Stage, i: number, size: number, beside?: number, apar
   const near = beside === undefined ? null : perchOf(stage, beside)?.p ?? null;
   const roomy = (j: number): boolean => {
     const at = perchOf(stage, j)?.p;
-    return perchRoom(stage, j, size) && woodClear(stage, j, size) && (!near || !at || length(sub(at, near)) >= apart);
+    return perchRoom(stage, j, size) && woodClear(stage, j, size * 0.25) && (!near || !at || length(sub(at, near)) >= apart);
   };
   for (let k = 0; k < count; k += 1) {
     for (const j of [i + k, i - k]) if (roomy(j)) return j;
@@ -7256,7 +7272,7 @@ function troupesOf(cast: Cast, stage: Stage, pantry: Pantry): Troupe[] {
       actor.limbs = [g, cast.groups.length];
     }
     // (Dropped in at random to begin with: any that landed on another moves along.)
-    for (const actor of actors) if (actor.place.on === "perch" && !(perchFree(actor, scene, actor.place.i) && woodClear(stage, actor.place.i, actor.member.size))) actor.place = randomPerch(actor, scene);
+    for (const actor of actors) if (actor.place.on === "perch" && !(perchFree(actor, scene, actor.place.i) && perchFits(actor, stage, actor.place.i))) actor.place = randomPerch(actor, scene);
     return { kind: group.kind, actors, rand, cohesion: COHESION[group.kind] };
   });
 }

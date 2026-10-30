@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "ocean-render",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Draws a sea for keel/lit from above or inside it: moving Gerstner surface, Snell's window, seabed, caustics, light shafts and marine snow as a depth pass over any scene, plus a swarm that draws any number of animals as near bodies and far instances cut from them.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" }
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "ocean",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A sea as a pure function: seeded Gerstner waves on real dispersion, the seabed, currents, the moon's tide and how light dies with depth. Everything that floats, swims or draws asks the same waves. Deterministic and renderer-free.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" }
+}

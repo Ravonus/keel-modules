@@ -501,7 +501,7 @@ export default [
     expect: [2, true, 0, true, true, 0, true],
   },
   {
-    name: 'nothing is pushed into the tree: bodies on the wood swing round each other to their own right, and round any limb that is not theirs',
+    name: 'nothing is pushed into the tree: bodies on the wood swing round each other to their own right, and round any limb that is not theirs, and stay out of their own',
     run: ({ shoveApart, passOnWood, clearOfLimbs, woodMapOf }) => {
       const at = (x, weight, self) => ({ rings: [{ x, z: 0, r: 1 }], weight, team: 0, self, faces: -1 });
       const tree = { rings: [{ x: 0, z: 0, r: 0.5 }], weight: 1e9, team: -1, self: -1, faces: -1 };
@@ -511,10 +511,11 @@ export default [
       const limb = [{ p: [-1, 1, 0], r: 0.05 }, { p: [1, 1, 0], r: 0.05 }];
       const map = woodMapOf({ radius: 4, top: 0, perches: [{ p: limb[1].p, d: [1, 0, 0], r: 0.05, path: limb }] });
       const round = clearOfLimbs(on(0.02, [0, 1, 0]), map);
-      const mine = clearOfLimbs({ ...on(0.02, [0, 1, 0]), own: limb }, map);
-      return [pushed[0] > 0, Math.abs(rooted[0]) < 1e-6, north[0] > 0, south[0] < 0, round[2] > 0, mine[2]];
+      const mine = clearOfLimbs({ ...on(0.06, [0, 1, 0]), own: limb }, map);
+      const inside = clearOfLimbs({ ...on(0.02, [0, 1, 0]), own: limb }, map);
+      return [pushed[0] > 0, Math.abs(rooted[0]) < 1e-6, north[0] > 0, south[0] < 0, round[2] > 0, mine[2], inside[2] > 0];
     },
-    expect: [true, true, true, true, true, 0],
+    expect: [true, true, true, true, true, 0, true],
   },
   {
     name: 'a climber finds its way over the wood: across a gap it can reach, not one it cannot, and round a perch that is crowded',

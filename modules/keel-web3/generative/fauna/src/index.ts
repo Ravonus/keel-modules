@@ -1205,6 +1205,44 @@ function trunkFoot(place: Place, a: Anchor, stage: Stage): { h: number; a: numbe
 }
 
 /** A perch's branch as a climber walks it, from the trunk outward: on top of the wood, and where it leaves the trunk. */
+const inTrunk = (p: Vec, trunk: Stage["trunk"]): boolean => {
+  if (!trunk) return false;
+  const axis = trunkAxis(trunk, trunkShare(trunk, p[1]));
+  return Math.hypot(p[0] - axis.p[0], p[2] - axis.p[2]) < axis.r;
+};
+
+/** A limb's top to its underside, by way of its flank. */
+const ROUND_LIMB = [0, 0.8, 1.6, 2.4, Math.PI];
+
+/**
+ * Where a climber's feet go on a limb: its top, square to the limb and not
+ * straight up, or a steep limb's "up" runs down its own middle and the climber
+ * goes inside it. A limb that stands upright has no top: it goes round the side
+ * away from the tree. Where the top is buried in the trunk, a limb hugging it
+ * on the way up, the way turns round the limb to the face that isn't.
+ */
+function onTopOf(w: Wood, back: Wood, on: Wood, trunk: Stage["trunk"]): PathPoint {
+  const along = unit(sub(on.p, back.p), UP);
+  const square = (v: Vec): Vec => madd(v, along, -dot(v, along));
+  const top = square(UP);
+  const crown = unit(length(top) > 0.15 ? top : square([w.p[0], 0, w.p[2]]), UP);
+  const flank = cross(along, crown);
+  for (const turn of ROUND_LIMB) {
+    const up = madd(scale(crown, Math.cos(turn)), flank, Math.sin(turn));
+    const p = madd(w.p, up, w.r);
+    if (!inTrunk(p, trunk)) return { p, up };
+  }
+  return { p: madd(w.p, crown, w.r), up: crown };
+}
+
+/** A limb starts inside the trunk: a point on that stretch comes out to the bark, or the way runs through the tree. */
+function outOfTrunk(point: PathPoint, trunk: Stage["trunk"]): PathPoint {
+  if (!trunk || !inTrunk(point.p, trunk)) return point;
+  const axis = trunkAxis(trunk, trunkShare(trunk, point.p[1]));
+  const side = unit([point.p[0] - axis.p[0], 0, point.p[2] - axis.p[2]], point.up);
+  return { p: [axis.p[0] + side[0] * axis.r, point.p[1], axis.p[2] + side[2] * axis.r], up: side };
+}
+
 function branchWay(place: Place, stage: Stage): { points: PathPoint[]; foot: { h: number; a: number }; wood: readonly Wood[] } | null {
   if (place.on !== "perch" || !stage.trunk) return null;
   const wood = perchOf(stage, place.i)?.path ?? [];
@@ -1214,7 +1252,7 @@ function branchWay(place: Place, stage: Stage): { points: PathPoint[]; foot: { h
   const a = Math.atan2(next.p[2] - first.p[2], next.p[0] - first.p[0]);
   const foot = { h: trunkShare(stage.trunk, first.p[1]), a };
   const points: PathPoint[] = [trunkPoint(stage, foot.h, a)];
-  for (const w of wood.slice(1)) points.push({ p: add(w.p, [0, w.r, 0]), up: UP });
+  wood.slice(1).forEach((w, i) => { points.push(outOfTrunk(onTopOf(w, wood[i] ?? w, wood[i + 2] ?? w, stage.trunk), stage.trunk)); });
   return { points, foot, wood };
 }
 
@@ -1649,7 +1687,8 @@ function limbLength(stage: Stage, i: number): number {
 function perchFits(actor: Actor, stage: Stage, i: number): boolean {
   const size = actor.member.size;
   const r = bodyRadius(actor);
-  if ((perchOf(stage, i)?.r ?? 1) < r * 0.2 || !woodClear(stage, i, r)) return false;
+  const seat = anchorOf({ on: "perch", i }, stage, []).p;
+  if ((perchOf(stage, i)?.r ?? 1) < r * 0.2 || inTrunk(seat, stage.trunk) || !woodClear(stage, i, r)) return false;
   return liesAlong(actor) ? limbLength(stage, i) >= size : perchRoom(stage, i, size);
 }
 
@@ -7600,9 +7639,9 @@ export function clearOfLimbs(print: WoodPrint, map: WoodMap): Vec {
   let lean: Vec = [0, 0, 0];
   let deepest = 0;
   for (const ball of print.balls) for (const { a, b, keys } of woodNear(map, ball, keep + map.thickest)) {
-    const gap = keep - offWood(ball, a, b);
-    // (A branch forking off its own is one it touches: it only goes round the rest.)
-    if (gap <= deepest || own.has(keys[0]) || own.has(keys[1])) continue;
+    // (A branch forking off its own is one it touches: it goes round the rest, and on that one only stays out of it.)
+    const gap = (own.has(keys[0]) || own.has(keys[1]) ? 0 : keep) - offWood(ball, a, b);
+    if (gap <= deepest) continue;
     const ab = sub(b.p, a.p);
     const k = clamp(dot(sub(ball, a.p), ab) / Math.max(1e-9, dot(ab, ab)), 0, 1);
     deepest = gap;

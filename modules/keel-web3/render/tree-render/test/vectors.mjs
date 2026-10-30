@@ -266,4 +266,17 @@ export default [
     },
     expect: [true, 0.4, 0.2, 0.3, 1, 2, 3],
   },
+  {
+    name: 'snow on a sloping limb slopes with it, lying on its top from end to end',
+    run: ({ writeSlab }) => {
+      const a = new Float32Array(16);
+      writeSlab(a, 0, 0, 1, 0, 1, 1, 0, 0.1, 0.2, 0.04, 1);
+      const end = (k) => [a[12] + a[8] * k, a[13] + a[9] * k, a[14] + a[10] * k];
+      const gap = (p, q) => { const t = p[0] + p[1] - 1, r = [p[0] - t / 2, p[1] - 1 - t / 2]; return Math.hypot(r[0], r[1]); };
+      const [low, high] = [end(-0.5), end(0.5)];
+      return [Math.abs(gap(low) - gap(high)) < 1e-6, Math.abs(gap(low) - 0.12) < 1e-5, high[1] - low[1] > 0.7];
+    },
+    expect: [true, true, true],
+  },
 ];
+

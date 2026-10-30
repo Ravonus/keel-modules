@@ -416,6 +416,18 @@ export function writeBox(array: Float32Array, index: number, x: number, y: numbe
   writeOrigin(array, index, x, y, z);
 }
 
+/** A slab `width` wide and `depth` thick lying on the top of a limb from its middle along (dx, dy, dz), which it follows however it slopes. */
+export function writeSlab(array: Float32Array, index: number, x: number, y: number, z: number, dx: number, dy: number, dz: number, radius: number, width: number, depth: number, long: number): void {
+  const length = Math.hypot(dx, dy, dz), flat = Math.hypot(dx, dz);
+  if (length < 1e-5 || flat < 1e-5) { clearSlot(array, index); return; }
+  const ax = dx / length, ay = dy / length, az = dz / length;
+  const sx = dz / flat, sz = -dx / flat;
+  const nx = sz * ay, ny = sx * az - sz * ax, nz = -sx * ay;
+  writeColumns(array, index, [sx * width, 0, sz * width, 0, nx * depth, ny * depth, nz * depth, 0, ax * long, ay * long, az * long, 0]);
+  const lift = radius + depth / 2;
+  writeOrigin(array, index, x + nx * lift, y + ny * lift, z + nz * lift);
+}
+
 /** A cube `size` wide, flattened by `flat`, turned `yaw`. */
 export function writeVoxel(array: Float32Array, index: number, x: number, y: number, z: number, size: number, yaw: number, flat = 1): void {
   writeBox(array, index, x, y, z, size, size * flat, size, yaw);
@@ -2197,7 +2209,7 @@ function paintOrnamentLitter(tree: Tree, mesh: InstancedLike): void {
 
 // ---------------------------------------------------------------- snow on the limbs
 
-/** Snow settles in a thin slab along the top of every limb that is not too steep. */
+/** Snow settles in a thin slab along the top of every limb that is not too steep, sloping as the limb does. */
 function poseSnow(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, motion: TreeMotion): void {
   const cover = motion.snow ?? 0;
   mesh.visible = cover > 0;
@@ -2217,7 +2229,7 @@ function poseSnow(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, motion:
     const my = (at(frame.y, node) + at(frame.baseY, node)) / 2;
     const mz = (at(frame.z, node) + at(frame.baseZ, node)) / 2;
     stillOrSway(tree, mx, my, mz, motion, at(frame.fall, node) > 0 ? 0 : wind, height);
-    writeBox(array, node, mx + tree.offset.x, my + radius + depth / 2, mz + tree.offset.z, radius * 2.1, depth, level + radius, Math.atan2(dx, dz));
+    writeSlab(array, node, mx + tree.offset.x, my, mz + tree.offset.z, dx, dy, dz, radius, radius * 2.1, depth, Math.hypot(level, dy) + radius);
   }
   mesh.instanceMatrix.needsUpdate = true;
 }

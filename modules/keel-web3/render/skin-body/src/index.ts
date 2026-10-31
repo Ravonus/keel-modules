@@ -191,40 +191,48 @@ uniform float uLiner;          // how heavy the line along the lashes: past .6 i
 uniform vec3 uMoleA, uMoleB;   // where from between the eyes and how big, in heads
 
 float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f *= f * (3.0 - 2.0 * f);
+  float a = hash(vec3(i, 0.0)), b = hash(vec3(i + vec2(1.0, 0.0), 0.0)), c = hash(vec3(i + vec2(0.0, 1.0), 0.0)), d = hash(vec3(i + vec2(1.0, 1.0), 0.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
 
 // An eye: an almond set a little downward at its inner end. Above it the lid, a fold of skin with its crease; along the
 // top of the opening a lash line that thickens outward, and a fainter one under the outer half; the white shaded by the
 // lid and pink at the tear duct; the iris darker at its rim, cut by the lid, round a black pupil and one catch of light.
 vec3 eye(vec3 col, vec2 q, float inner) {
-  float x = q.x, w = 1.34;
+  float x = q.x, w = 1.42;
   float m = clamp(x * inner / w, -1.4, 1.4), y = q.y + 0.1 * m - 0.02;
   float k = clamp(1.0 - x * x / (w * w), 0.0, 1.0);
-  float rest = 0.74 * pow(k, 0.6) * (1.0 - 0.18 * m);
-  float low = -0.44 * pow(k, 0.75) * (1.0 - 0.35 * m);
+  float rest = 0.5 * pow(k, 0.62) * (1.0 - 0.2 * m);
+  float low = -0.34 * pow(k, 0.8) * (1.0 - 0.4 * m);
   float top = mix(low, rest, 1.0 - uFace.x);
   col *= 1.0 - 0.1 * (1.0 - smoothstep(0.5, 1.4, length(vec2(x / 1.7, (y - 0.2) / 1.25))));
   col *= 1.0 - 0.24 * uMarks.z * exp(-(x * x) / 1.2 - pow((y + 0.78) / 0.18, 2.0));
   float dusted = 1.0 - smoothstep(0.35, 1.0, length(vec2((x + 0.15 * inner) / 1.5, (y - rest - 0.2) / 0.5)));
   col = mix(col, uShadow.rgb, uShadow.a * dusted);
-  float crease = rest + 0.2 + 0.1 * (1.0 - k);
+  // (The ball under the lid: skin over it catches the light, and falls away to both corners.)
+  col *= 1.0 + 0.1 * exp(-(x * x) / 0.7 - pow((y - rest - 0.1) / 0.24, 2.0)) - 0.1 * smoothstep(0.5, 1.0, abs(x) / w) * exp(-pow((y - 0.1) / 0.6, 2.0));
+  float crease = rest + 0.2 + 0.08 * (1.0 - k);
   col *= 1.0 - 0.4 * exp(-pow((y - crease) / 0.045, 2.0)) * smoothstep(0.05, 0.45, k) * (1.0 - 0.7 * smoothstep(0.0, 1.0, m));
   float wing = -m, flick = 0.1 + (wing - 1.0) * 0.5;
   if (uLiner > 0.6 && wing > 0.9 && wing < 1.32 && abs(y - flick) < 0.1 * (1.32 - wing) / 0.42) return mix(col, uLash, 0.94);
   if (abs(x) > w) return col;
-  float lash = mix(0.07, 0.2, uLiner) + 0.1 * smoothstep(-0.6, 0.7, -m);
+  float lash = mix(0.06, 0.18, uLiner) + 0.08 * smoothstep(-0.6, 0.7, -m);
   if (y > top + lash * smoothstep(0.0, 0.14, k)) return col;
   if (y > top) return mix(uLash, col, 0.08);
   if (y < low - 0.05) return col;
-  if (y < low) return mix(col, uLash, 0.4 * smoothstep(-0.1, 0.8, -m));
-  vec3 c = uWhite * 0.86 * (1.0 - 0.34 * x * x / (w * w)) * mix(0.5, 1.0, smoothstep(0.0, 0.38, top - y));
+  if (y < low) return mix(col * vec3(1.05, 0.86, 0.82), uLash, 0.34 * smoothstep(0.0, 0.9, -m));
+  vec3 c = mix(uWhite, col, 0.16) * 0.7 * (1.0 - 0.5 * x * x / (w * w)) * mix(0.34, 1.0, smoothstep(0.0, 0.3, top - y));
   c = mix(c, vec3(0.78, 0.42, 0.4), smoothstep(0.7, 0.97, m) * 0.8);
-  vec2 g = vec2(x, y - 0.08) - uFace.yz;
-  float ring = length(g) / 0.68;
+  vec2 g = vec2(x, y + 0.02) - uFace.yz;
+  float ring = length(g) / 0.56;
   if (ring < 1.0) {
-    c = uIris * mix(1.35, 0.7, ring) * mix(0.55, 1.0, smoothstep(0.0, 0.3, top - y));
+    c = uIris * mix(1.5, 0.75, ring) * mix(0.4, 1.0, smoothstep(0.0, 0.28, top - y)) * (0.88 + 0.24 * sin(atan(g.y, g.x) * 19.0));
     c *= 1.0 - 0.8 * smoothstep(0.76, 0.98, ring);
-    c = mix(vec3(0.008), c, smoothstep(0.38, 0.45, ring));
-    c = mix(c, vec3(1.0), 1.0 - smoothstep(0.08, 0.13, length(g - vec2(-0.18, 0.2))));
+    c = mix(vec3(0.008), c, smoothstep(0.42, 0.5, ring));
+    c = mix(c, vec3(1.0), 1.0 - smoothstep(0.05, 0.1, length(g - vec2(-0.16, 0.14))));
   }
   return c;
 }
@@ -248,6 +256,29 @@ float flecks(vec2 g, float rare) {
   if (roll < rare) return 0.0;
   vec2 f = fract(g) - 0.5 - 0.5 * (vec2(hash(vec3(c, 1.0)), hash(vec3(c, 2.0))) - 0.5);
   return 1.0 - smoothstep(0.1 + 0.12 * fract(roll * 9.0), 0.32, length(f));
+}
+
+// A skin's own surface: pores in the normal, gone once a pixel is wider than they are.
+vec3 pored(vec3 n) {
+  vec2 p = vRest.xy * 520.0 + vRest.z * 310.0;
+  float fade = 1.0 - smoothstep(0.25, 1.0, fwidth(p.x));
+  if (fade <= 0.0) return n;
+  float a = noise(p), e = 0.5;
+  return normalize(n + 0.05 * fade * vec3(a - noise(p + vec2(e, 0.0)), a - noise(p + vec2(0.0, e)), 0.0) / e);
+}
+
+// Blood under a skin, in patches: it is what stops one colour reading as plastic.
+vec3 blooded(vec3 col) {
+  if (vFabric > 0.5) return col;
+  float patches = noise(vRest.xy * 34.0 + vRest.z * 21.0) * 0.6 + noise(vRest.yz * 95.0) * 0.4;
+  return col * mix(vec3(0.97, 1.0, 1.0), vec3(1.04, 0.96, 0.94), patches);
+}
+
+// A skin's oil: a broad soft shine and a tight one, a little of each, stronger at a grazing angle.
+vec3 sheen(vec3 n, vec3 rd, float nl) {
+  vec3 h = normalize(uSun - rd);
+  float nh = max(dot(n, h), 0.0), fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
+  return uSunCol * INV_PI * fres * smoothstep(-0.05, 0.2, nl) * (pow(nh, 14.0) * 0.8 + pow(nh, 60.0) * 0.6);
 }
 
 float mole(vec2 h, vec3 at) { return at.z > 0.0 ? 1.0 - smoothstep(at.z * 0.6, at.z, length(h - at.xy)) : 0.0; }
@@ -288,12 +319,6 @@ vec3 painted(vec3 col) {
   return mouth(col, (vRest.xy - uMouth.xy) / uMouth.w);
 }
 
-float noise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  f *= f * (3.0 - 2.0 * f);
-  float a = hash(vec3(i, 0.0)), b = hash(vec3(i + vec2(1.0, 0.0), 0.0)), c = hash(vec3(i + vec2(0.0, 1.0), 0.0)), d = hash(vec3(i + vec2(1.0, 1.0), 0.0));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
 // A train of pulses, each duty of its period 1, averaged over what a pixel covers: past the thread it is its own mean, and never shimmers.
 float pulse(float x, float duty, float w) {
   w = max(w, 1e-4);
@@ -456,11 +481,17 @@ void main() {
     vec3 hemi = mix(uGround, uSky, 0.5 + 0.5 * n.y);
     float facing = max(dot(n, -rd), 0.0);
     float rim = pow(1.0 - facing, 3.0);
-    vec3 light = hemi + uSunCol * max(dot(n, uSun) * 0.8 + 0.2, 0.0) + uFillCol * max(dot(n, uFill), 0.0);
+    bool skin = vFabric < 0.5;
+    if (skin) n = pored(n);
+    float nl = dot(n, uSun);
+    vec3 light = hemi + uSunCol * max(nl * 0.8 + 0.2, 0.0) + uFillCol * max(dot(n, uFill), 0.0);
+    // (Light goes in under skin and comes back red, and it shows where lit turns to shade.)
+    if (skin) light += uSunCol * vec3(0.26, 0.07, 0.04) * smoothstep(-0.45, 0.0, nl) * (1.0 - smoothstep(0.0, 0.55, nl));
     light = light * INV_PI + uRimCol * rim * max(dot(n, uRim), 0.0) * INV_PI * 2.0;
     light += uFront * INV_PI * 0.6 * max(facing * 0.75 + 0.25 * n.y, 0.0);
     light += uSky * INV_PI * 0.6 * rim + uFront * INV_PI * 0.3;
-    col = abs(vFabric - 3.0) < 0.5 ? hairLit(vColor, n, rd, light) : painted(thread(vColor, vRest, vFabric)) * light;
+    col = abs(vFabric - 3.0) < 0.5 ? hairLit(vColor, n, rd, light) : painted(blooded(thread(vColor, vRest, vFabric))) * light;
+    if (skin) col += sheen(n, rd, nl);
   }
   // (Light falls from above: what faces down goes into shade, and creases are shut off from it, whatever lights the front.)
   col *= vShade * mix(vFabric < 0.5 ? 0.82 : 0.58, 1.0, smoothstep(-0.75, 0.4, n.y));

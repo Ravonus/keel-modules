@@ -196,6 +196,14 @@ export default [
     expect: [true, true, true, true],
   },
   {
+    name: 'a person costs less the further off they are, and a tier holds a little past its line',
+    run: ({ personOf, meshOf, PERSON_LODS, lodFor }) => {
+      const p = personOf(4242), sizes = PERSON_LODS.map((lod) => meshOf(p, lod.cell).position.length / 3);
+      return [sizes.every((n, i) => i === 0 || n < sizes[i - 1]), sizes[4] < 1600, lodFor(1), lodFor(5), lodFor(20), lodFor(50), lodFor(500), lodFor(9.5, 1), lodFor(11, 1)];
+    },
+    expect: [true, true, 0, 1, 2, 3, 4, 1, 2],
+  },
+  {
     name: 'a signature is two at most, never two of a kind, and nothing a person is too young for',
     run: ({ signaturesOf }) => {
       let two = 0, clash = 0, early = 0, seed = 1;

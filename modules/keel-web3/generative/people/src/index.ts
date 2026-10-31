@@ -1451,13 +1451,22 @@ function drawStripes(kit: Kit, p: Person, s: Skeleton, ribs: Vec): void {
   for (let i = 0; i < stripes; i += 1) band(kit, `stripe.${String(i)}`, "trim", lerpV(s.waist, ribs, (i + 0.5) / stripes), p.build.shoulder * 1.4, 0.013);
 }
 
-function drawClothes(kit: Kit, p: Person, s: Skeleton): void {
+/** A hood that is down: its opening a thick roll of cloth round the neck, crossing at the throat, and the bag of it lying flat on the back; two cords down the front. Only the bag where parts are few. */
+function drawHood(kit: Kit, p: Person, s: Skeleton, rich: boolean): void {
+  const { head } = p.build, r = head * 0.62, base = add(s.neck, [0, -0.035, -0.006]);
+  const rim = (t: number, side: number): Vec => add(base, [side * Math.sin(t) * r, 0.022 * (1 - Math.cos(t)) - 0.018 * Math.max(0, Math.cos(t)), Math.cos(t) * r * 0.86]);
+  if (rich) for (const side of [-1, 1]) for (let i = 0; i < 4; i += 1) put(kit, `hood.rim.${String(side)}.${String(i)}`, "top", rim(-0.12 + i * 1.02, side), rim(-0.12 + (i + 1) * 1.02, side), head * 0.2, { melt: 0.5 });
+  const back = lerpV(s.neck, s.chest, 0.5);
+  put(kit, "hood.bag", "top", add(lerpV(s.neck, s.chest, 0.2), [0, 0, -0.095]), add(back, [0, -0.06, -0.125]), head * 0.62, { r1: head * 0.22, flat: 0.16, up: FRONT, melt: 0.8 });
+  if (rich) for (const side of [-1, 1]) put(kit, `cord.${String(side)}`, "trim", add(s.neck, [side * 0.03, -0.06, 0.14]), add(lerpV(s.neck, s.chest, 0.82), [side * 0.036, -0.09, 0.15]), 0.012, { decal: true, flat: 0.5, up: FRONT, melt: 0.2 });
+}
+
+function drawClothes(kit: Kit, p: Person, s: Skeleton, rich: boolean): void {
   const { top, bottom } = p.outfit;
-  const { hip, head, chest } = p.build;
+  const { hip, chest } = p.build;
   const ribs = madd(s.chest, FRONT, chest);
   if (top === "hoodie") {
-    // (A hood that is down lies flat on the upper back, a fold of cloth and not a ball.)
-    put(kit, "hood", "top", add(lerpV(s.neck, s.chest, 0.42), [0, 0, -0.075]), add(lerpV(s.neck, s.chest, 0.82), [0, 0, -0.105]), head * 0.4, { r1: head * 0.26, flat: 0.2, up: FRONT, melt: 0.9 });
+    drawHood(kit, p, s, rich);
     const low = lerpV(s.waist, s.pelvis, 0.12);
     put(kit, "pouch", "trim", add(low, [-hip * 0.5, 0, 0.1]), add(low, [hip * 0.5, 0, 0.1]), 0.075, { decal: true, flat: 0.5, up: UP, melt: 0.2 });
   }
@@ -1781,7 +1790,7 @@ function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: number, rich
   drawArm(kit, p, s.right.arm, 1);
   drawLeg(kit, p, s.left.leg, "L");
   drawLeg(kit, p, s.right.leg, "R");
-  drawClothes(kit, p, s);
+  drawClothes(kit, p, s, rich);
   drawHead(kit, p, s, rich);
   return {
     id: `person.${String(p.seed)}`,
@@ -2389,9 +2398,9 @@ function torsoStations(p: Person, s: Skeleton): readonly Station[] {
     { at: at(y(0.76), chest * 0.4), wide: shoulderW * 0.86, front: shoulderW * 0.54 + chest * 0.6, back: shoulderW * 0.52, bust: bustSize, bones: chestB },
     { at: at(y(0.86), chest * 0.3), wide: shoulderW * 0.9, front: shoulderW * 0.5 + chest * 0.4, back: shoulderW * 0.52, bust: bustSize * 0.5, bones: chestB },
     { at: at(chestY), wide: shoulderW * 1.02, front: shoulderW * 0.44, back: shoulderW * 0.48, bones: chestB },
-    { at: at(chestY + 0.04), wide: shoulderW * 0.82, front: shoulderW * 0.32, back: shoulderW * 0.38, bones: chestB },
-    { at: add(s.neck, [0, -0.01, -0.006]), wide: neckR * 1.62, front: neckR * 1.08, back: neckR * 1.3, bones: [["chest", 0.6], ["neck", 0.4]] },
-    { at: madd(lerpV(s.neck, s.head, 0.26), FRONT, -nape * 0.4), wide: neckR * 0.98, front: neckR * 0.9, back: neckR, bones: [["neck", 1]] },
+    { at: at(chestY + 0.045), wide: mix(shoulderW, neckR * 1.8, 0.4), front: shoulderW * 0.31, back: shoulderW * 0.38, bones: chestB },
+    { at: add(s.neck, [0, -0.01, -0.008]), wide: neckR * 1.62, front: neckR * 0.98, back: neckR * 1.42, bones: [["chest", 0.6], ["neck", 0.4]] },
+    { at: madd(lerpV(s.neck, s.head, 0.26), FRONT, -nape * 0.4), wide: neckR * 0.9, front: neckR * 0.84, back: neckR * 0.98, bones: [["neck", 1]] },
     { at: madd(lerpV(s.neck, s.head, 0.72), FRONT, -nape), wide: neckR * 0.86, front: neckR * 0.8, back: neckR * 0.96, bones: [["neck", 0.6], ["head", 0.4]] },
   ];
 }
@@ -2885,9 +2894,26 @@ const bridged = (form: Form | undefined) => (at: Vec): number => {
   return !form || at[2] < form.z || x > form.x ? 0 : Math.max(0, sideAt(form, form.x, at[1]) - sideAt(form, x, at[1]));
 };
 
+/** How finely to build a person by how far off they are, finest first: `reach` in metres, `kept` how many to hold built at once. */
+export const PERSON_LODS = [
+  { name: "touching", cell: 0.014, reach: 3, kept: 4 },
+  { name: "close", cell: 0.02, reach: 9, kept: 8 },
+  { name: "medium", cell: 0.03, reach: 28, kept: 48 },
+  { name: "far", cell: 0.05, reach: 80, kept: 96 },
+  { name: "least", cell: 0.09, reach: Infinity, kept: 256 },
+] as const;
+/** A grid this coarse has no use for a cage's second cut, and that alone is most of a far person. */
+const LEAST_CELL = 0.07;
+
+/** Which of `PERSON_LODS` a person at `distance` wants. `was`, the tier they are on, holds them a little past its reach, so nobody flickers on a line. */
+export function lodFor(distance: number, was?: number): number {
+  const want = PERSON_LODS.findIndex((lod) => distance < lod.reach);
+  return was !== undefined && want === was + 1 && distance < (PERSON_LODS[was]?.reach ?? 0) * 1.15 ? was : want;
+}
+
 function dressedBody(net: Net, p: Person, roles: readonly string[], cell: number): void {
   const size = p.build.size;
-  const first = subdivided(cageOf(p));
+  const first = cell >= LEAST_CELL ? cageOf(p) : subdivided(cageOf(p));
   const form = formOf(p);
   const body = shaped(cell < 0.03 ? subdivided(first) : first, form);
   const normals = normalsOf(body);

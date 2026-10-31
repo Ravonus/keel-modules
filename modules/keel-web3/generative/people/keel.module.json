@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "people",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Seeded generative people: one seed gives a whole person, skeleton first, with their build, face, hair and clothes, posed as capsules for sdf-body or any other renderer.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" }
+}

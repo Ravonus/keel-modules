@@ -154,6 +154,14 @@ export interface Eye {
   readonly ring: boolean;
   /** How big its spark of light is, a share of the eye. */
   readonly spark?: number;
+  /**
+   * A person's eye and not an animal's: an almond of this white, its iris
+   * round and small in it, a pupil, a lash line along the upper lid. Draw its
+   * lens drawn out across the face, sunk just under the skin.
+   */
+  readonly white?: string;
+  /** Where a white eye's iris has turned, right and up, a share of the lens's radius. */
+  readonly look?: readonly [number, number];
 }
 
 /**
@@ -454,6 +462,8 @@ uniform float uEyeRole;  // the role an eye's lens wears; -1 for none
 uniform vec4 uEyeLid;    // how far the upper lid is down, how it slants up to the outer corner, the pupil's kind, its black ring
 uniform vec3 uEyeLidCol;
 uniform float uEyeSpark;  // how big its spark of light is
+uniform vec3 uEyeWhite;   // a person's eye: its white
+uniform vec4 uEyeLook;    // where its iris has turned, and over 0.5 in z if it has a white
 uniform int uFlowN;        // how many bones a pelt grows from; 0 for none
 uniform vec4 uFlowA[FLOWS]; // a, how long its hair is there
 uniform vec4 uFlowB[FLOWS]; // b, how long its hair is there
@@ -1096,6 +1106,27 @@ vec3 vanePaint(vec3 p, vec4 a, vec4 b, vec4 u, vec3 col) {
 // it standing proud: a black line round it, the iris lit from below, where light pooled through the
 // cornea comes out, with fibres to the pupil and a dark ring at its edge, the upper lid's shadow over
 // it, the pupil and its spark, then the lid cutting across the top. Alpha 0 is off the eye.
+// A person's eye: an almond between two lids, the upper arched and lashed, the lower flatter; the
+// white shaded under the lid, the iris dark at its rim round a black pupil, a spark on it.
+vec4 humanEye(float x, float y, float w, float outer, vec3 iris) {
+  float k = clamp(1.0 - x * x / (w * w), 0.0, 1.0);
+  float top = mix(-0.34, 0.9, 1.0 - uEyeLid.x) * pow(k, 0.5) + uEyeLid.y * x * outer * k;
+  float low = -0.5 * pow(k, 0.6);
+  if (abs(x) > w || y < low || y > top + 0.14 * sqrt(k)) return vec4(0.0);
+  vec3 lash = uEyeLidCol * 0.3;
+  if (y > top) return vec4(lash, 1.0);
+  vec3 col = uEyeWhite * mix(0.66, 1.0, smoothstep(0.0, 0.42, top - y));
+  col = mix(col, vec3(0.8, 0.5, 0.46), smoothstep(0.62, 0.95, -x * outer / w) * 0.7);
+  vec2 g = vec2(x, y) - uEyeLook.xy;
+  float ring = length(g) / 0.74;
+  if (ring < 1.0) {
+    col = iris * mix(1.35, 0.62, ring) * mix(0.62, 1.0, smoothstep(0.0, 0.4, top - y));
+    col *= 1.0 - 0.75 * smoothstep(0.8, 0.98, ring);
+    col = mix(vec3(0.008), col, smoothstep(0.38, 0.46, ring));
+    col = mix(col, vec3(1.0), 1.0 - smoothstep(uEyeSpark - 0.03, uEyeSpark + 0.02, length(g - vec2(-0.22, 0.26))));
+  }
+  return vec4(col, 1.0);
+}
 vec4 eyePaint(vec3 p, vec4 a, vec4 b, vec4 u, vec3 col) {
   vec3 centre = (a.xyz + b.xyz) * 0.5, axis = b.xyz - a.xyz;
   float along = length(axis);
@@ -1105,6 +1136,7 @@ vec4 eyePaint(vec3 p, vec4 a, vec4 b, vec4 u, vec3 col) {
   vec3 up = cross(axis, n), v = p - centre;
   float r = a.w, x = dot(v, axis) / r, y = dot(v, up) / r;
   float rr = length(vec2(max(abs(x) - along * 0.5 / r, 0.0), y));
+  if (uEyeLook.z > 0.5) return humanEye(x, y, 1.0 + along * 0.5 / r, sign(dot(axis, uSide * (bodyAt(centre).x < 0.0 ? -1.0 : 1.0))), col);
   if (rr > 1.0 + 0.1 * uEyeLid.w || abs(dot(v, n)) > r * 1.6 + uForm.x * 2.0) return vec4(0.0);
   vec3 e = bodyAt(centre);
   float outer = sign(dot(axis, uSide * (e.x < 0.0 ? -1.0 : 1.0) - uFwd * 0.8));
@@ -1255,8 +1287,10 @@ vec3 peltTone(vec3 p, vec3 base) {
 }
 // Skin under its own colour: paler and thinner round an eye, the blood wandering through the rest.
 vec3 skinTone(vec3 p, vec3 base) {
-  float blood = (fbm(p / (uGrain * 1.4) + uPatSeed) - 0.5) * uSkin.y;
-  return mix(base, mix(base, uSkinPale, 1.0 - smoothstep(uGrain * 0.3, uGrain * 1.3, gEyeD)) * (uSkin.z + blood), gSkin);
+  // (Smooth skin has no grain: its blood and its lid's edge still need a scale.)
+  float size = max(uGrain, 0.01);
+  float blood = (fbm(p / (size * 1.4) + uPatSeed) - 0.5) * uSkin.y;
+  return mix(base, mix(base, uSkinPale, 1.0 - smoothstep(size * 0.3, size * 1.3, gEyeD)) * (uSkin.z + blood), gSkin);
 }
 // Skin's chroma held on a soft knee, so no light and no later grade can push it to neon: a colour
 // well inside the knee stays as it is, and a stronger one comes out little stronger.
@@ -1447,7 +1481,7 @@ function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxPar
     uFront: { value: new lit.Vector3(0, 0, 0) },
     uGrain: { value: 0 }, uGrainKind: { value: 0 }, uGrainRise: { value: 1 }, uGrainOn: { value: -1 }, uCrown: { value: new lit.Vector4(0, 0, 0, 0) }, uDome: { value: new lit.Vector3(1, 1, 1) }, uDomeGene: { value: new lit.Vector3(1, 0, 0) }, uScale: { value: Array.from({ length: 3 }, () => new lit.Vector4()) }, uScaleSize: { value: new lit.Vector3(1, 1, 1) }, uAft: { value: new lit.Vector3(0, 0, -1) },
     uOrigin: { value: new lit.Vector3(0, 0, 0) }, uSide: { value: new lit.Vector3(1, 0, 0) }, uUp: { value: new lit.Vector3(0, 1, 0) }, uFwd: { value: new lit.Vector3(0, 0, 1) },
-    uMat: { value: new lit.Vector4(0, 0, 0, 0) }, uLift: { value: 1 }, uNeutral: { value: 0 }, uPattern: { value: new lit.Vector4(0, 1, 0, 0) }, uForm: { value: new lit.Vector3(0, 1, 0) }, uEyeRole: { value: -1 }, uEyeLid: { value: new lit.Vector4(0, 0, 0, 1) }, uEyeLidCol: { value: new lit.Color("#000000") }, uEyeSpark: { value: 0.2 }, uPatSeed: { value: new lit.Vector3(0, 0, 0) }, uPatGene: { value: new lit.Vector4(1, 1, 0, 0) }, uPatCol: { value: new lit.Color("#000000") }, uPatTwo: { value: new lit.Color("#000000") }, uTrunk: { value: new lit.Vector3(0, 0, 0) }, uDorsal: { value: 1e6 },
+    uMat: { value: new lit.Vector4(0, 0, 0, 0) }, uLift: { value: 1 }, uNeutral: { value: 0 }, uPattern: { value: new lit.Vector4(0, 1, 0, 0) }, uForm: { value: new lit.Vector3(0, 1, 0) }, uEyeRole: { value: -1 }, uEyeLid: { value: new lit.Vector4(0, 0, 0, 1) }, uEyeLidCol: { value: new lit.Color("#000000") }, uEyeWhite: { value: new lit.Color("#000000") }, uEyeLook: { value: new lit.Vector4(0, 0, 0, 0) }, uEyeSpark: { value: 0.2 }, uPatSeed: { value: new lit.Vector3(0, 0, 0) }, uPatGene: { value: new lit.Vector4(1, 1, 0, 0) }, uPatCol: { value: new lit.Color("#000000") }, uPatTwo: { value: new lit.Color("#000000") }, uTrunk: { value: new lit.Vector3(0, 0, 0) }, uDorsal: { value: 1e6 },
     uFlowN: { value: 0 }, uFlowA: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowB: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowU: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowFall: { value: new Array<number>(FLOWS).fill(0) },
     uPelt: { value: new lit.Vector4(0.4, 0, 0, 0) }, uPeltCast: { value: new lit.Vector3(0, 0, 0) }, uPeltLine: { value: new lit.Vector3(0, 0, 0) },
     uPeltRoot: { value: new lit.Color("#000000") }, uPeltBand: { value: new lit.Color("#000000") }, uPeltTip: { value: new lit.Color("#000000") }, uPeltBack: { value: new lit.Color("#000000") }, uPeltFront: { value: new lit.Color("#000000") },
@@ -1739,6 +1773,12 @@ function peltSlot(slot: Slot, pelt: Pelt | undefined): void {
 const EYE_PUPILS: Readonly<Record<Eye["pupil"], number>> = { round: 0, slit: 1, bar: 2, dark: 3 };
 
 /** The eyes' lids, and the role whose lens they are painted on. */
+function whiteSlot(slot: Slot, eye: Eye): void {
+  const [x, y] = eye.look ?? [0, 0];
+  (slot.u.uEyeLook?.value as Vector4Set).set(x, y, eye.white ? 1 : 0, 0);
+  if (eye.white) (slot.u.uEyeWhite?.value as ColorLike).set(eye.white);
+}
+
 function eyeSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
   const eye = body.eye;
   (slot.u.uEyeRole as UniformLike<number>).value = eye ? roleIndex(state, eye.role, roles) : -1;
@@ -1746,6 +1786,7 @@ function eyeSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number)
   (slot.u.uEyeLid?.value as Vector4Set).set(eye.lid, eye.slant, EYE_PUPILS[eye.pupil], eye.ring ? 1 : 0);
   (slot.u.uEyeLidCol?.value as ColorLike).set(eye.color);
   (slot.u.uEyeSpark as UniformLike<number>).value = eye.spark ?? 0.2;
+  whiteSlot(slot, eye);
 }
 
 /** The pattern over the coat, in its own colour or its role's; none when it has no contrast. */

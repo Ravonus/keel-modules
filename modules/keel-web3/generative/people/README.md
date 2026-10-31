@@ -53,4 +53,6 @@ A head near enough to read is a fixed mesh: the same rows and columns on everyon
 
 `Person.gear` is what a person wears that is not clothes: glasses, earrings, a nose stud or ring, a chain, clips, bows, bands and headphones. It comes from its own stream. A child gets no piercings. `Look` also carries `lines`, `rough`, `scars` and `uneven`, which `render/skin-body` paints as folds, pits, old marks and uneven tone.
 
+What goes on a head is seated on its boundary, `boundOf`: the true surface round the head's centre, built from the vertices already there. Ears grow from the skin's boundary and hand back their tops and lobes, glasses and earrings hold on to those, and clips, bands and headphones lie on the outer boundary over hair and hats.
+
 `render/skin-body` lights hair along its strands. Hair vertices carry their direction in `cloth.xyz` and a strand coordinate in `cloth.w`.

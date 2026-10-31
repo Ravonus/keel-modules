@@ -1640,10 +1640,10 @@ const BRIMS: Partial<Record<Hat, number>> = { fedora: 1.5, sunhat: 2, stetson: 1
 const CROWN_RISE: Partial<Record<Hat, number>> = { stetson: 0.24, peaked: 0.24, bowler: 0.12, bucket: 0.07, headwrap: 0.2, hardhat: 0.1 };
 
 /** The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over it. A hood and a helmet stand well clear of it. */
-function drawCrown(kit: Kit, hat: Hat, h: HeadFrame): void {
+function drawCrown(kit: Kit, hat: Hat, h: HeadFrame, wide: number): void {
   const clear = hat === "hood" || hat === "helmet" || hat === "hardhat", brim = h.at(0, hat === "hood" ? -0.1 : clear ? 0.58 : 0.5, 0)[1];
   const tall = CROWN_RISE[hat] ?? 0;
-  put(kit, "hat", hat === "hood" ? "top" : "trim", h.at(0, 0.3, -0.12), h.at(0, 0.14 + tall, -0.06), h.r * (clear ? 1.2 : 1.16), { flat: clear ? 0.88 : 0.76, up: SIDE, melt: 0.08, hem: brim, shadow: false });
+  put(kit, "hat", hat === "hood" ? "top" : "trim", h.at(0, 0.3, -0.12), h.at(0, 0.14 + tall, -0.06), h.r * (clear ? 1.2 : 1.16) * mix(1, wide, 0.75), { flat: clear ? 0.88 : 0.76, up: SIDE, melt: 0.08, hem: brim, shadow: false });
 }
 
 /** What makes one hat not another: a bobble, a ridge, a knot. */
@@ -1659,7 +1659,7 @@ function drawHat(kit: Kit, p: Person, h: HeadFrame): void {
   if (hat === "none") return;
   if (hat === "beret") { ball(kit, "hat", "trim", h.at(0.1, 0.72, -0.14), h.r * 1.04, { flat: 0.5, up: UP, melt: 0.08, shadow: false }); return; }
   if (hat === "tophat") put(kit, "hat.top", "trim", h.at(0, 0.62, -0.1), h.at(0, 1.42, -0.1), h.r * 0.92, { melt: 0.05, shadow: false });
-  else if (hat !== "visor") drawCrown(kit, hat, h);
+  else if (hat !== "visor") drawCrown(kit, hat, h, p.face.bone.W);
   drawTrim(kit, hat, h);
   const wide = BRIMS[hat];
   if (wide !== undefined) ball(kit, "peak", "trim", h.at(0, 0.6, hat === "helmet" ? -0.26 : -0.1), h.r * wide, { flat: 0.06, up: UP, melt: 0.1, shadow: false });
@@ -3694,6 +3694,64 @@ function pastEar(q: Vec, tucked: boolean): Vec {
   return [q[0] < 0 ? Math.min(q[0], mix(q[0], -1.08, round)) : Math.max(q[0], mix(q[0], 1.08, round)), q[1], q[2]];
 }
 
+/** A head's boundary: the true surface of what is already on it, round its centre, in head radii. Whatever goes on a person is seated on this, and never on a guess at where a head is. */
+interface Bound {
+  /** How far out the surface lies along a direction from the centre. */
+  readonly far: (dir: Vec) => number;
+  /** The point on it along a direction, `lift` clear of it. */
+  readonly on: (dir: Vec, lift?: number) => Vec;
+}
+
+const SHELL_AROUND = 96, SHELL_UP = 48;
+
+/** A direction from a head's centre: `az` round from the nose, `el` up. */
+const bearingOf = (az: number, el: number): Vec => [Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)];
+
+/** Fills the cells of a shell no vertex fell in from their neighbours, then eases it. */
+function closedShell(cells: Float32Array): void {
+  const at = (grid: Float32Array, a: number, e: number): number => grid[clamp(e, 0, SHELL_UP - 1) * SHELL_AROUND + ((a + SHELL_AROUND) % SHELL_AROUND)] ?? 0;
+  const pass = (fill: boolean): void => {
+    const was = cells.slice();
+    for (let e = 0; e < SHELL_UP; e += 1) for (let a = 0; a < SHELL_AROUND; a += 1) {
+      const near = [at(was, a - 1, e), at(was, a + 1, e), at(was, a, e - 1), at(was, a, e + 1)].filter((v) => v > 0), mine = at(was, a, e);
+      if (near.length === 0 || (fill && mine > 0)) continue;
+      const mean = near.reduce((sum, v) => sum + v, 0) / near.length;
+      cells[e * SHELL_AROUND + a] = fill ? mean : mine > 0 ? mine * 0.5 + mean * 0.5 : mean;
+    }
+  };
+  for (let i = 0; i < 12; i += 1) pass(true);
+  pass(false);
+}
+
+/** The boundary of a head, from those of its vertices `keep` takes. */
+function boundOf(net: Net, h: HeadFrame, size: number, keep: (v: number) => boolean): Bound {
+  const cells = new Float32Array(SHELL_AROUND * SHELL_UP);
+  for (let v = 0; v < net.fabric.length; v += 1) {
+    if (net.bones[v * 2] !== HEAD || !keep(v)) continue;
+    const q = scale(sub(scale(vecAt(net.position, v), 1 / size), h.c), 1 / h.r), far = Math.hypot(...q);
+    if (far < 0.2 || far > 3.5) continue;
+    const a = Math.floor(((Math.atan2(q[0], q[2]) / TAU + 1) % 1) * SHELL_AROUND), e = clamp(Math.floor((Math.asin(q[1] / far) / Math.PI + 0.5) * SHELL_UP), 0, SHELL_UP - 1), i = e * SHELL_AROUND + a;
+    cells[i] = Math.max(cells[i] ?? 0, far);
+  }
+  closedShell(cells);
+  const far = (dir: Vec): number => {
+    const a = ((Math.atan2(dir[0], dir[2]) / TAU + 1) % 1) * SHELL_AROUND - 0.5, e = clamp((Math.asin(clamp(dir[1], -1, 1)) / Math.PI + 0.5) * SHELL_UP - 0.5, 0, SHELL_UP - 1.001);
+    const a0 = Math.floor(a), e0 = Math.floor(e), cell = (x: number, y: number): number => cells[y * SHELL_AROUND + ((x + SHELL_AROUND) % SHELL_AROUND)] ?? 1;
+    return mix(mix(cell(a0, e0), cell(a0 + 1, e0), a - a0), mix(cell(a0, e0 + 1), cell(a0 + 1, e0 + 1), a - a0), e - e0);
+  };
+  return { far, on: (dir, lift = 0) => scale(dir, far(dir) + lift) };
+}
+
+/** Where what is worn holds on to a head: its skin, and each ear's top and lobe once it has them. */
+interface Seat { readonly skin: Bound; readonly tops: (Vec | null)[]; readonly lobes: (Vec | null)[] }
+
+/** A line with its corners rounded off. */
+function roundedOff(line: readonly (readonly [number, number])[], times: number): readonly (readonly [number, number])[] {
+  if (times <= 0) return line;
+  const cut = line.slice(1).flatMap((b, i): (readonly [number, number])[] => { const a = line[i] ?? b; return [[mix(a[0], b[0], 0.25), mix(a[1], b[1], 0.25)], [mix(a[0], b[0], 0.75), mix(a[1], b[1], 0.75)]]; });
+  return roundedOff([line[0] ?? [0, 0], ...cut, line[line.length - 1] ?? [0, 0]], times - 1);
+}
+
 /** The folds of an ear, forward and up from its middle, in head radii: the rim round the top and back, the ridge inside it, and the flap before it. */
 const EAR_RIM: readonly (readonly [number, number])[] = [[0.08, 0.1], [0.1, 0.24], [0.02, 0.32], [-0.1, 0.33], [-0.2, 0.24], [-0.24, 0.1], [-0.21, -0.05], [-0.13, -0.17], [-0.05, -0.26]];
 const EAR_RIDGE: readonly (readonly [number, number])[] = [[-0.03, 0.22], [-0.1, 0.18], [-0.13, 0.08], [-0.1, -0.03], [-0.04, -0.11]];
@@ -3717,20 +3775,27 @@ function pinnaOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, at: (a
 }
 
 /** A pair of ears, each its own: how big, how far they stand out, and how the lobe hangs. Near to, the dish and every fold; a little further, the dish and its rim; far off, only the shape the head already has. */
-function earsOf(net: Net, p: Person, roles: readonly string[], cell: number): readonly number[] {
+function earsOf(net: Net, p: Person, roles: readonly string[], cell: number, seat: Seat): readonly number[] {
   if (cell >= FAR_HAIR || p.outfit.costume === "fursuit" || ["hood", "helmet", "beanie", "pompom", "headwrap"].includes(p.outfit.hat)) return [];
-  const rand = streamOf(p.seed, 0x65617273), h = headFrame(restSkeleton(p), p.build.head, p.face), size = p.build.size;
-  const big = (p.face.ears / 0.26) * mix(0.92, 1.1, rand()), stands = mix(0.1, 0.42, rand() ** 1.6), hangs = mix(0, 0.1, rand());
-  const near = cell < MID_HAIR, to = (q: Vec): Vec => scale(h.at(q[0], q[1], q[2]), size), lit = 1 + 0.2 * deepOf(p.palette.skin ?? "#888888");
-  const tucks = tuckOf(p);
+  const rand = streamOf(p.seed, 0x65617273), h = headFrame(restSkeleton(p), p.build.head, p.face), size = p.build.size, k = marksOf(p);
+  const big = (p.face.ears / 0.26) * mix(1, 1.18, rand()), stands = mix(0.34, 0.68, rand() ** 1.6), hangs = mix(0, 0.1, rand());
+  const near = cell < MID_HAIR, to = (q: Vec): Vec => scale(add(h.c, scale(q, h.r)), size), lit = 1 + 0.2 * deepOf(p.palette.skin ?? "#888888");
+  const tucks = tuckOf(p), level = Math.atan2((k.pupil + k.sn) / 2 + 0.06, 0.85);
   return [-1, 1].flatMap((x, side) => {
     if (!tucks[side]) return [];
-    const at = (a: number, b: number, sunk = 0): Vec => [x * (0.97 + (0.12 - a) * big * stands - sunk + Math.min(0, b) * 0.34), -0.03 + b * big, -0.02 + a * big];
-    const lobe = [[-0.03, -0.3 - hangs], [0.03, -0.27 - hangs * 0.5]] as const, line = [...EAR_RIM, ...lobe];
-    const tones = [...pinnaOf(net, roles, to, at, [...line, ...EAR_FLAP.slice().reverse()])];
-    const ridges: readonly (readonly [readonly (readonly [number, number])[], number, number, number])[] = near ? [[line, 0.052, 0.034, 0.92], [EAR_RIDGE, 0.03, 0.022, 0.82], [EAR_FLAP, 0.034, 0.026, 0.92]] : [[line, 0.056, 0.034, 0.92]];
+    // (An ear grows from the skin where the skin really is: from the line of the brow to the base of the nose, behind the jaw, leaning back.)
+    const out = unit([x, 0.04, -0.24], SIDE);
+    const at = (a: number, b: number, sunk = 0): Vec => {
+      const lean = b * 0.22, dir = bearingOf(x * (Math.PI / 2 + 0.12 - (a - lean) * big), level + b * big);
+      return madd(seat.skin.on(dir), out, 0.03 + Math.max(0, (0.12 - a) * big * stands + Math.min(0, b) * 0.34) - sunk);
+    };
+    const lobe = [[-0.03, -0.3 - hangs], [0.03, -0.27 - hangs * 0.5]] as const, line = roundedOff([...EAR_RIM, ...lobe], near ? 2 : 1), flap = roundedOff(EAR_FLAP, near ? 1 : 0);
+    seat.tops[side] = at(-0.06, 0.33);
+    seat.lobes[side] = at(0, -0.3 - hangs);
+    const tones = [...pinnaOf(net, roles, to, at, [...line, ...flap.slice().reverse()])];
+    const ridges: readonly (readonly [readonly (readonly [number, number])[], number, number, number])[] = near ? [[line, 0.046, 0.032, 0.94], [roundedOff(EAR_RIDGE, 2), 0.026, 0.02, 0.84], [flap, 0.03, 0.024, 0.92]] : [[line, 0.05, 0.032, 0.92]];
     for (const [fold, wide, deep, tone] of ridges) {
-      const verts = layLock(net, roles, to, fold.map(([a, b]) => at(a, b)), [wide * big, deep * big, near ? 4 : 3], SKIN_RIDGE);
+      const verts = layLock(net, roles, to, fold.map(([a, b]) => at(a, b)), [wide * big, deep * big, near ? 5 : 3], SKIN_RIDGE);
       tones.push(...Array.from({ length: verts }, () => tone));
     }
     // (On deep skin an ear's folds would close up into a hole.)
@@ -4069,31 +4134,48 @@ const bead = (s: number): number => Math.sqrt(Math.max(0.02, 1 - (2 * s - 1) ** 
 /** A closed line round a middle, however it is bent. */
 const ringOf = (count: number, at: (c: number, s: number) => Vec): readonly Vec[] => Array.from({ length: count + 1 }, (_, i) => at(Math.cos((i / count) * TAU), Math.sin((i / count) * TAU)));
 
-/** Glasses: two rims and a bridge held a little off the face, arms back to the ears, and dark lenses if they are shades. */
-function layGlasses(lay: LayGear, p: Person, k: Marks, surface: (x: number, y: number) => number): void {
-  const kind = p.gear.glasses, b = p.face.bone;
-  if (kind === "none") return;
-  const front = Math.max(surface(k.eyeX, k.pupil), surface(-k.eyeX, k.pupil)) + 0.13, rx = Math.min(0.27, k.eyeX - 0.07), ry = kind === "round" ? rx : rx * 0.74, gap = k.eyeX - rx, frame = kind === "round" ? METAL : FRAME;
-  const box = (v: number): number => (kind === "round" ? v : Math.sign(v) * Math.abs(v) ** 0.72);
-  for (const x of [-1, 1]) {
-    const cx = x * k.eyeX;
-    lay(ringOf(18, (c, s) => [cx + rx * box(c), k.pupil + ry * box(s) + (kind === "cat" ? 0.05 * Math.max(0, c * x) ** 2 : 0), front - 0.05 * Math.max(0, c * x)]), [0.017, 0.012, 4], frame);
-    if (kind === "sun") lay(Array.from({ length: 9 }, (_, i) => [cx + rx * (i / 4 - 1), k.pupil, front - 0.05 * Math.max(0, (i / 4 - 1) * x)]), [ry, 0.006, 6], { ...LENS, taper: bead });
-    lay([[x * (k.eyeX + rx), k.pupil + 0.03, front - 0.05], [x * b.W * 0.8, k.pupil + 0.07, 0.3], [x * b.W * 0.78, k.pupil + 0.08, -0.06], [x * b.W * 0.76, k.pupil - 0.05, -0.2]], [0.014, 0.01, 4], frame);
-  }
-  lay([[-gap, k.pupil + 0.05, front], [0, k.pupil + 0.1, front + 0.01], [gap, k.pupil + 0.05, front]], [0.014, 0.012, 4], frame);
+/** How deep glasses must stand to clear a face: everything under a rim, brow and cheek and lashes, a little behind the lens. */
+function lensDepth(k: Marks, rx: number, ry: number, surface: (x: number, y: number) => number): number {
+  const under = [-1, 1].flatMap((x) => [-0.9, -0.3, 0.3, 0.9].flatMap((c) => [-0.9, 0, 0.9].map((s) => surface(x * k.eyeX + rx * c, k.pupil + ry * s))));
+  return Math.max(...under) + 0.03;
 }
 
-/** Earrings, on ears that show. */
-function layEars(lay: LayGear, p: Person): void {
-  const kind = p.gear.ears, tucks = tuckOf(p), lobeX = p.face.bone.W * 0.8;
+/** An arm of a pair of glasses: from the hinge along the side of the head, always clear of the skin, over the top of the ear and hooked down behind it. */
+function templeArm(seat: Seat, hinge: Vec, side: number, x: number): readonly Vec[] {
+  const top = seat.tops[side], end: Vec = top ?? seat.skin.on(unit([x, hinge[1] * 0.4, -0.3], SIDE));
+  const along = [0.2, 0.4, 0.6, 0.8, 1].map((t) => { const q = lerpV(hinge, add(end, [0, 0.03, 0]), t), d = unit(q, SIDE); return scale(d, Math.max(Math.hypot(...q), seat.skin.far(d) + 0.018)); });
+  const behind = top ? [0.14, 0.26].map((t) => { const az = Math.atan2(end[0], end[2]) + x * t, el = Math.asin(clamp(end[1] / Math.hypot(...end), -1, 1)) - t * 1.1; return seat.skin.on(bearingOf(az, el), 0.016); }) : [];
+  return [hinge, ...along, ...behind];
+}
+
+/** Glasses: lenses sized to the eyes and stood clear of the face, a bridge resting on the nose, and arms that find the ears. */
+function layGlasses(lay: LayGear, p: Person, k: Marks, seat: Seat, surface: (x: number, y: number) => number): void {
+  const kind = p.gear.glasses;
+  if (kind === "none") return;
+  const rx = Math.min(p.face.eye * 1.95, k.eyeX - 0.075), ry = kind === "round" ? rx : rx * 0.72, front = lensDepth(k, rx, ry, surface), gap = k.eyeX - rx, frame = kind === "round" ? METAL : FRAME;
+  const box = (v: number): number => (kind === "round" ? v : Math.sign(v) * Math.abs(v) ** 0.72), curve = (out: number): number => front - 0.06 * out * out;
+  [-1, 1].forEach((x, side) => {
+    const cx = x * k.eyeX;
+    lay(ringOf(22, (c, s) => [cx + rx * box(c), k.pupil + ry * box(s) + (kind === "cat" ? 0.05 * Math.max(0, c * x) ** 2 : 0), curve(Math.max(0, c * x))]), [0.016, 0.011, 4], frame);
+    if (kind === "sun") lay(Array.from({ length: 9 }, (_, i) => [cx + rx * (i / 4 - 1), k.pupil, curve(Math.max(0, (i / 4 - 1) * x))]), [ry, 0.006, 6], { ...LENS, taper: bead });
+    const hinge: Vec = [x * (k.eyeX + rx * 1.04), k.pupil + ry * 0.4, curve(1) - 0.01];
+    lay(templeArm(seat, hinge, side, x), [0.013, 0.009, 4], frame);
+    lay([[x * gap, k.pupil - ry * 0.2, curve(0)], [x * 0.085, k.pupil - ry * 0.5, surface(x * 0.085, k.pupil - ry * 0.5) + 0.012]], [0.016, 0.01, 4], frame);
+  });
+  const rest = Math.max(surface(0, k.pupil + 0.06) + 0.02, front - 0.05);
+  lay([[-gap, k.pupil + 0.05, curve(0)], [-gap * 0.5, k.pupil + 0.09, rest], [gap * 0.5, k.pupil + 0.09, rest], [gap, k.pupil + 0.05, curve(0)]], [0.013, 0.011, 4], frame);
+}
+
+/** Earrings, hanging from lobes that are really there. */
+function layEars(lay: LayGear, p: Person, seat: Seat): void {
+  const kind = p.gear.ears;
   if (kind === "none") return;
   [-1, 1].forEach((x, side) => {
-    if (!tucks[side]) return;
-    const lobe: Vec = [x * lobeX, -0.24, 0.02];
-    if (kind === "stud") lay([lobe, [lobe[0] + x * 0.03, lobe[1], lobe[2]], [lobe[0] + x * 0.06, lobe[1], lobe[2]]], [0.03, 0.03, 6], { ...METAL, taper: bead });
-    if (kind === "hoop") lay(ringOf(14, (c, s) => [lobe[0] + x * 0.02, lobe[1] - 0.12 + 0.12 * s, lobe[2] + 0.12 * c]), [0.012, 0.012, 4], METAL);
-    if (kind === "drop") { lay([lobe, [lobe[0], lobe[1] - 0.16, lobe[2]]], [0.008, 0.008, 4], METAL); lay([[lobe[0], lobe[1] - 0.16, lobe[2]], [lobe[0], lobe[1] - 0.22, lobe[2]], [lobe[0], lobe[1] - 0.28, lobe[2]]], [0.04, 0.04, 6], { ...METAL, taper: bead }); }
+    const lobe = seat.lobes[side];
+    if (!lobe) return;
+    if (kind === "stud") lay([lobe, add(lobe, [x * 0.02, 0, 0.01]), add(lobe, [x * 0.04, 0, 0.02])], [0.026, 0.026, 6], { ...METAL, taper: bead });
+    if (kind === "hoop") lay(ringOf(14, (c, s) => [lobe[0] + x * 0.01, lobe[1] - 0.11 + 0.11 * s, lobe[2] + 0.11 * c]), [0.011, 0.011, 4], METAL);
+    if (kind === "drop") { lay([lobe, add(lobe, [0, -0.14, 0])], [0.007, 0.007, 4], METAL); lay([add(lobe, [0, -0.14, 0]), add(lobe, [0, -0.2, 0]), add(lobe, [0, -0.26, 0])], [0.036, 0.036, 6], { ...METAL, taper: bead }); }
   });
 }
 
@@ -4106,58 +4188,56 @@ function layNose(lay: LayGear, p: Person, k: Marks, surface: (x: number, y: numb
 
 /** A chain round the neck, lying on what they wear, and what hangs from it. */
 function layNeck(lay: LayGear, p: Person, h: HeadFrame): void {
-  if (p.gear.neck === "none" || ["hoodie", "puffer", "raincoat", "coat", "blazer"].includes(p.outfit.top)) return;
+  if (p.gear.neck === "none" || !["tee", "tank", "dress", "swimsuit", "bikini", "bare"].includes(p.outfit.top)) return;
   const s = restSkeleton(p), head = (at: Vec): Vec => scale(sub(at, h.c), 1 / h.r), base = head(lerpV(s.neck, s.chest, 0.3)), chest = { ...METAL, bone: boneIndex("chest") };
   lay(ringOf(26, (c, si) => [base[0] + 0.86 * si, base[1] - 0.42 * ((c + 1) / 2) ** 2, base[2] + 0.1 + 0.62 * c]), [0.012, 0.01, 4], chest);
   const low = add(base, [0, -0.42, 0.74]);
   if (p.gear.neck === "pendant") lay([low, add(low, [0, -0.07, 0.01]), add(low, [0, -0.14, 0])], [0.05, 0.03, 6], { ...chest, taper: bead });
 }
 
-/** A point on the hair over the skull, `along` from one ear over the top to the other, a share `out` beyond the skull and `fore` forward. */
-function overHead(p: Person, along: number, out: number, fore: number): Vec {
-  return [Math.sin(along) * SKULL[0] * p.face.bone.W * 0.84 * out, SKULL_AT[1] + Math.cos(along) * SKULL[1] * out, SKULL_AT[2] + fore];
+/** A direction `along` from one ear over the top to the other, leaning `fore` forward. */
+const overHead = (along: number, fore: number): Vec => unit([Math.sin(along), Math.cos(along), fore], UP);
+
+/** An arc over a head from ear to ear, lying on its boundary. */
+const arcOver = (outer: Bound, fore: number, half: number, lift: number): readonly Vec[] => Array.from({ length: 21 }, (_, i) => outer.on(overHead(half * (i / 10 - 1), fore), lift));
+
+/** Clips along the side of the hair, each lying on it. */
+function layClips(lay: LayGear, outer: Bound, side: number, places: readonly number[]): void {
+  for (const at of places) lay([0.5, 0.36, 0.22].map((fore, i) => outer.on(overHead(side * (at + i * 0.03), fore), 0.012)), [0.045, 0.016, 4], CLIP);
 }
 
-/** A point round a head at the height of a band. */
-const overBand = (p: Person, c: number, s: number): Vec => [s * SKULL[0] * p.face.bone.W * 0.84 * 1.02, 0.56, SKULL_AT[2] + c * SKULL[2] * 0.9];
+/** A band round a head at the height of a visor's, on its boundary. */
+const bandRound = (outer: Bound): readonly Vec[] => Array.from({ length: 33 }, (_, i) => outer.on(bearingOf((i / 32) * TAU, 0.56), 0.006));
 
-/** An arc over the head from ear to ear. */
-const arcOver = (p: Person, out: number, fore: number, half: number): readonly Vec[] => Array.from({ length: 15 }, (_, i) => overHead(p, half * (i / 7 - 1), out, fore));
-
-/** Clips along the side of the hair, one to each place. */
-function layClips(lay: LayGear, p: Person, side: number, places: readonly number[]): void {
-  for (const at of places) lay([overHead(p, side * at, 1.02, 0.55), overHead(p, side * (at + 0.03), 1.02, 0.42), overHead(p, side * (at + 0.06), 1.02, 0.3)], [0.045, 0.018, 4], CLIP);
-}
-
-/** What is in the hair: a clip or a row of them, a bow, a band; and headphones over all of it. */
-function layHair(lay: LayGear, p: Person): void {
+/** What is in the hair, a clip or a row of them, a bow, a band, and headphones over all of it: all of it lying on what is there. */
+function layHair(lay: LayGear, p: Person, outer: Bound): void {
   const kind = p.gear.hair, side = p.seed % 2 === 0 ? -1 : 1;
   if (p.hair !== "bald") {
-    if (kind === "band") lay(arcOver(p, 1, 0.2, 1.5), [0.07, 0.03, 4], CLIP);
-    if (kind === "clip" || kind === "clips") layClips(lay, p, side, kind === "clip" ? [0.72] : [0.56, 0.74, 0.92]);
+    if (kind === "band") lay(arcOver(outer, 0.2, 1.45, 0.008), [0.07, 0.022, 4], CLIP);
+    if (kind === "clip" || kind === "clips") layClips(lay, outer, side, kind === "clip" ? [0.8] : [0.62, 0.8, 0.98]);
     if (kind === "bow") {
-      const at = overHead(p, side * 0.74, 1.04, 0.45);
+      const at = outer.on(overHead(side * 0.8, 0.4), 0.02);
       lay([add(at, [-0.2, 0.05, 0]), at, add(at, [0.2, 0.05, 0])], [0.1, 0.02, 4], { ...CLIP, taper: (s) => 0.35 + 1.3 * Math.abs(s - 0.5) });
     }
   }
-  if (p.outfit.hat === "visor") lay(ringOf(26, (c, s) => overBand(p, c, s)), [0.09, 0.02, 4], { role: "trim", fabric: FABRICS.cotton });
+  if (p.outfit.hat === "visor") lay(bandRound(outer), [0.09, 0.02, 4], { role: "trim", fabric: FABRICS.cotton });
   if (!p.gear.phones) return;
-  lay(arcOver(p, 1.03, 0, 1.42), [0.06, 0.03, 4], FRAME);
-  const w = p.face.bone.W;
-  for (const x of [-1, 1]) lay([[x * w * 0.72, 0.02, 0], [x * w * 0.82, 0.02, 0], [x * w * 0.92, 0.02, 0]], [0.27, 0.27, 12], { ...FRAME, taper: bead });
+  lay(arcOver(outer, 0, 1.38, 0.016), [0.06, 0.026, 4], FRAME);
+  for (const x of [-1, 1]) { const at = outer.on(unit([x, 0, -0.12], SIDE)), d = unit(at, SIDE); lay([at, madd(at, d, 0.06), madd(at, d, 0.13)], [0.27, 0.27, 12], { ...FRAME, taper: bead }); }
 }
 
 /** Everything small a person wears, near enough to see it. */
-function gearOn(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame): readonly number[] {
+function gearOn(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame, seat: Seat): readonly number[] {
   if (cell >= WRAPPED || p.outfit.costume === "fursuit") return [];
   const size = p.build.size, to = (q: Vec): Vec => scale(add(h.c, scale(q, h.r)), size), k = marksOf(p), surface = surfaceOf(net, h, size, Math.max(0.07, ((cell * 0.5) / (h.r * size)) * 1.2));
+  const outer = boundOf(net, h, size, (v) => net.role[v] !== roles.indexOf("eye"));
   let count = 0;
   const lay: LayGear = (line, wide, worn) => { count += layLock(net, roles, to, line, wide, worn); };
-  layGlasses(lay, p, k, surface);
-  layEars(lay, p);
+  layGlasses(lay, p, k, seat, surface);
+  layEars(lay, p, seat);
   layNose(lay, p, k, surface);
   layNeck(lay, p, h);
-  layHair(lay, p);
+  layHair(lay, p, outer);
   return Array.from({ length: count }, () => 1);
 }
 
@@ -4197,7 +4277,9 @@ export function meshOf(p: Person, cell = 0.016): PersonMesh {
   const s = restSkeleton(p), h = headFrame(s, p.build.head, p.face), size = p.build.size;
   const eyeAt = (x: number): Vec => scale(h.mark(x * p.face.apart, p.face.bone.pupil, 0.8), size);
   const roof = roofOf(dressed, size);
-  const tones = [...hairLocks(net, p, roles, cell, roof), ...earsOf(net, p, roles, cell), ...(cell < WRAPPED ? [] : cornersOf(net, p, roles, cell, h)), ...moustacheOf(net, p, roles, cell, h), ...gearOn(net, p, roles, cell, h)];
+  const locks = hairLocks(net, p, roles, cell, roof), skinRole = roles.indexOf("skin");
+  const seat: Seat = { skin: boundOf(net, h, size, (v) => net.fabric[v] === FABRICS.skin && net.role[v] === skinRole), tops: [null, null], lobes: [null, null] };
+  const tones = [...locks, ...earsOf(net, p, roles, cell, seat), ...(cell < WRAPPED ? [] : cornersOf(net, p, roles, cell, h)), ...moustacheOf(net, p, roles, cell, h), ...gearOn(net, p, roles, cell, h, seat)];
   const kept = compacted(net);
   const shade = hemShadow(kept, creases(kept), roles, size);
   // (The locks went in last, so theirs are the last vertices.)

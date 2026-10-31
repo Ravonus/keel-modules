@@ -3591,10 +3591,10 @@ function lockNormal(b: Vec, n: Vec, o: Vec, c: number, r: number, round: boolean
 const lockTaper = (s: number): number => Math.min(1, 0.8 + s * 3) * Math.min(1, (1 - s) * 3 + 0.12);
 
 /** One lock laid into the net: a flat tapering ribbon, round as a rope if it is as thick as it is wide. */
-function layLock(net: Net, roles: readonly string[], to: (q: Vec) => Vec, line: readonly Vec[], [width, thick, sides]: readonly [number, number, number], worn?: { readonly bone?: number; readonly role: string; readonly fabric: number; readonly taper?: (s: number) => number }): number {
+function layLock(net: Net, roles: readonly string[], to: (q: Vec) => Vec, line: readonly Vec[], [width, thick, sides]: readonly [number, number, number], worn?: { readonly up?: Vec; readonly bone?: number; readonly role: string; readonly fabric: number; readonly taper?: (s: number) => number }): number {
   const base = net.position.length / 3, bone = worn?.bone ?? HEAD, role = Math.max(0, roles.indexOf(worn?.role ?? "hair")), last = line.length - 1, taperOf = worn ? worn.taper ?? (() => 1) : lockTaper;
   line.forEach((q, i) => {
-    const s = i / last, t = unit(sub(line[Math.min(last, i + 1)] ?? q, line[Math.max(0, i - 1)] ?? q), UP), o = unit(sub(q, SKULL_AT), UP);
+    const s = i / last, t = unit(sub(line[Math.min(last, i + 1)] ?? q, line[Math.max(0, i - 1)] ?? q), UP), o = worn?.up ?? unit(sub(q, SKULL_AT), UP);
     const b = unit(cross(t, o), SIDE), n = cross(b, t), taper = taperOf(s);
     for (let j = 0; j < sides; j += 1) {
       const a = (j / sides) * TAU, c = Math.cos(a), r = Math.sin(a);
@@ -4126,7 +4126,9 @@ function evened(zs: readonly number[]): readonly number[] {
 }
 
 /** Whatever lays one piece of what a person wears, in head radii. */
-type LayGear = (line: readonly Vec[], size: readonly [number, number, number], worn: { readonly role: string; readonly fabric: number; readonly bone?: number; readonly taper?: (s: number) => number }) => void;
+type LayGear = (line: readonly Vec[], size: readonly [number, number, number], worn: { readonly up?: Vec; readonly role: string; readonly fabric: number; readonly bone?: number; readonly taper?: (s: number) => number }) => void;
+/** Whatever fills a flat shape, seen from both sides. */
+type LayPane = (outline: readonly Vec[], normal: Vec, worn: { readonly role: string; readonly fabric: number }) => void;
 
 const METAL = { role: "metal", fabric: FABRICS.latex }, FRAME = { role: "dark", fabric: FABRICS.latex }, LENS = { role: "lens", fabric: FABRICS.latex }, CLIP = { role: "clip", fabric: FABRICS.satin };
 const bead = (s: number): number => Math.sqrt(Math.max(0.02, 1 - (2 * s - 1) ** 2));
@@ -4134,36 +4136,56 @@ const bead = (s: number): number => Math.sqrt(Math.max(0.02, 1 - (2 * s - 1) ** 
 /** A closed line round a middle, however it is bent. */
 const ringOf = (count: number, at: (c: number, s: number) => Vec): readonly Vec[] => Array.from({ length: count + 1 }, (_, i) => at(Math.cos((i / count) * TAU), Math.sin((i / count) * TAU)));
 
-/** How deep glasses must stand to clear a face: everything under a rim, brow and cheek and lashes, a little behind the lens. */
-function lensDepth(k: Marks, rx: number, ry: number, surface: (x: number, y: number) => number): number {
-  const under = [-1, 1].flatMap((x) => [-0.9, -0.3, 0.3, 0.9].flatMap((c) => [-0.9, 0, 0.9].map((s) => surface(x * k.eyeX + rx * c, k.pupil + ry * s))));
-  return Math.max(...under) + 0.03;
+/** What each kind of frame is: how wide its lens is against the eye, how tall against its width, how square, how thick its rim, and whether it is wire. */
+const FRAMES: Readonly<Record<Exclude<Gear["glasses"], "none">, { readonly wide: number; readonly tall: number; readonly square: number; readonly rim: readonly [number, number]; readonly wire: boolean; readonly flick: number }>> = {
+  clear: { wide: 1.75, tall: 0.74, square: 0.62, rim: [0.024, 0.018], wire: false, flick: 0 },
+  round: { wide: 1.6, tall: 1, square: 1, rim: [0.014, 0.012], wire: true, flick: 0 },
+  cat: { wide: 1.8, tall: 0.68, square: 0.7, rim: [0.028, 0.02], wire: false, flick: 0.09 },
+  sun: { wide: 1.95, tall: 0.82, square: 0.72, rim: [0.028, 0.022], wire: false, flick: 0 },
+};
+
+/** How far each lens is turned back from the face's plane, a slope. */
+const FRAME_WRAP = 0.1;
+
+/** A pair of glasses, as one rigid thing. A lens is a flat shape; `x` says which side. */
+interface Frame { readonly rx: number; readonly ry: number; readonly front: number; readonly centre: (x: number) => Vec; readonly rim: (x: number, c: number, s: number) => Vec; readonly facing: (x: number) => Vec }
+
+/** Where a pair of glasses sits: lenses square on each eye, as close as the brow, the cheek and the lashes allow, and the bridge down on the nose. */
+function frameOn(kind: Exclude<Gear["glasses"], "none">, p: Person, k: Marks, surface: (x: number, y: number) => number): Frame {
+  const f = FRAMES[kind], rx = Math.min(p.face.eye * f.wide, k.eyeX - 0.06), ry = rx * f.tall, y = k.pupil - 0.01;
+  const clear = [-1, 1].flatMap((x) => [-0.8, 0, 0.8].flatMap((c) => [-0.8, 0, 0.8].map((v) => surface(x * k.eyeX + rx * c, y + ry * v) + (x * k.eyeX * c > 0 ? FRAME_WRAP * rx * Math.abs(c) : 0))));
+  const front = Math.max(...clear, surface(0, y) + 0.01) + 0.015, shape = (v: number): number => Math.sign(v) * Math.abs(v) ** f.square;
+  const rim = (x: number, c: number, s: number): Vec => {
+    const u = rx * shape(c), v = ry * shape(s) + f.flick * Math.max(0, c * x * s) ** 2;
+    return [x * k.eyeX + u, y + v, front - FRAME_WRAP * Math.abs(u) * Math.sign(u * x)];
+  };
+  return { rx, ry, front, centre: (x) => [x * k.eyeX, y, front], rim, facing: (x) => unit([x * FRAME_WRAP, 0, 1], FRONT) };
 }
 
-/** An arm of a pair of glasses: from the hinge along the side of the head, always clear of the skin, over the top of the ear and hooked down behind it. */
-function templeArm(seat: Seat, hinge: Vec, side: number, x: number): readonly Vec[] {
-  const top = seat.tops[side], end: Vec = top ?? seat.skin.on(unit([x, hinge[1] * 0.4, -0.3], SIDE));
-  const along = [0.2, 0.4, 0.6, 0.8, 1].map((t) => { const q = lerpV(hinge, add(end, [0, 0.03, 0]), t), d = unit(q, SIDE); return scale(d, Math.max(Math.hypot(...q), seat.skin.far(d) + 0.018)); });
-  const behind = top ? [0.14, 0.26].map((t) => { const az = Math.atan2(end[0], end[2]) + x * t, el = Math.asin(clamp(end[1] / Math.hypot(...end), -1, 1)) - t * 1.1; return seat.skin.on(bearingOf(az, el), 0.016); }) : [];
-  return [hinge, ...along, ...behind];
+/** An arm of a pair of glasses: straight back from its hinge, clear of the skin, over the top of the ear and hooked down behind it. */
+function templeArm(seat: Seat, hinge: Vec, side: number): readonly Vec[] {
+  const top = seat.tops[side], end: Vec = top ? add(top, [0, 0.03, 0]) : [hinge[0], hinge[1], -0.2];
+  const wide = (q: Vec): Vec => { const d = unit(q, SIDE), need = seat.skin.far(d) + 0.02, far = Math.hypot(...q); return far < need ? scale(d, need) : q; };
+  const along = [0.25, 0.5, 0.75, 1].map((t) => wide(lerpV(hinge, end, t)));
+  const hook = top ? [[0.1, -0.05], [0.18, -0.13], [0.22, -0.23]].map(([back = 0, down = 0]) => wide(add(end, [0, down, -back]))) : [];
+  return [hinge, ...along, ...hook];
 }
 
-/** Glasses: lenses sized to the eyes and stood clear of the face, a bridge resting on the nose, and arms that find the ears. */
-function layGlasses(lay: LayGear, p: Person, k: Marks, seat: Seat, surface: (x: number, y: number) => number): void {
+/** Glasses: a flat lens in a rim on each eye, a bridge between them, a hinge at each outer corner and an arm back to each ear. */
+function layGlasses(lay: LayGear, pane: LayPane, p: Person, k: Marks, seat: Seat, surface: (x: number, y: number) => number): void {
   const kind = p.gear.glasses;
   if (kind === "none") return;
-  const rx = Math.min(p.face.eye * 1.95, k.eyeX - 0.075), ry = kind === "round" ? rx : rx * 0.72, front = lensDepth(k, rx, ry, surface), gap = k.eyeX - rx, frame = kind === "round" ? METAL : FRAME;
-  const box = (v: number): number => (kind === "round" ? v : Math.sign(v) * Math.abs(v) ** 0.72), curve = (out: number): number => front - 0.06 * out * out;
+  const f = FRAMES[kind], frame = frameOn(kind, p, k, surface), stuff = f.wire ? METAL : FRAME;
   [-1, 1].forEach((x, side) => {
-    const cx = x * k.eyeX;
-    lay(ringOf(22, (c, s) => [cx + rx * box(c), k.pupil + ry * box(s) + (kind === "cat" ? 0.05 * Math.max(0, c * x) ** 2 : 0), curve(Math.max(0, c * x))]), [0.016, 0.011, 4], frame);
-    if (kind === "sun") lay(Array.from({ length: 9 }, (_, i) => [cx + rx * (i / 4 - 1), k.pupil, curve(Math.max(0, (i / 4 - 1) * x))]), [ry, 0.006, 6], { ...LENS, taper: bead });
-    const hinge: Vec = [x * (k.eyeX + rx * 1.04), k.pupil + ry * 0.4, curve(1) - 0.01];
-    lay(templeArm(seat, hinge, side, x), [0.013, 0.009, 4], frame);
-    lay([[x * gap, k.pupil - ry * 0.2, curve(0)], [x * 0.085, k.pupil - ry * 0.5, surface(x * 0.085, k.pupil - ry * 0.5) + 0.012]], [0.016, 0.01, 4], frame);
+    const round = ringOf(32, (c, s) => frame.rim(x, c, s));
+    lay(round, [f.rim[0], f.rim[1], 6], { ...stuff, up: frame.facing(x) });
+    if (kind === "sun") pane(round, frame.facing(x), LENS);
+    const edge = frame.rim(x, x, 0.45), hinge: Vec = [edge[0] + x * 0.03, edge[1], edge[2] - 0.05];
+    lay([edge, lerpV(edge, hinge, 0.5), hinge], [f.rim[0] * 0.9, f.rim[1], 4], { ...stuff, up: UP });
+    lay(templeArm(seat, hinge, side), [f.wire ? 0.012 : 0.02, f.wire ? 0.01 : 0.01, 4], { ...stuff, up: [x, 0, 0] });
   });
-  const rest = Math.max(surface(0, k.pupil + 0.06) + 0.02, front - 0.05);
-  lay([[-gap, k.pupil + 0.05, curve(0)], [-gap * 0.5, k.pupil + 0.09, rest], [gap * 0.5, k.pupil + 0.09, rest], [gap, k.pupil + 0.05, curve(0)]], [0.013, 0.011, 4], frame);
+  const inner = (x: number): Vec => frame.rim(x, -x, 0.42), a = inner(-1), b = inner(1), lift = frame.ry * 0.16;
+  lay([a, add(lerpV(a, b, 0.3), [0, lift, 0]), add(lerpV(a, b, 0.7), [0, lift, 0]), b], [f.rim[0], f.rim[1], 4], { ...stuff, up: FRONT });
 }
 
 /** Earrings, hanging from lobes that are really there. */
@@ -4226,6 +4248,17 @@ function layHair(lay: LayGear, p: Person, outer: Bound): void {
   for (const x of [-1, 1]) { const at = outer.on(unit([x, 0, -0.12], SIDE)), d = unit(at, SIDE); lay([at, madd(at, d, 0.06), madd(at, d, 0.13)], [0.27, 0.27, 12], { ...FRAME, taper: bead }); }
 }
 
+/** A flat shape filled in, a sheet each way so it shows from either side. */
+function paneOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, outline: readonly Vec[], normal: Vec, worn: { readonly role: string; readonly fabric: number }): number {
+  const role = Math.max(0, roles.indexOf(worn.role)), count = outline.length, middle = scale(outline.reduce(add, [0, 0, 0]), 1 / count), base = net.position.length / 3;
+  for (const facing of [1, -1]) for (const q of [middle, ...outline]) {
+    net.position.push(...to(q)); net.normal.push(...scale(normal, facing)); net.role.push(role); net.bones.push(HEAD, HEAD); net.weight.push(1); net.fabric.push(worn.fabric); net.loose.push(0); net.soft.push(0); net.cloth.push(0, 0, 0, 1);
+  }
+  const back = base + count + 1;
+  for (let i = 0; i < count; i += 1) { const a = i + 1, b = (i + 1) % count + 1; net.index.push(base, base + a, base + b, back, back + b, back + a); }
+  return (count + 1) * 2;
+}
+
 /** Everything small a person wears, near enough to see it. */
 function gearOn(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame, seat: Seat): readonly number[] {
   if (cell >= WRAPPED || p.outfit.costume === "fursuit") return [];
@@ -4233,7 +4266,8 @@ function gearOn(net: Net, p: Person, roles: readonly string[], cell: number, h: 
   const outer = boundOf(net, h, size, (v) => net.role[v] !== roles.indexOf("eye"));
   let count = 0;
   const lay: LayGear = (line, wide, worn) => { count += layLock(net, roles, to, line, wide, worn); };
-  layGlasses(lay, p, k, seat, surface);
+  const pane: LayPane = (outline, normal, worn) => { count += paneOf(net, roles, to, outline, normal, worn); };
+  layGlasses(lay, pane, p, k, seat, surface);
   layEars(lay, p, seat);
   layNose(lay, p, k, surface);
   layNeck(lay, p, h);

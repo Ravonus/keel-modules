@@ -1,0 +1,11 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "lit-portrait",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Head and shoulders of any skinned keel/lit body as RGBA for a game's screens: framed from the body's own height, studio lit, drawn large and brought down so a face still reads at 32 pixels.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": []
+}

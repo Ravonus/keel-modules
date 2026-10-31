@@ -1476,7 +1476,8 @@ function poseFor(model: TreeModel, poses: Map<number, FallPose>, root: number, g
 
 /** Carries a resting point along a falling limb: swing about the pivot, drop, then settle flat. */
 function fallen(point: Vec, pose: FallPose, progress: number, ground: number): Vec {
-  const eased = smooth(progress);
+  // Under gravity it speeds up all the way down and stops by hitting the ground.
+  const eased = progress * progress;
   const swung = add(pose.pivot, rotate(add(point, pose.pivot, -1), pose.axis, pose.angle * eased));
   const moved = add(swung, pose.drop, eased * eased);
   const reach = Math.hypot(moved.x, moved.z);
@@ -1484,7 +1485,8 @@ function fallen(point: Vec, pose: FallPose, progress: number, ground: number): V
   const pull = 1 + (keep - 1) * eased;
   // A limb on the ground lies flat: its side twigs settle into the grass
   // instead of standing up out of it.
-  return vec(moved.x * pull, ground + 0.04 + Math.max(0, moved.y - ground - 0.04) * (1 - 0.95 * eased), moved.z * pull);
+  const high = Math.max(0, moved.y - ground - 0.04);
+  return vec(moved.x * pull, ground + 0.04 + high + (Math.min(0.12, high * 0.05) - high) * eased, moved.z * pull);
 }
 
 function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, ground: number, size: Grandeur): void {

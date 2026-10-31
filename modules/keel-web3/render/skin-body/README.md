@@ -14,3 +14,5 @@ gaze, brows and a moving mouth stay sharp whatever the mesh's resolution.
     const one = bodies.add(mesh);
     one.pose(bones, at, yaw, { lid, look, mouth });
     bodies.light(light);
+
+A face can also carry `browLine` (a brow's height, arch, tilt and half width, in eyes) and `look` (eye shadow, blush, a line along the lashes, freckles, spots, tired eyes and up to two moles). All of it is painted per pixel, so it stays clean on a coarse mesh; leave it out and a face has none.

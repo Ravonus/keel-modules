@@ -1,5 +1,8 @@
 const finite = (body) => body.capsules.every((c) => [...c.a, ...c.b, c.r].every(Number.isFinite));
 
+/** What 400 seeds' builds, clothes, gaits and skins hash to: pinned from before faces got a stream of their own, so nothing about a face can shift them. */
+const STREAM_HASH = 494738192;
+
 export default [
   {
     name: 'one seed is one person, the same every time, and the seeds differ',
@@ -116,7 +119,7 @@ export default [
       const list = Array.from({ length: 60 }, (_, i) => personOf(i));
       const grown = list.find((p) => p.build.age === 'adult'), young = list.find((p) => p.build.age === 'child' || p.build.age === 'teen');
       const size = (v) => Math.hypot(...v);
-      return [meshOf(young, 0.04).soft.every((v) => v === 0), meshOf(grown, 0.04).soft.some((v) => v > 0), size(jiggleAt(grown, 'run', 1.1)) > 0.0005, size(jiggleAt(grown, 'run', 1.1)) < 0.01, size(jiggleAt(grown, 'stand', 1.1)) < 0.001, meshOf(grown, 0.04).shade.every((v) => v >= 0 && v <= 1)];
+      return [meshOf(young, 0.04).soft.every((v) => v === 0), meshOf(grown, 0.04).soft.some((v) => v > 0), size(jiggleAt(grown, 'run', 1.1)) > 0.0005, size(jiggleAt(grown, 'run', 1.1)) < 0.01, size(jiggleAt(grown, 'stand', 1.1)) < 0.001, meshOf(grown, 0.04).shade.every((v) => v >= 0 && v <= 2)];
     },
     expect: [true, true, true, true, true, true],
   },
@@ -153,6 +156,79 @@ export default [
       return [near.every((n, i) => n > far[i]), new Set(near.map((n) => n.toFixed(4))).size >= 2];
     },
     expect: [true, true],
+  },
+  {
+    name: 'a face changes nothing else a seed is: build, clothes and gait stay as they were',
+    run: ({ personOf }) => {
+      let hash = 7;
+      for (let seed = 0; seed < 400; seed += 1) {
+        const { build, outfit, gait, palette } = personOf(seed);
+        for (const c of JSON.stringify([build, outfit, gait, palette.skin, palette.top, palette.bottom, palette.trim, palette.shoe])) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) | 0;
+      }
+      return hash;
+    },
+    expect: STREAM_HASH,
+  },
+  {
+    name: 'a child has the same face as a boy or a girl, with neutral lips, and a teen nothing fuller than that',
+    run: ({ personOf, faceOf, faceFor }) => {
+      const steady = () => { let n = 0; return () => { n = (n + 0.137) % 1; return n; }; };
+      const all = Array.from({ length: 500 }, (_, seed) => personOf(seed));
+      const young = all.filter((p) => p.build.age === 'child' || p.build.age === 'toddler');
+      const flip = (b) => ({ ...b, sex: b.sex === 'male' ? 'female' : 'male' });
+      const same = young.every((p) => {
+        const made = (sex) => faceFor(p.seed, faceOf(steady(), p.build.age, sex), { ...p.build, sex }, p.palette.skin);
+        return JSON.stringify(made(p.build.sex)) === JSON.stringify(made(flip(p.build).sex));
+      });
+      return [young.length > 40, same, young.every((p) => p.face.lips === 1 && p.face.bone.ridge === 0 && p.face.bone.hollow === 0 && p.face.bone.mole === 0 && p.face.bone.rest >= 0.15), all.filter((p) => p.build.age === 'teen').every((p) => p.face.lips <= 1)];
+    },
+    expect: [true, true, true, true],
+  },
+  {
+    name: 'paint is for grown people, and a child has freckles and nothing else on their skin',
+    run: ({ personOf }) => {
+      const all = Array.from({ length: 800 }, (_, seed) => personOf(seed));
+      const young = all.filter((p) => p.build.age === 'child' || p.build.age === 'toddler'), teens = all.filter((p) => p.build.age === 'teen');
+      const bare = (p) => p.face.look.lip === undefined && p.face.look.shadow === undefined && p.face.look.liner === 0;
+      const women = all.filter((p) => p.build.age === 'adult' && p.build.sex === 'female'), painted = women.filter((p) => p.face.look.lip).length / women.length;
+      return [young.every(bare), teens.every(bare), young.every((p) => p.face.look.spots === 0 && p.face.look.tired === 0 && p.face.look.moles.length === 0), painted > 0.6 && painted < 0.9];
+    },
+    expect: [true, true, true, true],
+  },
+  {
+    name: 'a signature is two at most, never two of a kind, and nothing a person is too young for',
+    run: ({ signaturesOf }) => {
+      let two = 0, clash = 0, early = 0, seed = 1;
+      const roll = () => { seed = (Math.imul(seed, 48271) >>> 0) % 2147483647; return seed / 2147483647; };
+      for (let i = 0; i < 3000; i += 1) {
+        const age = ['toddler', 'child', 'teen', 'adult', 'elder'][i % 5], worn = signaturesOf(roll, age);
+        if (worn.length === 2) two += 1;
+        if (new Set(worn.map((s) => s.kind)).size !== worn.length) clash += 1;
+        if (worn.some((s) => s.from > i % 5)) early += 1;
+      }
+      return [two > 300, clash, early];
+    },
+    expect: [true, 0, 0],
+  },
+  {
+    name: 'a head has a jaw, a chin and a neck, and a nose that clears the lips, at every age',
+    run: ({ personOf, meshOf, skeletonOf }) => {
+      const ages = ['toddler', 'child', 'teen', 'adult', 'elder'], all = Array.from({ length: 200 }, (_, seed) => personOf(seed)).filter((p) => p.outfit.costume === 'none');
+      const read = (p) => {
+        const bald = { ...p, hair: 'bald', face: { ...p.face, hair: 'none' }, outfit: { ...p.outfit, hat: 'none' } }, m = meshOf(bald, 0.02);
+        const c = skeletonOf(bald, 'rest', 0).head.map((v) => v * p.build.size), r = p.build.head * p.build.size;
+        const skin = Array.from({ length: m.position.length / 3 }, (_, v) => v).filter((v) => m.fabric[v] === 0 && m.bones[v * 2] === 4).map((v) => [0, 1, 2].map((i) => (m.position[v * 3 + i] - c[i]) / r));
+        const middle = skin.filter(([x, , z]) => Math.abs(x) < 0.1 && z > 0.2), men = Math.min(...middle.map(([, y]) => y));
+        const lip = Math.max(...middle.filter(([, y]) => Math.abs(y - p.face.bone.sto * p.face.bone.L) < 0.06).map(([, , z]) => z)), tip = Math.max(...middle.map(([, , z]) => z));
+        const width = (y) => Math.max(...skin.filter(([x, Y, z]) => Math.abs(Y - y) < 0.05 && z > 0.45 && Math.abs(x) < 0.85).map(([x]) => Math.abs(x)));
+        return { neck: p.face.bone.rise + men, clears: tip - lip, taper: width(p.face.bone.cheekY) - width(men + 0.14) };
+      };
+      return ages.map((age) => {
+        const seen = all.filter((p) => p.build.age === age).slice(0, 6).map(read);
+        return seen.every((f) => f.neck > (age === 'toddler' ? 0.08 : 0.15) && f.clears > 0.01 && f.taper > 0.1);
+      });
+    },
+    expect: [true, true, true, true, true],
   },
   {
     name: 'loose hair goes over the ears or tucks behind them',

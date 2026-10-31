@@ -71,6 +71,7 @@ const skinTone = (rand: () => number): string => {
 const HAIR_TONES = ["#14100e", "#1f1612", "#33221a", "#4e3424", "#6e4a2c", "#8e6a3c", "#b89560", "#8c3a1e", "#d8b878", "#c9a25e", "#a0522a"] as const;
 const LOUD_HAIR = ["#d0408c", "#3a6ad8", "#2ea880", "#8a48d0"] as const;
 const IRIS_TONES = ["#2e1c10", "#46291a", "#5c3a1e", "#3a5a78", "#4e7a5a", "#6a7a84"] as const;
+const DARK_IRIS = ["#1c100a", "#2e1c10", "#46291a", "#6e4a24"] as const;
 
 export type HairStyle = "bald" | "crop" | "side" | "curly" | "afro" | "bob" | "long" | "bun" | "pony" | "mohawk" | "shag" | "bangs" | "wavy" | "braids" | "locs" | "twintails" | "undercut";
 export type Sex = "female" | "male";
@@ -123,27 +124,96 @@ export interface Build {
   readonly chest: number;
 }
 
+/** What is worn on a face or lies on its skin; a child's is freckles alone. */
+export interface Look {
+  readonly lip?: string;
+  readonly shadow?: readonly [string, number];
+  readonly blush?: readonly [string, number];
+  readonly liner: number;
+  readonly freckles: number;
+  readonly spots: number;
+  readonly tired: number;
+  readonly moles: readonly (readonly [number, number, number])[];
+}
+
 export interface Face {
+  /** An eye's half height, and how far out from the middle it sits, in head radii. */
   readonly eye: number;
   readonly apart: number;
   readonly lid: number;
   readonly slant: number;
   readonly brow: number;
   readonly browTilt: number;
+  /** How far the nose stands off the face, and how wide its wings, in head radii. */
   readonly nose: number;
   readonly noseWide: number;
+  /** How full the lips are: 1 average, and always 1 on a child. */
   readonly lips: number;
   readonly mouthWide: number;
+  /** A person's own lean, -1 to 1, in the jaw, the chin, the width and the length. */
   readonly jaw: number;
   readonly chin: number;
   readonly ears: number;
-  /** How wide the face is, and how long below the eyes. */
   readonly wide: number;
   readonly long: number;
-  /** How high the eyes sit, shares of the head. */
+  /** How high the eyes sit against the rest of their age, head radii. */
   readonly eyeRise: number;
   readonly iris: string;
   readonly hair: FaceHair;
+  readonly bone: Bone;
+  readonly look: Look;
+}
+
+/** What a face is built on, in head radii: `y` up from the head's centre, `z` forward of it, `x` out from the middle. */
+export interface Bone {
+  /** How grown it is, 0 a child's to 1 an adult's: every difference by sex goes by this. */
+  readonly m: number;
+  /** The skull's width, the face's length and the skull's depth, each 1 average. */
+  readonly W: number;
+  readonly L: number;
+  readonly D: number;
+  /** How much of the head is flesh over the bone, and how little on a lean grown face. */
+  readonly fat: number;
+  readonly lean: number;
+  /** How far above the base of the neck the head's centre rides. */
+  readonly rise: number;
+  readonly pupil: number;
+  /** Where the nose meets the lip, and the lips each other: before `L`, as all heights under the centre are. */
+  readonly sub: number;
+  readonly sto: number;
+  /** How wide the face runs: at the temples, the cheekbones, and the waist between them and the jaw. */
+  readonly tem: number;
+  readonly zyg: number;
+  readonly mid: number;
+  /** How square a face is across its front: 2 a true round, more for a flatter plane with harder corners. */
+  readonly plane: number;
+  /** The jaw's corner: how wide, how low, how far back. */
+  readonly gon: number;
+  readonly gonY: number;
+  readonly gonZ: number;
+  readonly chin: number;
+  readonly men: number;
+  readonly pogZ: number;
+  /** The cheekbone's height off the face and where it sits, and how far the brow stands. */
+  readonly cheek: number;
+  readonly cheekY: number;
+  readonly ridge: number;
+  readonly hollow: number;
+  readonly full: number;
+  readonly old: number;
+  /** How far the tip stands off the face, how far it lifts, how far the bridge bows, how far off centre it lies. */
+  readonly tipY: number;
+  readonly hump: number;
+  readonly askew: number;
+  /** How much deeper the sockets go, how much thicker the brows, and how the mouth lies at rest. */
+  readonly orbit: number;
+  readonly browK: number;
+  readonly arch: number;
+  /** How far the brow lies above where the eye would put it. */
+  readonly browUp: number;
+  readonly rest: number;
+  readonly freckles: number;
+  readonly mole: number;
 }
 
 export interface Outfit {
@@ -315,29 +385,228 @@ function buildOf(rand: () => number): Build {
   };
 }
 
-function faceOf(rand: () => number, age: Age, sex: Sex): Face {
-  const young = age === "toddler" || age === "child" ? 1 : 0;
-  const soft = sex === "female" ? 1 : 0;
+/** How grown a face is, and how young: everything that differs by sex goes by the first, so a boy's and a girl's are one. */
+const MATURITY: Readonly<Record<Age, number>> = { toddler: 0, child: 0, teen: 0.5, adult: 1, elder: 1 };
+const YOUTH: Readonly<Record<Age, number>> = { toddler: 1, child: 0.72, teen: 0.2, adult: 0, elder: 0 };
+
+/** How big a nose stands at each age, as a share of a grown one. */
+const NOSE_BY: Readonly<Record<Age, number>> = { toddler: 0.68, child: 0.72, teen: 0.84, adult: 1, elder: 1 };
+const CHILD_EYE: Partial<Record<Age, number>> = { toddler: 0.145, child: 0.14 };
+
+const faceHairOf = (rand: () => number, age: Age, sex: Sex): FaceHair => (sex === "male" && (age === "adult" || age === "elder") ? weighted(rand, FACE_HAIRS) : "none");
+
+/** Each number in its place, for a seed's hair and clothes come on after these in the same stream: what is new about a face has a stream of its own, in `faceFor`. */
+export function faceOf(rand: () => number, age: Age, sex: Sex): Omit<Face, "bone" | "look"> {
+  const m = MATURITY[age], soft = sex === "female" ? m : 0, old = age === "elder" ? 1 : 0, grown = m === 1 ? 1 : 0, roll = (): number => rand() * 2 - 1, eyeRoll = rand();
   return {
-    eye: mix(0.12, 0.15, rand()) + young * 0.024,
-    apart: mix(0.46, 0.5, rand()),
-    lid: mix(0.02, 0.16, rand()),
+    eye: CHILD_EYE[age] ?? 0.115 + 0.02 * eyeRoll,
+    apart: mix(0.335, 0.385, rand()),
+    lid: mix(0.02, 0.1, rand()) * mix(0.6, 1, m) + old * 0.07,
     slant: mix(-0.04, 0.1, rand()),
     brow: mix(0.45, 1, rand()) * (1 - soft * 0.3),
-    browTilt: mix(-0.08, 0.14, rand()),
-    nose: mix(0.03, 0.2, rand()) * (1 - young * 0.6),
-    noseWide: mix(0.09, 0.26, rand()),
-    lips: mix(0.09, 0.14, rand()) * (1 + soft * 0.15 - (1 - soft) * (1 - young) * 0.12),
-    mouthWide: mix(0.24, 0.34, rand()),
-    jaw: mix(0.68, 1.02, rand()) + young * 0.16 - soft * 0.1 + (1 - soft) * (1 - young) * 0.07,
-    chin: mix(0.16, 0.5, rand()) * (1 - soft * 0.2),
-    ears: mix(0.2, 0.3, rand()),
-    wide: mix(0.86, 1.12, rand()),
-    long: mix(0.8, 1.06, rand()) * (1 - young * 0.12),
-    eyeRise: mix(-0.05, 0.05, rand()) - young * 0.12,
+    browTilt: mix(-0.06, 0.07, rand()) * mix(0.3, 1, m),
+    nose: mix(0.17, 0.3, rand()) * NOSE_BY[age],
+    noseWide: mix(0.16, 0.25, rand()) * mix(0.8, 1, m),
+    lips: 1 + ((rand() - 0.5) * 0.3 + (2 * soft - 1) * 0.06) * grown,
+    mouthWide: mix(0.235, 0.3, rand()) * mix(0.76, 1, m),
+    jaw: roll(),
+    chin: roll(),
+    ears: mix(0.2, 0.3, rand()) + old * 0.03,
+    wide: roll(),
+    long: roll(),
+    eyeRise: mix(-0.025, 0.025, rand()),
     iris: pick(rand, IRIS_TONES),
-    hair: sex === "male" && (age === "adult" || age === "elder") ? weighted(rand, FACE_HAIRS) : "none",
+    hair: faceHairOf(rand, age, sex),
   };
+}
+
+type Pair = readonly [male: number, female: number];
+
+/** A skull at each age: where two, a man's then a woman's. A child's two are the same. */
+interface SkullStage { readonly zyg: number; readonly gon: Pair; readonly gonY: Pair; readonly gonZ: number; readonly chin: Pair; readonly men: Pair; readonly rise: Pair; readonly pupil: Pair; readonly sub: Pair; readonly sto: Pair }
+
+const SKULL_STAGES: Readonly<Record<Age, SkullStage>> = {
+  toddler: { zyg: 0.78, gon: [0.56, 0.56], gonY: [-0.46, -0.46], gonZ: 0.06, chin: [0.3, 0.3], men: [-0.76, -0.76], rise: [1, 1], pupil: [-0.04, -0.04], sub: [-0.3, -0.3], sto: [-0.46, -0.46] },
+  child: { zyg: 0.76, gon: [0.54, 0.54], gonY: [-0.5, -0.5], gonZ: 0.04, chin: [0.27, 0.27], men: [-0.82, -0.82], rise: [1.11, 1.11], pupil: [0.01, 0.01], sub: [-0.31, -0.31], sto: [-0.49, -0.49] },
+  teen: { zyg: 0.75, gon: [0.57, 0.53], gonY: [-0.6, -0.56], gonZ: 0, chin: [0.28, 0.25], men: [-0.96, -0.9], rise: [1.31, 1.29], pupil: [0.12, 0.12], sub: [-0.35, -0.33], sto: [-0.55, -0.52] },
+  adult: { zyg: 0.78, gon: [0.62, 0.55], gonY: [-0.68, -0.58], gonZ: -0.01, chin: [0.31, 0.27], men: [-1.02, -0.93], rise: [1.36, 1.34], pupil: [0.14, 0.15], sub: [-0.39, -0.33], sto: [-0.6, -0.52] },
+  elder: { zyg: 0.76, gon: [0.61, 0.53], gonY: [-0.7, -0.58], gonZ: -0.01, chin: [0.3, 0.25], men: [-1.03, -0.95], rise: [1.36, 1.34], pupil: [0.13, 0.14], sub: [-0.4, -0.35], sto: [-0.62, -0.55] },
+};
+
+/** What a face's outline leans to, on the age's skull: shares of a head's radius from the temple down, how much longer it runs, how square it is across. */
+interface Outline { readonly tem: number; readonly zyg: number; readonly mid: number; readonly gon: number; readonly gonY: number; readonly chin: number; readonly long: number; readonly plane: number }
+
+const OUTLINES = {
+  oval: { tem: 0, zyg: 0, mid: 0, gon: 0, gonY: 0, chin: 0, long: 0, plane: 0 },
+  round: { tem: 0.02, zyg: 0.03, mid: 0.08, gon: 0.05, gonY: 0.06, chin: 0.04, long: -0.08, plane: -0.15 },
+  square: { tem: 0.03, zyg: -0.01, mid: 0.07, gon: 0.11, gonY: -0.03, chin: 0.09, long: -0.04, plane: 0.45 },
+  heart: { tem: 0.05, zyg: 0.02, mid: -0.05, gon: -0.09, gonY: 0.03, chin: -0.06, long: 0, plane: 0 },
+  diamond: { tem: -0.07, zyg: 0.06, mid: -0.03, gon: -0.07, gonY: 0, chin: -0.05, long: 0.02, plane: 0.15 },
+  oblong: { tem: -0.02, zyg: -0.06, mid: -0.03, gon: -0.03, gonY: -0.02, chin: 0, long: 0.09, plane: 0.2 },
+  pear: { tem: -0.08, zyg: -0.03, mid: 0.06, gon: 0.09, gonY: 0.02, chin: 0.05, long: -0.03, plane: 0.1 },
+} as const satisfies Readonly<Record<string, Outline>>;
+
+type OutlineName = keyof typeof OUTLINES;
+
+/** Which outlines go with what: anyone can have any of them but a child, whose face is not yet any of the hard ones, and is the same for a boy and a girl. */
+const OUTLINE_SHARES: Readonly<Record<Sex | "young", Weighted<OutlineName>>> = {
+  male: [["oval", 2], ["round", 1.4], ["square", 3], ["heart", 0.6], ["diamond", 1.6], ["oblong", 2], ["pear", 1.2]],
+  female: [["oval", 3], ["round", 2], ["square", 0.8], ["heart", 2.6], ["diamond", 1.6], ["oblong", 1], ["pear", 0.6]],
+  young: [["oval", 2], ["round", 3], ["heart", 1.4], ["pear", 0.6]],
+};
+
+/** What can stand out in a face, and what it does: at most two to a person, none of them against another, and none on anyone younger than `from`. */
+export type Trait = "tip" | "lift" | "hump" | "alar" | "chinZ" | "chinW" | "full" | "hollow" | "mouth" | "eye" | "orbit" | "brow" | "ridge" | "len" | "wid" | "ears" | "lid";
+export interface Signature { readonly kind: string; readonly from: number; readonly does: Readonly<Partial<Record<Trait, number>>> }
+
+const SIGNATURES: readonly Signature[] = [
+  { kind: "nose", from: 3, does: { tip: 0.07, alar: 0.03 } },
+  { kind: "nose", from: 3, does: { hump: 0.05, lift: -0.04 } },
+  { kind: "nose", from: 0, does: { tip: -0.06, lift: 0.04 } },
+  { kind: "chin", from: 3, does: { chinZ: 0.06, chinW: 0.07 } },
+  { kind: "chin", from: 3, does: { chinZ: -0.07, chinW: -0.03 } },
+  { kind: "cheek", from: 0, does: { full: 0.8 } },
+  { kind: "cheek", from: 3, does: { hollow: 0.7 } },
+  { kind: "mouth", from: 2, does: { mouth: 0.04 } },
+  { kind: "eye", from: 0, does: { eye: 0.14 } },
+  { kind: "eye", from: 3, does: { eye: -0.1, orbit: 0.03 } },
+  { kind: "eye", from: 3, does: { lid: 0.16 } },
+  { kind: "brow", from: 3, does: { brow: 0.3, ridge: 0.04 } },
+  { kind: "shape", from: 2, does: { len: 0.07, wid: -0.05 } },
+  { kind: "shape", from: 0, does: { wid: 0.08, len: -0.05 } },
+  { kind: "ears", from: 0, does: { ears: 0.25 } },
+];
+
+const AGE_ORDER: readonly Age[] = ["toddler", "child", "teen", "adult", "elder"];
+
+/** Up to two of what a person is known by, never two of a kind, so nobody's nose is both big and snub. */
+export function signaturesOf(r: () => number, age: Age): readonly Signature[] {
+  const open = SIGNATURES.filter((s) => s.from <= AGE_ORDER.indexOf(age));
+  const first = open[Math.floor(r() * open.length)], other = open.filter((s) => s.kind !== first?.kind), second = other[Math.floor(r() * other.length)], wanted = r();
+  return [wanted < 0.8 ? first : undefined, wanted < 0.3 ? second : undefined].filter((s): s is Signature => s !== undefined);
+}
+
+/** What a person's signatures come to, trait by trait. */
+function traitsOf(worn: readonly Signature[]): (t: Trait) => number {
+  return (t) => worn.reduce((sum, s) => sum + (s.does[t] ?? 0), 0);
+}
+
+/** Round, square or sharp, as shares: one usually leads, whatever the sex, and the young lean round. */
+function faceForm(r: () => number, youth: number): readonly [round: number, square: number, sharp: number] {
+  const round = r() ** 2.2 + youth * 0.5, square = r() ** 2.2, sharp = r() ** 2.2, all = round + square + sharp;
+  return [round / all, square / all, sharp / all];
+}
+
+/** Three soft leanings, handed down and never named: each moves a little of the face, and any value is open to anyone. */
+function kinOf(r: () => number, deep: number): readonly [number, number, number] {
+  return [clamp(bell(r, -1, 1) + 0.5 * (deep - 0.5), -1, 1), bell(r, -1, 1), bell(r, -1, 1)];
+}
+
+/** What a face leans to before it is anything: its form, its kin, its signature. */
+interface Latents { readonly round: number; readonly square: number; readonly sharp: number; readonly kin: readonly [number, number, number]; readonly by: (t: Trait) => number }
+
+function latentsOf(r: () => number, age: Age, deep: number): Latents {
+  const [round, square, sharp] = faceForm(r, YOUTH[age]), kin = kinOf(r, deep);
+  return { round, square, sharp, kin, by: traitsOf(signaturesOf(r, age)) };
+}
+
+/** How far into their years a grown person is, a little of what age does: most of them hardly any. */
+const grownYears = (age: Age, roll: number): number => (age === "adult" ? roll * roll * 0.5 : 0);
+
+/** What a face is built on: the age's skull, bent by the form it leans to, its kin and its signature. */
+function boneOf(r: () => number, face: Omit<Face, "bone" | "look">, build: Build, { round, sharp, kin, by }: Latents): Bone {
+  const { age, sex, girth } = build, st = SKULL_STAGES[age], of = (pair: Pair): number => pair[sex === "male" ? 0 : 1];
+  const m = MATURITY[age], vary = 0.5 + 0.5 * m, fat = Math.max(0, girth - 1), old = age === "elder" ? 1 : 0;
+  const form = OUTLINES[weighted(r, OUTLINE_SHARES[m === 0 ? "young" : sex])], reach = mix(0.45, 1, m) * mix(0.8, 1.2, r());
+  const soft = (sex === "female" ? 1 : 0) * m, drop = (r() - 0.5) * 0.1 * m, chinLong = (r() - 0.5) * 0.1 * m, browUp = (r() - 0.5) * 0.07 * m + mix(-0.01, 0.03, soft);
+  const lean = 0.45 * face.jaw * vary, chinY = 0.5 * face.chin * vary, depth = r() * 2 - 1;
+  const W = clamp(1 + (round * 1.4 - sharp * 1.1 + kin[1] * 0.7 + face.wide * 0.7) * vary * 0.06 + by("wid"), 0.9, 1.14);
+  const L = clamp(1 + (0.5 * (sharp - round) + kin[0] * 0.3 * m + kin[2] * 0.3 + face.long * 0.5) * vary * 0.07 + form.long * reach + by("len"), 0.88, 1.13);
+  const bulk = clamp(1 - (girth - 0.78) / 0.36, 0, 1) * m, full = clamp(0.6 * round + by("full") + fat + 0.7 * YOUTH[age], 0, 1);
+  const cheek = mix(0.05, 0.11, r()) * mix(0.35, 1, m) * mix(1, 1.1, soft), cheekY = mix(-0.12, 0.02, r());
+  const ridge = mix(mix(0.06, 0.11, r()), 0.02, soft) * m + by("ridge");
+  const hollow = (bulk * mix(0.015, 0.05, r()) + by("hollow") * 0.04 + sharp * 0.02) * m * (fat > 0 ? 0 : 1);
+  const zyg = st.zyg + form.zyg * reach + (r() - 0.5) * 0.04 * m, gon = clamp(of(st.gon) + form.gon * reach + lean * 0.09 + fat * 0.09, 0.5, zyg - 0.07);
+  const mid = clamp(mix(zyg, gon, 0.46) + form.mid * reach + full * 0.05 + fat * 0.06 - hollow * 0.8, gon + 0.02, zyg - 0.02);
+  return {
+    m, W, L, D: 1 + depth * 0.045, fat, lean: bulk, old: age === "elder" ? 1 : grownYears(age, r()), rise: of(st.rise),
+    pupil: of(st.pupil) + face.eyeRise * 2, sub: of(st.sub) + (r() - 0.5) * 0.07 * m, sto: of(st.sto), tem: 0.73 + form.tem * reach, zyg, mid, plane: 2.25 + form.plane * reach,
+    gon, gonY: of(st.gonY) + form.gonY * reach - lean * 0.04 * m - fat * 0.02 + drop, gonZ: st.gonZ,
+    chin: clamp(of(st.chin) + form.chin * reach + (lean + chinY) * 0.04 + fat * 0.03 + by("chinW"), 0.25, 0.42), men: of(st.men) - chinLong,
+    pogZ: mix(0.94, 1.03, m) - 0.03 * soft + chinY * 0.035 * m + by("chinZ") * m - old * 0.03,
+    cheek, cheekY, ridge, hollow, full,
+    tipY: 0.1 + by("lift") - old * 0.03 + (kin[2] * 0.02 + (r() - 0.5) * 0.06) * m, hump: by("hump") + (r() - 0.5) * 0.04 * m, askew: (r() - 0.5) * 0.015 * m,
+    orbit: by("orbit"), browK: 1 + by("brow"), arch: mix(0.005, 0.06, r()), browUp,
+    ...restOf(r, m),
+  };
+}
+
+/** How a mouth lies at rest, and the marks on a skin. */
+function restOf(r: () => number, m: number): Pick<Bone, "rest" | "freckles" | "mole"> {
+  const rare = r() < 0.08, rest = rare ? mix(-0.15, -0.05, r()) : bell(r, -0.05, 0.45), marks = r(), mole = r();
+  return { rest: m < 0.5 ? Math.max(0.15, rest) : rest, freckles: marks < 0.14 ? 1 : 0, mole: mole < 0.16 && m > 0 ? mole / 0.16 : 0 };
+}
+
+const LIPSTICK_FAIR = ["#b24a5c", "#a23838", "#c26478", "#8a2e40", "#b86a5e"] as const;
+const LIPSTICK_DEEP = ["#7a2a3a", "#8c3244", "#5c2030", "#a24a3c", "#6c3a48"] as const;
+const SHADOW = ["#7c5a48", "#8a6870", "#5e4a60", "#6c5c3e", "#4c4a5c"] as const;
+
+/** A made-up face: a lip and a little colour; a bold or a day's face has a lid dusted too. */
+function madeUp(how: number, lip: number, lid: number, deep: number): Pick<Look, "lip" | "shadow" | "blush" | "liner"> {
+  const bold = how > 0.82, day = how > 0.42;
+  return {
+    lip: pick(() => lip, deep > 0.3 ? LIPSTICK_DEEP : LIPSTICK_FAIR),
+    blush: [deep > 0.3 ? "#a04a3a" : "#dc7c70", mix(bold ? 0.2 : 0.13, 0.2, deep)],
+    liner: bold ? 1 : day ? 0.55 : 0.35,
+    ...(day ? { shadow: [pick(() => lid, SHADOW), bold ? 0.55 : 0.36] as const } : {}),
+  };
+}
+
+/** Paint, and how much: most grown women, a little or a lot, and now and then a man with a line round his eyes. Only grown people; never a child or a teen. */
+function paintOf(r: () => number, build: Build, deep: number): Pick<Look, "lip" | "shadow" | "blush" | "liner"> {
+  const roll = r(), how = r(), lip = r(), lid = r(), old = build.age === "elder";
+  if (build.age !== "adult" && !old) return { liner: 0 };
+  if (build.sex !== "female") return { liner: roll < 0.05 ? 0.5 : 0 };
+  return roll > (old ? 0.5 : 0.76) ? { liner: 0.15 } : madeUp(how, lip, lid, deep);
+}
+
+/** What a skin has come by: freckles at any age; a spot or two, tired eyes and moles only once it has grown up some. */
+function marksOn(r: () => number, bone: Bone, young: boolean, deep: number): Pick<Look, "freckles" | "spots" | "tired" | "moles"> {
+  const spotted = r(), spots = r(), tired = r(), second = r(), x = r(), y = r(), side = r() < 0.5 ? -1 : 1;
+  const mole = (at: number, h: number): readonly [number, number, number] => [side * at, h, 0.02 + bone.mole * 0.012];
+  return {
+    freckles: bone.freckles * mix(0.85, 0.5, deep),
+    spots: bone.m === 0 ? 0 : spotted < (young ? 0.45 : 0.14) ? mix(0.4, 0.8, spots) : 0,
+    tired: bone.m === 0 ? 0 : tired * tired * 0.7 + bone.old * 0.4,
+    moles: bone.mole ? [mole(mix(0.22, 0.56, x), mix(-0.8, -0.2, y)), ...(second < 0.2 ? [mole(-mix(0.1, 0.4, y), mix(-1, -0.5, x))] : [])] : [],
+  };
+}
+
+/** A face finished: all that is new about it comes from one stream of its own, after the skin is known, so a seed's hair and clothes stay as they were. */
+export function faceFor(seed: number, rolled: Omit<Face, "bone" | "look">, build: Build, skin: string): Face {
+  const r = streamOf(seed, 0x66616365), deep = deepOf(skin), m = MATURITY[build.age], latents = latentsOf(r, build.age, deep), { kin, by } = latents;
+  const bone = boneOf(r, rolled, build, latents);
+  const pale = IRIS_TONES.indexOf(rolled.iris as typeof IRIS_TONES[number]) >= 3 && r() < 0.1 + 0.85 * deep;
+  const open = 1 + ((r() - 0.5) * 0.36 + (build.sex === "female" ? 0.07 : -0.03) - bone.old * 0.1) * m, set = (r() - 0.5) * 0.08 * m;
+  return {
+    ...rolled, bone,
+    eye: clamp(rolled.eye * 1.16 * (1 + by("eye")) * open, 0.122, 0.175),
+    apart: rolled.apart + set + 0.02,
+    lid: rolled.lid + by("lid"),
+    nose: clamp(rolled.nose + by("tip"), 0.09, 0.36),
+    noseWide: clamp(rolled.noseWide + 0.03 * kin[0] * m + 0.012 * kin[1] + by("alar"), 0.13, 0.27),
+    mouthWide: clamp((rolled.mouthWide + (-0.02 * kin[1] + 0.01 * kin[0] + by("mouth")) * m) * 1.1, 0.2, 0.37),
+    lips: m === 0 ? 1 : Math.min(clamp(rolled.lips + 0.14 * kin[0] * m, 0.72, 1.3), build.age === "teen" ? 1 : 1.3),
+    ears: rolled.ears * (1 + by("ears")),
+    iris: pale ? pick(r, DARK_IRIS) : rolled.iris,
+    look: lookOf(seed, build, deep, bone),
+  };
+}
+
+function lookOf(seed: number, build: Build, deep: number, bone: Bone): Look {
+  const r = streamOf(seed, 0x6c6f6f6b);
+  const blood = r();
+  return { blush: [deep > 0.3 ? "#a04a3a" : "#dc7c70", mix(0.04, 0.1, blood) * (bone.m === 0 ? 1.3 : 1)], ...paintOf(r, build, deep), ...marksOn(r, bone, build.age === "teen", deep) };
 }
 
 /** Two hex colours, `k` of the way from the first to the second. */
@@ -368,11 +637,20 @@ const SHADES: Readonly<Record<Genre, (rand: () => number) => Readonly<Record<str
   preppy: (rand) => ({ top: hsl(rand(), 0.42, mix(0.68, 0.82, rand())), bottom: hsl(0.11, 0.3, mix(0.6, 0.72, rand())), trim: "#28386a", shoe: "#6a3c22", sole: "#2a1a10" }),
 };
 
-/** Hair the same light as the skin reads as a bald head: it goes darker, or lighter on dark skin. */
+/** How much light a colour gives back, as the eye weighs it, 0 to 1. */
+const glowOf = (hex: string): number => [[1, 0.2126], [3, 0.7152], [5, 0.0722]].reduce((sum, [i = 1, k = 0]) => {
+  const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+  return sum + k * (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+}, 0);
+
+/** How deep a skin is, 0 from a mid brown up to 1: a multiply hardly shows on it, so whatever draws a feature must work harder. */
+const deepOf = (skin: string): number => clamp((0.2 - glowOf(skin)) / 0.16, 0, 1);
+
+/** Hair the same light as the skin reads as a bald head, so on fair skin it goes darker. On dark skin dark hair is left be: a rim of light parts it from the face. */
 function apart(hair: string, skin: string): string {
   const light = (hex: string): number => [1, 3, 5].reduce((n, i) => n + parseInt(hex.slice(i, i + 2), 16), 0) / 765;
-  if (Math.abs(light(hair) - light(skin)) > 0.28) return hair;
-  return blend(hair, light(skin) > 0.3 ? "#2a1a12" : "#c8b49a", 0.62);
+  if (Math.abs(light(hair) - light(skin)) > 0.28 || light(skin) <= 0.3) return hair;
+  return blend(hair, "#2a1a12", 0.45);
 }
 
 /** Trousers the same light as the shirt read as one sack: they go darker, or lighter under a dark top. */
@@ -382,22 +660,62 @@ function parted(bottom: string, top: string): string {
   return blend(bottom, light(top) > 0.3 ? "#14141c" : "#a8a49c", 0.5);
 }
 
+/** A tone of hair from one roll: the darker it is, the likelier on darker skin, and any of them can be had by anyone. */
+function hairTone(roll: number, deep: number): string {
+  const low = HAIR_TONES.slice(0, 5), high = HAIR_TONES.slice(5), dark = mix(low.length / HAIR_TONES.length, 0.93, deep);
+  const [list, at] = roll < dark ? [low, roll / dark] : [high, (roll - dark) / (1 - dark)];
+  return list[Math.floor(at * list.length)] ?? "#14100e";
+}
+
+/** A brow goes with its hair, as far as it can and still be a brow: never so near the skin that light takes it off the face, nor so far from it that it is a bar. */
+function browOn(skin: string, hair: string): string {
+  const brow = blend(hair, "#2a1a16", 0.3), own = glowOf(brow), most = glowOf(skin) * 0.4, least = glowOf(skin) * 0.2;
+  if (own > most) return blend(brow, "#120a07", 1 - Math.sqrt(most / own));
+  return own < least ? blend(brow, skin, (1 - Math.sqrt(own / least)) * 0.8) : brow;
+}
+
+/** The colours of a brow, a lip and a flush, from what they lie on. */
+function faceColours(skin: string, hair: string, wash: string): Record<string, string> {
+  const deep = deepOf(skin);
+  return {
+    brow: browOn(skin, hair),
+    beard: blend(hair, "#1a100b", mix(0.25, 0.6, deep)),
+    lip: blend(skin, blend(wash, "#8c464c", deep), mix(0.58, 0.54, deep)),
+    crease: blend(skin, "#3a1a16", mix(0.3, 0.6, deep)),
+    flush: blend(skin, deep > 0.3 ? "#a8402c" : "#e0705c", 0.045),
+    stub: blend(skin, hair, 0.22),
+  };
+}
+
 function paletteOf(rand: () => number, skin: string, age: Age, iris: string, genre: Genre): Record<string, string> {
-  const dyed = rand() < 0.04;
-  const natural = dyed ? pick(rand, LOUD_HAIR) : pick(rand, HAIR_TONES);
+  const dyed = rand() < 0.04, roll = rand();
+  const natural = dyed ? LOUD_HAIR[Math.floor(roll * LOUD_HAIR.length)] ?? "#3a6ad8" : hairTone(roll, deepOf(skin));
   const hair = blend(apart(age === "elder" ? pick(rand, GREY_HAIR) : natural, skin), "#4c4650", 0.16);
-  return { skin, hair, brow: blend(hair, "#2a1a16", 0.6), lip: blend(skin, hsl(mix(0.97, 1.02, rand()) % 1, 0.4, 0.42), 0.5), dark: "#2a1a16", eye: iris, ...clothesColours(rand), ...SHADES[genre](rand) };
+  return { skin, hair, ...faceColours(skin, hair, hsl(mix(0.97, 1.02, rand()) % 1, 0.4, 0.42)), dark: "#2a1a16", eye: iris, ...clothesColours(rand), ...SHADES[genre](rand) };
+}
+
+const COILED: readonly HairStyle[] = ["curly", "afro", "locs", "braids"];
+const FINE: readonly HairStyle[] = ["long", "side", "wavy"];
+
+/** Hair as a sex wears it, on this skin: the same roll for everyone, so a seed keeps its style, and only fine straight hair may turn to coils, likelier the darker the skin. Every style stays open to all. */
+function hairOn(seed: number, sex: Sex, deep: number, roll: number): HairStyle {
+  const chosen = weighted(() => roll, HAIRS[sex]);
+  if (!FINE.includes(chosen) || hashed(seed, 907) >= deep * 0.7) return chosen;
+  return weighted(() => hashed(seed, 911), HAIRS[sex].filter(([style]) => COILED.includes(style)));
 }
 
 /** The person a seed is, always the same one. */
 export function personOf(seed: number, weather: Weather = "mild", costume?: Costume): Person {
   const rand = streamOf(seed, 0x70656f70);
   const build = buildOf(rand);
-  const face = faceOf(rand, build.age, build.sex);
-  const chosen = weighted(rand, HAIRS[build.sex]);
-  const hair = chosen === "bald" && (build.sex === "female" || build.age === "toddler" || build.age === "child" || build.age === "teen") ? "crop" : chosen;
+  const rolled = faceOf(rand, build.age, build.sex);
+  const hairRoll = rand();
   const base = outfitOf(rand, build);
-  const palette = paletteOf(rand, skinTone(rand), build.age, face.iris, base.genre);
+  const skin = skinTone(rand);
+  const face = faceFor(seed, rolled, build, skin);
+  const chosen = hairOn(seed, build.sex, deepOf(skin), hairRoll);
+  const hair = chosen === "bald" && (build.sex === "female" || build.age === "toddler" || build.age === "child" || build.age === "teen") ? "crop" : chosen;
+  const palette = paletteOf(rand, skin, build.age, face.iris, base.genre);
   const day = streamOf(seed, 0x77656174);
   const outfit = inCostume(day, build, dressedFor(day, build, base, weather), weather, costume);
   const big = outfit.costume === "fursuit" ? { ...build, head: build.head * 1.16 } : build;
@@ -822,13 +1140,13 @@ function skeletonFrom(p: Person, pose: Pose, loose: boolean): Skeleton {
   const rightSwing = stance(p, p.outfit.carry === "umbrella" && !loose ? { ...pose.right, ...HOLDING } : pose.right);
   const pelvis: Vec = [body.shift, body.hips, 0], { breath, drop, curve, twist } = body;
   // (What the height leaves between the standing hips and the crown.)
-  const trunk = TALL - standHips(p) - p.build.head * 2.58;
+  const trunk = TALL - standHips(p) - p.build.head * (p.face.bone.rise + 1.28);
   const bent = (more: number): Vec => unit([body.side, 1, stoop + body.lean + more]);
   const low = madd(pelvis, bent(0), trunk * 0.22);
   // (The waist leans the way the pelvis tips, so the pelvis itself drops over the swinging leg.)
   const waist = add(low, [-drop * trunk * 0.22 / hip, 0, 0]);
   const chest = madd(low, bent(curve * 0.5), trunk * 0.36 + breath), top = bent(curve), neck = madd(chest, top, trunk * 0.42);
-  const head = madd(neck, unit([body.tilt, 1, stoop * 2 + body.nod]), p.build.head * 1.3);
+  const head = madd(neck, unit([body.tilt, 1, stoop * 2 + body.nod]), p.build.head * p.face.bone.rise);
   const sideOf = (side: number, s: Swing): { leg: Leg; arm: Arm } => ({
     leg: planted(p, legOf(p, add(pelvis, [side * hip * body.wide, -HIP_DROP + side * drop, -side * twist * 0.6]), s, side)),
     arm: armOf(p, add(madd(neck, top, -trunk * 0.13), [side * shoulder, body.shrug[sideIndex(side)], side * twist]), side, s, chest),
@@ -921,6 +1239,9 @@ function untangled(p: Person, s: Skeleton, leftCurl: number, rightCurl: number):
 }
 
 // ---------------------------------------------------------------- parts
+
+/** How thick a neck goes against the head: a man's thicker, a woman's less, a child's thin and the same for both. */
+const neckBy = (p: Person): number => mix(0.8, p.build.sex === "male" ? 1 : 0.8, p.face.bone.m);
 
 /** One drawn part: sdf-body's shape, named for what it is. */
 export interface Capsule {
@@ -1102,7 +1423,7 @@ function drawTorso(kit: Kit, p: Person, s: Skeleton): void {
   put(kit, "ribs", "top", ribs, lerpV(ribs, s.neck, 0.38), shoulder * 0.88, { r1: shoulder * 0.6, flat: 0.6, up, melt: 1 });
   for (const [x, arm] of [[-1, s.left.arm], [1, s.right.arm]] as const) put(kit, `yoke.${String(x)}`, "top", add(s.neck, [x * 0.03, -0.075, -0.012]), arm.shoulder, 0.034, { r1: 0.052, melt: 1 });
   if (p.build.sex === "female" && p.build.age !== "toddler" && p.build.age !== "child") for (const x of [-1, 1]) ball(kit, `bust.${String(x)}`, "top", add(ribs, [x * shoulder * 0.42, -0.015, shoulder * 0.42]), shoulder * (p.build.age === "teen" ? 0.26 : 0.34) * p.build.bust, { melt: 1.4 });
-  put(kit, "neck", "skin", add(s.neck, [0, -0.03, -0.012]), madd(madd(s.head, UP, -head * 0.62), FRONT, -head * 0.08), head * 0.54 * (p.build.sex === "male" ? 1.08 : 0.94) * Math.sqrt(girth * p.build.limb), { r1: head * 0.47 * (p.build.sex === "male" ? 1.08 : 0.94) * Math.sqrt(p.build.limb), melt: 1 });
+  put(kit, "neck", "skin", add(s.neck, [0, -0.03, -0.012]), madd(madd(s.head, UP, -head * 0.62), FRONT, -head * 0.08), head * 0.54 * neckBy(p) * Math.sqrt(girth * p.build.limb), { r1: head * 0.47 * neckBy(p) * Math.sqrt(p.build.limb), melt: 1 });
 }
 
 /** A skirt, or the lower half of something long: a cone flaring from the hips, cut off level at its hem. */
@@ -1136,7 +1457,7 @@ function drawClothes(kit: Kit, p: Person, s: Skeleton): void {
   const ribs = madd(s.chest, FRONT, chest);
   if (top === "hoodie") {
     // (A hood that is down lies flat on the upper back, a fold of cloth and not a ball.)
-    put(kit, "hood", "top", add(s.neck, [0, -0.02, -0.06]), add(s.neck, [0, -0.13, -0.085]), head * 0.56, { r1: head * 0.34, flat: 0.3, up: FRONT, melt: 0.9 });
+    put(kit, "hood", "top", add(lerpV(s.neck, s.chest, 0.42), [0, 0, -0.075]), add(lerpV(s.neck, s.chest, 0.82), [0, 0, -0.105]), head * 0.4, { r1: head * 0.26, flat: 0.2, up: FRONT, melt: 0.9 });
     const low = lerpV(s.waist, s.pelvis, 0.12);
     put(kit, "pouch", "trim", add(low, [-hip * 0.5, 0, 0.1]), add(low, [hip * 0.5, 0, 0.1]), 0.075, { decal: true, flat: 0.5, up: UP, melt: 0.2 });
   }
@@ -1151,51 +1472,75 @@ function drawClothes(kit: Kit, p: Person, s: Skeleton): void {
 
 // ---------------------------------------------------------------- the head
 
-interface HeadFrame { readonly c: Vec; readonly r: number; readonly at: (x: number, y: number, z: number) => Vec }
+/** A head's room. `at` is the old frame hair and hats hang on, x in shares of the skull's width; `bone` and `mark` take x in head radii, `mark` for what stays put whatever the skull's width. */
+interface HeadFrame { readonly c: Vec; readonly r: number; readonly at: (x: number, y: number, z: number) => Vec; readonly bone: (x: number, y: number, z: number) => Vec; readonly mark: (x: number, y: number, z: number) => Vec }
 
-const headFrame = (s: Skeleton, r: number, face?: Face): HeadFrame => ({
-  c: s.head,
-  r,
-  at: (x, y, z) => add(s.head, [x * r * (face?.wide ?? 1) * 0.84, (y < 0 ? y * (face?.long ?? 1) : y) * r, z * r]),
-});
+function headFrame(s: Skeleton, r: number, face: Face): HeadFrame {
+  const { W, L, D } = face.bone;
+  const on = (x: number, y: number, z: number): Vec => add(s.head, [x * r, (y < 0 ? y * L : y) * r, (z < 0 ? z * D : z) * r]);
+  return { c: s.head, r, at: (x, y, z) => on(x * W * 0.84, y, z), bone: (x, y, z) => on(x * W, y, z), mark: on };
+}
+
+/** A melt that is the same share of any head, a child's as a grown one's. */
+const meltBy = (p: Person) => (share: number): number => (share * p.build.head * p.build.size) / 0.03;
 
 function drawEyes(kit: Kit, p: Person, h: HeadFrame): void {
   const { face } = p;
   const { r } = h;
   for (const x of [-1, 1]) {
     const L = x < 0 ? "L" : "R";
-    const at = h.at(x * face.apart, 0.17 + face.eyeRise, 0.74);
+    const at = h.mark(x * face.apart, face.bone.pupil, 0.74);
     const eye = r * face.eye;
     // (Drawn out across the face and sunk under the skin: sdf-body paints the eye on whatever lies over it.)
     put(kit, `eye.${L}`, "eye", add(at, [-eye * 0.42, 0, 0]), add(at, [eye * 0.42, 0, 0]), eye * 0.74, { flat: 0.3, up: unit([x * 0.16, 0, 1]), melt: 0 });
-    const brow = h.at(x * face.apart, 0.48 + face.eyeRise, 0.94);
+    const brow = h.mark(x * face.apart, face.bone.pupil + 0.28, 0.94);
     paint(kit, `brow.${L}`, "brow", add(brow, [-x * r * 0.2, -face.browTilt * r * 0.6, 0]), add(brow, [x * r * 0.2, face.browTilt * r * 0.6, -r * 0.04]), r * 0.05 * (0.5 + face.brow * 0.7));
   }
 }
 
+/** How far forward the lip lies under the nose, on any head: a nose stands off this, so no jaw can bury it. */
+const NOSE_ROOT = 1.02;
+
 function drawNose(kit: Kit, p: Person, h: HeadFrame): void {
-  const { nose, noseWide } = p.face;
-  const tip = h.at(0, mix(-0.24, -0.1, shapeRoll(nose, 91.3)), 1.02 + nose * 1.1);
-  ball(kit, "tip", "skin", tip, h.r * 0.105, { melt: 0.28 });
-  for (const x of [-1, 1]) ball(kit, `ala.${String(x)}`, "skin", h.at(x * (noseWide + 0.06), -0.22, 0.96), h.r * 0.078, { melt: 0.2 });
-  for (const x of [-1, 1]) put(kit, `nostril.${String(x)}`, "dark", h.at(x * noseWide * 0.62, -0.3, 0.8), h.at(x * noseWide * 0.62, -0.3, 1.2), h.r * 0.035, { decal: true, flat: 0.5, up: UP, melt: 0.2 });
-  put(kit, "bridge", "skin", h.at(0, 0.3, 0.9), tip, h.r * 0.085, { r1: h.r * noseWide * 0.66, melt: 0.36 });
+  const { nose, noseWide, bone: b } = p.face, melt = meltBy(p), r = h.r, fine = p.build.sex === "female" ? mix(1, 0.8, b.m) : 1;
+  const top = b.pupil + 0.02, y = b.sub + b.tipY, far = Math.min(NOSE_ROOT + nose * 0.62 * mix(1, 0.86, 1 - fine), 1.3);
+  const bulb = mix(0.095, 0.125, b.m), tip = h.mark(b.askew, y, far - bulb);
+  put(kit, "bridge", "skin", h.mark(0, top, 0.8), madd(tip, [0, 1, -0.3], r * 0.05), r * mix(0.075, 0.1, b.m) * fine, { r1: r * mix(0.085, 0.125, b.m) * fine, flat: 0.85, up: SIDE, melt: melt(0.07) });
+  ball(kit, "tip", "skin", tip, r * bulb, { melt: melt(0.07) });
+  for (const x of [-1, 1]) ball(kit, `ala.${String(x)}`, "skin", h.mark(x * (noseWide - mix(0.05, 0.08, b.m)) + b.askew * 0.5, b.sub + 0.05, NOSE_ROOT - 0.04), r * mix(0.06, 0.09, b.m), { flat: 0.8, up: SIDE, melt: melt(0.07) });
+  if (b.hump > 0.02) ball(kit, "hump", "skin", h.mark(0, (top + y) * 0.52, (0.86 + far) * 0.5 + b.hump - 0.03), r * 0.08, { flat: 0.75, up: SIDE, melt: melt(0.05) });
 }
 
 /** A line and no more, the lower lip only hinted under it: thin sheets through the face, so they find it wherever it lies and never stand off it as a beak. */
 function drawMouth(kit: Kit, p: Person, h: HeadFrame): void {
-  const { mouthWide: w, lips } = p.face;
-  const y = -0.5;
-  put(kit, "mouth", "dark", h.at(0, y, 0.5), h.at(0, y, 1.2), h.r * w * 0.78, { decal: true, flat: 0.085, up: UP, melt: 0.2 });
+  const { mouthWide: w, lips, bone } = p.face;
+  const y = bone.sto;
+  put(kit, "mouth", "dark", h.mark(0, y, 0.5), h.mark(0, y, 1.2), h.r * w * 0.78, { decal: true, flat: 0.085, up: UP, melt: 0.2 });
   // (A full lower lip, melted into the face.)
-  put(kit, "lip", "lip", h.at(-w * 0.42, y - 0.085, 0.84), h.at(w * 0.42, y - 0.085, 0.84), h.r * lips * 0.64, { flat: 0.6, up: UP, melt: 0.2 });
-  put(kit, "lip.top", "lip", h.at(-w * 0.5, y + 0.05, 0.84), h.at(w * 0.5, y + 0.05, 0.84), h.r * lips * 0.44, { flat: 0.55, up: UP, melt: 0.18 });
+  put(kit, "lip", "lip", h.mark(-w * 0.42, y - 0.085, 0.92), h.mark(w * 0.42, y - 0.085, 0.92), h.r * lips * 0.07, { flat: 0.6, up: UP, melt: 0.2 });
+  put(kit, "lip.top", "lip", h.mark(-w * 0.5, y + 0.05, 0.92), h.mark(w * 0.5, y + 0.05, 0.92), h.r * lips * 0.05, { flat: 0.55, up: UP, melt: 0.18 });
 }
 
-function drawFaceHair(kit: Kit, p: Person, h: HeadFrame): void {
-  const { hair, mouthWide: w } = p.face;
-  if (hair === "beard") paint(kit, "beard", "hair", h.at(0, -0.92, 0.5), h.at(0, -0.74, 0.7), h.r * 0.5);
-  if (hair === "moustache" || hair === "beard") paint(kit, "tache", "hair", h.at(-w * 1.05, -0.42, 0.96), h.at(w * 1.05, -0.42, 0.96), h.r * 0.075);
+/** A renderer that paints a part on gets a beard as paint. On a mesh it is painted on the vertices, by `faceBake`, and stands proud of the jaw. */
+function drawFaceHair(kit: Kit, p: Person, h: HeadFrame, rich: boolean): void {
+  const { hair, mouthWide: w, bone: b } = p.face;
+  if (hair !== "beard" && hair !== "moustache") return;
+  if (rich) { if (hair === "beard") beardVolume(kit, p, h); return; }
+  if (hair === "beard") paint(kit, "beard", "hair", h.bone(0, b.men + 0.2, 0.5), h.bone(0, b.men + 0.3, 0.7), h.r * 0.42);
+  paint(kit, "tache", "hair", h.mark(-w * 1.05, b.sub - 0.08, 0.96), h.mark(w * 1.05, b.sub - 0.08, 0.96), h.r * 0.075);
+}
+
+/** A beard is one clean shape first: a shell that stands off the jaw from the ear round the chin and up over the lip, its edge wherever it leaves the skin, and the mouth left clear. */
+function beardVolume(kit: Kit, p: Person, h: HeadFrame): void {
+  const { mouthWide: w, bone: b } = p.face, melt = meltBy(p), r = h.r, y = b.men + 0.17, z = b.pogZ - 0.16;
+  ball(kit, "beard.chin", "beard", h.bone(0, y, z), r * 0.25, { melt: melt(0.14) });
+  put(kit, "beard.lip", "beard", h.mark(-w * 1.02, b.sub - 0.09, 0.9), h.mark(w * 1.02, b.sub - 0.09, 0.9), r * 0.075, { melt: melt(0.06) });
+  for (const x of [-1, 1]) {
+    const side = String(x), corner = h.bone(x * (b.gon - 0.14), b.gonY + 0.14, b.gonZ + 0.16);
+    put(kit, `beard.jaw.${side}`, "beard", corner, h.bone(x * 0.12, y, z - 0.02), r * 0.2, { r1: r * 0.23, melt: melt(0.14) });
+    put(kit, `beard.burn.${side}`, "beard", h.bone(x * (b.zyg - 0.1), -0.04, 0.02), corner, r * 0.09, { r1: r * 0.17, melt: melt(0.12) });
+    put(kit, `beard.soul.${side}`, "beard", h.mark(x * (w + 0.1), b.sub - 0.09, 0.84), h.bone(x * (w + 0.06), b.sto - 0.2, 0.74), r * 0.08, { r1: r * 0.11, melt: melt(0.1) });
+  }
 }
 
 function drawEars(kit: Kit, p: Person, h: HeadFrame): void {
@@ -1209,16 +1554,20 @@ function drawEars(kit: Kit, p: Person, h: HeadFrame): void {
 /** How wide each hat's brim runs all round, in head radii. */
 const BRIMS: Partial<Record<Hat, number>> = { fedora: 1.5, sunhat: 2, stetson: 1.9, helmet: 1.5 };
 
+/** The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over it. A hood and a helmet stand well clear of it. */
+function drawCrown(kit: Kit, hat: Hat, h: HeadFrame): void {
+  const clear = hat === "hood" || hat === "helmet", brim = h.at(0, hat === "hood" ? -0.1 : clear ? 0.58 : 0.5, 0)[1];
+  const tall = hat === "stetson" || hat === "peaked" ? 0.24 : 0;
+  put(kit, "hat", hat === "hood" ? "top" : "trim", h.at(0, 0.3, -0.12), h.at(0, 0.14 + tall, -0.06), h.r * (clear ? 1.2 : 1.16), { flat: clear ? 0.88 : 0.76, up: SIDE, melt: 0.08, hem: brim, shadow: false });
+}
+
 function drawHat(kit: Kit, p: Person, h: HeadFrame): void {
   const { hat } = p.outfit;
   if (hat === "none") return;
-  // (The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over it.)
-  const brim = h.at(0, hat === "hood" ? -0.1 : 0.58, 0)[1];
-  const tall = hat === "stetson" || hat === "peaked" ? 0.24 : 0;
-  put(kit, "hat", hat === "hood" ? "top" : "trim", h.at(0, 0.3, -0.12), h.at(0, 0.14 + tall, -0.06), h.r * 1.2, { flat: 0.88, up: SIDE, melt: 0.08, hem: brim, shadow: false });
+  drawCrown(kit, hat, h);
   const wide = BRIMS[hat];
   if (wide !== undefined) ball(kit, "peak", "trim", h.at(0, 0.6, hat === "helmet" ? -0.26 : -0.1), h.r * wide, { flat: 0.06, up: UP, melt: 0.1, shadow: false });
-  if (hat === "cap" || hat === "peaked") put(kit, "peak", "trim", h.at(0, 0.62, 0.74), h.at(0, 0.56, 1.42), h.r * 0.6, { flat: 0.1, up: UP, melt: 0.2, shadow: false });
+  if (hat === "cap" || hat === "peaked") put(kit, "peak", "trim", h.at(0, 0.56, 0.9), h.at(0, 0.46, 1.4), h.r * 0.5, { r1: h.r * 0.38, flat: 0.22, up: unit([0, 1, 0.2]), melt: 0.5, shadow: false });
 }
 
 /** A fursuit's head: a muzzle, a nose and ears, in the pelt. */
@@ -1301,28 +1650,38 @@ const HAIR_STYLES: Readonly<Record<HairStyle, (kit: Kit, h: HeadFrame) => void>>
 /** What each style comes to under a hat. */
 const HATTED: Partial<Record<HairStyle, HairStyle>> = { afro: "crop", curly: "crop", mohawk: "crop", undercut: "crop", bun: "bob", twintails: "bob" };
 
-/** A further shape from a number of the face already rolled, 0 to 1. */
-const shapeRoll = (value: number, by: number): number => (value * by) % 1;
-
-function drawHead(kit: Kit, p: Person, s: Skeleton): void {
-  const { head } = p.build;
-  const h = headFrame(s, head, p.face);
-  const { chin } = p.face, full = shapeRoll(p.face.wide, 37.7), rise = shapeRoll(p.face.long, 53.1);
-  const jaw = p.face.jaw * (1 + Math.max(0, p.build.girth - 1) * 0.3);
-  // (The braincase, then a wedge of face narrowing to the jaw, and a chin at its point.)
-  put(kit, "skull", "skin", h.at(0, 0.3, -0.12), h.at(0, 0.14, -0.06), head, { flat: 0.74, up: SIDE });
-  put(kit, "jaw", "skin", h.at(0, 0.02, 0.1), h.at(0, -0.62, 0.42), head * 0.82, { r1: head * jaw * 0.8, flat: 0.86, up: SIDE, melt: 1.2 });
-  put(kit, "chin", "skin", h.at(-0.16, -0.78, 0.6), h.at(0.16, -0.78, 0.6), head * chin * 0.6, { flat: 0.82, up: UP, melt: 1.4 });
-  put(kit, "ridge", "skin", h.at(-0.44, 0.42, 0.72), h.at(0.44, 0.42, 0.72), head * 0.14 * (p.build.sex === "male" ? 1 : 0.6), { melt: 1.6 });
+/** A head for a renderer with few parts to spare: the same masses as `boneHead`, each stood for by one. */
+function leanHead(kit: Kit, p: Person, h: HeadFrame): void {
+  const b = p.face.bone, r = h.r, melt = meltBy(p), inX = b.gon - 0.13;
+  put(kit, "maxilla", "skin", h.bone(0, 0.14, 0.3), h.bone(0, b.sto, 0.56), r * 0.6, { r1: r * 0.44, melt: melt(0.18) });
+  put(kit, "floor", "skin", h.bone(0, b.gonY + 0.02, 0.08), h.bone(0, b.men + 0.22, 0.6), r * 0.34, { r1: r * 0.2, flat: 0.62, up: UP, melt: melt(0.1) });
+  put(kit, "chin", "skin", h.bone(-Math.max(0.02, b.chin - 0.14), b.men + 0.16, b.pogZ - 0.14), h.bone(Math.max(0.02, b.chin - 0.14), b.men + 0.16, b.pogZ - 0.14), r * 0.14, { melt: melt(0.07) });
   for (const x of [-1, 1]) {
-    ball(kit, `cheek.${String(x)}`, "skin", h.at(x * 0.56, mix(-0.16, 0.02, rise), 0.56), head * mix(0.2, 0.3, full), { melt: 1.5 });
-    ball(kit, `gonion.${String(x)}`, "skin", h.at(x * 0.62 * jaw, -0.5, 0.06), head * 0.22 * (p.build.sex === "male" ? 1.15 : 0.8), { melt: 1 });
+    ball(kit, `cheek.${String(x)}`, "skin", h.bone(x * 0.46, b.cheekY, 0.5), r * 0.24, { melt: melt(0.16) });
+    ball(kit, `gonion.${String(x)}`, "skin", h.bone(x * inX, b.gonY + 0.1, 0.1), r * 0.2, { melt: melt(0.15) });
   }
+}
+
+/** A head for a mesh: the face's solid is `loftOf`'s, so only what stands on it is melted in: the chin's seat, and lips that catch the light. */
+function boneHead(kit: Kit, p: Person, h: HeadFrame): void {
+  const { lips, mouthWide: w, bone: b } = p.face, r = h.r, melt = meltBy(p);
+  ball(kit, "chin", "skin", h.bone(0, b.men + 0.14, b.pogZ - 0.2), r * 0.13, { melt: melt(0.05) });
+  put(kit, "lips.up", "skin", h.mark(-w * 0.62, b.sto + 0.05, 0.95), h.mark(w * 0.62, b.sto + 0.05, 0.95), r * 0.05 * mix(0.8, 1, b.m) * lips, { flat: 0.7, up: UP, melt: melt(0.05) });
+  put(kit, "lips.low", "skin", h.mark(-w * 0.5, b.sto - 0.07, 0.94), h.mark(w * 0.5, b.sto - 0.07, 0.94), r * 0.065 * mix(0.8, 1, b.m) * lips, { flat: 0.75, up: UP, melt: melt(0.05) });
+}
+
+/** `rich` for a mesh, which can carry as many parts as it likes; sdf-body has only so many. */
+function drawHead(kit: Kit, p: Person, s: Skeleton, rich: boolean): void {
+  const { head } = p.build, b = p.face.bone;
+  const h = headFrame(s, head, p.face);
+  // (The braincase, its lower end kept up so it never sets the width of the jaw.)
+  put(kit, "skull", "skin", h.bone(0, 0.3, -1.12 + 1 / b.D), h.bone(0, 0.3, -0.06), head, { flat: 0.74 * b.W, up: SIDE });
+  (rich ? boneHead : leanHead)(kit, p, h);
   drawEyes(kit, p, h);
   drawNose(kit, p, h);
   drawMouth(kit, p, h);
   drawEars(kit, p, h);
-  drawFaceHair(kit, p, h);
+  drawFaceHair(kit, p, h, rich);
   HAIR_STYLES[p.outfit.hat === "none" ? p.hair : HATTED[p.hair] ?? p.hair](kit, h);
   drawHat(kit, p, h);
   if (p.outfit.costume === "fursuit") drawFur(kit, h);
@@ -1410,7 +1769,10 @@ const turned = (c: Capsule, at: Vec, yaw: number, size: number): Capsule => ({
 });
 
 /** A person in an action at time `t`, seconds, standing at `at` and turned by `yaw`. */
-export function posePerson(p: Person, action: Action, t: number, at: Vec = [0, 0, 0], yaw = 0): PersonBody {
+export const posePerson = (p: Person, action: Action, t: number, at: Vec = [0, 0, 0], yaw = 0): PersonBody => bodyOf(p, action, t, at, yaw, false);
+
+/** A posed person, with the head a mesh is built from if `rich`, or the one that costs a raymarcher few parts. */
+function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: number, rich: boolean): PersonBody {
   const phase = phaseOf(p, action, t);
   const s = skeletonOf(p, action, phase);
   const kit: Kit = [];
@@ -1420,7 +1782,7 @@ export function posePerson(p: Person, action: Action, t: number, at: Vec = [0, 0
   drawLeg(kit, p, s.left.leg, "L");
   drawLeg(kit, p, s.right.leg, "R");
   drawClothes(kit, p, s);
-  drawHead(kit, p, s);
+  drawHead(kit, p, s, rich);
   return {
     id: `person.${String(p.seed)}`,
     capsules: kit.map((c) => turned(c, at, yaw, p.build.size)),
@@ -1637,13 +1999,13 @@ export interface PersonMesh {
   readonly loose: Float32Array;
   /** Four a vertex, how cloth lies on it: where it is round its limb (x, z off the limb's line), how far along it, and how far from the garment's edge in metres. */
   readonly cloth: Float32Array;
-  /** How open each vertex lies to the light, 0 down in a crease to 1 in the open. */
+  /** How open each vertex lies to the light, 0 down in a crease to 1 in the open, and a little over 1 where a face is lit from within it: nothing clamps it. */
   readonly shade: Float32Array;
   /** How much soft flesh rides on it, 0 to 1: what `jiggleAt` moves. */
   readonly soft: Float32Array;
   readonly index: Uint32Array;
   /** Where each eye sits at rest, and how big, and the mouth: what the face is painted from. */
-  readonly face: { readonly eyes: readonly [Vec, Vec]; readonly eye: number; readonly mouth: Vec; readonly mouthWide: number; readonly head: number; readonly iris: string; readonly lip: string; readonly brow: string };
+  readonly face: { readonly eyes: readonly [Vec, Vec]; readonly eye: number; readonly mouth: Vec; readonly mouthWide: number; readonly head: number; readonly iris: string; readonly lip: string; readonly brow: string; readonly browLine: readonly [number, number, number, number]; readonly look: Partial<Look> & { readonly seed?: number }; readonly lash: string; readonly white: string };
 }
 
 function normalAt(grid: Grid, x: number, y: number, z: number): Vec {
@@ -1700,6 +2062,12 @@ interface Layer {
   readonly fabric: number;
   /** How far it stands off the body beneath it. */
   readonly lift: number;
+  /** A solid melted in straight after the skull. */
+  readonly loft?: Loft;
+  /** What is pressed into its surface once it is melted. */
+  readonly dents?: readonly Dent[];
+  /** Whether it rides the head's bone alone: a jaw sits so near a short neck that it would otherwise go with that. */
+  readonly rigid?: boolean;
   /** Locks on its surface, round the head at `head`. */
   readonly locks?: { readonly head: Vec; readonly kind: "strand" | "curl" | "tuft"; readonly size: number };
   /** What is worn over it: a body is not built where none of it can be seen. */
@@ -1714,6 +2082,117 @@ interface Layer {
   readonly free?: readonly [from: number, span: number];
 }
 
+/** A hollow or a rise pressed into a finished surface, a little way round `at`: what is melted in can only add, and bone needs both. */
+interface Dent { readonly at: Vec; readonly r: Vec; readonly by: number }
+
+/** Each dent let into the field, over only the cells it can reach. */
+function dented(grid: Grid, dents: readonly Dent[]): void {
+  const { n, field, min, h } = grid;
+  for (const d of dents) {
+    const box = (i: number): readonly [number, number] => [Math.max(1, Math.floor(((d.at[i] ?? 0) - (d.r[i] ?? 0) - (min[i] ?? 0)) / h)), Math.min((n[i] ?? 3) - 2, Math.ceil(((d.at[i] ?? 0) + (d.r[i] ?? 0) - (min[i] ?? 0)) / h))];
+    const [x0, x1] = box(0), [y0, y1] = box(1), [z0, z1] = box(2);
+    const row = (y: number, z: number): void => {
+      const b = (min[1] + y * h - d.at[1]) / d.r[1], c = (min[2] + z * h - d.at[2]) / d.r[2], rest = b * b + c * c;
+      for (let x = x0; x <= x1; x += 1) {
+        const a = (min[0] + x * h - d.at[0]) / d.r[0], q = a * a + rest, i = x + y * n[0] + z * n[0] * n[1];
+        if (q < 1) field[i] = (field[i] ?? FAR) - d.by * (1 - q) * (1 - q);
+      }
+    };
+    for (let z = z0; z <= z1; z += 1) for (let y = y0; y <= y1; y += 1) row(y, z);
+  }
+}
+
+/** A run through knots, `at` rising, that goes no further than they do between them: an outline with no wobble in it. */
+function eased(knots: readonly (readonly [number, number])[]): (at: number) => number {
+  const gap = knots.slice(1).map(([x, y], i) => { const [px = 0, py = 0] = knots[i] ?? []; return [x - px, (y - py) / (x - px)] as const; });
+  const lean = knots.map((_, i) => {
+    const a = gap[i - 1]?.[1] ?? gap[i]?.[1] ?? 0, b = gap[i]?.[1] ?? a;
+    return a * b <= 0 ? 0 : (2 * a * b) / (a + b);
+  });
+  return (at) => {
+    const next = clamp(knots.findIndex(([x]) => x > at), 1, knots.length - 1), [x0 = 0, y0 = 0] = knots[next - 1] ?? [], [x1 = 1, y1 = 0] = knots[next] ?? [], w = x1 - x0, t = clamp((at - x0) / w, 0, 1);
+    return (2 * t ** 3 - 3 * t * t + 1) * y0 + (t ** 3 - 2 * t * t + t) * w * (lean[next - 1] ?? 0) + (3 * t * t - 2 * t ** 3) * y1 + (t ** 3 - t * t) * w * (lean[next] ?? 0);
+  };
+}
+
+/** One slice of a face, level, in head radii: how wide, where it is widest, how far forward of that and how far back. */
+interface Slice { readonly x: number; readonly at: number; readonly front: number; readonly back: number }
+
+/** How wide a face runs at each height, chin to crown. */
+function widthOf(b: Bone): (y: number) => number {
+  const under = b.men + 0.16, midJaw = (under + b.gonY) / 2;
+  return eased([[b.men - 0.02, b.chin * 0.92], [under, b.chin + 0.06], [midJaw, mix(b.gon, b.chin, 0.37)], [b.gonY, b.gon], [(b.gonY + b.cheekY) / 2, b.mid], [b.cheekY, b.zyg], [0.3, b.tem], [0.62, b.tem * 0.86], [0.86, 0.46]]);
+}
+
+/** How far forward a face lies at each height, down its middle before a nose: brow, the dip at the eyes, the fullness of the mouth, the fold over the chin. */
+function depthOf(b: Bone): (y: number) => number {
+  const under = b.men + 0.16, muzzle = mix(0.95, 1, b.m);
+  return eased([[b.men - 0.02, b.pogZ - 0.06], [under, b.pogZ], [(under + b.sto) / 2, Math.min(b.pogZ, muzzle) - 0.045], [b.sto, muzzle], [b.sub, muzzle - 0.01], [b.pupil - 0.32, 0.91], [b.pupil, 0.84], [b.pupil + 0.2, 0.9], [0.62, 0.9], [0.86, 0.66]]);
+}
+
+/** A face's slices: below its corners the jaw draws forward to the chin, and at the chin all of it rounds off to nothing. */
+function slicesOf(b: Bone): (y: number) => Slice {
+  const wide = widthOf(b), deep = depthOf(b), low = b.men + 0.17, curl = 2.3 + (b.plane - 2) * 1.2;
+  return (y) => {
+    const t = clamp((b.gonY - y) / (b.gonY - b.men), 0, 1), end = clamp((low - y) / (low - b.men), 0, 1), round = (1 - end ** curl) ** (1 / curl);
+    const at = mix(b.gonZ + 0.04, b.pogZ - 0.3, t ** 1.2), rear = mix(b.gonZ - 0.24, b.pogZ - 0.46, t ** 0.9);
+    return { x: Math.max(0.01, wide(y) * round), at, front: Math.max(0.01, (deep(y) - at) * round), back: Math.max(0.01, (at - rear) * round) };
+  };
+}
+
+/** A face's solid as a distance from it, slice by slice. */
+interface Loft { readonly from: number; readonly to: number; readonly slice: (y: number) => (x: number, z: number) => number; readonly melt: number }
+
+function loftOf(p: Person): Loft {
+  const b = p.face.bone, size = p.build.size, c = scale(headFrame(restSkeleton(p), p.build.head, p.face).c, size), R = p.build.head * size, slices = slicesOf(b);
+  const slice = (Y: number): ((x: number, z: number) => number) => {
+    const local = (Y - c[1]) / R, s = slices(local < 0 ? local / b.L : local), least = Math.max(0.14, Math.min(s.x, s.front));
+    return (X, Z) => {
+      const z = (Z - c[2]) / R, along = (z < 0 ? z / b.D : z) - s.at, power = along > 0 ? mix(2, b.plane, 0.3) : 2;
+      return (((Math.abs(X - c[0]) / (R * b.W * s.x)) ** power + (Math.abs(along) / (along > 0 ? s.front : s.back)) ** power) ** (1 / power) - 1) * least * R;
+    };
+  };
+  return { from: c[1] + (b.men - 0.02) * b.L * R, to: c[1] + 0.86 * R, slice, melt: 0.1 * R };
+}
+
+/** A loft melted into the field, as a part is. */
+function lofted(grid: Grid, loft: Loft): void {
+  const { min, h, n } = grid, k = loft.melt;
+  for (let y = 0; y < n[1]; y += 1) {
+    const Y = min[1] + y * h;
+    if (Y < loft.from || Y > loft.to) continue;
+    const at = loft.slice(Y);
+    for (let z = 0; z < n[2]; z += 1) meltRow(grid, y, z, (x) => at(min[0] + x * h, min[2] + z * h), k);
+  }
+}
+
+function meltRow(grid: Grid, y: number, z: number, distance: (x: number) => number, k: number): void {
+  const { n, field } = grid;
+  for (let x = 0; x < n[0]; x += 1) {
+    const i = x + y * n[0] + z * n[0] * n[1], d = distance(x), was = field[i] ?? FAR, w = clamp(0.5 + (0.5 * (was - d)) / k, 0, 1);
+    field[i] = mix(was, d, w) - k * w * (1 - w);
+  }
+}
+
+/** The bone a face shows, as dents on the rest head: brow, cheekbone, sockets, the hollows under them, the root of the nose, the fold over the chin and the chin itself. */
+function dentsOf(p: Person): readonly Dent[] {
+  if (p.outfit.costume === "fursuit") return [];
+  const b = p.face.bone, size = p.build.size, g = headFrame(restSkeleton(p), p.build.head, p.face), R = p.build.head * size;
+  const dent = (x: number, y: number, z: number, r: Vec, by: number): Dent => ({ at: scale(g.bone(x, y, z), size), r: scale(r, R), by: by * R });
+  const pair = (x: number, y: number, z: number, r: Vec, by: number): readonly Dent[] => [dent(-x, y, z, r, by), dent(x, y, z, r, by)];
+  return [
+    ...pair(0.29, b.pupil + 0.22, 0.96, [0.25, 0.12, 0.3], b.ridge),
+    ...pair(0.5, b.cheekY, 0.66, [0.24, 0.17, 0.3], b.cheek),
+    ...pair(0.36, b.pupil, 0.86, [0.21, 0.13, 0.3], -0.045 - b.orbit),
+    ...pair(0.54, -0.44, 0.56, [0.26, 0.2, 0.34], -b.hollow - b.old * 0.02),
+    ...(b.old ? pair(0.63, 0.42, 0.48, [0.2, 0.25, 0.32], -0.05 * b.old) : []),
+    dent(0, b.pupil + 0.02, 0.96, [0.14, 0.1, 0.22], -0.05 * mix(0.5, 1, b.m) * (1 - b.old * 0.5)),
+    dent(0, b.men + 0.27, b.pogZ - 0.05, [0.24, 0.075, 0.25], -0.04 * mix(0.4, 1, b.m)),
+    dent(0, 1.34, -0.1, [0.95, 0.4, 1.05], -(styleOf(p) === "bald" ? 0.13 : 0.05) * b.m),
+    dent(0, b.men + 0.14, b.pogZ, [0.2, 0.11, 0.22], 0.03 * mix(0.3, 1, b.m)),
+  ];
+}
+
 /** Locks on a hair's surface, how it should lie round `at`: `strand` ridges down from the crown, `curl` all over. */
 function roughen(grid: Grid, at: Vec, kind: "strand" | "curl" | "tuft", size: number): void {
   const { n, field, min, h } = grid;
@@ -1724,8 +2203,10 @@ function roughen(grid: Grid, at: Vec, kind: "strand" | "curl" | "tuft", size: nu
     if (Math.abs(was) > 0.03) return;
     const px = min[0] + x * h - at[0], py = min[1] + y * h - at[1], pz = min[2] + z * h - at[2];
     const line = Math.sin(Math.atan2(px, pz) * 26 + py * 11 / size + Math.sin(py * 26 / size) * 0.7) * 0.0042 * size;
-    const bump = (Math.sin(px * f) * Math.sin(py * f * 1.37 + 1.3) * Math.sin(pz * f * 0.83 + 0.7) + 0.5 * Math.sin((px + py) * f * 1.9) * Math.sin((pz - py) * f * 2.3)) * size;
-    field[i] = was - (kind === "strand" ? line : bump * (kind === "tuft" ? 0.015 : 0.006));
+    // (Each axis pushed about by the others, or the bumps fall in rows and a small head of them is a checkerboard.)
+    const wx = px * f + 1.6 * Math.sin(py * f * 0.41 + pz * f * 0.29), wy = py * f + 1.6 * Math.sin(pz * f * 0.37 - px * f * 0.31 + 2), wz = pz * f + 1.6 * Math.sin(px * f * 0.43 + py * f * 0.23 + 4);
+    const bump = (Math.sin(wx) * Math.sin(wy * 1.37 + 1.3) * Math.sin(wz * 0.83 + 0.7) + 0.5 * Math.sin((wx + wy) * 1.9) * Math.sin((wz - wy) * 2.3)) * size;
+    field[i] = was - (kind === "strand" ? line : bump * (kind === "tuft" ? 0.011 : 0.006));
   });
 }
 
@@ -1747,7 +2228,11 @@ function netOf(net: Net, layer: Layer, decals: readonly Capsule[], weighed: read
   const parts = layer.parts.map((c) => inflated(c, layer.lift));
   const bones = weighed.map((c) => boneOfPart(c.part));
   const grid = gridOver(parts, cell * layer.fine);
-  parts.forEach((c, i) => { meltIn(grid, c, i); });
+  parts.forEach((c, i) => {
+    meltIn(grid, c, i);
+    if (layer.loft && c.part === "skull") lofted(grid, layer.loft);
+  });
+  if (layer.dents) dented(grid, layer.dents);
   if (layer.locks) roughen(grid, layer.locks.head, layer.locks.kind, layer.locks.size);
   const { n } = grid;
   const firstVertex = net.position.length / 3, firstIndex = net.index.length;
@@ -1789,7 +2274,7 @@ function neighboursOf(index: readonly number[], from: number): Map<number, Set<n
   return near;
 }
 
-/** A net's newest vertices each drawn toward their neighbours, a few times over: the positions a little, the normals fully. */
+/** A net's newest vertices each drawn toward their neighbours, a few times over: the positions a little, the normals most of the way, for all the way loses a nose's flank. */
 function relaxed(net: Net, firstVertex: number, firstIndex: number, passes: number): void {
   if (passes === 0) return;
   const near = neighboursOf(net.index, firstIndex);
@@ -1800,15 +2285,15 @@ function relaxed(net: Net, firstVertex: number, firstIndex: number, passes: numb
       list[v * 3 + c] = mix(was[(v - firstVertex) * 3 + c] ?? 0, mean, share);
     }
   };
-  for (let pass = 0; pass < passes; pass += 1) { blur(net.position, 0.55); blur(net.normal, 1); }
+  for (let pass = 0; pass < passes; pass += 1) { blur(net.position, 0.55); blur(net.normal, 0.8); }
   for (const v of near.keys()) net.normal.splice(v * 3, 3, ...unit([net.normal[v * 3] ?? 0, net.normal[v * 3 + 1] ?? 0, net.normal[v * 3 + 2] ?? 0], UP));
 }
 
 /** A person with nothing on: every limb bare, so a body is whole under whatever is worn over it. */
 function bareParts(p: Person): readonly Capsule[] {
   const bare: Person = { ...p, outfit: { ...p.outfit, top: "tank", bottom: "skirt", shoe: "sandal", hat: "none", stripes: 0 } };
-  return posePerson(bare, "rest", 0).capsules
-    .filter((c) => c.decal !== true && c.carve !== true && !/^(skirt|sole|hair|fringe|curl|bob|lock|fall|bun|tail)/.test(c.part) && c.role !== "eye" && c.role !== "lip" && c.role !== "hair")
+  return bodyOf(bare, "rest", 0, [0, 0, 0], 0, true).capsules
+    .filter((c) => c.decal !== true && c.carve !== true && !/^(skirt|sole|hair|fringe|curl|bob|lock|fall|bun|tail)/.test(c.part) && c.role !== "eye" && c.role !== "lip" && c.role !== "hair" && c.role !== "beard")
     .flatMap(unrolled)
     .map((c) => ({ ...c, role: c.role === "belly" || c.part === "snout" ? c.role : "skin" }));
 }
@@ -1880,7 +2365,7 @@ function torsoStations(p: Person, s: Skeleton): readonly Station[] {
   const fat = Math.max(0, girth - 1);
   const hipW = hip * 1.02 * (1 + fat * 0.3), mid = mix(hip, shoulder, 0.16) * mix(0.76, 1.08, girth - 0.78) * waist;
   const shoulderW = shoulder * 0.98 * (1 + fat * 0.22), grown = p.build.age === "adult" || p.build.age === "elder" ? 1 : p.build.age === "teen" ? 0.6 : 0;
-  const chestY = s.left.arm.shoulder[1], crotch = s.left.leg.hip[1], neckR = Math.min(head * 0.5 * (sex === "male" ? 1.08 : 0.94) * Math.sqrt(girth * p.build.limb), shoulder * 0.3);
+  const chestY = s.left.arm.shoulder[1], crotch = s.left.leg.hip[1], neckR = Math.min(head * 0.5 * neckBy(p) * Math.sqrt(girth * p.build.limb), shoulder * 0.3), nape = head * 0.1 * p.face.bone.m;
   const curve = sex === "female" ? 1.1 : 1;
   const at = (y: number, forward = 0): Vec => {
     const k = (y - s.pelvis[1]) / (s.neck[1] - s.pelvis[1]);
@@ -1905,9 +2390,9 @@ function torsoStations(p: Person, s: Skeleton): readonly Station[] {
     { at: at(y(0.86), chest * 0.3), wide: shoulderW * 0.9, front: shoulderW * 0.5 + chest * 0.4, back: shoulderW * 0.52, bust: bustSize * 0.5, bones: chestB },
     { at: at(chestY), wide: shoulderW * 1.02, front: shoulderW * 0.44, back: shoulderW * 0.48, bones: chestB },
     { at: at(chestY + 0.04), wide: shoulderW * 0.82, front: shoulderW * 0.32, back: shoulderW * 0.38, bones: chestB },
-    { at: add(s.neck, [0, -0.01, -0.006]), wide: neckR * 1.5, front: neckR * 1.08, back: neckR * 1.3, bones: [["chest", 0.6], ["neck", 0.4]] },
-    { at: lerpV(s.neck, s.head, 0.26), wide: neckR, front: neckR * 0.94, back: neckR, bones: [["neck", 1]] },
-    { at: lerpV(s.neck, s.head, 0.72), wide: neckR * 0.9, front: neckR * 0.88, back: neckR * 0.94, bones: [["neck", 0.6], ["head", 0.4]] },
+    { at: add(s.neck, [0, -0.01, -0.006]), wide: neckR * 1.62, front: neckR * 1.08, back: neckR * 1.3, bones: [["chest", 0.6], ["neck", 0.4]] },
+    { at: madd(lerpV(s.neck, s.head, 0.26), FRONT, -nape * 0.4), wide: neckR * 0.98, front: neckR * 0.9, back: neckR, bones: [["neck", 1]] },
+    { at: madd(lerpV(s.neck, s.head, 0.72), FRONT, -nape), wide: neckR * 0.86, front: neckR * 0.8, back: neckR * 0.96, bones: [["neck", 0.6], ["head", 0.4]] },
   ];
 }
 
@@ -2569,9 +3054,10 @@ function layersOf(p: Person, dressed: readonly Capsule[], bare: readonly Capsule
   const massive = COMBS[styleOf(p)]?.shell === true, hair = on("hair").filter(meshHair(massive, cell >= FAR_HAIR));
   // (The scalp stops where hair is thick over it, so it never shows through a parting; hair stops at a hat's hem, so it never shows through the crown.)
   const layers: Layer[] = [
-    { parts: bare.filter((c) => head(c) && c.part !== "neck"), fine: 0.5, fabric: bareStuff, lift: 0, under: hair, tuck: -0.008 * k, relax: 3, ...pelt },
+    { parts: bare.filter((c) => head(c) && c.part !== "neck"), fine: 0.5, fabric: bareStuff, lift: 0, under: hair, tuck: -0.008 * k, relax: 3, loft: loftOf(p), dents: dentsOf(p), rigid: true, ...pelt },
     { parts: bare.filter((c) => /^(palm|fingers|thumb)/.test(c.part)), fine: 0.35, fabric: bareStuff, lift: 0 },
     { parts: dressed.filter((c) => /^(hood|collar|brush)/.test(c.part)), fine: 0.7, fabric: furred ? FABRICS.fur : topCloth(p), lift: (furred ? 0.01 : 0.012 + fit * 0.016) * k, ...pelt },
+    { parts: on("beard"), fine: 0.5, fabric: FABRICS.skin, lift: 0.002 * k, rigid: true, relax: 3 },
     { parts: hair, fine: 0.55, fabric: FABRICS.hair, lift: 0.004 * k, roof, free: [chin + 0.02 * k, 0.4 * k], ...(massive ? curled : {}) },
     { parts: dressed.filter((c) => /^(hat|peak)/.test(c.part)), fine: 0.55, fabric: hatCloth(p.outfit.hat), lift: 0.008 * k },
   ];
@@ -2750,12 +3236,15 @@ function lockNormal(b: Vec, n: Vec, o: Vec, c: number, r: number, round: boolean
   return unit(round ? add(scale(b, c * 0.6), scale(n, 0.55 + r * 0.45)) : add(scale(b, c * 0.45), scale(n, 0.7 + r * 0.3)));
 }
 
+/** A lock's width along it: full from near the root, gone to almost nothing at the end. */
+const lockTaper = (s: number): number => Math.min(1, 0.8 + s * 3) * Math.min(1, (1 - s) * 3 + 0.12);
+
 /** One lock laid into the net: a flat tapering ribbon, round as a rope if it is as thick as it is wide. */
-function layLock(net: Net, roles: readonly string[], to: (q: Vec) => Vec, line: readonly Vec[], [width, thick, sides]: readonly [number, number, number], worn?: { readonly role: string; readonly fabric: number }): number {
-  const base = net.position.length / 3, role = Math.max(0, roles.indexOf(worn?.role ?? "hair")), last = line.length - 1;
+function layLock(net: Net, roles: readonly string[], to: (q: Vec) => Vec, line: readonly Vec[], [width, thick, sides]: readonly [number, number, number], worn?: { readonly role: string; readonly fabric: number; readonly taper?: (s: number) => number }): number {
+  const base = net.position.length / 3, role = Math.max(0, roles.indexOf(worn?.role ?? "hair")), last = line.length - 1, taperOf = worn ? worn.taper ?? (() => 1) : lockTaper;
   line.forEach((q, i) => {
     const s = i / last, t = unit(sub(line[Math.min(last, i + 1)] ?? q, line[Math.max(0, i - 1)] ?? q), UP), o = unit(sub(q, SKULL_AT), UP);
-    const b = unit(cross(t, o), SIDE), n = cross(b, t), taper = worn ? 1 : Math.min(1, 0.8 + s * 3) * Math.min(1, (1 - s) * 3 + 0.12);
+    const b = unit(cross(t, o), SIDE), n = cross(b, t), taper = taperOf(s);
     for (let j = 0; j < sides; j += 1) {
       const a = (j / sides) * TAU, c = Math.cos(a), r = Math.sin(a);
       net.position.push(...to(add(madd(q, b, c * width * taper), scale(n, r * thick * taper))));
@@ -2881,11 +3370,11 @@ function earsOf(net: Net, p: Person, roles: readonly string[], cell: number): re
   if (cell >= FAR_HAIR || p.outfit.costume === "fursuit" || ["hood", "helmet", "beanie"].includes(p.outfit.hat)) return [];
   const rand = streamOf(p.seed, 0x65617273), h = headFrame(restSkeleton(p), p.build.head, p.face), size = p.build.size;
   const big = (p.face.ears / 0.26) * mix(0.92, 1.1, rand()), stands = mix(0.1, 0.42, rand() ** 1.6), hangs = mix(0, 0.1, rand());
-  const near = cell < MID_HAIR, to = (q: Vec): Vec => scale(h.at(q[0], q[1], q[2]), size);
+  const near = cell < MID_HAIR, to = (q: Vec): Vec => scale(h.at(q[0], q[1], q[2]), size), lit = 1 + 0.2 * deepOf(p.palette.skin ?? "#888888");
   const tucks = tuckOf(p);
   return [-1, 1].flatMap((x, side) => {
     if (!tucks[side]) return [];
-    const at = (a: number, b: number, sunk = 0): Vec => [x * (0.97 + (0.12 - a) * big * stands - sunk), -0.03 + b * big, -0.02 + a * big];
+    const at = (a: number, b: number, sunk = 0): Vec => [x * (0.97 + (0.12 - a) * big * stands - sunk + Math.min(0, b) * 0.34), -0.03 + b * big, -0.02 + a * big];
     const lobe = [[-0.03, -0.3 - hangs], [0.03, -0.27 - hangs * 0.5]] as const, line = [...EAR_RIM, ...lobe];
     const tones = [...pinnaOf(net, roles, to, at, [...line, ...EAR_FLAP.slice().reverse()])];
     const ridges: readonly (readonly [readonly (readonly [number, number])[], number, number, number])[] = near ? [[line, 0.052, 0.034, 0.92], [EAR_RIDGE, 0.03, 0.022, 0.82], [EAR_FLAP, 0.034, 0.026, 0.92]] : [[line, 0.056, 0.034, 0.92]];
@@ -2893,7 +3382,8 @@ function earsOf(net: Net, p: Person, roles: readonly string[], cell: number): re
       const verts = layLock(net, roles, to, fold.map(([a, b]) => at(a, b)), [wide * big, deep * big, near ? 4 : 3], SKIN_RIDGE);
       tones.push(...Array.from({ length: verts }, () => tone));
     }
-    return tones;
+    // (On deep skin an ear's folds would close up into a hole.)
+    return tones.map((t) => t * lit);
   });
 }
 
@@ -2914,10 +3404,10 @@ function flowOf(c: Comb, u: Vec): Vec {
 /** What hair grows out of: a skin of it over the skull, ending along the hairline itself, a curve and not a mesh's steps, a little ragged. */
 function capOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, c: Comb, roof: number, far: boolean, rand: () => number): readonly number[] {
   const around = far ? 40 : 96, rows = far ? 6 : 10, base = net.position.length / 3, role = Math.max(0, roles.indexOf("hair")), tones: number[] = [];
-  const rag = Array.from({ length: around }, () => (rand() - 0.5) * 0.09);
+  const rag = Array.from({ length: around }, () => (rand() - 0.5) * 0.05), puff = roped(c) ? 1.08 : 1.03;
   for (let k = 0; k <= rows; k += 1) for (let i = 0; i < around; i += 1) {
     const a = (i / around) * TAU, s = k / rows, low = edgeAt(a, c) + (rag[i] ?? 0) * s, y = mix(2.4, low, s), u = unit([Math.sin(a), y, Math.cos(a)], UP);
-    const q = to(add(SKULL_AT, [u[0] * SKULL[0] * 1.03, u[1] * SKULL[1] * 1.03, u[2] * SKULL[2] * 1.03]));
+    const q = to(add(SKULL_AT, [u[0] * SKULL[0] * puff, u[1] * SKULL[1] * puff, u[2] * SKULL[2] * puff]));
     net.position.push(q[0], Math.min(q[1], roof), q[2]); net.normal.push(...u); net.role.push(role); net.bones.push(HEAD, HEAD); net.weight.push(1); net.fabric.push(FABRICS.hair);
     net.loose.push(0); net.soft.push(0); net.cloth.push(...flowOf(c, u), a * 2.2); tones.push(mix(0.94, 0.84, s));
   }
@@ -2953,11 +3443,11 @@ function fringeOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, c: Co
   const across = far ? 16 : 40, rows = 6, base = net.position.length / 3, role = Math.max(0, roles.indexOf("hair")), tones: number[] = [], wide = 0.76;
   const scallops = Array.from({ length: across + 1 }, () => (rand() - 0.5) * 0.035), beat = rand() * TAU;
   for (let k = 0; k <= rows; k += 1) for (let i = 0; i <= across; i += 1) {
-    const x = ((i / across) * 2 - 1) * wide, s = k / rows, edge = (c.fringe ?? 0) + 0.3 * (x / wide) ** 4 + 0.018 * Math.sin(x * 16 + beat) + (scallops[i] ?? 0);
+    const x = ((i / across) * 2 - 1) * wide, s = k / rows, edge = (c.fringe ?? 0) + 0.3 * (x / wide) ** 4 + 0.03 * Math.sin(x * 16 + beat) + (scallops[i] ?? 0) * 1.8;
     const y = mix(1.04, edge, s), ex = x / SKULL[0], ey = (y - SKULL_AT[1]) / SKULL[1], z = Math.sqrt(Math.max(0.02, 1 - ex * ex - ey * ey));
     const out = unit([ex, ey, z], UP), q = add(SKULL_AT, [out[0] * SKULL[0] * 1.045, out[1] * SKULL[1] * 1.045, out[2] * SKULL[2] * 1.045]);
     net.position.push(...to(q)); net.normal.push(...out); net.role.push(role); net.bones.push(HEAD, HEAD); net.weight.push(1); net.fabric.push(FABRICS.hair);
-    net.loose.push(0); net.soft.push(0); net.cloth.push(x * 0.12, -1, 0.15, x * 1.6); tones.push(mix(0.94, 0.86, s));
+    net.loose.push(0); net.soft.push(0); net.cloth.push(x * 0.12 + 0.3 * Math.sin(x * 23 + beat) + (scallops[i] ?? 0) * 26, -1, 0.15 + 0.3 * Math.sin(x * 31 + beat * 2), x * 1.6); tones.push(mix(0.8, 0.66, s) * (0.92 + 0.5 * (scallops[i] ?? 0) / 0.035 * 0.3));
   }
   const row = across + 1;
   for (let k = 0; k < rows; k += 1) for (let i = 0; i < across; i += 1) {
@@ -3041,9 +3531,208 @@ function compacted(net: Net): Net {
   return { position: keep(net.position, 3), normal: keep(net.normal, 3), role: keep(net.role, 1), bones: keep(net.bones, 2), weight: keep(net.weight, 1), fabric: keep(net.fabric, 1), loose: keep(net.loose, 1), cloth: keep(net.cloth, 4), soft: keep(net.soft, 1), index: net.index.map((v) => next.get(v) ?? 0) };
 }
 
+// ---------------------------------------------------------------- the face's paint
+
+const smooth = (a: number, b: number, v: number): number => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+/** A face's landmarks as built, in head radii from the head's centre: all that places a feature, a shadow or a line. */
+interface Marks { readonly eyeX: number; readonly pupil: number; readonly sn: number; readonly sto: number; readonly pog: number; readonly men: number; readonly jaw: number; readonly gon: number }
+
+function marksOf(p: Person): Marks {
+  const b = p.face.bone, down = (y: number): number => y * b.L;
+  return { eyeX: p.face.apart, pupil: b.pupil, sn: down(b.sub), sto: down(b.sto), pog: down(b.men + 0.16), men: down(b.men), jaw: down(b.gonY + 0.1), gon: b.gon * b.W };
+}
+
+/** How low the jaw's edge comes at `x`: at the corner out at the side, at the chin in the middle. */
+const jawAt = (k: Marks, x: number): number => mix(k.men, k.jaw, clamp(x * x / (k.gon * k.gon), 0, 1));
+
+/** One round of paint on a face, on both sides of it: where, how wide and tall, and what it does on fair skin and on deep. */
+type Spot = readonly [x: number, y: number, rx: number, ry: number, fair: number, deep: number];
+
+/** Where a face is lifted or shut down. No spot is finer than the mesh's own cell, which could only land as flecks. */
+function spotsOf(p: Person, k: Marks, cr: number): readonly Spot[] {
+  const b = p.face.bone, w = p.face.mouthWide, nose = mix(0.5, 1, b.m), ex = k.eyeX, wide = (v: number): number => Math.max(v, cr), lower = k.sto - 0.17 + (p.face.lips - 1) * 0.07;
+  // (A small face has its shadows closer together, and over deep skin they would run into a beard.)
+  const soft = mix(0.6, 1, b.m);
+  return [
+    [ex, k.pupil + 0.03, 0.34, 0.22, 0.05, 0.12],
+    [ex * 1.15, k.pupil - 0.3, 0.26, 0.2, 0.08, 0.2],
+    [ex, k.pupil + 0.17, 0.26, 0.1, 0.02, 0.1],
+    [0, 0.62, 0.34, 0.2, 0.05, 0.24],
+    [0, k.sn + 0.2, 0.08, 0.28, 0.05 * nose, 0.14 * nose],
+    [0, k.sn + 0.12, 0.08, 0.07, 0.1 * nose, 0.3 * nose],
+    [0, k.sn - 0.03, 0.2, wide(0.06), -0.26 * soft, -0.3 * soft],
+    [0.075 * nose + 0.03, k.sn + 0.015, wide(0.04), wide(0.03), -0.3 * soft, -0.36 * soft],
+    [0, k.sto, 0.86 * w, wide(0.028), -0.26, -0.34],
+    [0, k.sto - 0.1, 0.8 * w, 0.1, 0.04 * b.m, 0.2 * b.m],
+    [0, lower, 0.5 * w, wide(0.04), -0.1 * soft, -0.14 * soft],
+    [w * 1.02, k.sto + 0.02, wide(0.045), wide(0.04), -0.14 * soft, -0.18 * soft],
+    [w + 0.16, k.sto + 0.2, 0.24, 0.2, 0.02, 0.08],
+    [0, k.pog, 0.2, 0.12, 0.05, 0.3],
+    [0.56, k.sto + 0.08, 0.26, 0.3, -0.07 * b.lean, -0.12 * b.lean],
+    ...(b.old ? agedSpots(k, w, cr, b.old) : []),
+  ];
+}
+
+/** What years leave: under the eyes, across the brow, beside the mouth and along the jaw. */
+const agedSpots = (k: Marks, w: number, cr: number, by: number): readonly Spot[] => [
+  [k.eyeX, k.pupil - 0.17, 0.16, Math.max(0.04, cr), -0.1 * by, -0.16 * by],
+  [0, 0.56, 0.36, Math.max(0.03, cr), -0.08 * by, -0.12 * by],
+  [w + 0.1, k.sto + 0.1, Math.max(0.04, cr), 0.14, -0.14 * by, -0.2 * by],
+  [w + 0.2, k.sto - 0.16, 0.08, 0.1, -0.1 * by, -0.14 * by],
+];
+
+/** What one vertex of a face has from every spot: lifts held to what skin can take, shadows not. */
+function spotted(spots: readonly Spot[], x: number, y: number, deep: number): number {
+  let lift = 1, dark = 1;
+  for (const [cx, cy, rx, ry, fair, rich] of spots) {
+    const a = (x - cx) / rx, b = (y - cy) / ry, d = a * a + b * b;
+    if (d > 6) continue;
+    const by = mix(fair, rich, deep) * Math.exp(-d);
+    if (by > 0) lift *= 1 + by; else dark *= 1 + by;
+  }
+  return Math.min(lift, 1.7) * dark;
+}
+
+/** The planes of a face, from which way it looks: its front lifted, its sides and undersides let go. */
+function planed(deep: number, [nx, ny, nz]: Vec, y: number, grown: number): number {
+  const front = mix(1, mix(1.02, 1.42, deep), smooth(0.1, 1, nz));
+  const side = 1 - mix(0.18, 0.2, deep) * smooth(0.4, 0.85, Math.abs(nx));
+  const under = 1 - mix(0.16, 0.12, deep) * mix(0.6, 1, grown) * smooth(0.2, 0.75, -ny) * smooth(-0.1, -0.4, y);
+  return front * side * under;
+}
+
+/** How low hair on a face comes up: over the lip, along the cheek and up to the ear. */
+const beardLine = (k: Marks, ax: number): number => mix(k.sn - 0.04, -0.1, smooth(0.3, 0.66, ax));
+
+/** How clear of a mouth a point is, 0 on it: `wide` how far round the lips the clearing goes. */
+function clearOfMouth(k: Marks, w: number, ax: number, y: number, wide: number): number {
+  return 1 - (1 - smooth(w * (0.72 + wide), w * (0.92 + wide), ax)) * smooth(k.sto - 0.12 - wide, k.sto - 0.08 - wide, y) * (1 - smooth(k.sto + 0.03 + wide * 0.5, k.sto + 0.06 + wide * 0.5, y));
+}
+
+/** A day's growth is a shadow on the skin and no colour of its own: a colour stops dead at a vertex, and on pale skin that shows as facets. */
+function stubbleAt(p: Person, k: Marks, x: number, y: number, deep: number): number {
+  if (p.face.hair !== "stubble") return 1;
+  const ax = Math.abs(x), grain = (Math.sin(x * 211 + y * 97) + 1) * 0.15;
+  return 1 - mix(0.12, 0.2, deep) * smooth(0, 0.09, beardLine(k, ax) - y) * clearOfMouth(k, p.face.mouthWide, ax, y, 0) * (0.7 + grain);
+}
+
+/** The neck under the jaw, and what lies behind the face: the head's own shadow, which a head and a neck cannot give each other being separate shells. */
+function underJaw(p: Person, k: Marks, x: number, y: number, deep: number): number {
+  const shut = mix(0.56, 0.5, deep), fade = 0.42 * mix(0.55, 1, p.face.bone.m);
+  return mix(shut, 1, smooth(0, fade, jawAt(k, x) - y)) * mix(1, 1.3, deep);
+}
+
+/** Hair throws a little shadow on the skin below its line, and that is what seats it on the head. */
+function underHair(q: Vec, b: Bone): number {
+  const e: Vec = [q[0] / (b.W * 0.84) / SKULL[0], (q[1] - SKULL_AT[1]) / SKULL[1], (q[2] - SKULL_AT[2]) / SKULL[2]], u = unit(e, UP);
+  const near = (by: number): number => (scalped(unit([u[0], u[1] + by, u[2]], UP)) ? 1 : 0);
+  return 1 - 0.1 * (near(0.02) + near(0.07) + near(0.12));
+}
+
+/** All one person's bake needs, worked out once. `rise` lifts the very deepest skins, which `deep` has stopped telling apart, or a face goes to black. */
+interface Bake { readonly p: Person; readonly k: Marks; readonly spots: readonly Spot[]; readonly deep: number; readonly haired: boolean; readonly rise: number; readonly toHead: (at: Vec) => Vec }
+
+const vecAt = (list: readonly number[], v: number): Vec => [list[v * 3] ?? 0, list[v * 3 + 1] ?? 0, list[v * 3 + 2] ?? 0];
+
+/** One vertex of the face proper. */
+function bakeFace(net: Net, bake: Bake, v: number, q: Vec, was: number): number {
+  const { p, k, deep } = bake, [x, y] = q;
+  // (A fold of the melted skull is no crease of a face: most of what `creases` found there goes, or a cheek bruises.)
+  const open = mix(1, was, 0.15);
+  const marked = (bake.haired ? underHair(q, p.face.bone) : 1) * bake.rise;
+  return open * marked * stubbleAt(p, k, x, y, deep) * spotted(bake.spots, Math.abs(x), y, deep) * planed(deep, vecAt(net.normal, v), y, p.face.bone.m);
+}
+
+/** A vertex of the skin of the head or the neck. */
+function bakeVertex(net: Net, bake: Bake, v: number, bone: number, was: number): number {
+  const q = bake.toHead(vecAt(net.position, v)), [x, y, z] = q;
+  if (y > 1.4 || y < -2.4 || Math.abs(x) > 1.4) return was;
+  if (bone !== HEAD) return was * underJaw(bake.p, bake.k, x, y, bake.deep);
+  return z < -0.1 ? was * mix(1, 1.2, bake.deep) : bakeFace(net, bake, v, q, was);
+}
+
+const FACE_BONES: ReadonlySet<number> = new Set([HEAD, boneIndex("neck"), boneIndex("chest")]);
+
+/** A face's light, baked into `shade`, where the renderer multiplies it: planes, a shadow under each thing that overhangs, a lift on each that stands proud. Over a deep skin a multiply barely shows, so there it works hardest; and hair on the face goes on here too. `skip` is the vertices at the end that have their shade already. */
+function faceBake(net: Net, shade: Float32Array, p: Person, roles: readonly string[], cell: number, skip: number): void {
+  if (p.outfit.costume === "fursuit") return;
+  const size = p.build.size, h = headFrame(restSkeleton(p), p.build.head, p.face), r = h.r * size, skin = roles.indexOf("skin"), k = marksOf(p);
+  const toHead = (at: Vec): Vec => [(at[0] / size - h.c[0]) / h.r, (at[1] / size - h.c[1]) / h.r, (at[2] / size - h.c[2]) / h.r];
+  const bake: Bake = { p, k, spots: spotsOf(p, k, (cell * 0.5) / r), deep: deepOf(p.palette.skin ?? "#888888"), haired: styleOf(p) !== "bald", rise: 1 + 0.45 * clamp((0.075 - glowOf(p.palette.skin ?? "#888888")) / 0.04, 0, 1), toHead };
+  for (let v = 0; v < shade.length - skip; v += 1) {
+    const bone = net.bones[v * 2] ?? 0;
+    if (net.fabric[v] === FABRICS.skin && net.role[v] === skin && FACE_BONES.has(bone)) shade[v] = bakeVertex(net, bake, v, bone, shade[v] ?? 1);
+  }
+}
+
+/** An iris as it is painted: well under its own colour, for a small face has room for one thing in an eye and that is its dark. */
+const inkedIris = (iris: string): string => blend(iris, "#0c0806", 0.42);
+
+/** What the renderer paints a face with, over the bake: the shader dims a white under its lid, so it is given as white as it can be; and a line along the lashes that holds on any skin. */
+function faceInks(p: Person): { readonly brow: string; readonly lash: string; readonly white: string; readonly iris: string } {
+  const skin = p.palette.skin ?? "#888888", brow = p.palette.brow ?? "#3a2a22", deep = deepOf(skin);
+  return { brow: blend(brow, "#140c08", 0.5), lash: deep > 0.3 ? "#070403" : "#160c09", white: blend("#fffdf8", "#c6b8aa", deep), iris: inkedIris(p.face.iris) };
+}
+
+/** How far forward the skin of a face lies at any `x`, `y`, from its own vertices, a cell or so at a time. */
+function surfaceOf(net: Net, h: HeadFrame, size: number, step: number): (x: number, y: number) => number {
+  const bins = new Map<number, number>(), key = (x: number, y: number): number => Math.round(x / step) * 4096 + Math.round(y / step);
+  const toHead = (v: number): Vec => { const [x, y, z] = vecAt(net.position, v); return [(x / size - h.c[0]) / h.r, (y / size - h.c[1]) / h.r, (z / size - h.c[2]) / h.r]; };
+  for (let v = 0; v < net.fabric.length; v += 1) {
+    if (net.fabric[v] !== FABRICS.skin || net.bones[v * 2] !== HEAD) continue;
+    const [x, y, z] = toHead(v);
+    if (z > 0.2) bins.set(key(x, y), Math.max(z, bins.get(key(x, y)) ?? -FAR));
+  }
+  const reach = [0, -step, step, -2 * step, 2 * step];
+  const near = (x: number, y: number): number => Math.max(...reach.flatMap((dx) => reach.map((dy) => bins.get(key(x + dx, y + dy)) ?? -FAR)));
+  return (x, y) => bins.get(key(x, y)) ?? near(x, y);
+}
+
+/** How wide a brow's hairs lie at its thickest. */
+function browHalf(p: Person): number {
+  const b = p.face.bone, male = p.build.sex === "male" ? 1 : 0;
+  return mix(0.032, mix(0.034, 0.048, male) * (0.75 + p.face.brow * 0.3), b.m) * b.browK * (1 - b.old * 0.2);
+}
+
+/** A brow's line for the renderer, in eyes: its height over the pupil, its arch, its tilt and how wide it lies. */
+function browLineOf(p: Person): readonly [number, number, number, number] {
+  const { eye: e, bone: b, browTilt } = p.face;
+  return [1.3 + (0.13 + b.browUp) / e, b.arch / e, (browTilt * 0.9) / e, browHalf(p) / e];
+}
+
+/** A line of depths with its gaps filled and its steps eased, never let down into what it lies on. */
+function evened(zs: readonly number[]): readonly number[] {
+  const seen = zs.filter((z) => z > -FAR / 2), low = Math.min(...seen, 0.3), held = zs.map((z) => (z > -FAR / 2 ? z : low));
+  const eased = (list: readonly number[]): readonly number[] => list.map((z, i) => Math.max(z, ((list[i - 1] ?? z) + 2 * z + (list[i + 1] ?? z)) / 4));
+  return eased(eased(held));
+}
+
+/** Where a mouth's corners go at rest: a short line up from each end of the shader's, each person's own, a little higher on one side. */
+function cornersOf(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame): readonly number[] {
+  if (p.outfit.costume === "fursuit" || cell >= FAR_HAIR) return [];
+  const size = p.build.size, { mouthWide: w, bone: b } = p.face, surface = surfaceOf(net, h, size, Math.max(0.07, ((cell * 0.5) / (h.r * size)) * 1.2));
+  const to = (q: Vec): Vec => scale(add(h.c, scale(q, h.r)), size), taper = (s: number): number => mix(1, 0.3, s);
+  return [-1, 1].flatMap((x) => {
+    const lift = 0.02 + b.rest * 0.05 + x * b.askew * 0.6, line = [0, 1, 2, 3].map((i): readonly [number, number] => [w * mix(0.8, 0.98, i / 3), b.sto * b.L + lift * (i / 3) ** 2]);
+    const depth = evened(line.map(([ax, y]) => surface(x * ax, y)));
+    return Array.from({ length: layLock(net, roles, to, line.map(([ax, y], i) => [x * ax, y, (depth[i] ?? 0) + 0.012]), [0.015, 0.008, 4], { role: "crease", fabric: FABRICS.hair, taper }) }, () => 1);
+  });
+}
+
+/** A moustache lies on the skin as a brow does, so one clean shape follows the lip whatever the lip does. */
+function moustacheOf(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame): readonly number[] {
+  if (p.face.hair !== "moustache" || p.outfit.costume === "fursuit") return [];
+  const size = p.build.size, { mouthWide: w, bone: b } = p.face, surface = surfaceOf(net, h, size, Math.max(0.07, ((cell * 0.5) / (h.r * size)) * 1.2));
+  const line = [-3, -2, -1, 0, 1, 2, 3].map((i): readonly [number, number] => [(i / 3) * w * 0.98, b.sub * b.L - 0.1 - 0.02 * (i / 3) ** 2]);
+  const depth = evened(line.map(([x, y]) => surface(x, y))), to = (q: Vec): Vec => scale(add(h.c, scale(q, h.r)), size);
+  const taper = (s: number): number => mix(0.45, 1, Math.sin(s * Math.PI));
+  return Array.from({ length: layLock(net, roles, to, line.map(([x, y], i) => [x, y, (depth[i] ?? 0) + 0.02]), [0.055, 0.03, 6], { role: "beard", fabric: FABRICS.hair, taper }) }, () => 1);
+}
+
 /** The mesh of a person, built once, each layer its own closed shell on the same bones: `cell` the body's grid in metres, so a far person can have a coarser one; the head's is finer, for the face. */
 export function meshOf(p: Person, cell = 0.016): PersonMesh {
-  const body = posePerson(p, "rest", 0);
+  const body = bodyOf(p, "rest", 0, [0, 0, 0], 0, true);
   const decals = body.capsules.filter((c) => c.decal === true && !FACE_PAINT.test(c.part));
   const dressed = body.capsules.filter((c) => c.decal !== true && c.carve !== true && c.role !== "eye" && c.role !== "lip").flatMap(unrolled);
   const bare = bareParts(p);
@@ -3051,19 +3740,20 @@ export function meshOf(p: Person, cell = 0.016): PersonMesh {
   const net: Net = { position: [], normal: [], role: [], bones: [], weight: [], fabric: [], loose: [], cloth: [], soft: [], index: [] };
   const headOnly = bare.filter((c) => boneOfPart(c.part) === HEAD);
   dressedBody(net, p, roles, cell);
-  for (const layer of layersOf(p, dressed, bare, cell)) netOf(net, layer, decals, layer.parts.some((c) => c.role === "hair" || /^(hat|peak)/.test(c.part)) ? headOnly : bare, roles, cell);
+  for (const layer of layersOf(p, dressed, bare, cell)) netOf(net, layer, decals, layer.rigid === true || layer.parts.some((c) => c.role === "hair" || /^(hat|peak)/.test(c.part)) ? headOnly : bare, roles, cell);
   const s = restSkeleton(p), h = headFrame(s, p.build.head, p.face), size = p.build.size;
-  const eyeAt = (x: number): Vec => scale(h.at(x * p.face.apart, 0.17 + p.face.eyeRise, 0.8), size);
+  const eyeAt = (x: number): Vec => scale(h.mark(x * p.face.apart, p.face.bone.pupil, 0.8), size);
   const roof = roofOf(dressed, size);
-  const tones = [...hairLocks(net, p, roles, cell, roof), ...earsOf(net, p, roles, cell)];
+  const tones = [...hairLocks(net, p, roles, cell, roof), ...earsOf(net, p, roles, cell), ...cornersOf(net, p, roles, cell, h), ...moustacheOf(net, p, roles, cell, h)];
   const kept = compacted(net);
   const shade = hemShadow(kept, creases(kept), roles, size);
   // (The locks went in last, so theirs are the last vertices.)
   shade.set(tones, shade.length - tones.length);
+  faceBake(kept, shade, p, roles, cell, tones.length);
   return {
     position: Float32Array.from(kept.position), normal: Float32Array.from(kept.normal), role: Uint8Array.from(kept.role), roles, palette: p.palette,
     bones: Uint8Array.from(kept.bones), weight: Float32Array.from(kept.weight), fabric: Uint8Array.from(kept.fabric), loose: Float32Array.from(kept.loose), cloth: Float32Array.from(kept.cloth), shade, soft: Float32Array.from(kept.soft), index: Uint32Array.from(kept.index),
-    face: { eyes: [eyeAt(-1), eyeAt(1)], eye: p.build.head * p.face.eye * size, mouth: scale(h.at(0, -0.5, 0.9), size), mouthWide: p.build.head * p.face.mouthWide * size, head: p.build.head * size, iris: p.face.iris, lip: p.palette.lip ?? "#a85a52", brow: p.palette.brow ?? "#3a2a22" },
+    face: { eyes: [eyeAt(-1), eyeAt(1)], eye: p.build.head * p.face.eye * size, mouth: scale(h.mark(0, p.face.bone.sto, 0.9), size), mouthWide: p.build.head * p.face.mouthWide * size, head: p.build.head * size, lip: p.face.look.lip ?? p.palette.lip ?? "#a85a52", browLine: browLineOf(p), look: p.outfit.costume === "fursuit" ? {} : { ...p.face.look, seed: p.seed }, ...faceInks(p) },
   };
 }
 
@@ -3117,7 +3807,7 @@ export function trailAt(p: Person, action: Action, t: number): Vec {
 export function faceAt(p: Person, t: number, talking = false, action: Action = "stand"): { readonly lid: number; readonly look: readonly [number, number]; readonly mouth: number; readonly smile: number } {
   if (action === "laugh") return { lid: Math.max(lidAt(p, t), 0.55), look: lookAt(p, t), mouth: 0.6 + 0.3 * Math.sin(t * 14), smile: 1 };
   const speech = talking || action === "talk" ? Math.max(0, Math.sin(t * 11 + Math.sin(t * 3.1) * 2)) * 0.7 : 0;
-  return { lid: lidAt(p, t), look: lookAt(p, t), mouth: speech, smile: action === "cheer" || action === "dance" || action === "clap" ? 0.8 : 0.2 + Math.sin(t * 0.17 + p.seed) * 0.2 };
+  return { lid: lidAt(p, t), look: lookAt(p, t), mouth: speech, smile: action === "cheer" || action === "dance" || action === "clap" ? 0.8 : p.face.bone.rest + Math.sin(t * 0.17 + p.seed) * 0.12 };
 }
 
 /** The frame of a bone running from `a` to `b`, as columns: across, along, forward. */

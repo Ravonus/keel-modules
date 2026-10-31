@@ -31,6 +31,23 @@ export interface SkinMesh {
   readonly face?: SkinFace;
 }
 
+/** What is worn on or lies on a face; all of it optional, none of it there by default. */
+export interface SkinLook {
+  /** Eye shadow and blush, each a colour and how much of it. */
+  readonly shadow?: readonly [string, number];
+  readonly blush?: readonly [string, number];
+  /** How heavy the line along the lashes, 0 to 1: past .6 it flicks out at the corner. */
+  readonly liner?: number;
+  /** How marked, 0 to 1. */
+  readonly freckles?: number;
+  readonly spots?: number;
+  readonly tired?: number;
+  /** Whose marks these are: any number. */
+  readonly seed?: number;
+  /** Up to two moles: from between the eyes, right and up, and a radius, in heads. */
+  readonly moles?: readonly (readonly [number, number, number])[];
+}
+
 export interface SkinFace {
   readonly eyes: readonly [Vec, Vec];
   readonly eye: number;
@@ -42,6 +59,9 @@ export interface SkinFace {
   readonly lash?: string;
   readonly lip?: string;
   readonly brow?: string;
+  /** A brow's height, arch, tilt and half width, in eyes. */
+  readonly browLine?: readonly [number, number, number, number];
+  readonly look?: SkinLook;
 }
 
 /** What a face is doing this frame. */
@@ -164,42 +184,84 @@ uniform vec4 uMouth;           // the mouth at rest, and its half width
 uniform vec4 uFace;            // the lid, the look, how open the mouth is
 uniform float uSmile, uHead, uHasFace;
 uniform vec3 uIris, uWhite, uLash, uLip, uBrow;
+uniform vec4 uBrowLine;        // a brow's height, arch, tilt and half width, in eyes
+uniform vec4 uMarks;           // freckles, spots, tired eyes, and whose
+uniform vec4 uShadow, uBlush;  // a colour, and how much of it
+uniform float uLiner;          // how heavy the line along the lashes: past .6 it flicks out
+uniform vec3 uMoleA, uMoleB;   // where from between the eyes and how big, in heads
 
-// An eye: an almond between two lids, the upper arched and lashed, the lower flatter, the white
-// shaded under the lid and pink at its inner corner, the iris dark at its rim round a black pupil.
+float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+
+// An eye: an almond set a little downward at its inner end. Above it the lid, a fold of skin with its crease; along the
+// top of the opening a lash line that thickens outward, and a fainter one under the outer half; the white shaded by the
+// lid and pink at the tear duct; the iris darker at its rim, cut by the lid, round a black pupil and one catch of light.
 vec3 eye(vec3 col, vec2 q, float inner) {
-  float socket = length(vec2(q.x / 1.75, (q.y - 0.1) / 1.35));
-  col *= 1.0 - 0.24 * (1.0 - smoothstep(0.6, 1.5, socket));
-  q.x *= 0.82;
-  float x = q.x, y = q.y, w = 1.36;
-  float m = x * inner / w;
+  float x = q.x, w = 1.34;
+  float m = clamp(x * inner / w, -1.4, 1.4), y = q.y + 0.1 * m - 0.02;
   float k = clamp(1.0 - x * x / (w * w), 0.0, 1.0);
-  float top = mix(-0.38, 0.74, 1.0 - uFace.x) * pow(k, 0.5) * (1.0 + 0.2 * m);
-  float low = -0.38 * pow(k, 0.6) * (1.0 - 0.26 * m);
-  if (y > top + 0.3 && y < top + 0.36 && abs(x) < w) return col * 0.8;
-  if (abs(x) > w || y < low) return col;
-  if (y > top + 0.13 * sqrt(k)) return col;
-  if (y > top) return mix(uLash, col, 0.12);
-  vec3 c = uWhite * 0.74 * (1.0 - 0.4 * x * x / (w * w)) * mix(0.55, 1.0, smoothstep(0.0, 0.45, top - y));
-  c = mix(c, vec3(0.78, 0.45, 0.42), smoothstep(0.6, 0.98, x * inner / w) * 0.7);
-  vec2 g = vec2(x / 0.82, y - 0.14) - uFace.yz;
-  float ring = length(g) / 0.62;
+  float rest = 0.74 * pow(k, 0.6) * (1.0 - 0.18 * m);
+  float low = -0.44 * pow(k, 0.75) * (1.0 - 0.35 * m);
+  float top = mix(low, rest, 1.0 - uFace.x);
+  col *= 1.0 - 0.1 * (1.0 - smoothstep(0.5, 1.4, length(vec2(x / 1.7, (y - 0.2) / 1.25))));
+  col *= 1.0 - 0.24 * uMarks.z * exp(-(x * x) / 1.2 - pow((y + 0.78) / 0.18, 2.0));
+  float dusted = 1.0 - smoothstep(0.35, 1.0, length(vec2((x + 0.15 * inner) / 1.5, (y - rest - 0.2) / 0.5)));
+  col = mix(col, uShadow.rgb, uShadow.a * dusted);
+  float crease = rest + 0.2 + 0.1 * (1.0 - k);
+  col *= 1.0 - 0.4 * exp(-pow((y - crease) / 0.045, 2.0)) * smoothstep(0.05, 0.45, k) * (1.0 - 0.7 * smoothstep(0.0, 1.0, m));
+  float wing = -m, flick = 0.1 + (wing - 1.0) * 0.5;
+  if (uLiner > 0.6 && wing > 0.9 && wing < 1.32 && abs(y - flick) < 0.1 * (1.32 - wing) / 0.42) return mix(col, uLash, 0.94);
+  if (abs(x) > w) return col;
+  float lash = mix(0.07, 0.2, uLiner) + 0.1 * smoothstep(-0.6, 0.7, -m);
+  if (y > top + lash * smoothstep(0.0, 0.14, k)) return col;
+  if (y > top) return mix(uLash, col, 0.08);
+  if (y < low - 0.05) return col;
+  if (y < low) return mix(col, uLash, 0.4 * smoothstep(-0.1, 0.8, -m));
+  vec3 c = uWhite * 0.86 * (1.0 - 0.34 * x * x / (w * w)) * mix(0.5, 1.0, smoothstep(0.0, 0.38, top - y));
+  c = mix(c, vec3(0.78, 0.42, 0.4), smoothstep(0.7, 0.97, m) * 0.8);
+  vec2 g = vec2(x, y - 0.08) - uFace.yz;
+  float ring = length(g) / 0.68;
   if (ring < 1.0) {
-    c = uIris * mix(1.3, 0.62, ring) * mix(0.6, 1.0, smoothstep(0.0, 0.36, top - y));
-    c *= 1.0 - 0.75 * smoothstep(0.8, 0.98, ring);
-    c = mix(vec3(0.008), c, smoothstep(0.36, 0.44, ring));
-    c = mix(c, vec3(1.0), 1.0 - smoothstep(0.1, 0.16, length(g - vec2(-0.2, 0.24))));
+    c = uIris * mix(1.35, 0.7, ring) * mix(0.55, 1.0, smoothstep(0.0, 0.3, top - y));
+    c *= 1.0 - 0.8 * smoothstep(0.76, 0.98, ring);
+    c = mix(vec3(0.008), c, smoothstep(0.38, 0.45, ring));
+    c = mix(c, vec3(1.0), 1.0 - smoothstep(0.08, 0.13, length(g - vec2(-0.18, 0.2))));
   }
   return c;
 }
 
-// A brow, a tapered bar over the eye.
+// A brow, its own shape: hairs that stand up at the inner end and lie along it further out, the whole tapering outward.
 vec3 brow(vec3 col, vec2 q, float outer) {
-  q.y -= 2.4 + uFace.x * -0.1;
-  float x = q.x * outer;
-  float h = 0.2 * (1.0 - smoothstep(0.2, 1.4, x)) + 0.1;
-  float line = 0.14 * x;
-  return abs(q.y + line) < h && x > -1.1 && x < 1.5 ? mix(col, uBrow, 0.88) : col;
+  float x = q.x * outer, t = (x + 1.3) / 2.45;
+  if (t < -0.08 || t > 1.08) return col;
+  float along = clamp(t, 0.0, 1.0);
+  float line = uBrowLine.x - uFace.x * 0.1 + uBrowLine.y * sin(pow(along, 0.85) * 3.14159) + (along - 0.4) * uBrowLine.z - along * along * 0.2;
+  float half_ = uBrowLine.w * 1.7 * mix(0.7, 1.0, smoothstep(0.0, 0.2, along)) * mix(1.0, 0.3, smoothstep(0.5, 1.0, along));
+  float d = (q.y - line) / half_;
+  float body = (1.0 - smoothstep(0.55, 1.1, abs(d))) * smoothstep(-0.08, 0.03, t) * (1.0 - smoothstep(0.96, 1.08, t));
+  float hairs = 0.72 + 0.28 * sin((x + (q.y - line) * mix(0.25, 1.6, along)) * 30.0);
+  return mix(col, uBrow, body * hairs * 0.94);
+}
+
+float flecks(vec2 g, float rare) {
+  vec2 c = floor(g);
+  float roll = hash(vec3(c, uMarks.w));
+  if (roll < rare) return 0.0;
+  vec2 f = fract(g) - 0.5 - 0.5 * (vec2(hash(vec3(c, 1.0)), hash(vec3(c, 2.0))) - 0.5);
+  return 1.0 - smoothstep(0.1 + 0.12 * fract(roll * 9.0), 0.32, length(f));
+}
+
+float mole(vec2 h, vec3 at) { return at.z > 0.0 ? 1.0 - smoothstep(at.z * 0.6, at.z, length(h - at.xy)) : 0.0; }
+
+// What lies on a skin: colour on the cheeks, freckles over the nose, the odd spot low on the face, a mole or two.
+vec3 marked(vec3 col) {
+  vec2 h = (vRest.xy - (uEyeL.xy + uEyeR.xy) * 0.5) / uHead, side = vec2(abs(h.x), h.y);
+  float cheek = exp(-pow((side.x - 0.46) / 0.26, 2.0) - pow((side.y + 0.36) / 0.18, 2.0));
+  col = mix(col, uBlush.rgb, uBlush.a * cheek);
+  float band = exp(-pow((side.x - 0.24) / 0.34, 2.0) - pow((side.y + 0.3) / 0.16, 2.0));
+  col = mix(col, col * vec3(0.66, 0.5, 0.42), uMarks.x * band * flecks(h * 24.0, 0.5));
+  float low = exp(-pow((side.x - 0.3) / 0.4, 2.0) - pow((side.y + 0.72) / 0.36, 2.0));
+  col = mix(col, col * vec3(0.92, 0.5, 0.46), uMarks.y * low * flecks(h * 13.0, 0.86));
+  return col * (1.0 - 0.72 * max(mole(h, uMoleA), mole(h, uMoleB)));
 }
 
 // A mouth: a line that opens on the dark, its corners lifting with a smile, a full lower lip under it.
@@ -220,12 +282,12 @@ vec3 mouth(vec3 col, vec2 q) {
 vec3 painted(vec3 col) {
   if (uHasFace < 0.5 || (vFabric > 0.5 && abs(vFabric - 6.0) > 0.5) || vRest.y < uMouth.y - uHead * 0.5 || vRest.z < uEyeL.z - uHead * 0.9) return col;
   vec2 l = (vRest.xy - uEyeL.xy) / uEyeL.w, r = (vRest.xy - uEyeR.xy) / uEyeR.w;
+  if (vFabric < 0.5 && vRest.z > uEyeL.z - uHead * 0.7) col = marked(col);
   col = brow(eye(col, l, 1.0), l, -1.0);
   col = brow(eye(col, r, -1.0), r, 1.0);
   return mouth(col, (vRest.xy - uMouth.xy) / uMouth.w);
 }
 
-float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float noise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   f *= f * (3.0 - 2.0 * f);
@@ -472,6 +534,13 @@ const LIGHTS = ["uSun", "uSunCol", "uFill", "uFillCol", "uSky", "uGround", "uRim
 
 const NO_FACE: SkinFace = { eyes: [[0, 0, 0], [0, 0, 0]], eye: 1, mouth: [0, 0, 0], mouthWide: 1, head: 1 };
 
+function lookUniforms(lit: SkinLit, face: SkinFace): Record<string, Uniform> {
+  const { shadow, blush, liner = 0, freckles = 0, spots = 0, tired = 0, seed = 0, moles = [] } = face.look ?? {}, [a, b, c, d] = face.browLine ?? [2.4, 0, 0.14, 0.2];
+  const washed = (wash: readonly [string, number] | undefined): Uniform => { const v = linear(lit, wash?.[0] ?? "#000000"); return { value: new lit.Vector4(v.r, v.g, v.b, wash?.[1] ?? 0) }; };
+  const mole = (at: readonly [number, number, number] | undefined): Uniform => ({ value: new lit.Vector3(at?.[0] ?? 0, at?.[1] ?? 0, at?.[2] ?? 0) });
+  return { uBrowLine: { value: new lit.Vector4(a, b, c, d) }, uMarks: { value: new lit.Vector4(freckles, spots, tired, seed % 97) }, uShadow: washed(shadow), uBlush: washed(blush), uLiner: { value: liner }, uMoleA: mole(moles[0]), uMoleB: mole(moles[1]) };
+}
+
 function faceUniforms(lit: SkinLit, given: SkinFace | undefined): Record<string, Uniform> {
   const face = given ?? NO_FACE;
   const v4 = (at: Vec, w: number): Uniform => ({ value: new lit.Vector4(at[0], at[1], at[2], w) });
@@ -489,6 +558,7 @@ function faceUniforms(lit: SkinLit, given: SkinFace | undefined): Record<string,
     uLash: tone(face.lash, "#2a1a16"),
     uLip: tone(face.lip, "#a85a52"),
     uBrow: tone(face.brow, "#3a2a22"),
+    ...lookUniforms(lit, face),
   };
 }
 

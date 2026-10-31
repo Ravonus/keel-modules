@@ -49,4 +49,6 @@ Loose hair goes over the ears or tucks behind them, a side at a time: `tuckOf(p)
 
 Both have levels by the mesh's grid: near (every lock, every fold of the ear), mid (fewer locks, the ear and its rim), far (the solid shape alone).
 
+A head near enough to read is a fixed mesh: the same rows and columns on everyone, laid through the same lines of a face (brow, lids, nose base, lips, chin) and shot onto the solid the head is melted from, with real eye openings, balls behind them, and lips that stand off the face. From `0.05` out a head stays the melted solid, whose face is paint alone.
+
 `render/skin-body` lights hair along its strands. Hair vertices carry their direction in `cloth.xyz` and a strand coordinate in `cloth.w`.

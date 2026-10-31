@@ -86,7 +86,17 @@ export type Carry = "none" | "umbrella";
 /** A job or a getup that replaces what they would wear. */
 export type Costume = "none" | "suit" | "firefighter" | "police" | "cowboy" | "fursuit" | "latex";
 export type Shoe = "sneaker" | "boot" | "sandal" | "loafer";
-export type Hat = "none" | "cap" | "beanie" | "fedora" | "sunhat" | "hood" | "helmet" | "peaked" | "stetson";
+export type Hat = "none" | "cap" | "beanie" | "fedora" | "sunhat" | "hood" | "helmet" | "peaked" | "stetson" | "bucket" | "beret" | "flatcap" | "bowler" | "tophat" | "pompom" | "hardhat" | "bandana" | "headwrap" | "visor";
+
+/** What a person wears that is not clothes: on the face, in the ears and nose, at the neck and in the hair. */
+export interface Gear {
+  readonly glasses: "none" | "clear" | "round" | "cat" | "sun";
+  readonly ears: "none" | "stud" | "hoop" | "drop";
+  readonly nose: "none" | "stud" | "ring";
+  readonly neck: "none" | "chain" | "pendant";
+  readonly hair: "none" | "clip" | "clips" | "bow" | "band";
+  readonly phones: boolean;
+}
 
 /** How far through a life: each changes their size and how they are put together. */
 export type Age = "toddler" | "child" | "teen" | "adult" | "elder";
@@ -133,6 +143,11 @@ export interface Look {
   readonly freckles: number;
   readonly spots: number;
   readonly tired: number;
+  /** How lined, how rough, how marked by old spots, how uneven in tone: all 0 to 1, and little of any on a child. */
+  readonly lines: number;
+  readonly rough: number;
+  readonly scars: number;
+  readonly uneven: number;
   readonly moles: readonly (readonly [number, number, number])[];
 }
 
@@ -237,6 +252,7 @@ export interface Person {
   readonly face: Face;
   readonly hair: HairStyle;
   readonly outfit: Outfit;
+  readonly gear: Gear;
   readonly palette: Readonly<Record<string, string>>;
   readonly gait: Gait;
 }
@@ -590,7 +606,7 @@ export function faceFor(seed: number, rolled: Omit<Face, "bone" | "look">, build
   const open = 1 + ((r() - 0.5) * 0.36 + (build.sex === "female" ? 0.07 : -0.03) - bone.old * 0.1) * m, set = (r() - 0.5) * 0.08 * m;
   return {
     ...rolled, bone,
-    eye: clamp(rolled.eye * 1.16 * (1 + by("eye")) * open, 0.122, 0.175),
+    eye: clamp(rolled.eye * 1.03 * (1 + by("eye")) * open, 0.108, 0.155),
     apart: rolled.apart + set + 0.02,
     lid: rolled.lid + by("lid"),
     nose: clamp(rolled.nose + by("tip"), 0.09, 0.36),
@@ -606,7 +622,14 @@ export function faceFor(seed: number, rolled: Omit<Face, "bone" | "look">, build
 function lookOf(seed: number, build: Build, deep: number, bone: Bone): Look {
   const r = streamOf(seed, 0x6c6f6f6b);
   const blood = r();
-  return { blush: [deep > 0.3 ? "#a04a3a" : "#dc7c70", mix(0.04, 0.1, blood) * (bone.m === 0 ? 1.3 : 1)], ...paintOf(r, build, deep), ...marksOn(r, bone, build.age === "teen", deep) };
+  return { blush: [deep > 0.3 ? "#a04a3a" : "#dc7c70", mix(0.04, 0.1, blood) * (bone.m === 0 ? 1.3 : 1)], ...paintOf(r, build, deep), ...marksOn(r, bone, build.age === "teen", deep), ...wearOf(r, bone, build.age === "teen") };
+}
+
+/** What years and luck have left on a skin. A child's is only a little uneven. */
+function wearOf(r: () => number, bone: Bone, young: boolean): Pick<Look, "lines" | "rough" | "scars" | "uneven"> {
+  const laugh = r(), rough = r(), scarred = r(), uneven = r();
+  if (bone.m === 0) return { lines: 0, rough: 0, scars: 0, uneven: 0.25 };
+  return { lines: young ? 0 : clamp(0.03 + laugh * laugh * 0.2 + bone.old * 0.75, 0, 1), rough: rough * rough * (young ? 0.8 : 0.6), scars: scarred < (young ? 0.35 : 0.22) ? mix(0.3, 0.8, rough) : 0, uneven: mix(0.35, 0.9, uneven) };
 }
 
 /** Two hex colours, `k` of the way from the first to the second. */
@@ -704,6 +727,56 @@ function hairOn(seed: number, sex: Sex, deep: number, roll: number): HairStyle {
   return weighted(() => hashed(seed, 911), HAIRS[sex].filter(([style]) => COILED.includes(style)));
 }
 
+/** The hats a head with none might wear after all, by how likely each is. A child's are only soft ones. */
+const SPARE_HATS: Readonly<Record<Genre, Weighted<Hat>>> = {
+  casual: [["bucket", 3], ["pompom", 1.6], ["visor", 1.4], ["flatcap", 1], ["beret", 0.8], ["bandana", 1]],
+  street: [["bucket", 3], ["bandana", 2.4], ["pompom", 1], ["headwrap", 1.4]],
+  formal: [["bowler", 2], ["flatcap", 2], ["beret", 1.4], ["tophat", 0.6]],
+  sport: [["visor", 4], ["bandana", 2], ["bucket", 1]],
+  goth: [["beret", 2], ["tophat", 1.4], ["bandana", 1], ["headwrap", 1]],
+  work: [["hardhat", 4], ["flatcap", 2], ["bandana", 2]],
+  boho: [["headwrap", 3], ["bucket", 1.6], ["beret", 1.4], ["bandana", 1.4]],
+  preppy: [["visor", 2], ["flatcap", 2], ["beret", 1.4], ["bowler", 0.6]],
+};
+
+const SOFT_HATS: Weighted<Hat> = [["bucket", 3], ["pompom", 3], ["visor", 1]];
+
+/** Whether a build is a child's. */
+const childish = (build: Build): boolean => build.age === "toddler" || build.age === "child";
+
+/** A bare head's chance of a hat from the wider rack, from a stream of its own. */
+function hatted(seed: number, build: Build, outfit: Outfit): Outfit {
+  const r = streamOf(seed, 0x68617473);
+  if (outfit.hat !== "none" || outfit.costume !== "none" || r() > 0.26) return outfit;
+  return { ...outfit, hat: weighted(r, childish(build) ? SOFT_HATS : SPARE_HATS[outfit.genre]) };
+}
+
+/** One of `list`, or the first if `chance` misses. */
+const someOf = <T>(r: () => number, chance: number, list: readonly T[]): T => { const hit = r(), pick = r(); return list[hit < chance ? 1 + Math.floor(pick * (list.length - 1)) : 0] as T; };
+
+/** How likely each is to wear each. */
+const GEAR_ODDS = { child: { ears: 0, neck: 0, hair: 0.5 }, woman: { ears: 0.55, neck: 0.3, hair: 0.3 }, man: { ears: 0.14, neck: 0.12, hair: 0.05 } } as const;
+
+/** What a person has on them. A child has clips, a bow and maybe glasses, and nothing pierced; a teen's ears may be. */
+function gearOf(seed: number, build: Build, outfit: Outfit): Gear {
+  const r = streamOf(seed, 0x67656172), child = childish(build), grown = !child && build.age !== "teen", bare = outfit.hat === "none";
+  const odds = GEAR_ODDS[child ? "child" : build.sex === "female" ? "woman" : "man"];
+  return {
+    glasses: someOf<Gear["glasses"]>(r, build.age === "elder" ? 0.5 : 0.2, child ? ["none", "clear", "round"] : ["none", "clear", "round", "cat", "sun"]),
+    ears: someOf<Gear["ears"]>(r, odds.ears, grown ? ["none", "stud", "hoop", "drop"] : ["none", "stud", "hoop"]),
+    nose: someOf<Gear["nose"]>(r, grown ? 0.07 : 0, ["none", "stud", "ring"]),
+    neck: someOf<Gear["neck"]>(r, odds.neck, ["none", "chain", "pendant"]),
+    hair: someOf<Gear["hair"]>(r, bare ? odds.hair : 0, ["none", "clip", "clips", "bow", "band"]),
+    phones: !child && bare && r() < 0.05,
+  };
+}
+
+/** The little metal and glass a person wears, and a bright colour for what is in their hair. */
+function gearColours(seed: number): Record<string, string> {
+  const r = streamOf(seed, 0x6d65746c), bright = ["#d8423c", "#e8b23a", "#3a7ad8", "#e86aa8", "#46b078", "#f4f0e8", "#7a4ac8"];
+  return { metal: r() < 0.5 ? "#d8b35a" : "#c8c8cc", lens: r() < 0.5 ? "#16181c" : "#2c2418", clip: bright[Math.floor(r() * bright.length)] ?? "#d8423c" };
+}
+
 /** The person a seed is, always the same one. */
 export function personOf(seed: number, weather: Weather = "mild", costume?: Costume): Person {
   const rand = streamOf(seed, 0x70656f70);
@@ -717,10 +790,10 @@ export function personOf(seed: number, weather: Weather = "mild", costume?: Cost
   const hair = chosen === "bald" && (build.sex === "female" || build.age === "toddler" || build.age === "child" || build.age === "teen") ? "crop" : chosen;
   const palette = paletteOf(rand, skin, build.age, face.iris, base.genre);
   const day = streamOf(seed, 0x77656174);
-  const outfit = inCostume(day, build, dressedFor(day, build, base, weather), weather, costume);
+  const outfit = hatted(seed, build, inCostume(day, build, dressedFor(day, build, base, weather), weather, costume));
   const big = outfit.costume === "fursuit" ? { ...build, head: build.head * 1.16 } : build;
-  const worn = { ...palette, ...colourFor(day, outfit) };
-  return { seed, build: big, face, hair: outfit.costume === "fursuit" ? "bald" : hair, outfit, palette: { ...worn, bottom: parted(worn.bottom ?? "#333333", worn.top ?? "#777777") }, gait: gaitOf(streamOf(seed, 0x67616974), build) };
+  const worn = { ...palette, ...colourFor(day, outfit), ...gearColours(seed) };
+  return { seed, build: big, face, hair: outfit.costume === "fursuit" ? "bald" : hair, outfit, gear: gearOf(seed, build, outfit), palette: { ...worn, bottom: parted(worn.bottom ?? "#333333", worn.top ?? "#777777") }, gait: gaitOf(streamOf(seed, 0x67616974), build) };
 }
 
 /** A hand on the move, how closed: a fist, loose, cupped, or flat as a blade. */
@@ -1561,22 +1634,36 @@ function drawEars(kit: Kit, p: Person, h: HeadFrame): void {
 }
 
 /** How wide each hat's brim runs all round, in head radii. */
-const BRIMS: Partial<Record<Hat, number>> = { fedora: 1.5, sunhat: 2, stetson: 1.9, helmet: 1.5 };
+const BRIMS: Partial<Record<Hat, number>> = { fedora: 1.5, sunhat: 2, stetson: 1.9, helmet: 1.5, bucket: 1.42, bowler: 1.34, tophat: 1.36 };
+
+/** How much taller than the skull each hat's crown stands. */
+const CROWN_RISE: Partial<Record<Hat, number>> = { stetson: 0.24, peaked: 0.24, bowler: 0.12, bucket: 0.07, headwrap: 0.2, hardhat: 0.1 };
 
 /** The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over it. A hood and a helmet stand well clear of it. */
 function drawCrown(kit: Kit, hat: Hat, h: HeadFrame): void {
-  const clear = hat === "hood" || hat === "helmet", brim = h.at(0, hat === "hood" ? -0.1 : clear ? 0.58 : 0.5, 0)[1];
-  const tall = hat === "stetson" || hat === "peaked" ? 0.24 : 0;
+  const clear = hat === "hood" || hat === "helmet" || hat === "hardhat", brim = h.at(0, hat === "hood" ? -0.1 : clear ? 0.58 : 0.5, 0)[1];
+  const tall = CROWN_RISE[hat] ?? 0;
   put(kit, "hat", hat === "hood" ? "top" : "trim", h.at(0, 0.3, -0.12), h.at(0, 0.14 + tall, -0.06), h.r * (clear ? 1.2 : 1.16), { flat: clear ? 0.88 : 0.76, up: SIDE, melt: 0.08, hem: brim, shadow: false });
+}
+
+/** What makes one hat not another: a bobble, a ridge, a knot. */
+function drawTrim(kit: Kit, hat: Hat, h: HeadFrame): void {
+  if (hat === "pompom") ball(kit, "hat.pom", "trim", h.at(0, 1.42, -0.1), h.r * 0.3, { melt: 0.2, shadow: false });
+  if (hat === "hardhat") put(kit, "hat.ridge", "trim", h.at(0, 1.2, 0.5), h.at(0, 1.2, -0.7), h.r * 0.18, { melt: 0.5, shadow: false });
+  if (hat === "headwrap") ball(kit, "hat.knot", "trim", h.at(0.16, 1.2, 0.5), h.r * 0.3, { melt: 0.3, shadow: false });
+  if (hat === "bandana") for (const x of [-1, 1]) put(kit, `hat.tail.${String(x)}`, "trim", h.at(x * 0.05, 0.5, -1.16), h.at(x * 0.26, -0.1, -1.3), h.r * 0.1, { r1: h.r * 0.04, flat: 0.4, up: FRONT, melt: 0.3, shadow: false });
 }
 
 function drawHat(kit: Kit, p: Person, h: HeadFrame): void {
   const { hat } = p.outfit;
   if (hat === "none") return;
-  drawCrown(kit, hat, h);
+  if (hat === "beret") { ball(kit, "hat", "trim", h.at(0.1, 0.72, -0.14), h.r * 1.04, { flat: 0.5, up: UP, melt: 0.08, shadow: false }); return; }
+  if (hat === "tophat") put(kit, "hat.top", "trim", h.at(0, 0.62, -0.1), h.at(0, 1.42, -0.1), h.r * 0.92, { melt: 0.05, shadow: false });
+  else if (hat !== "visor") drawCrown(kit, hat, h);
+  drawTrim(kit, hat, h);
   const wide = BRIMS[hat];
   if (wide !== undefined) ball(kit, "peak", "trim", h.at(0, 0.6, hat === "helmet" ? -0.26 : -0.1), h.r * wide, { flat: 0.06, up: UP, melt: 0.1, shadow: false });
-  if (hat === "cap" || hat === "peaked") put(kit, "peak", "trim", h.at(0, 0.56, 0.9), h.at(0, 0.46, 1.4), h.r * 0.5, { r1: h.r * 0.38, flat: 0.22, up: unit([0, 1, 0.2]), melt: 0.5, shadow: false });
+  if (hat === "cap" || hat === "peaked" || hat === "flatcap" || hat === "visor" || hat === "hardhat") put(kit, "peak", "trim", h.at(0, 0.56, 0.9), h.at(0, 0.46, 1.4), h.r * 0.5, { r1: h.r * 0.38, flat: 0.22, up: unit([0, 1, 0.2]), melt: 0.5, shadow: false });
 }
 
 /** A fursuit's head: a muzzle, a nose and ears, in the pelt. */
@@ -2245,6 +2332,8 @@ interface Wrap {
   readonly sto: number;
   readonly men: number;
   readonly mouth: number;
+  /** The neck it runs down into, as `lower` meets it: how far back its middle lies, how wide it is and how deep behind, all in head radii. */
+  readonly neck: readonly [z: number, wide: number, back: number];
   /** How many times its rows and columns are halved. */
   readonly level: number;
 }
@@ -2411,6 +2500,14 @@ function lipAt(w: Wrap, x: number, y: number): number {
   return k ** 0.5 * (0.026 * Math.exp(-up * up) + 0.034 * Math.exp(-down * down)) - 0.03 * k ** 0.5 * Math.exp(-(((y - w.sto) / 0.014) ** 2));
 }
 
+/** The back of a skull comes in to the neck under it, and the corners of the jaw tuck in with it: nothing behind the face hangs out over the neck like a bowl. */
+function napeOf(w: Wrap, at: Vec): Vec {
+  const q = scale(sub(at, w.c), 1 / w.R), [nz, wide, back] = w.neck, pull = smooth(0.3, -0.8, q[1]) * smooth(0.5, -0.1, q[2]);
+  if (pull <= 0) return at;
+  const a = Math.atan2(q[0] / wide, (q[2] - nz) / back);
+  return madd(w.c, [mix(q[0], Math.sin(a) * wide, pull), q[1], mix(q[2], nz + Math.cos(a) * back, pull)], w.R);
+}
+
 /** A head as a fixed mesh: every person the same rows and columns, laid through the same lines of a face, shot onto the solid their head is melted from. */
 function wrapHead(net: Net, layer: Layer, grid: Grid, w: Wrap, roles: readonly string[]): void {
   const rows = rowsOf(w), cols = columnsOf(w), from = net.position.length / 3, firstIndex = net.index.length, skin = Math.max(0, roles.indexOf("skin"));
@@ -2422,7 +2519,7 @@ function wrapHead(net: Net, layer: Layer, grid: Grid, w: Wrap, roles: readonly s
   smoothedFar(far, rows.length, cols.length, 2);
   rows.forEach((_, r) => { cols.forEach((a, c) => {
     const dir = ray(r, c), el = Math.asin(dir[1]);
-    const v = from + r * cols.length + c, at = madd(w.c, dir, (far[r * cols.length + c] ?? 0) + w.R * lipAt(w, Math.tan(a) * 0.95, Math.tan(el) * 0.95));
+    const v = from + r * cols.length + c, at = napeOf(w, madd(w.c, dir, (far[r * cols.length + c] ?? 0) + w.R * lipAt(w, Math.tan(a) * 0.95, Math.tan(el) * 0.95)));
     if (inEye(cols, rows, w, Math.min(r, top - 1), c) || inEye(cols, rows, w, Math.min(r, top - 1), c - 1 < 0 ? cols.length - 1 : c - 1)) { if (r === top || r === low) rim.add(v); }
     if (unseen(layer, at)) hidden.add(v);
     net.position.push(...at); net.normal.push(...dir); net.role.push(skin); net.bones.push(HEAD, HEAD); net.weight.push(1); net.fabric.push(layer.fabric); net.loose.push(0); net.cloth.push(at[0], at[2], at[1], NO_EDGE); net.soft.push(0);
@@ -2959,7 +3056,8 @@ const chosenCloth = (p: Person, list: readonly Fabric[], salt: number): number =
 const topCloth = (p: Person): number => chosenCloth(p, TOP_CLOTH[p.outfit.top], 311);
 const lowerCloth = (p: Person): number => chosenCloth(p, BOTTOM_CLOTH[p.outfit.bottom], 523);
 /** What a hat is made of. */
-const hatCloth = (hat: Hat): number => FABRICS[hat === "helmet" ? "latex" : hat === "beanie" ? "knit" : hat === "cap" || hat === "hood" ? "cotton" : "wool"];
+const HAT_CLOTH: Partial<Record<Hat, keyof typeof FABRICS>> = { helmet: "latex", hardhat: "latex", beanie: "knit", pompom: "knit", cap: "cotton", hood: "cotton", bucket: "cotton", visor: "cotton", bandana: "cotton", headwrap: "cotton" };
+const hatCloth = (hat: Hat): number => FABRICS[HAT_CLOTH[hat] ?? "wool"];
 
 const inRange = (tag: number, from: number, to: number): boolean => tag >= from && tag <= to;
 
@@ -3276,9 +3374,15 @@ const meshHair = (massive: boolean, far: boolean) => (c: Capsule): boolean => fa
 /** Further off than this a head is what it melts to: a fixed mesh would have nothing to show there. */
 const WRAPPED = 0.05;
 
+/** The neck as the body builds it, a little inside it so it closes over the head's edge: where its middle lies from the head's, and its half width and depth, in head radii. */
+function neckFor(p: Person, h: HeadFrame): readonly [number, number, number] {
+  const s = restSkeleton(p), R = h.r * 0.5 * neckBy(p), z = lerpV(s.neck, s.head, 0.72)[2] - h.r * 0.1 * p.face.bone.m;
+  return [(z - h.c[2]) / h.r, (R * 0.86 * 0.94) / h.r, (R * 0.96 * 0.94) / h.r];
+}
+
 function wrapOf(p: Person, cell: number): Wrap {
   const f = p.face, b = f.bone, size = p.build.size, h = headFrame(restSkeleton(p), p.build.head, f), low = (y: number): number => (y < 0 ? y * b.L : y);
-  return { c: scale(h.c, size), R: p.build.head * size, eyeX: f.apart, eye: f.eye, pupil: low(b.pupil), sn: low(b.sub), sto: low(b.sto), men: low(b.men), mouth: f.mouthWide, level: cell < 0.018 ? 2 : cell < 0.026 ? 1 : 0 };
+  return { c: scale(h.c, size), R: p.build.head * size, eyeX: f.apart, eye: f.eye, pupil: low(b.pupil), sn: low(b.sub), sto: low(b.sto), men: low(b.men), mouth: f.mouthWide, neck: neckFor(p, h), level: cell < 0.018 ? 2 : cell < 0.026 ? 1 : 0 };
 }
 
 /** The fixed mesh a layer of a head goes on, and the dents that suit it, if it is near enough for one. */
@@ -3306,7 +3410,7 @@ function layersOf(p: Person, dressed: readonly Capsule[], bare: readonly Capsule
     { parts: dressed.filter((c) => /^(hood|collar|brush)/.test(c.part)), fine: 0.7, fabric: furred ? FABRICS.fur : topCloth(p), lift: (furred ? 0.01 : 0.012 + fit * 0.016) * k, ...pelt },
     { parts: on("beard"), fine: 0.5, fabric: FABRICS.skin, lift: 0.002 * k, rigid: true, relax: 3 },
     { parts: hair, fine: 0.55, fabric: FABRICS.hair, lift: 0.004 * k, roof, free: [chin + 0.02 * k, 0.4 * k], ...(massive ? curled : {}) },
-    { parts: dressed.filter((c) => /^(hat|peak)/.test(c.part)), fine: 0.55, fabric: hatCloth(p.outfit.hat), lift: 0.008 * k },
+    { parts: dressed.filter((c) => /^(hat|peak)/.test(c.part)), fine: cell < WRAPPED ? 0.36 : 0.55, fabric: hatCloth(p.outfit.hat), lift: 0.008 * k },
   ];
   return layers.filter((l) => l.parts.length > 0);
 }
@@ -3487,8 +3591,8 @@ function lockNormal(b: Vec, n: Vec, o: Vec, c: number, r: number, round: boolean
 const lockTaper = (s: number): number => Math.min(1, 0.8 + s * 3) * Math.min(1, (1 - s) * 3 + 0.12);
 
 /** One lock laid into the net: a flat tapering ribbon, round as a rope if it is as thick as it is wide. */
-function layLock(net: Net, roles: readonly string[], to: (q: Vec) => Vec, line: readonly Vec[], [width, thick, sides]: readonly [number, number, number], worn?: { readonly role: string; readonly fabric: number; readonly taper?: (s: number) => number }): number {
-  const base = net.position.length / 3, role = Math.max(0, roles.indexOf(worn?.role ?? "hair")), last = line.length - 1, taperOf = worn ? worn.taper ?? (() => 1) : lockTaper;
+function layLock(net: Net, roles: readonly string[], to: (q: Vec) => Vec, line: readonly Vec[], [width, thick, sides]: readonly [number, number, number], worn?: { readonly bone?: number; readonly role: string; readonly fabric: number; readonly taper?: (s: number) => number }): number {
+  const base = net.position.length / 3, bone = worn?.bone ?? HEAD, role = Math.max(0, roles.indexOf(worn?.role ?? "hair")), last = line.length - 1, taperOf = worn ? worn.taper ?? (() => 1) : lockTaper;
   line.forEach((q, i) => {
     const s = i / last, t = unit(sub(line[Math.min(last, i + 1)] ?? q, line[Math.max(0, i - 1)] ?? q), UP), o = unit(sub(q, SKULL_AT), UP);
     const b = unit(cross(t, o), SIDE), n = cross(b, t), taper = taperOf(s);
@@ -3496,7 +3600,7 @@ function layLock(net: Net, roles: readonly string[], to: (q: Vec) => Vec, line: 
       const a = (j / sides) * TAU, c = Math.cos(a), r = Math.sin(a);
       net.position.push(...to(add(madd(q, b, c * width * taper), scale(n, r * thick * taper))));
       net.normal.push(...lockNormal(b, n, o, c, r, thick >= width * 0.7, worn?.fabric));
-      net.role.push(role); net.bones.push(HEAD, HEAD); net.weight.push(1); net.fabric.push(worn?.fabric ?? FABRICS.hair);
+      net.role.push(role); net.bones.push(bone, bone); net.weight.push(1); net.fabric.push(worn?.fabric ?? FABRICS.hair);
       net.loose.push(clamp(s * 1.6 - 0.2, 0, 1) * 0.8); net.soft.push(0);
       if (worn) net.cloth.push(j / sides, 0, s * last * 0.08, 1); else net.cloth.push(t[0], t[1], t[2], (base % 97) * 0.41 + c * width);
     }
@@ -3614,7 +3718,7 @@ function pinnaOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, at: (a
 
 /** A pair of ears, each its own: how big, how far they stand out, and how the lobe hangs. Near to, the dish and every fold; a little further, the dish and its rim; far off, only the shape the head already has. */
 function earsOf(net: Net, p: Person, roles: readonly string[], cell: number): readonly number[] {
-  if (cell >= FAR_HAIR || p.outfit.costume === "fursuit" || ["hood", "helmet", "beanie"].includes(p.outfit.hat)) return [];
+  if (cell >= FAR_HAIR || p.outfit.costume === "fursuit" || ["hood", "helmet", "beanie", "pompom", "headwrap"].includes(p.outfit.hat)) return [];
   const rand = streamOf(p.seed, 0x65617273), h = headFrame(restSkeleton(p), p.build.head, p.face), size = p.build.size;
   const big = (p.face.ears / 0.26) * mix(0.92, 1.1, rand()), stands = mix(0.1, 0.42, rand() ** 1.6), hangs = mix(0, 0.1, rand());
   const near = cell < MID_HAIR, to = (q: Vec): Vec => scale(h.at(q[0], q[1], q[2]), size), lit = 1 + 0.2 * deepOf(p.palette.skin ?? "#888888");
@@ -3896,7 +4000,8 @@ function bakeVertex(net: Net, bake: Bake, v: number, bone: number, was: number):
   const q = bake.toHead(vecAt(net.position, v)), [x, y, z] = q;
   if (y > 1.4 || y < -2.4 || Math.abs(x) > 1.4) return was;
   if (bone !== HEAD) return was * underJaw(bake.p, bake.k, x, y, bake.deep);
-  return z < -0.1 ? was * mix(1, 1.2, bake.deep) : bakeFace(net, bake, v, q, was);
+  const back = was * mix(1, 1.2, bake.deep);
+  return z < -0.4 ? back : mix(back, bakeFace(net, bake, v, q, was), smooth(-0.4, 0.1, z));
 }
 
 const FACE_BONES: ReadonlySet<number> = new Set([HEAD, boneIndex("neck"), boneIndex("chest")]);
@@ -3955,6 +4060,107 @@ function evened(zs: readonly number[]): readonly number[] {
   return eased(eased(held));
 }
 
+/** Whatever lays one piece of what a person wears, in head radii. */
+type LayGear = (line: readonly Vec[], size: readonly [number, number, number], worn: { readonly role: string; readonly fabric: number; readonly bone?: number; readonly taper?: (s: number) => number }) => void;
+
+const METAL = { role: "metal", fabric: FABRICS.latex }, FRAME = { role: "dark", fabric: FABRICS.latex }, LENS = { role: "lens", fabric: FABRICS.latex }, CLIP = { role: "clip", fabric: FABRICS.satin };
+const bead = (s: number): number => Math.sqrt(Math.max(0.02, 1 - (2 * s - 1) ** 2));
+
+/** A closed line round a middle, however it is bent. */
+const ringOf = (count: number, at: (c: number, s: number) => Vec): readonly Vec[] => Array.from({ length: count + 1 }, (_, i) => at(Math.cos((i / count) * TAU), Math.sin((i / count) * TAU)));
+
+/** Glasses: two rims and a bridge held a little off the face, arms back to the ears, and dark lenses if they are shades. */
+function layGlasses(lay: LayGear, p: Person, k: Marks, surface: (x: number, y: number) => number): void {
+  const kind = p.gear.glasses, b = p.face.bone;
+  if (kind === "none") return;
+  const front = Math.max(surface(k.eyeX, k.pupil), surface(-k.eyeX, k.pupil)) + 0.13, rx = Math.min(0.27, k.eyeX - 0.07), ry = kind === "round" ? rx : rx * 0.74, gap = k.eyeX - rx, frame = kind === "round" ? METAL : FRAME;
+  const box = (v: number): number => (kind === "round" ? v : Math.sign(v) * Math.abs(v) ** 0.72);
+  for (const x of [-1, 1]) {
+    const cx = x * k.eyeX;
+    lay(ringOf(18, (c, s) => [cx + rx * box(c), k.pupil + ry * box(s) + (kind === "cat" ? 0.05 * Math.max(0, c * x) ** 2 : 0), front - 0.05 * Math.max(0, c * x)]), [0.017, 0.012, 4], frame);
+    if (kind === "sun") lay(Array.from({ length: 9 }, (_, i) => [cx + rx * (i / 4 - 1), k.pupil, front - 0.05 * Math.max(0, (i / 4 - 1) * x)]), [ry, 0.006, 6], { ...LENS, taper: bead });
+    lay([[x * (k.eyeX + rx), k.pupil + 0.03, front - 0.05], [x * b.W * 0.8, k.pupil + 0.07, 0.3], [x * b.W * 0.78, k.pupil + 0.08, -0.06], [x * b.W * 0.76, k.pupil - 0.05, -0.2]], [0.014, 0.01, 4], frame);
+  }
+  lay([[-gap, k.pupil + 0.05, front], [0, k.pupil + 0.1, front + 0.01], [gap, k.pupil + 0.05, front]], [0.014, 0.012, 4], frame);
+}
+
+/** Earrings, on ears that show. */
+function layEars(lay: LayGear, p: Person): void {
+  const kind = p.gear.ears, tucks = tuckOf(p), lobeX = p.face.bone.W * 0.8;
+  if (kind === "none") return;
+  [-1, 1].forEach((x, side) => {
+    if (!tucks[side]) return;
+    const lobe: Vec = [x * lobeX, -0.24, 0.02];
+    if (kind === "stud") lay([lobe, [lobe[0] + x * 0.03, lobe[1], lobe[2]], [lobe[0] + x * 0.06, lobe[1], lobe[2]]], [0.03, 0.03, 6], { ...METAL, taper: bead });
+    if (kind === "hoop") lay(ringOf(14, (c, s) => [lobe[0] + x * 0.02, lobe[1] - 0.12 + 0.12 * s, lobe[2] + 0.12 * c]), [0.012, 0.012, 4], METAL);
+    if (kind === "drop") { lay([lobe, [lobe[0], lobe[1] - 0.16, lobe[2]]], [0.008, 0.008, 4], METAL); lay([[lobe[0], lobe[1] - 0.16, lobe[2]], [lobe[0], lobe[1] - 0.22, lobe[2]], [lobe[0], lobe[1] - 0.28, lobe[2]]], [0.04, 0.04, 6], { ...METAL, taper: bead }); }
+  });
+}
+
+/** A stud in the wing of the nose, or a ring through its middle. */
+function layNose(lay: LayGear, p: Person, k: Marks, surface: (x: number, y: number) => number): void {
+  const side = p.seed % 2 === 0 ? -1 : 1, z = surface(side * 0.16, k.sn + 0.08);
+  if (p.gear.nose === "stud") lay([[side * 0.16, k.sn + 0.08, z], [side * 0.17, k.sn + 0.08, z + 0.02], [side * 0.18, k.sn + 0.08, z + 0.04]], [0.02, 0.02, 6], { ...METAL, taper: bead });
+  if (p.gear.nose === "ring") lay(ringOf(10, (c, s) => [0.05 * c, k.sn - 0.03 + 0.05 * s, surface(0, k.sn) - 0.02]), [0.008, 0.008, 4], METAL);
+}
+
+/** A chain round the neck, lying on what they wear, and what hangs from it. */
+function layNeck(lay: LayGear, p: Person, h: HeadFrame): void {
+  if (p.gear.neck === "none" || ["hoodie", "puffer", "raincoat", "coat", "blazer"].includes(p.outfit.top)) return;
+  const s = restSkeleton(p), head = (at: Vec): Vec => scale(sub(at, h.c), 1 / h.r), base = head(lerpV(s.neck, s.chest, 0.3)), chest = { ...METAL, bone: boneIndex("chest") };
+  lay(ringOf(26, (c, si) => [base[0] + 0.86 * si, base[1] - 0.42 * ((c + 1) / 2) ** 2, base[2] + 0.1 + 0.62 * c]), [0.012, 0.01, 4], chest);
+  const low = add(base, [0, -0.42, 0.74]);
+  if (p.gear.neck === "pendant") lay([low, add(low, [0, -0.07, 0.01]), add(low, [0, -0.14, 0])], [0.05, 0.03, 6], { ...chest, taper: bead });
+}
+
+/** A point on the hair over the skull, `along` from one ear over the top to the other, a share `out` beyond the skull and `fore` forward. */
+function overHead(p: Person, along: number, out: number, fore: number): Vec {
+  return [Math.sin(along) * SKULL[0] * p.face.bone.W * 0.84 * out, SKULL_AT[1] + Math.cos(along) * SKULL[1] * out, SKULL_AT[2] + fore];
+}
+
+/** A point round a head at the height of a band. */
+const overBand = (p: Person, c: number, s: number): Vec => [s * SKULL[0] * p.face.bone.W * 0.84 * 1.02, 0.56, SKULL_AT[2] + c * SKULL[2] * 0.9];
+
+/** An arc over the head from ear to ear. */
+const arcOver = (p: Person, out: number, fore: number, half: number): readonly Vec[] => Array.from({ length: 15 }, (_, i) => overHead(p, half * (i / 7 - 1), out, fore));
+
+/** Clips along the side of the hair, one to each place. */
+function layClips(lay: LayGear, p: Person, side: number, places: readonly number[]): void {
+  for (const at of places) lay([overHead(p, side * at, 1.02, 0.55), overHead(p, side * (at + 0.03), 1.02, 0.42), overHead(p, side * (at + 0.06), 1.02, 0.3)], [0.045, 0.018, 4], CLIP);
+}
+
+/** What is in the hair: a clip or a row of them, a bow, a band; and headphones over all of it. */
+function layHair(lay: LayGear, p: Person): void {
+  const kind = p.gear.hair, side = p.seed % 2 === 0 ? -1 : 1;
+  if (p.hair !== "bald") {
+    if (kind === "band") lay(arcOver(p, 1, 0.2, 1.5), [0.07, 0.03, 4], CLIP);
+    if (kind === "clip" || kind === "clips") layClips(lay, p, side, kind === "clip" ? [0.72] : [0.56, 0.74, 0.92]);
+    if (kind === "bow") {
+      const at = overHead(p, side * 0.74, 1.04, 0.45);
+      lay([add(at, [-0.2, 0.05, 0]), at, add(at, [0.2, 0.05, 0])], [0.1, 0.02, 4], { ...CLIP, taper: (s) => 0.35 + 1.3 * Math.abs(s - 0.5) });
+    }
+  }
+  if (p.outfit.hat === "visor") lay(ringOf(26, (c, s) => overBand(p, c, s)), [0.09, 0.02, 4], { role: "trim", fabric: FABRICS.cotton });
+  if (!p.gear.phones) return;
+  lay(arcOver(p, 1.03, 0, 1.42), [0.06, 0.03, 4], FRAME);
+  const w = p.face.bone.W;
+  for (const x of [-1, 1]) lay([[x * w * 0.72, 0.02, 0], [x * w * 0.82, 0.02, 0], [x * w * 0.92, 0.02, 0]], [0.27, 0.27, 12], { ...FRAME, taper: bead });
+}
+
+/** Everything small a person wears, near enough to see it. */
+function gearOn(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame): readonly number[] {
+  if (cell >= WRAPPED || p.outfit.costume === "fursuit") return [];
+  const size = p.build.size, to = (q: Vec): Vec => scale(add(h.c, scale(q, h.r)), size), k = marksOf(p), surface = surfaceOf(net, h, size, Math.max(0.07, ((cell * 0.5) / (h.r * size)) * 1.2));
+  let count = 0;
+  const lay: LayGear = (line, wide, worn) => { count += layLock(net, roles, to, line, wide, worn); };
+  layGlasses(lay, p, k, surface);
+  layEars(lay, p);
+  layNose(lay, p, k, surface);
+  layNeck(lay, p, h);
+  layHair(lay, p);
+  return Array.from({ length: count }, () => 1);
+}
+
 /** Where a mouth's corners go at rest: a short line up from each end of the shader's, each person's own, a little higher on one side. */
 function cornersOf(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame): readonly number[] {
   if (p.outfit.costume === "fursuit" || cell >= FAR_HAIR) return [];
@@ -3971,10 +4177,10 @@ function cornersOf(net: Net, p: Person, roles: readonly string[], cell: number, 
 function moustacheOf(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame): readonly number[] {
   if (p.face.hair !== "moustache" || p.outfit.costume === "fursuit") return [];
   const size = p.build.size, { mouthWide: w, bone: b } = p.face, surface = surfaceOf(net, h, size, Math.max(0.07, ((cell * 0.5) / (h.r * size)) * 1.2));
-  const line = [-3, -2, -1, 0, 1, 2, 3].map((i): readonly [number, number] => [(i / 3) * w * 0.98, b.sub * b.L - 0.1 - 0.02 * (i / 3) ** 2]);
+  const line = [-3, -2, -1, 0, 1, 2, 3].map((i): readonly [number, number] => [(i / 3) * Math.max(w * 1.08, 0.36), b.sub * b.L - 0.09 - 0.06 * (i / 3) ** 2]);
   const depth = evened(line.map(([x, y]) => surface(x, y))), to = (q: Vec): Vec => scale(add(h.c, scale(q, h.r)), size);
   const taper = (s: number): number => mix(0.45, 1, Math.sin(s * Math.PI));
-  return Array.from({ length: layLock(net, roles, to, line.map(([x, y], i) => [x, y, (depth[i] ?? 0) + 0.02]), [0.055, 0.03, 6], { role: "beard", fabric: FABRICS.hair, taper }) }, () => 1);
+  return Array.from({ length: layLock(net, roles, to, line.map(([x, y], i) => [x, y, (depth[i] ?? 0) + 0.035]), [0.05, 0.03, 6], { role: "beard", fabric: FABRICS.hair, taper }) }, () => 1);
 }
 
 /** The mesh of a person, built once, each layer its own closed shell on the same bones: `cell` the body's grid in metres, so a far person can have a coarser one; the head's is finer, for the face. */
@@ -3991,7 +4197,7 @@ export function meshOf(p: Person, cell = 0.016): PersonMesh {
   const s = restSkeleton(p), h = headFrame(s, p.build.head, p.face), size = p.build.size;
   const eyeAt = (x: number): Vec => scale(h.mark(x * p.face.apart, p.face.bone.pupil, 0.8), size);
   const roof = roofOf(dressed, size);
-  const tones = [...hairLocks(net, p, roles, cell, roof), ...earsOf(net, p, roles, cell), ...(cell < WRAPPED ? [] : cornersOf(net, p, roles, cell, h)), ...moustacheOf(net, p, roles, cell, h)];
+  const tones = [...hairLocks(net, p, roles, cell, roof), ...earsOf(net, p, roles, cell), ...(cell < WRAPPED ? [] : cornersOf(net, p, roles, cell, h)), ...moustacheOf(net, p, roles, cell, h), ...gearOn(net, p, roles, cell, h)];
   const kept = compacted(net);
   const shade = hemShadow(kept, creases(kept), roles, size);
   // (The locks went in last, so theirs are the last vertices.)

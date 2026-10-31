@@ -1,7 +1,7 @@
 const finite = (body) => body.capsules.every((c) => [...c.a, ...c.b, c.r].every(Number.isFinite));
 
-/** What 400 seeds' builds, clothes, gaits and skins hash to: pinned from before faces got a stream of their own, so nothing about a face can shift them. */
-const STREAM_HASH = 494738192;
+/** What 400 seeds' builds, clothes, gaits and skins hash to: pinned so nothing about a face can shift them; moved once, on purpose, when bare heads got the wider rack of hats and everyone their gear. */
+const STREAM_HASH = -1213391656;
 
 export default [
   {

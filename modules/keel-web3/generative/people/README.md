@@ -51,4 +51,6 @@ Both have levels by the mesh's grid: near (every lock, every fold of the ear), m
 
 A head near enough to read is a fixed mesh: the same rows and columns on everyone, laid through the same lines of a face (brow, lids, nose base, lips, chin) and shot onto the solid the head is melted from, with real eye openings, balls behind them, and lips that stand off the face. From `0.05` out a head stays the melted solid, whose face is paint alone.
 
+`Person.gear` is what a person wears that is not clothes: glasses, earrings, a nose stud or ring, a chain, clips, bows, bands and headphones. It comes from its own stream. A child gets no piercings. `Look` also carries `lines`, `rough`, `scars` and `uneven`, which `render/skin-body` paints as folds, pits, old marks and uneven tone.
+
 `render/skin-body` lights hair along its strands. Hair vertices carry their direction in `cloth.xyz` and a strand coordinate in `cloth.w`.

@@ -42,6 +42,11 @@ export interface SkinLook {
   readonly freckles?: number;
   readonly spots?: number;
   readonly tired?: number;
+  /** How lined a face is, how rough its skin, how many old marks it carries, and how uneven its tone, 0 to 1. */
+  readonly lines?: number;
+  readonly rough?: number;
+  readonly scars?: number;
+  readonly uneven?: number;
   /** Whose marks these are: any number. */
   readonly seed?: number;
   /** Up to two moles: from between the eyes, right and up, and a radius, in heads. */
@@ -188,6 +193,7 @@ uniform vec4 uBrowLine;        // a brow's height, arch, tilt and half width, in
 uniform vec4 uMarks;           // freckles, spots, tired eyes, and whose
 uniform vec4 uShadow, uBlush;  // a colour, and how much of it
 uniform float uLiner;          // how heavy the line along the lashes: past .6 it flicks out
+uniform vec4 uSkin;            // lines, roughness, old marks, uneven tone
 uniform vec3 uMoleA, uMoleB;   // where from between the eyes and how big, in heads
 
 float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -258,13 +264,35 @@ float flecks(vec2 g, float rare) {
   return 1.0 - smoothstep(0.1 + 0.12 * fract(roll * 9.0), 0.32, length(f));
 }
 
+// The lines a face folds along, 0 to about 1: three across the brow, two between the brows, fans from the eyes, and the fold from nose to mouth.
+float creases(vec2 h) {
+  vec2 s = vec2(abs(h.x), h.y);
+  float wob = (noise(h * 8.0 + uMarks.w) - 0.5) * 0.03, a = 0.0;
+  for (float i = 0.0; i < 3.0; i += 1.0) a += exp(-pow((s.y - 0.34 - i * 0.12 + wob + 0.1 * s.x * s.x) / 0.02, 2.0)) * smoothstep(0.66, 0.3, s.x) * noise(vec2(s.x * 9.0, i + uMarks.w));
+  a += exp(-pow((s.x - 0.07 + wob) / 0.012, 2.0)) * smoothstep(0.03, 0.09, s.y) * smoothstep(0.32, 0.2, s.y) * 0.8;
+  vec2 c = s - vec2(0.7, 0.0);
+  a += exp(-pow(sin(atan(c.y, c.x) * 5.0 + 0.7) / 0.26, 2.0)) * smoothstep(0.02, 0.08, length(c)) * smoothstep(0.26, 0.12, length(c)) * smoothstep(-0.02, 0.03, c.x) * 0.5;
+  float t = clamp((-0.4 - s.y) / 0.42, 0.0, 1.0), side = mix(0.24, 0.5, sqrt(t));
+  a += exp(-pow((s.x - side + wob) / 0.04, 2.0)) * smoothstep(0.0, 0.2, t) * smoothstep(1.0, 0.6, t) * 0.8;
+  a += exp(-pow((s.y + 0.2 + 0.9 * (s.x - 0.42) * (s.x - 0.42)) / 0.014, 2.0)) * smoothstep(0.68, 0.5, s.x) * smoothstep(0.2, 0.3, s.x) * 0.5;
+  return a;
+}
+
 // A skin's own surface: pores in the normal, gone once a pixel is wider than they are.
 vec3 pored(vec3 n) {
   vec2 p = vRest.xy * 520.0 + vRest.z * 310.0;
   float fade = 1.0 - smoothstep(0.25, 1.0, fwidth(p.x));
   if (fade <= 0.0) return n;
   float a = noise(p), e = 0.5;
-  return normalize(n + 0.05 * fade * vec3(a - noise(p + vec2(e, 0.0)), a - noise(p + vec2(0.0, e)), 0.0) / e);
+  n = normalize(n + (0.07 + 0.1 * uSkin.y) * fade * vec3(a - noise(p + vec2(e, 0.0)), a - noise(p + vec2(0.0, e)), 0.0) / e);
+  if (uHasFace < 0.5 || vRest.z < uEyeL.z - uHead * 0.7 || vRest.y < uMouth.y - uHead * 0.8) return n;
+  vec2 h = (vRest.xy - (uEyeL.xy + uEyeR.xy) * 0.5) / uHead, d = vec2(0.012, 0.0);
+  // (Old acne and sun leave a skin pitted, in patches: large soft dimples under the pores.)
+  float pits = uSkin.y * smoothstep(0.45, 0.8, noise(h * 6.0 + uMarks.w)) * 0.5, b = noise(h * 42.0);
+  vec2 slope = pits * vec2(b - noise((h + d.xy) * 42.0), b - noise((h + d.yx) * 42.0)) / 0.012 * 0.02;
+  float fold = creases(h), wide = 1.0 - smoothstep(0.004, 0.02, fwidth(h.x));
+  if (uSkin.x > 0.02 && wide > 0.0) slope += uSkin.x * wide * 0.014 * vec2(creases(h + d.xy) - fold, creases(h + d.yx) - fold) / 0.012;
+  return normalize(n + vec3(slope, 0.0));
 }
 
 // Blood under a skin, in patches: it is what stops one colour reading as plastic.
@@ -283,9 +311,32 @@ vec3 sheen(vec3 n, vec3 rd, float nl) {
 
 float mole(vec2 h, vec3 at) { return at.z > 0.0 ? 1.0 - smoothstep(at.z * 0.6, at.z, length(h - at.xy)) : 0.0; }
 
+// A face is not one colour: blood at the nose and cheeks, shade round the mouth and eyes, a paler brow, and the slow blotches of any real skin. Over a deep skin the same is pigment more than blood.
+vec3 toned(vec3 col, vec2 h, vec2 side) {
+  float deep = 1.0 - smoothstep(0.08, 0.4, dot(col, vec3(0.33)));
+  vec3 blood = mix(vec3(1.09, 0.91, 0.87), vec3(1.05, 0.9, 0.84), deep), shade = mix(vec3(0.95, 0.91, 0.88), vec3(0.88, 0.83, 0.82), deep);
+  float nose = exp(-pow(side.x / 0.17, 2.0) - pow((side.y + 0.34) / 0.2, 2.0));
+  float round = exp(-pow(side.x / 0.36, 2.0) - pow((side.y + 0.76) / 0.2, 2.0)), under = exp(-pow((side.x - 0.38) / 0.28, 2.0) - pow((side.y + 0.16) / 0.1, 2.0));
+  float blotch = noise(h * 5.0 + uMarks.w * 3.1) * 0.6 + noise(h * 13.0 - uMarks.w) * 0.4, fine = noise(h * 37.0 + uMarks.w);
+  col *= mix(vec3(1.0), blood, (0.5 + 0.5 * uSkin.w) * nose);
+  col *= mix(vec3(1.0), shade, 0.6 * round + 0.5 * under);
+  col *= mix(vec3(1.0), blood, uSkin.w * 0.9 * smoothstep(0.5, 0.75, blotch));
+  col *= mix(vec3(1.0), shade, uSkin.w * 0.9 * smoothstep(0.52, 0.32, blotch));
+  return col * (1.0 + 0.05 * (fine - 0.5) * (0.5 + uSkin.w));
+}
+
+// What age and old trouble leave: the folds, sun spots, and the marks old spots fade to.
+vec3 worn(vec3 col, vec2 h) {
+  col *= 1.0 - 0.17 * clamp(uSkin.x * creases(h), 0.0, 1.0);
+  col = mix(col, col * vec3(0.68, 0.56, 0.5), 0.8 * smoothstep(0.35, 1.0, uSkin.x) * flecks(h * 9.0 + 3.0, 0.93));
+  col = mix(col, col * vec3(0.8, 0.62, 0.58), uSkin.z * flecks(h * 17.0 + 7.0, 0.9));
+  return col;
+}
+
 // What lies on a skin: colour on the cheeks, freckles over the nose, the odd spot low on the face, a mole or two.
 vec3 marked(vec3 col) {
   vec2 h = (vRest.xy - (uEyeL.xy + uEyeR.xy) * 0.5) / uHead, side = vec2(abs(h.x), h.y);
+  col = worn(toned(col, h, side), h);
   float cheek = exp(-pow((side.x - 0.46) / 0.26, 2.0) - pow((side.y + 0.36) / 0.18, 2.0));
   col = mix(col, uBlush.rgb, uBlush.a * cheek);
   float band = exp(-pow((side.x - 0.24) / 0.34, 2.0) - pow((side.y + 0.3) / 0.16, 2.0));
@@ -304,9 +355,10 @@ vec3 mouth(vec3 col, vec2 q) {
   float line = 0.07;
   if (y < line * 0.5 && y > -line * 0.5 - open) return mix(vec3(0.09, 0.03, 0.03), col, 0.08);
   float low = y + line * 0.5 + open;
-  if (low < 0.0 && low > -0.36 * pow(k, 0.7)) return mix(col, uLip, 0.72) * (0.9 + 0.2 * smoothstep(-0.36, -0.1, low));
+  float cracks = 0.93 + 0.13 * noise(vec2(q.x * 34.0, q.y * 5.0));
+  if (low < 0.0 && low > -0.36 * pow(k, 0.7)) return mix(col, uLip, 0.72) * (0.9 + 0.2 * smoothstep(-0.36, -0.1, low)) * cracks;
   float up = y - line * 0.5;
-  if (up > 0.0 && up < 0.22 * pow(k, 0.7) * (1.0 - 0.3 * exp(-x * x * 40.0))) return mix(col, uLip, 0.62) * 0.92;
+  if (up > 0.0 && up < 0.22 * pow(k, 0.7) * (1.0 - 0.3 * exp(-x * x * 40.0))) return mix(col, uLip, 0.62) * 0.92 * cracks;
   return col;
 }
 
@@ -565,11 +617,16 @@ const LIGHTS = ["uSun", "uSunCol", "uFill", "uFillCol", "uSky", "uGround", "uRim
 
 const NO_FACE: SkinFace = { eyes: [[0, 0, 0], [0, 0, 0]], eye: 1, mouth: [0, 0, 0], mouthWide: 1, head: 1 };
 
+/** How worn a skin is, as its uniform. */
+function skinOf(lit: SkinLit, look: SkinLook | undefined): InstanceType<SkinLit["Vector4"]> {
+  return new lit.Vector4(look?.lines ?? 0, look?.rough ?? 0, look?.scars ?? 0, look?.uneven ?? 0);
+}
+
 function lookUniforms(lit: SkinLit, face: SkinFace): Record<string, Uniform> {
   const { shadow, blush, liner = 0, freckles = 0, spots = 0, tired = 0, seed = 0, moles = [] } = face.look ?? {}, [a, b, c, d] = face.browLine ?? [2.4, 0, 0.14, 0.2];
   const washed = (wash: readonly [string, number] | undefined): Uniform => { const v = linear(lit, wash?.[0] ?? "#000000"); return { value: new lit.Vector4(v.r, v.g, v.b, wash?.[1] ?? 0) }; };
   const mole = (at: readonly [number, number, number] | undefined): Uniform => ({ value: new lit.Vector3(at?.[0] ?? 0, at?.[1] ?? 0, at?.[2] ?? 0) });
-  return { uBrowLine: { value: new lit.Vector4(a, b, c, d) }, uMarks: { value: new lit.Vector4(freckles, spots, tired, seed % 97) }, uShadow: washed(shadow), uBlush: washed(blush), uLiner: { value: liner }, uMoleA: mole(moles[0]), uMoleB: mole(moles[1]) };
+  return { uBrowLine: { value: new lit.Vector4(a, b, c, d) }, uMarks: { value: new lit.Vector4(freckles, spots, tired, seed % 97) }, uShadow: washed(shadow), uBlush: washed(blush), uLiner: { value: liner }, uSkin: { value: skinOf(lit, face.look) }, uMoleA: mole(moles[0]), uMoleB: mole(moles[1]) };
 }
 
 function faceUniforms(lit: SkinLit, given: SkinFace | undefined): Record<string, Uniform> {

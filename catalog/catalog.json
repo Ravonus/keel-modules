@@ -98,7 +98,7 @@
         "group": "sound",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/audio-envelope",
       "githubPath": "modules/keel-web3/audio/audio-envelope/src/index.ts",
       "sourceFiles": [
@@ -166,7 +166,7 @@
         "group": "generative",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/generative/beach/src/index.ts",
       "sourceFiles": [
@@ -457,7 +457,7 @@
         "group": "generative",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/generative/fauna/src/index.ts",
       "sourceFiles": [
@@ -525,7 +525,7 @@
         "group": "runtime",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/film-takes",
       "githubPath": "modules/keel-web3/timing/film-takes/src/index.ts",
       "sourceFiles": [
@@ -593,7 +593,7 @@
         "group": "generative",
         "member": "ravonus"
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/flash-edition",
       "githubPath": "modules/keel-web3/generative/flash-edition/src/index.ts",
       "sourceFiles": [
@@ -661,7 +661,7 @@
         "group": "runtime",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/frame-clock",
       "githubPath": "modules/keel-web3/timing/frame-clock/src/index.ts",
       "sourceFiles": [
@@ -846,7 +846,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/glow-field/src/index.ts",
       "sourceFiles": [
@@ -914,7 +914,7 @@
         "group": "runtime",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/hotkeys",
       "githubPath": "modules/keel-web3/input/hotkeys/src/index.ts",
       "sourceFiles": [
@@ -982,7 +982,7 @@
         "group": "sound",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/audio/lofi-grove/src/index.ts",
       "sourceFiles": [
@@ -1050,7 +1050,7 @@
         "group": "generative",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/generative/marine/src/index.ts",
       "sourceFiles": [
@@ -1118,7 +1118,7 @@
         "group": "generative",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/noise2d",
       "githubPath": "modules/keel-web3/generative/noise2d/src/index.ts",
       "sourceFiles": [
@@ -1186,7 +1186,7 @@
         "group": "generative",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/generative/ocean/src/index.ts",
       "sourceFiles": [
@@ -1254,7 +1254,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/ocean-render/src/index.ts",
       "sourceFiles": [
@@ -1322,7 +1322,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/orbit-camera",
       "githubPath": "modules/keel-web3/render/orbit-camera/src/index.ts",
       "sourceFiles": [
@@ -1390,7 +1390,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/palette",
       "githubPath": "modules/keel-web3/render/palette/src/index.ts",
       "sourceFiles": [
@@ -1458,7 +1458,7 @@
         "group": "runtime",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/plate-worlds",
       "githubPath": "modules/keel-web3/render/plate-worlds/src/index.ts",
       "sourceFiles": [
@@ -1560,7 +1560,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/quality/src/index.ts",
       "sourceFiles": [
@@ -1628,7 +1628,7 @@
         "group": "runtime",
         "member": "ravonus"
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/ruffle-loader",
       "githubPath": "modules/keel-web3/viewer/ruffle-loader/src/index.ts",
       "sourceFiles": [
@@ -1720,7 +1720,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/sdf-body/src/index.ts",
       "sourceFiles": [
@@ -1788,7 +1788,7 @@
         "group": "generative",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/seeded-random",
       "githubPath": "modules/keel-web3/generative/seeded-random/src/index.ts",
       "sourceFiles": [
@@ -1856,7 +1856,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/shader-uniforms",
       "githubPath": "modules/keel-web3/render/shader-uniforms/src/index.ts",
       "sourceFiles": [
@@ -1924,7 +1924,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/sprite-sheet",
       "githubPath": "modules/keel-web3/render/sprite-sheet/src/index.ts",
       "sourceFiles": [
@@ -1992,7 +1992,7 @@
         "group": "runtime",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/thumbnail-capture",
       "githubPath": "modules/keel-web3/viewer/thumbnail-capture/src/index.ts",
       "sourceFiles": [
@@ -2135,7 +2135,7 @@
         "group": "generative",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/generative/tree-growth/src/index.ts",
       "sourceFiles": [
@@ -2248,7 +2248,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/tree-render/src/index.ts",
       "sourceFiles": [
@@ -2316,7 +2316,7 @@
         "group": "runtime",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": "https://github.com/keel-web3/verified-assets",
       "githubPath": "modules/keel-web3/viewer/verified-assets/src/index.ts",
       "sourceFiles": [
@@ -2679,7 +2679,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/voxel-dither/src/index.ts",
       "sourceFiles": [
@@ -2815,7 +2815,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/world-light/src/index.ts",
       "sourceFiles": [
@@ -3180,7 +3180,7 @@
         "group": "graphics",
         "member": null
       },
-      "sourceRepository": null,
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
       "moduleRepository": null,
       "githubPath": "modules/keel-web3/render/world-theme/src/index.ts",
       "sourceFiles": [

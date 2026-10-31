@@ -210,7 +210,7 @@ type Weighted<T> = readonly (readonly [T, number])[];
 
 const HAIRS: Readonly<Record<Sex, Weighted<HairStyle>>> = {
   female: [["long", 4], ["wavy", 3.4], ["bob", 3], ["bangs", 2.6], ["pony", 2.4], ["bun", 2], ["braids", 2], ["twintails", 1.4], ["curly", 2], ["afro", 1.2], ["locs", 1.2], ["shag", 2], ["side", 0.8], ["undercut", 0.5]],
-  male: [["crop", 4], ["side", 3.4], ["undercut", 2.6], ["curly", 2], ["shag", 1.6], ["afro", 1.2], ["locs", 1.2], ["mohawk", 0.5], ["bald", 1.4], ["long", 0.7], ["wavy", 0.6], ["bun", 0.4], ["pony", 0.3]],
+  male: [["crop", 4], ["side", 3.4], ["undercut", 2.6], ["curly", 2], ["shag", 1.6], ["afro", 1.2], ["locs", 0.6], ["mohawk", 0.5], ["bald", 1.4], ["long", 0.25], ["wavy", 0.25], ["bun", 0.12], ["pony", 0.12]],
 };
 
 interface Wardrobe {
@@ -327,9 +327,9 @@ function faceOf(rand: () => number, age: Age, sex: Sex): Face {
     browTilt: mix(-0.08, 0.14, rand()),
     nose: mix(0.03, 0.2, rand()) * (1 - young * 0.6),
     noseWide: mix(0.09, 0.26, rand()),
-    lips: mix(0.09, 0.14, rand()) * (1 + soft * 0.15),
+    lips: mix(0.09, 0.14, rand()) * (1 + soft * 0.15 - (1 - soft) * (1 - young) * 0.12),
     mouthWide: mix(0.24, 0.34, rand()),
-    jaw: mix(0.68, 1.02, rand()) + young * 0.16 - soft * 0.1,
+    jaw: mix(0.68, 1.02, rand()) + young * 0.16 - soft * 0.1 + (1 - soft) * (1 - young) * 0.07,
     chin: mix(0.16, 0.5, rand()) * (1 - soft * 0.2),
     ears: mix(0.2, 0.3, rand()),
     wide: mix(0.86, 1.12, rand()),

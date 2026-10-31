@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "film-takes",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Overdub takes for a fixed film: rewinding keeps what was filmed, a touch starts a new take, skipped frames ease to a rest pose.",
+  "category": "timing",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime"
+  },
+  "repository": "https://github.com/keel-web3/film-takes"
+}

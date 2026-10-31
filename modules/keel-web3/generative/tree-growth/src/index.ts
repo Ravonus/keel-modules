@@ -1405,9 +1405,12 @@ const LOG_RADIUS = 0.09;
 /** Fallen limbs come to rest inside this reach of the trunk. */
 const ISLAND = 3.4;
 /** How far dead wood sinks, as a share of the way to its resting pitch. */
-const LIMP = 0.8;
+const LIMP = 0.68;
 /** Dead wood hangs this far under level, in radians. */
 const LIMP_PITCH = -0.22;
+/** How far either way each piece strays from that, so a dead limb stays crooked; thin wood hangs lower. */
+const LIMP_CROOK = 0.3;
+const LIMP_TWIG = 0.05;
 
 function growthPass(model: TreeModel, cycle: number, frame: TreeFrame): void {
   for (let node = model.count - 1; node >= 0; node -= 1) {
@@ -1494,11 +1497,12 @@ function fallen(point: Vec, pose: FallPose, progress: number, ground: number): V
 }
 
 /** Dead wood loses its turgor: each piece sinks from where it grew toward a little under level. */
-function limp(piece: Vec, dead: number, outward: Vec): Vec {
+function limp(piece: Vec, dead: number, outward: Vec, stray: number, order: number): Vec {
   const flat = Math.hypot(piece.x, piece.z);
   const pitch = Math.atan2(piece.y, flat);
-  if (pitch <= LIMP_PITCH) return piece;
-  const sunk = pitch + (LIMP_PITCH - pitch) * LIMP * smooth(dead);
+  const rest = LIMP_PITCH + (stray - 0.5) * 2 * LIMP_CROOK - order * LIMP_TWIG;
+  if (pitch <= rest) return piece;
+  const sunk = pitch + (rest - pitch) * LIMP * smooth(dead);
   const heading = flat > 1e-6 ? vec(piece.x / flat, 0, piece.z / flat) : normalize(vec(outward.x, 0, outward.z), vec(1, 0, 0));
   const long = lengthOf(piece);
   return vec(heading.x * Math.cos(sunk) * long, Math.sin(sunk) * long, heading.z * Math.cos(sunk) * long);
@@ -1515,7 +1519,7 @@ function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, grou
     let base = parent >= 0 ? vec(at(frame.x, parent), at(frame.y, parent), at(frame.z, parent)) : vec(0, 0, 0);
     const dead = at(model.order, node) > 0 ? at(frame.dead, node) : 0;
     const heldBase = parent >= 0 && dead > 0 ? vec(at(held, parent * 3), at(held, parent * 3 + 1), at(held, parent * 3 + 2)) : restBase;
-    let heldEnd = dead > 0 ? add(heldBase, limp(add(restEnd, restBase, -1), dead, restBase)) : restEnd;
+    let heldEnd = dead > 0 ? add(heldBase, limp(add(restEnd, restBase, -1), dead, restBase, createRandom(model.seed ^ (node * 31 + 7))(), at(model.order, node))) : restEnd;
     if (dead > 0) heldEnd = vec(heldEnd.x, Math.max(heldEnd.y, ground + 0.04), heldEnd.z);
     held[node * 3] = heldEnd.x; held[node * 3 + 1] = heldEnd.y; held[node * 3 + 2] = heldEnd.z;
     let end = heldEnd;

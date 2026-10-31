@@ -264,8 +264,9 @@ export default [
       const reach = (mix) => {
         const tree = api.growTree({ species: 'cherry', seed: 3, mix });
         const frame = api.treeFrame(tree, api.cycleAt(tree, 60, 100), { ground: 0 });
+        // Form is what the living crown holds; dead wood sags out of it.
         let most = 0;
-        for (let node = 0; node < tree.count; node += 1) if (frame.grow[node] > 0) most = Math.max(most, Math.hypot(frame.x[node], frame.z[node]));
+        for (let node = 0; node < tree.count; node += 1) if (frame.grow[node] > 0 && frame.dead[node] === 0) most = Math.max(most, Math.hypot(frame.x[node], frame.z[node]));
         return most;
       };
       const cherry = reach({ cherry: 1 }), oak = reach({ oak: 1 }), half = reach({ cherry: 0.5, oak: 0.5 });

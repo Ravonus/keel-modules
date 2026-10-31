@@ -1404,6 +1404,10 @@ const FALL_CYCLES = 0.08;
 const LOG_RADIUS = 0.09;
 /** Fallen limbs come to rest inside this reach of the trunk. */
 const ISLAND = 3.4;
+/** How far dead wood sinks, as a share of the way to its resting pitch. */
+const LIMP = 0.8;
+/** Dead wood hangs this far under level, in radians. */
+const LIMP_PITCH = -0.22;
 
 function growthPass(model: TreeModel, cycle: number, frame: TreeFrame): void {
   for (let node = model.count - 1; node >= 0; node -= 1) {
@@ -1489,20 +1493,38 @@ function fallen(point: Vec, pose: FallPose, progress: number, ground: number): V
   return vec(moved.x * pull, ground + 0.04 + high + (Math.min(0.12, high * 0.05) - high) * eased, moved.z * pull);
 }
 
+/** Dead wood loses its turgor: each piece sinks from where it grew toward a little under level. */
+function limp(piece: Vec, dead: number, outward: Vec): Vec {
+  const flat = Math.hypot(piece.x, piece.z);
+  const pitch = Math.atan2(piece.y, flat);
+  if (pitch <= LIMP_PITCH) return piece;
+  const sunk = pitch + (LIMP_PITCH - pitch) * LIMP * smooth(dead);
+  const heading = flat > 1e-6 ? vec(piece.x / flat, 0, piece.z / flat) : normalize(vec(outward.x, 0, outward.z), vec(1, 0, 0));
+  const long = lengthOf(piece);
+  return vec(heading.x * Math.cos(sunk) * long, Math.sin(sunk) * long, heading.z * Math.cos(sunk) * long);
+}
+
 function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, ground: number, size: Grandeur): void {
   const poses = new Map<number, FallPose>();
+  const held = new Float64Array(model.count * 3);
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);
     const restBase = parent >= 0 ? restAt(model, parent, size) : vec(0, 0, 0);
     const restEnd = add(restBase, add(restAt(model, node, size), restBase, -1), at(frame.grow, node));
     const root = at(shedRoot, node);
     let base = parent >= 0 ? vec(at(frame.x, parent), at(frame.y, parent), at(frame.z, parent)) : vec(0, 0, 0);
-    let end = restEnd;
+    const dead = at(model.order, node) > 0 ? at(frame.dead, node) : 0;
+    const heldBase = parent >= 0 && dead > 0 ? vec(at(held, parent * 3), at(held, parent * 3 + 1), at(held, parent * 3 + 2)) : restBase;
+    let heldEnd = dead > 0 ? add(heldBase, limp(add(restEnd, restBase, -1), dead, restBase)) : restEnd;
+    if (dead > 0) heldEnd = vec(heldEnd.x, Math.max(heldEnd.y, ground + 0.04), heldEnd.z);
+    held[node * 3] = heldEnd.x; held[node * 3 + 1] = heldEnd.y; held[node * 3 + 2] = heldEnd.z;
+    let end = heldEnd;
     if (root >= 0) {
       const pose = poseFor(model, poses, root, ground, size);
       const progress = at(frame.fall, node);
-      end = fallen(restEnd, pose, progress, ground);
-      if (root === node) base = fallen(restBase, pose, progress, ground);
+      // The sag lets go as the limb does, so it leaves from where it hung and lands where it always lands.
+      end = fallen(add(restEnd, add(heldEnd, restEnd, -1), 1 - progress), pose, progress, ground);
+      if (root === node) base = fallen(add(restBase, add(heldBase, restBase, -1), 1 - progress), pose, progress, ground);
     }
     frame.x[node] = end.x; frame.y[node] = end.y; frame.z[node] = end.z;
     frame.baseX[node] = base.x; frame.baseY[node] = base.y; frame.baseZ[node] = base.z;

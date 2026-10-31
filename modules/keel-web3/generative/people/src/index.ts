@@ -777,6 +777,9 @@ function gearColours(seed: number): Record<string, string> {
   return { metal: r() < 0.5 ? "#d8b35a" : "#c8c8cc", lens: r() < 0.5 ? "#16181c" : "#2c2418", clip: bright[Math.floor(r() * bright.length)] ?? "#d8423c" };
 }
 
+/** The shirt in a jacket's front: pale under a dark one and dark under a pale, never a bright. */
+const shirtUnder = (top: string): string => (glowOf(top) > 0.4 ? "#3a4252" : "#ece8e0");
+
 /** The person a seed is, always the same one. */
 export function personOf(seed: number, weather: Weather = "mild", costume?: Costume): Person {
   const rand = streamOf(seed, 0x70656f70);
@@ -793,7 +796,7 @@ export function personOf(seed: number, weather: Weather = "mild", costume?: Cost
   const outfit = hatted(seed, build, inCostume(day, build, dressedFor(day, build, base, weather), weather, costume));
   const big = outfit.costume === "fursuit" ? { ...build, head: build.head * 1.16 } : build;
   const worn = { ...palette, ...colourFor(day, outfit), ...gearColours(seed) };
-  return { seed, build: big, face, hair: outfit.costume === "fursuit" ? "bald" : hair, outfit, gear: gearOf(seed, build, outfit), palette: { ...worn, bottom: parted(worn.bottom ?? "#333333", worn.top ?? "#777777") }, gait: gaitOf(streamOf(seed, 0x67616974), build) };
+  return { seed, build: big, face, hair: outfit.costume === "fursuit" ? "bald" : hair, outfit, gear: gearOf(seed, build, outfit), palette: { ...worn, shirt: shirtUnder(worn.top ?? "#777777"), bottom: parted(worn.bottom ?? "#333333", worn.top ?? "#777777") }, gait: gaitOf(streamOf(seed, 0x67616974), build) };
 }
 
 /** A hand on the move, how closed: a fist, loose, cupped, or flat as a blade. */
@@ -1512,9 +1515,7 @@ function drawSkirt(kit: Kit, p: Person, s: Skeleton): void {
 }
 
 /** A collar, a shirt and a tie under a jacket. */
-function drawLapels(kit: Kit, s: Skeleton, tie: boolean): void {
-  put(kit, "shirt", "trim", add(s.neck, [0, -0.03, 0.14]), add(lerpV(s.waist, s.chest, 0.5), [0, 0.02, 0.14]), 0.17, { decal: true, flat: 0.3, up: SIDE, melt: 0.2 });
-  if (tie) put(kit, "tie", "dark", add(s.neck, [0, -0.05, 0.14]), add(s.waist, [0, 0.06, 0.16]), 0.14, { decal: true, flat: 0.16, up: SIDE, melt: 0.2 });
+function drawLapels(kit: Kit, s: Skeleton): void {
   put(kit, "collar", "top", add(s.neck, [-0.075, -0.045, -0.01]), add(s.neck, [0.075, -0.045, -0.01]), 0.034, { flat: 0.6, up: UP, melt: 0.3 });
 }
 
@@ -1543,7 +1544,7 @@ function drawClothes(kit: Kit, p: Person, s: Skeleton, rich: boolean): void {
     const low = lerpV(s.waist, s.pelvis, 0.12);
     put(kit, "pouch", "trim", add(low, [-hip * 0.5, 0, 0.1]), add(low, [hip * 0.5, 0, 0.1]), 0.075, { decal: true, flat: 0.5, up: UP, melt: 0.2 });
   }
-  if (top === "jacket" || top === "blazer" || top === "coat") drawLapels(kit, s, top === "blazer");
+  if (top === "jacket" || top === "blazer" || top === "coat") drawLapels(kit, s);
   if (top === "polo") put(kit, "collar", "trim", add(s.neck, [-0.06, -0.045, 0.02]), add(s.neck, [0.06, -0.045, 0.02]), 0.026, { flat: 0.6, up: UP, melt: 0.3 });
   drawStripes(kit, p, s, ribs);
   const belt = lerpV(s.pelvis, s.waist, 0.72);
@@ -3137,9 +3138,9 @@ function coverOf(p: Person): { readonly top: (t: number) => boolean; readonly lo
 }
 
 /** A jacket's open front, a narrowing V of shirt, and a formal one's tie down the middle of it. */
-function frontOf(p: Person, under: (at: Vec) => string): (at: Vec) => string {
+function frontOf(p: Person, under: (at: Vec) => string, cell: number): (at: Vec) => string {
   const { top, costume } = p.outfit;
-  if ((top !== "jacket" && top !== "blazer") || costume === "firefighter") return under;
+  if ((top !== "jacket" && top !== "blazer") || costume === "firefighter" || cell < WRAPPED) return under;
   const s = restSkeleton(p), from = s.neck[1] - 0.02, to = s.waist[1] + 0.04;
   return (at) => {
     const k = (at[1] - to) / (from - to);
@@ -3242,7 +3243,7 @@ function dressedBody(net: Net, p: Person, roles: readonly string[], cell: number
   const groundY = s.left.leg.ankle[1] - 0.07;
   shellOf(net, body, normals, { on: (t) => !hidden(t), keep: clear, lift: 0, role: (_, v) => (v === undefined || seen.has(v) ? "skin" : under.get(v) ?? "skin"), fabric: 0, soft, sink: (v) => (seen.has(v) ? 0 : 0.016) }, roles, size);
   if (!cover.bare) shellOf(net, body, normals, { on: cover.lower, keep: clear, cut: cut.lower, lift: lowerLift(bottom, fit), role: beltedBottom(p, s), fabric: lowerCloth(p), lay, soft }, roles, size);
-  shellOf(net, body, normals, { on: cover.top, cut: cut.top, ...(SKINTIGHT.includes(top) ? {} : { span: bridged(form) }), lift: topLift(top, fit), role: frontOf(p, stripedTop(p, s)), fabric: topCloth(p), lay, soft, edge: (at) => at[1] > joined }, roles, size);
+  shellOf(net, body, normals, { on: cover.top, cut: cut.top, ...(SKINTIGHT.includes(top) ? {} : { span: bridged(form) }), lift: topLift(top, fit), role: frontOf(p, stripedTop(p, s), cell), fabric: topCloth(p), lay, soft, edge: (at) => at[1] > joined }, roles, size);
   shellOf(net, body, normals, { on: cover.feet, lift: 0.006, role: (at) => (at[1] < groundY ? "sole" : sandal ? "skin" : "shoe"), fabric: sandal ? FABRICS.skin : FABRICS.leather }, roles, size);
   skirtShell(net, p, roles, long, waistLoop(body, normals, long ? topLift(top, fit) : lowerLift(bottom, fit)), body);
   if (p.outfit.carry === "umbrella") umbrellaShell(net, p, roles);
@@ -3407,10 +3408,10 @@ function layersOf(p: Person, dressed: readonly Capsule[], bare: readonly Capsule
   const layers: Layer[] = [
     { parts: bare.filter((c) => head(c) && c.part !== "neck"), fine: 0.5, fabric: bareStuff, lift: 0, under: hair, tuck: -0.008 * k, relax: 2, loft: loftOf(p), rigid: true, ...pelt, ...headLayerOf(p, cell) },
     { parts: bare.filter((c) => /^(palm|fingers|thumb)/.test(c.part)), fine: 0.35, fabric: bareStuff, lift: 0 },
-    { parts: dressed.filter((c) => /^(hood|collar|brush)/.test(c.part)), fine: 0.7, fabric: furred ? FABRICS.fur : topCloth(p), lift: (furred ? 0.01 : 0.012 + fit * 0.016) * k, ...pelt },
+    { parts: dressed.filter((c) => /^(hood|collar|brush)/.test(c.part) && !(c.part === "collar" && p.outfit.top === "polo" && cell < WRAPPED)), fine: 0.7, fabric: furred ? FABRICS.fur : topCloth(p), lift: (furred ? 0.01 : 0.012 + fit * 0.016) * k, ...pelt },
     { parts: on("beard"), fine: 0.5, fabric: FABRICS.skin, lift: 0.002 * k, rigid: true, relax: 3 },
     { parts: hair, fine: 0.55, fabric: FABRICS.hair, lift: 0.004 * k, roof, free: [chin + 0.02 * k, 0.4 * k], ...(massive ? curled : {}) },
-    { parts: dressed.filter((c) => /^(hat|peak)/.test(c.part)), fine: cell < WRAPPED ? 0.36 : 0.55, fabric: hatCloth(p.outfit.hat), lift: 0.008 * k },
+    { parts: dressed.filter((c) => /^(hat|peak)/.test(c.part) && !((c.part === "hat" || c.part === "hat.ridge") && fitsHat(p, cell))), fine: cell < WRAPPED ? 0.36 : 0.55, fabric: hatCloth(p.outfit.hat), lift: 0.008 * k },
   ];
   return layers.filter((l) => l.parts.length > 0);
 }
@@ -3724,10 +3725,10 @@ function closedShell(cells: Float32Array): void {
 }
 
 /** The boundary of a head, from those of its vertices `keep` takes. */
-function boundOf(net: Net, h: HeadFrame, size: number, keep: (v: number) => boolean): Bound {
+function boundOf(net: Net, h: Pick<HeadFrame, "c" | "r">, size: number, keep: (v: number) => boolean): Bound {
   const cells = new Float32Array(SHELL_AROUND * SHELL_UP);
   for (let v = 0; v < net.fabric.length; v += 1) {
-    if (net.bones[v * 2] !== HEAD || !keep(v)) continue;
+    if (!keep(v)) continue;
     const q = scale(sub(scale(vecAt(net.position, v), 1 / size), h.c), 1 / h.r), far = Math.hypot(...q);
     if (far < 0.2 || far > 3.5) continue;
     const a = Math.floor(((Math.atan2(q[0], q[2]) / TAU + 1) % 1) * SHELL_AROUND), e = clamp(Math.floor((Math.asin(q[1] / far) / Math.PI + 0.5) * SHELL_UP), 0, SHELL_UP - 1), i = e * SHELL_AROUND + a;
@@ -4259,6 +4260,127 @@ function paneOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, outline
   return (count + 1) * 2;
 }
 
+/** The front of what a body has on: how far forward it lies at any `x`, `y`, and the vertex there, from which a thing laid on it takes its bones. */
+interface Front { readonly z: (x: number, y: number) => number; readonly near: (x: number, y: number) => number }
+
+/** The boundary of a person's front, over the vertices `keep` takes, as a head has its own. */
+function frontBound(net: Net, keep: (v: number) => boolean, step: number): Front {
+  const depth = new Map<number, number>(), owner = new Map<number, number>(), key = (i: number, j: number): number => i * 8192 + j, cellOf = (v: number): number => Math.round(v / step);
+  const fill = (a: number, b: number, c: number): void => {
+    const [ax, ay, az] = vecAt(net.position, a), [bx, by, bz] = vecAt(net.position, b), [cx, cy, cz] = vecAt(net.position, c), area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+    if (Math.abs(area) < 1e-12) return;
+    for (let i = cellOf(Math.min(ax, bx, cx)); i <= cellOf(Math.max(ax, bx, cx)); i += 1) for (let j = cellOf(Math.min(ay, by, cy)); j <= cellOf(Math.max(ay, by, cy)); j += 1) {
+      const x = i * step, y = j * step, w = ((bx - x) * (cy - y) - (cx - x) * (by - y)) / area, u = ((cx - x) * (ay - y) - (ax - x) * (cy - y)) / area, v = 1 - w - u;
+      if (w < -0.05 || u < -0.05 || v < -0.05) continue;
+      const z = w * az + u * bz + v * cz, k = key(i, j);
+      if (z > (depth.get(k) ?? -FAR)) { depth.set(k, z); owner.set(k, a); }
+    }
+  };
+  for (let i = 0; i < net.index.length; i += 3) { const a = net.index[i] ?? 0, b = net.index[i + 1] ?? 0, c = net.index[i + 2] ?? 0; if (keep(a) && keep(b) && keep(c)) fill(a, b, c); }
+  const at = <T>(map: ReadonlyMap<number, T>, x: number, y: number, or: T): T => map.get(key(cellOf(x), cellOf(y))) ?? map.get(key(cellOf(x) + 1, cellOf(y))) ?? map.get(key(cellOf(x) - 1, cellOf(y))) ?? map.get(key(cellOf(x), cellOf(y) - 1)) ?? or;
+  return { near: (x, y) => at(owner, x, y, -1), z: (x, y) => at(depth, x, y, 0) };
+}
+
+/** A sheet laid on a person's front: `at` says where each corner of a grid goes, and each vertex rides the bones of what is under it. */
+function drape(net: Net, front: Front, rows: number, cols: number, at: (t: number, u: number) => readonly [number, number], lift: number, role: number, fabric: number): number {
+  const from = net.position.length / 3, point = (r: number, c: number): Vec => { const [x, y] = at(r / rows, c / cols); return [x, y, front.z(x, y) + lift]; };
+  for (let r = 0; r <= rows; r += 1) for (let c = 0; c <= cols; c += 1) {
+    const q = point(r, c), n = unit(cross(sub(point(r, Math.min(cols, c + 1)), point(r, Math.max(0, c - 1))), sub(point(Math.max(0, r - 1), c), point(Math.min(rows, r + 1), c))), FRONT), under = Math.max(0, front.near(q[0], q[1]));
+    net.position.push(...q); net.normal.push(...n); net.role.push(role); net.bones.push(net.bones[under * 2] ?? 0, net.bones[under * 2 + 1] ?? 0); net.weight.push(net.weight[under] ?? 1); net.fabric.push(fabric); net.loose.push(0); net.soft.push(0); net.cloth.push(q[0], q[2], q[1], NO_EDGE);
+  }
+  for (let r = 0; r < rows; r += 1) for (let c = 0; c < cols; c += 1) { const a = from + r * (cols + 1) + c, b = a + 1, d = a + cols + 1, e = d + 1; net.index.push(a, d, e, a, e, b); }
+  return (rows + 1) * (cols + 1);
+}
+
+/** A jacket's open front, near to: a shirt in the V of it, lapels turned back along each edge, a formal one's tie, and the buttons below. */
+function jacketFront(net: Net, p: Person, roles: readonly string[], cell: number): readonly number[] {
+  const { top, costume } = p.outfit;
+  if ((top !== "jacket" && top !== "blazer") || costume === "firefighter" || cell >= WRAPPED) return [];
+  const size = p.build.size, s = restSkeleton(p), topRole = roles.indexOf("top"), high = (s.neck[1] - 0.03) * size, low = (s.waist[1] + 0.05) * size, mid = s.chest[2] * size;
+  const cloth = topCloth(p), front = frontBound(net, (v) => net.fabric[v] === cloth && (net.position[v * 3 + 2] ?? 0) > mid, 0.01 * size);
+  const crest = Array.from({ length: 12 }, (_, i) => high + (i - 4) * 0.008 * size).reduce((best, at) => (front.near(0, at) >= 0 ? at : best), low);
+  const open = (t: number): number => (0.006 + t * 0.05) * size, y = (t: number): number => mix(low, crest, t);
+  let count = drape(net, front, 12, 6, (t, u) => [mix(-open(t), open(t), u), y(t)], 0.003 * size, roles.indexOf("shirt"), FABRICS.cotton);
+  for (const x of [-1, 1]) count += drape(net, front, 12, 3, (t, u) => { const wide = (0.012 + 0.04 * Math.sin(t * Math.PI * 0.92)) * size; return [x * (open(t) + u * wide - 0.003 * size), y(t)]; }, 0.006 * size, topRole, cloth);
+  if (top === "blazer") count += drape(net, front, 10, 3, (t, u) => { const wide = mix(0.016, 0.008, t) * size; return [mix(-wide, wide, u), y(mix(0.08, 0.98, t))]; }, 0.007 * size, roles.indexOf("dark"), FABRICS.satin);
+  count += drape(net, front, 5, 1, (t, u) => [(u - 0.5) * 0.004 * size, mix(y(0) - 0.16 * size, y(0), t)], 0.004 * size, roles.indexOf("dark"), FABRICS.cotton);
+  return Array.from({ length: count }, () => 0.88);
+}
+
+/** How high a top reaches at each bearing round a point: its neckline, as an elevation, smoothed. */
+function necklineOf(net: Net, c: Vec, size: number, keep: (v: number) => boolean): Float64Array {
+  const around = 36, rim = new Float64Array(around).fill(-Math.PI / 2);
+  for (let v = 0; v < net.fabric.length; v += 1) {
+    if (!keep(v)) continue;
+    const q = sub(scale(vecAt(net.position, v), 1 / size), c), a = Math.floor(((Math.atan2(q[0], q[2]) / TAU + 1) % 1) * around) % around;
+    rim[a] = Math.max(rim[a] ?? 0, Math.asin(clamp(q[1] / (Math.hypot(...q) || 1), -1, 1)));
+  }
+  for (let pass = 0; pass < 3; pass += 1) { const was = rim.slice(); for (let a = 0; a < around; a += 1) rim[a] = ((was[(a + around - 1) % around] ?? 0) + (was[a] ?? 0) * 2 + (was[(a + 1) % around] ?? 0)) / 4; }
+  return rim;
+}
+
+/** A polo's collar, near to: one strip from the neckline round the back of the neck and down to two points at the front, and the short placket under them. */
+function poloFront(net: Net, p: Person, roles: readonly string[], cell: number): readonly number[] {
+  if (p.outfit.top !== "polo" || cell >= WRAPPED) return [];
+  const size = p.build.size, s = restSkeleton(p), cloth = topCloth(p), mid = s.chest[2] * size, topRole = roles.indexOf("top"), hi = s.chest[1] * size;
+  const worn = (v: number): boolean => net.fabric[v] === cloth && net.bones[v * 2] !== HEAD && (net.position[v * 3 + 1] ?? 0) > hi;
+  const c: Vec = [0, s.neck[1] - 0.05, s.neck[2]], r = 0.07, bound = boundOf(net, { c, r }, size, worn), rim = necklineOf(net, c, size, worn), rows = 5, cols = 56, from = net.position.length / 3, front = frontBound(net, (v) => worn(v) && (net.position[v * 3 + 2] ?? 0) > mid, 0.008 * size);
+  const rimAt = (az: number): number => { const a = (az / TAU) * rim.length - 0.5, a0 = Math.floor(a), at = (i: number): number => rim[(i + rim.length) % rim.length] ?? 0; return mix(at(a0), at(a0 + 1), a - a0); };
+  const pointAt = (t: number, u: number): Vec => {
+    const open = mix(0.2, 0.62, t), az = mix(open, TAU - open, u), fore = (1 + Math.cos(az)) / 2, el = rimAt(az) + 0.12 - t * mix(0.2, 0.6, fore * fore), d = bearingOf(az, el);
+    return add(c, scale(d, r * (bound.far(d) + mix(0.18, 0.11, t))));
+  };
+  for (let t = 0; t <= rows; t += 1) for (let u = 0; u <= cols; u += 1) {
+    const q = pointAt(t / rows, u / cols), at = scale(q, size), n = unit(sub(q, c), FRONT), under = Math.max(0, front.near(at[0], at[1]));
+    net.position.push(...at); net.normal.push(...n); net.role.push(topRole); net.bones.push(net.bones[under * 2] ?? 0, net.bones[under * 2 + 1] ?? 0); net.weight.push(net.weight[under] ?? 1); net.fabric.push(cloth); net.loose.push(0); net.soft.push(0); net.cloth.push(at[0], at[2], at[1], NO_EDGE);
+  }
+  for (let t = 0; t < rows; t += 1) for (let u = 0; u < cols; u += 1) { const a = from + t * (cols + 1) + u, b = a + 1, d = a + cols + 1, e = d + 1; net.index.push(a, d, e, a, e, b); }
+  const placket = drape(net, front, 3, 1, (t, u) => [(u - 0.5) * 0.022 * size, mix(s.chest[1] + 0.03, s.neck[1] - 0.04, t) * size], 0.003 * size, topRole, cloth);
+  return [...Array.from({ length: (rows + 1) * (cols + 1) }, () => 0.8), ...Array.from({ length: placket }, () => 0.85)];
+}
+
+/** How far from a head's centre a crown goes to clear its hair, in head radii. */
+const CROWN_REACH = 1.5;
+
+/** The hats whose crown is built over what is under it. The rest are their own shape. */
+const FITTED_HATS: ReadonlySet<Hat> = new Set<Hat>(["cap", "beanie", "pompom", "bucket", "flatcap", "bandana", "hardhat", "helmet", "fedora", "stetson", "bowler", "peaked", "sunhat", "headwrap"]);
+
+/** Whether a person's hat is near enough to be built over their head. */
+const fitsHat = (p: Person, cell: number): boolean => cell < WRAPPED && FITTED_HATS.has(p.outfit.hat) && p.outfit.costume !== "fursuit";
+
+/** How far out a boundary reaches anywhere near a direction: what a crown has to clear, for it cannot follow every lock. */
+function highestNear(bound: Bound, dir: Vec): number {
+  const reach = [[0, 0], [0.14, 0], [-0.14, 0], [0, 0.14], [0, -0.14], [0.24, 0], [-0.24, 0], [0, 0.24]] as const;
+  return Math.max(...reach.map(([a, b]) => bound.far(unit(add(dir, [a, b, a - b]), UP))));
+}
+
+/** How far out a crown lies along `d`, from what it must clear: under hair the skull has no skin to read, so its reach is held to a head's. */
+function crownFar(skin: number, hair: number, d: Vec, hat: Hat): number {
+  const ridge = hat === "hardhat" ? 0.07 * smooth(0.2, 0.09, Math.abs(d[0])) * smooth(0.4, 0.7, d[1]) : 0;
+  return Math.max(skin + 0.05 * smooth(0.5, 1, d[1]), Math.min(hair + 0.05, CROWN_REACH)) + (CROWN_RISE[hat] ?? 0) * smooth(0.3, 1, d[1]) + ridge;
+}
+
+/** A crown, built over the head and the hair really under it: the hem level round the brow and lower behind, the top only as much taller as the hat is. */
+function crownOver(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame, seat: Seat): readonly number[] {
+  if (!fitsHat(p, cell)) return [];
+  const size = p.build.size, hat = p.outfit.hat, trim = roles.indexOf("trim"), under = boundOf(net, h, size, (v) => net.role[v] !== trim);
+  const rows = 14, cols = 64, clear = hat === "helmet" || hat === "hardhat" ? 0.09 : 0.035, far = new Float64Array((rows + 1) * cols);
+  const dirOf = (r: number, c: number): Vec => { const az = (c / cols) * TAU, hem = mix(0.5, 0.2, (1 - Math.cos(az)) / 2); return bearingOf(az, mix(hem, Math.PI / 2 - 0.02, (r / rows) ** 0.8)); };
+  for (let r = 0; r <= rows; r += 1) for (let c = 0; c < cols; c += 1) {
+    const d = dirOf(r, c), skin = seat.skin.far(d) + clear;
+    far[r * cols + c] = crownFar(skin, highestNear(under, d), d, hat);
+  }
+  smoothedFar(far, rows + 1, cols, 7);
+  const to = (q: Vec): Vec => scale(add(h.c, scale(q, h.r)), size), from = net.position.length / 3, role = Math.max(0, roles.indexOf("trim")), fabric = hatCloth(hat);
+  for (let r = -1; r <= rows; r += 1) for (let c = 0; c < cols; c += 1) {
+    const d = dirOf(Math.max(0, r), c), at = to(scale(d, (far[Math.max(0, r) * cols + c] ?? 1) - (r < 0 ? 0.05 : 0)));
+    net.position.push(...at); net.normal.push(...d); net.role.push(role); net.bones.push(HEAD, HEAD); net.weight.push(1); net.fabric.push(fabric); net.loose.push(0); net.soft.push(0); net.cloth.push(at[0], at[2], at[1], NO_EDGE);
+  }
+  for (let r = 0; r <= rows; r += 1) for (let c = 0; c < cols; c += 1) { const a = from + r * cols + c, b = from + r * cols + (c + 1) % cols, d = a + cols, e = b + cols; net.index.push(a, b, e, a, e, d); }
+  headNormals(net, from, rows + 2, cols);
+  return Array.from({ length: (rows + 2) * cols }, () => 1);
+}
+
 /** Everything small a person wears, near enough to see it. */
 function gearOn(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame, seat: Seat): readonly number[] {
   if (cell >= WRAPPED || p.outfit.costume === "fursuit") return [];
@@ -4312,8 +4434,8 @@ export function meshOf(p: Person, cell = 0.016): PersonMesh {
   const eyeAt = (x: number): Vec => scale(h.mark(x * p.face.apart, p.face.bone.pupil, 0.8), size);
   const roof = roofOf(dressed, size);
   const locks = hairLocks(net, p, roles, cell, roof), skinRole = roles.indexOf("skin");
-  const seat: Seat = { skin: boundOf(net, h, size, (v) => net.fabric[v] === FABRICS.skin && net.role[v] === skinRole), tops: [null, null], lobes: [null, null] };
-  const tones = [...locks, ...earsOf(net, p, roles, cell, seat), ...(cell < WRAPPED ? [] : cornersOf(net, p, roles, cell, h)), ...moustacheOf(net, p, roles, cell, h), ...gearOn(net, p, roles, cell, h, seat)];
+  const seat: Seat = { skin: boundOf(net, h, size, (v) => net.bones[v * 2] === HEAD && net.fabric[v] === FABRICS.skin && net.role[v] === skinRole), tops: [null, null], lobes: [null, null] };
+  const tones = [...locks, ...earsOf(net, p, roles, cell, seat), ...(cell < WRAPPED ? [] : cornersOf(net, p, roles, cell, h)), ...moustacheOf(net, p, roles, cell, h), ...crownOver(net, p, roles, cell, h, seat), ...jacketFront(net, p, roles, cell), ...poloFront(net, p, roles, cell), ...gearOn(net, p, roles, cell, h, seat)];
   const kept = compacted(net);
   const shade = hemShadow(kept, creases(kept), roles, size);
   // (The locks went in last, so theirs are the last vertices.)

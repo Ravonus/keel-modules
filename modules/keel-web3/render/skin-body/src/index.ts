@@ -74,6 +74,8 @@ export interface SkinLight {
 export interface SkinOne {
   /** `bones` is three rows of four for each bone. */
   pose(bones: Float32Array, at: Vec, yaw: number, face?: FaceState, sway?: Sway, jiggle?: Vec): void;
+  /** Whether it is drawn: a host can keep many built and draw those in view. */
+  show(on: boolean): void;
   remove(): void;
 }
 
@@ -81,6 +83,13 @@ export interface SkinBodies {
   readonly group: unknown;
   add(mesh: SkinMesh): SkinOne;
   light(light: SkinLight): void;
+  /** With `hostDepth`: this frame's depth is `base + (forward distance from `origin`) * scale`. */
+  hostDepth(origin: Vec, forward: Vec, base: number, scale: number): void;
+}
+
+export interface SkinOptions {
+  /** Write a host renderer's linear depth instead of the hardware's, to sort in a frame it owns (render/lit-pass). */
+  readonly hostDepth?: boolean;
 }
 
 const MOST_BONES = 26;
@@ -148,6 +157,8 @@ varying vec4 vCloth;
 varying vec2 vHang;
 varying float vShade;
 uniform vec3 uSun, uSunCol, uFill, uFillCol, uSky, uGround, uRim, uRimCol, uFront;
+uniform vec3 uHostDepth;
+uniform vec4 uHostForward;
 uniform vec4 uEyeL, uEyeR;     // each eye at rest, and its size
 uniform vec4 uMouth;           // the mouth at rest, and its half width
 uniform vec4 uFace;            // the lid, the look, how open the mouth is
@@ -397,6 +408,9 @@ void main() {
   float peak = max(max(col.r, col.g), col.b);
   if (peak > 0.7) col *= (0.7 + 0.3 * (1.0 - exp(-(peak - 0.7) * 3.0))) / peak;
   gl_FragColor = vec4(col, 1.0);
+  #ifdef HOST_DEPTH
+  gl_FragDepth = clamp(uHostDepth.x + (dot(vWorld, uHostForward.xyz) - uHostForward.w) * uHostDepth.y, 0.0, 1.0);
+  #endif
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
@@ -409,7 +423,7 @@ void main() { gl_FragColor = packDepthToRGBA(gl_FragCoord.z); }`;
 
 interface LitV4 { set(x: number, y: number, z: number, w: number): unknown }
 interface LitColor { r: number; g: number; b: number; set(value: string): LitColor }
-interface LitNode { add(...nodes: unknown[]): void; remove(...nodes: unknown[]): void; position: { set(x: number, y: number, z: number): void }; rotation: { y: number }; frustumCulled: boolean; castShadow: boolean; customDepthMaterial: unknown }
+interface LitNode { add(...nodes: unknown[]): void; remove(...nodes: unknown[]): void; position: { set(x: number, y: number, z: number): void }; rotation: { y: number }; visible: boolean; frustumCulled: boolean; castShadow: boolean; customDepthMaterial: unknown }
 interface Uniform<T = unknown> { value: T }
 interface LitGeometry { setAttribute(name: string, attribute: unknown): void; setIndex(attribute: unknown): void; dispose(): void }
 interface Disposable { dispose(): void }
@@ -420,7 +434,6 @@ export interface SkinLit {
   readonly Mesh: new (geometry: LitGeometry, material: unknown) => LitNode;
   readonly Geometry: new () => LitGeometry;
   readonly Attribute: new (array: Float32Array | Uint32Array, size: number) => unknown;
-  readonly DoubleSide: number;
   readonly CustomMaterial: new (parameters: Readonly<Record<string, unknown>>) => Disposable;
   readonly Vector3: new (x?: number, y?: number, z?: number) => unknown;
   readonly Vector4: new (x?: number, y?: number, z?: number, w?: number) => LitV4;
@@ -479,8 +492,10 @@ function faceUniforms(lit: SkinLit, given: SkinFace | undefined): Record<string,
   };
 }
 
-export function createSkinBodies(lit: SkinLit): SkinBodies {
+export function createSkinBodies(lit: SkinLit, options: SkinOptions = {}): SkinBodies {
   const group = new lit.Group();
+  const defines = options.hostDepth === true ? { HOST_DEPTH: 1 } : {};
+  const uHostDepth: Uniform = { value: new lit.Vector3() }, uHostForward: Uniform = { value: new lit.Vector4() };
   const lights: Record<string, Uniform> = Object.fromEntries(LIGHTS.map((name) => [name, { value: new lit.Vector3() }]));
   const bonesUniform = (): Uniform<LitV4[]> => ({ value: Array.from({ length: MOST_BONES * 3 }, () => new lit.Vector4()) });
   const bonesInto = (slot: Uniform<LitV4[]>, bones: Float32Array): void => {
@@ -493,8 +508,8 @@ export function createSkinBodies(lit: SkinLit): SkinBodies {
       const uBones = bonesUniform();
       const uSway: Uniform = { value: new lit.Vector4() };
       const uJiggle: Uniform = { value: new lit.Vector3() };
-      const uniforms: Record<string, Uniform> = { uBones, uSway, uJiggle, ...lights, ...faceUniforms(lit, mesh.face) };
-      const material = new lit.CustomMaterial({ side: lit.DoubleSide, uniforms, vertexShader: VERTEX, fragmentShader: FRAGMENT });
+      const uniforms: Record<string, Uniform> = { uBones, uSway, uJiggle, uHostDepth, uHostForward, ...lights, ...faceUniforms(lit, mesh.face) };
+      const material = new lit.CustomMaterial({ side: "both", defines, uniforms, vertexShader: VERTEX, fragmentShader: FRAGMENT });
       const depth = new lit.CustomMaterial({ uniforms: { uBones, uSway, uJiggle }, vertexShader: DEPTH_VERTEX, fragmentShader: DEPTH_FRAGMENT });
       const node = new lit.Mesh(geometry, material);
       node.frustumCulled = false;
@@ -512,6 +527,7 @@ export function createSkinBodies(lit: SkinLit): SkinBodies {
           (uniforms.uFace?.value as LitV4).set(face.lid, face.look[0], face.look[1], face.mouth);
           if (uniforms.uSmile) uniforms.uSmile.value = face.smile;
         },
+        show(on) { node.visible = on; },
         remove() {
           group.remove(node);
           geometry.dispose();
@@ -519,6 +535,10 @@ export function createSkinBodies(lit: SkinLit): SkinBodies {
           depth.dispose();
         },
       };
+    },
+    hostDepth(origin, forward, base, scale) {
+      (uHostDepth.value as { set(x: number, y: number, z: number): void }).set(base, scale, 0);
+      (uHostForward.value as LitV4).set(forward[0], forward[1], forward[2], origin[0] * forward[0] + origin[1] * forward[1] + origin[2] * forward[2]);
     },
     light(light) {
       const set = (name: string, v: Vec | undefined): void => { (lights[name]?.value as { set(x: number, y: number, z: number): void } | undefined)?.set(...(v ?? ([0, 0, 0] as const))); };

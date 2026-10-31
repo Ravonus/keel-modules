@@ -1,0 +1,11 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "lit-pass",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Draws a keel/lit stage into another renderer's frame: same WebGL context, same framebuffer, same camera, sorted by its depth. Lets lit generators such as people go into a keel/render game, or any host, without either knowing the other.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": []
+}

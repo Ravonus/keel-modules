@@ -3140,9 +3140,40 @@ function halfRolled(swing: readonly [Vec, Vec, Vec], hand: readonly [Vec, Vec, V
 
 /** A pose's bone matrices; given `from`, that many parts of the way from another action, for a fade. */
 export function poseMesh(p: Person, action: Action, t: number, from?: { readonly action: Action; readonly t: number; readonly k: number }): Float32Array {
-  const rest = restSkeleton(p);
   const target = skeletonOf(p, action, phaseOf(p, action, t));
-  const now = from ? blended(skeletonOf(p, from.action, phaseOf(p, from.action, from.t)), target, 1 - from.k) : target;
+  return bonesOf(p, from ? blended(skeletonOf(p, from.action, phaseOf(p, from.action, from.t)), target, 1 - from.k) : target);
+}
+
+/** Where a body's joints have been thrown, by physics or anything else, in metres from the point the mesh stands on. */
+export interface Limp {
+  /** How far the head has turned, radians. */
+  readonly turn?: number;
+  readonly pelvis: Vec;
+  readonly neck: Vec;
+  readonly head: Vec;
+  readonly left: { readonly elbow: Vec; readonly wrist: Vec; readonly knee: Vec; readonly ankle: Vec };
+  readonly right: { readonly elbow: Vec; readonly wrist: Vec; readonly knee: Vec; readonly ankle: Vec };
+}
+
+/** Bone matrices for joints something else has placed: a ragdoll, a mocap frame, a hand-set pose. */
+export function limpBones(p: Person, limp: Limp): Float32Array {
+  const stand = skeletonOf(p, "stand", 0), k = p.build.size;
+  const down = (v: Vec): Vec => [v[0] / k, v[1] / k, v[2] / k];
+  const pelvis = down(limp.pelvis), neck = down(limp.neck), head = down(limp.head);
+  const limb = (side: "left" | "right"): { leg: Leg; arm: Arm } => {
+    const j = limp[side], { arm, leg } = stand[side], wrist = down(j.wrist), ankle = down(j.ankle);
+    const atWrist = (v: Vec): Vec => add(v, sub(wrist, arm.wrist)), atAnkle = (v: Vec): Vec => add(v, sub(ankle, leg.ankle));
+    return {
+      arm: { ...arm, shoulder: add(neck, sub(arm.shoulder, stand.neck)), elbow: down(j.elbow), wrist, hand: atWrist(arm.hand), tip: atWrist(arm.tip), nail: atWrist(arm.nail), thumb: atWrist(arm.thumb) },
+      leg: { hip: add(pelvis, sub(leg.hip, stand.pelvis)), knee: down(j.knee), ankle, toe: atAnkle(leg.toe), end: atAnkle(leg.end) },
+    };
+  };
+  const waist = madd(pelvis, sub(neck, pelvis), 0.25), chest = madd(pelvis, sub(neck, pelvis), 0.6);
+  return bonesOf(p, { spin: 0, turn: limp.turn ?? 0, pelvis, waist, chest, neck, head, left: limb("left"), right: limb("right") });
+}
+
+function bonesOf(p: Person, now: Skeleton): Float32Array {
+  const rest = restSkeleton(p);
   const k = p.build.size;
   const out = new Float32Array(BONES.length * 12);
   BONES.forEach(([, joints], i) => {

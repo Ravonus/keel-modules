@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "plate-worlds",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Several full scenes in one page: each runs as a function with its own document, window, address and GL contexts, for pages that cannot use iframes.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime"
+  },
+  "repository": "https://github.com/keel-web3/plate-worlds"
+}

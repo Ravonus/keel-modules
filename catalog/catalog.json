@@ -488,6 +488,74 @@
           "name": "typescript",
           "version": "5.9.3"
         },
+        "recipeDigest": "0x2d467cdd5bf79c0271f2535606ff8d62cbb6b02ec162772a1a726f101bec612a",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 1812,
+          "digest": "0xe760b79c12185fc48d119274084b6ccd79a860c7c65d25f6762a3d15166c40ef"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x6bce6642f4e2326ce5c6251e916309ddef9db28d684e866851f1d4e0da40ec03",
+              "byteLength": 7471
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/**\n * Overdub takes for a fixed film.\n *\n * A film has a fixed length and the viewer steers something over it: a camera, a ride,\n * anything that can be a few numbers a frame. Every frame lands on a tape, so a video made\n * later replays what they did. This module decides what happens to that tape when they\n * rewind and jump around:\n *\n *  - Rewinding erases nothing. Frames already filmed play back.\n *  - `retake()`, called when the viewer touches the controls, starts a new take from there.\n *  - Frames jumped over were never seen. They ease to a rest pose and back, or simply cross\n *    between their neighbours when the jump is too short to go anywhere.\n *  - Where new frames run into old ones, the old ones lean over from the last new value,\n *    so the tape never jumps.\n */\n/** How a frame came to be on the tape. */\nexport declare const FRAME_UNSEEN = 0;\nexport declare const FRAME_FILMED = 1;\nexport declare const FRAME_SKIPPED = 2;\nexport interface FilmTakesOptions {\n    /** Length of the film in frames. */\n    readonly frames: number;\n    /** The value of a frame nobody steered, one number per slot. */\n    readonly rest: readonly number[];\n    /** Slots that are angles in radians: blends take the short way, whole turns apart. */\n    readonly angles?: readonly number[];\n    /** Slots that are identifiers, never blended: they take the nearer side's value. */\n    readonly labels?: readonly number[];\n    /** Frames a skip spends easing at each end. Default 45. */\n    readonly ease?: number;\n    /** Frames an old take spends leaning over from a new one. Default 30. */\n    readonly stitch?: number;\n}\nexport interface FilmTakes {\n    /** Slots per frame. */\n    readonly width: number;\n    /** The tape, `width` numbers a frame. */\n    readonly data: Float32Array;\n    /** How each frame came to be there. */\n    readonly state: Uint8Array;\n    /** Rises whenever the tape changes after filming, so a finished video knows it is stale. */\n    readonly revision: number;\n    /** True while a take is being overdubbed over frames already filmed. */\n    readonly taking: boolean;\n    /** Files one frame of playing film. Returns the value now on the tape, and whether it was the hand's. */\n    record(frame: number, value: readonly number[]): {\n        readonly value: readonly number[];\n        readonly filmed: boolean;\n    };\n    /** Starts a new take at the next frame. */\n    retake(): void;\n    /** Moves the playhead. Unfilmed frames between are skipped, easing back to `arrival`. */\n    jump(from: number, to: number, arrival: readonly number[]): void;\n    /** The tape at a frame. */\n    at(frame: number): number[];\n    /** Whether every frame has been filmed or skipped, ready to make a video. */\n    complete(): boolean;\n}\nexport declare function createFilmTakes(options: FilmTakesOptions): FilmTakes;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x3d562dc41a04c914854cd564ec4c7a328eb34c4ffe474646219b005b3dac6d9b",
+          "byteLength": 2917
+        }
+      },
+      "id": "film-takes",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "Overdub takes for a fixed film: rewinding keeps what was filmed, a touch starts a new take, skipped frames ease to a rest pose.",
+      "publisher": "keel-web3",
+      "category": "timing",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "runtime",
+        "member": null
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": "https://github.com/keel-web3/film-takes",
+      "githubPath": "modules/keel-web3/timing/film-takes/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/timing/film-takes/src/index.ts",
+          "sha256": "0x6bce6642f4e2326ce5c6251e916309ddef9db28d684e866851f1d4e0da40ec03"
+        }
+      ],
+      "outputDigest": "0xe760b79c12185fc48d119274084b6ccd79a860c7c65d25f6762a3d15166c40ef",
+      "receiptDigest": "0x80744a641f4b7ce1c7505e4c863d796d35c83f226ea0fe6f4868f90bdbe23359",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIHQ9MCxlPTEsYT0yLHI9MipNYXRoLlBJLHM9dD0+dCp0KigzLTIqdCksbj0odCxlLGEpPT50KyhlLXQpKmE7ZnVuY3Rpb24gaSh0LGUpe2xldCBhPU1hdGgubWluKHQuZnJhbWVzLTEsTWF0aC5tYXgoMCxlKSkqdC53aWR0aDtyZXR1cm4gQXJyYXkuZnJvbSh0LmRhdGEuc3ViYXJyYXkoYSxhK3Qud2lkdGgpKX1mdW5jdGlvbiBsKHQsZSxhLHMpe3JldHVybiBlLm1hcCgoZSxpKT0+e2xldCBsPWFbaV0/P2U7cmV0dXJuIHQubGFiZWxzLmhhcyhpKT9zPC41P2U6bDp0LmFuZ2xlcy5oYXMoaSk/bihlLGwtTWF0aC5yb3VuZCgobC1lKS9yKSpyLHMpOm4oZSxsLHMpfSl9ZnVuY3Rpb24gbyh0LGUsYSxyLG4pe2xldCBpPU1hdGgubWluKHQuZWFzZSxuPj4xKSxvPW4tMS1yO3JldHVybiBuPD0yKnQuZWFzZT9sKHQsZSxhLHMoKHIrMSkvKG4rMSkpKTpyPGk/bCh0LGUsdC5yZXN0LHMoKHIrMSkvKGkrMSkpKTpvPGk/bCh0LHQucmVzdCxhLHMoKGktbykvKGkrMSkpKTpbLi4udC5yZXN0XX1mdW5jdGlvbiB1KHQpe2xldHtmcmFtZXM6ZSxyZXN0OmEsYW5nbGVzOnI9W10sbGFiZWxzOm49W10sZWFzZTp1PTQ1LHN0aXRjaDpmPTMwfT10O2lmKCFOdW1iZXIuaXNTYWZlSW50ZWdlcihlKXx8ZTwxKXRocm93IG5ldyBSYW5nZUVycm9yKCJmcmFtZXMgbXVzdCBiZSBhIHBvc2l0aXZlIGludGVnZXIiKTtpZihhLmxlbmd0aDwxKXRocm93IG5ldyBSYW5nZUVycm9yKCJyZXN0IG11c3QgaGF2ZSBhdCBsZWFzdCBvbmUgc2xvdCIpO2xldCBoPWEubGVuZ3RoLG09bmV3IEZsb2F0MzJBcnJheShlKmgpLGQ9bmV3IFVpbnQ4QXJyYXkoZSk7Zm9yKGxldCB0PTA7dDxlO3QrPTEpbS5zZXQoYSx0KmgpO2xldCBjPXtmcmFtZXM6ZSx3aWR0aDpoLHJlc3Q6YSxlYXNlOnUsc3RpdGNoOmYsYW5nbGVzOm5ldyBTZXQociksbGFiZWxzOm5ldyBTZXQobiksZGF0YTptLHN0YXRlOmR9LHc9ITEsZz0hMSxFPTA7cmV0dXJue3dpZHRoOmgsZGF0YTptLHN0YXRlOmQsZ2V0IHJldmlzaW9uKCl7cmV0dXJuIEV9LGdldCB0YWtpbmcoKXtyZXR1cm4gd30scmVjb3JkOih0LGUpPT4xIT09ZFt0XXx8dz8oZz0hMCxFKz0xLGRbdF09MSxtLnNldChlLHQqaCkse3ZhbHVlOmUsZmlsbWVkOiEwfSk6KGcmJihnPSExLGZ1bmN0aW9uKHQsZSl7aWYoZTwxKXJldHVybjtsZXQgYT1pKHQsZS0xKTtmb3IobGV0IHI9MDtyPHQuc3RpdGNoJiZlK3I8dC5mcmFtZXMmJjE9PT10LnN0YXRlW2Urcl07cis9MSl0LmRhdGEuc2V0KGwodCxhLGkodCxlK3IpLHMoKHIrMSkvdC5zdGl0Y2gpKSwoZStyKSp0LndpZHRoKX0oYyx0KSkse3ZhbHVlOmkoYyx0KSxmaWxtZWQ6ITF9KSxyZXRha2UoKXt3fHwodz0hMCxnPSEwLEUrPTEpfSxqdW1wKHQsZSxhKXtlIT09dCYmKHc9ITEpLGc9ITEsRSs9ZnVuY3Rpb24odCxlLGEscil7bGV0IHM9LTEsbj0wLGw9ZT0+e3M8MHx8KGZ1bmN0aW9uKHQsZSxhLHIpe2xldCBzPWEtZSsxLG49ZT4wP2kodCxlLTEpOlsuLi50LnJlc3RdO2ZvcihsZXQgaT1lO2k8PWE7aSs9MSl0LmRhdGEuc2V0KG8odCxuLHIsaS1lLHMpLGkqdC53aWR0aCksdC5zdGF0ZVtpXT0yfSh0LHMsZSwxPT09dC5zdGF0ZVtlKzFdP2kodCxlKzEpOnIpLHM9LTEsbis9MSl9O2ZvcihsZXQgcj1lKzE7cjxhO3IrPTEpMT09PXQuc3RhdGVbcl0/bChyLTEpOnM8MCYmKHM9cik7cmV0dXJuIGwoYS0xKSxufShjLHQsZSxhKX0sYXQ6dD0+aShjLHQpLGNvbXBsZXRlOigpPT5kLmV2ZXJ5KHQ9PjAhPT10KX19ZXhwb3J0e2UgYXMgRlJBTUVfRklMTUVELGEgYXMgRlJBTUVfU0tJUFBFRCx0IGFzIEZSQU1FX1VOU0VFTix1IGFzIGNyZWF0ZUZpbG1UYWtlc307",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
         "recipeDigest": "0xc40dd620132667cbefe175cb7c181dcebee281d9abc5d516a441fd81212e6a12",
         "output": {
           "algorithm": "sha256",
@@ -1342,6 +1410,74 @@
       "runtime": {
         "encoding": "base64",
         "data": "ZnVuY3Rpb24gcihyKXtsZXQgZT0vXiMoWzAtOWEtZl17Nn0pKFswLTlhLWZdezJ9KT8kL2l1LmV4ZWMocik7aWYodm9pZCAwPT09ZT8uWzFdKXRocm93IG5ldyBUeXBlRXJyb3IoYEludmFsaWQgY29sb3IgJHtyfS5gKTtsZXQgdD1lWzFdLG49ZVsyXTtyZXR1cm5bMCwyLDRdLm1hcChyPT5OdW1iZXIucGFyc2VJbnQodC5zbGljZShyLHIrMiksMTYpKS5jb25jYXQodm9pZCAwPT09bj8yNTU6TnVtYmVyLnBhcnNlSW50KG4sMTYpKX1mdW5jdGlvbiBlKHIpe3JldHVybmByZ2JhKCR7clswXT8/MjU1fSwgJHtyWzFdPz8yNTV9LCAke3JbMl0/PzI1NX0sICR7TWF0aC5yb3VuZChyWzNdPz8yNTUpLzI1NX0pYH1mdW5jdGlvbiB0KHIsZSx0KXtsZXQgbj1NYXRoLm1pbihNYXRoLm1heCh0LDApLDEpO3JldHVybiBBcnJheS5mcm9tKHtsZW5ndGg6NH0sKHQsYSk9Pk1hdGgucm91bmQoKHJbYV0/PzI1NSkrKChlW2FdPz8yNTUpLShyW2FdPz8yNTUpKSpuKSl9ZnVuY3Rpb24gbihlLHQpeyFmdW5jdGlvbihyKXtpZighQXJyYXkuaXNBcnJheShyKXx8MD09PXIubGVuZ3RoKXRocm93IG5ldyBSYW5nZUVycm9yKCJQYWxldHRlIGNhbm5vdCBiZSBlbXB0eS4iKX0oZSk7bGV0IG49ZVsodCVlLmxlbmd0aCtlLmxlbmd0aCklZS5sZW5ndGhdO2lmKHZvaWQgMD09PW4pdGhyb3cgbmV3IFJhbmdlRXJyb3IoIlBhbGV0dGUgY2Fubm90IGJlIGVtcHR5LiIpO3JldHVybiByKG4pfWV4cG9ydHt0IGFzIG1peENvbG9ycyxuIGFzIHBhbGV0dGVDb2xvcixyIGFzIHBhcnNlSGV4Q29sb3IsZSBhcyByZ2JhfTs=",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0x701fb0a8362c54091429545d1492f01cacfa0afb14ea9ac51e73073e4a25b177",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 1807,
+          "digest": "0x3ef737eb2b454a921172c169acff93d78a2d39dd00296a8354502a900512abba"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x2382bbbf3ae0b7fc2a11ef5338a3c4c076dc0b8acd26146a81914b6ba1108b93",
+              "byteLength": 5774
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/**\n * Several full scenes in one page.\n *\n * A scene written for a page of its own expects a document, a window, an address and events.\n * Some pages can't give it that: a verification shell, for one, forbids iframes. A plate world\n * is that page without the frame. The scene runs as a function taking this scope in place of its\n * globals, so anything it reads for the page or the address is its own, and module code stays\n * shared between plates. Ending a world gives back its GL contexts, which browsers ration.\n */\nexport interface PlateBox {\n    readonly left?: string;\n    readonly top?: string;\n    readonly width?: string;\n    readonly height?: string;\n}\nexport interface PlateWorldOptions {\n    /** What the scene sees as its address, e.g. `plate:one?look=2`. */\n    readonly address: string;\n    /** The body of the scene's page. */\n    readonly html: string;\n    /** Where the plate sits. Plates usually sit unseen and their canvases are drawn elsewhere. */\n    readonly box?: PlateBox;\n    /** Class given to the plate's root, for the host page's styles. */\n    readonly className?: string;\n    /** Extra globals only this scene sees. */\n    readonly globals?: Readonly\u003cRecord\u003cstring, unknown\u003e\u003e;\n}\nexport interface PlateWorld {\n    /** The element holding the scene's page. */\n    readonly root: HTMLElement;\n    /** Pass this to the scene in place of `globalThis`. */\n    readonly scope: Record\u003cstring, unknown\u003e;\n    /** Tells the scene its size changed. */\n    resize(): void;\n    /** Stops the scene's animation frames, gives back its GL contexts and removes it. */\n    end(): void;\n}\nexport declare function createPlateWorld(options: PlateWorldOptions): PlateWorld;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x1dd9f717df0e2f459b01de4f7e273206da43b11f623fba9226461d09b349bf7f",
+          "byteLength": 1744
+        }
+      },
+      "id": "plate-worlds",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "Several full scenes in one page: each runs as a function with its own document, window, address and GL contexts, for pages that cannot use iframes.",
+      "publisher": "keel-web3",
+      "category": "render",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "runtime",
+        "member": null
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": "https://github.com/keel-web3/plate-worlds",
+      "githubPath": "modules/keel-web3/render/plate-worlds/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/render/plate-worlds/src/index.ts",
+          "sha256": "0x2382bbbf3ae0b7fc2a11ef5338a3c4c076dc0b8acd26146a81914b6ba1108b93"
+        }
+      ],
+      "outputDigest": "0x3ef737eb2b454a921172c169acff93d78a2d39dd00296a8354502a900512abba",
+      "receiptDigest": "0x685bf3dcc3777c54b5b84ac597c5abcb077fc5ed4f1136ef2ca8486e84fa9151",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIGU9KCk9Pnt9O2Z1bmN0aW9uIHQodCl7bGV0e2FkZHJlc3M6bixodG1sOnIsYm94OmE9e30sY2xhc3NOYW1lOm89InBsYXRlLXdvcmxkIixnbG9iYWxzOnM9e319PXQsaT1kb2N1bWVudC5jcmVhdGVFbGVtZW50KCJkaXYiKSxjPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoImRpdiIpLGw9bmV3IEV2ZW50VGFyZ2V0LHU9W10sZD0hMDtpLmNsYXNzTmFtZT1vLGkuaW5uZXJIVE1MPXIsT2JqZWN0LmFzc2lnbihpLnN0eWxlLGEpLGRvY3VtZW50LmJvZHkuYXBwZW5kKGkpO2xldCBtPWZ1bmN0aW9uKGUsdCxuLHIpe3JldHVybiBuZXcgUHJveHkoZG9jdW1lbnQse2dldChhLG8pe3N3aXRjaChvKXtjYXNlImRvY3VtZW50RWxlbWVudCI6cmV0dXJuIHQ7Y2FzZSJib2R5IjpjYXNlImhlYWQiOnJldHVybiBlO2Nhc2UiZ2V0RWxlbWVudEJ5SWQiOnJldHVybiB0PT5lLnF1ZXJ5U2VsZWN0b3IoYCMke0NTUy5lc2NhcGUodCl9YCk7Y2FzZSJxdWVyeVNlbGVjdG9yIjpyZXR1cm4gdD0+ZS5xdWVyeVNlbGVjdG9yKHQpO2Nhc2UicXVlcnlTZWxlY3RvckFsbCI6cmV0dXJuIHQ9PmUucXVlcnlTZWxlY3RvckFsbCh0KTtjYXNlImNyZWF0ZUVsZW1lbnQiOnJldHVybiByO2Nhc2UiYWRkRXZlbnRMaXN0ZW5lciI6cmV0dXJuIG4uYWRkRXZlbnRMaXN0ZW5lci5iaW5kKG4pO2Nhc2UicmVtb3ZlRXZlbnRMaXN0ZW5lciI6cmV0dXJuIG4ucmVtb3ZlRXZlbnRMaXN0ZW5lci5iaW5kKG4pO2RlZmF1bHQ6e2xldCBlPVJlZmxlY3QuZ2V0KGEsbyk7cmV0dXJuImZ1bmN0aW9uIj09dHlwZW9mIGU/ZS5iaW5kKGEpOmV9fX19KX0oaSxjLGwsZnVuY3Rpb24oZSl7cmV0dXJuKHQsbik9PntsZXQgcj1kb2N1bWVudC5jcmVhdGVFbGVtZW50KHQsbik7aWYoImNhbnZhcyIhPT10KXJldHVybiByO2xldCBhPXIsbz1hLmdldENvbnRleHQuYmluZChhKTtyZXR1cm4gYS5nZXRDb250ZXh0PSh0LC4uLm4pPT57bGV0IHI9byh0LC4uLm4pO3JldHVybiByJiZ0LnN0YXJ0c1dpdGgoIndlYmdsIikmJmUucHVzaChyKSxyfSxhfX0odSkpLHY9T2JqZWN0LmFzc2lnbihPYmplY3QuY3JlYXRlKG51bGwpLHtkb2N1bWVudDptLGxvY2F0aW9uOntocmVmOm4sYXNzaWduOmV9LGhpc3Rvcnk6e3JlcGxhY2VTdGF0ZTplLHB1c2hTdGF0ZTplfSxhZGRFdmVudExpc3RlbmVyOmwuYWRkRXZlbnRMaXN0ZW5lci5iaW5kKGwpLHJlbW92ZUV2ZW50TGlzdGVuZXI6bC5yZW1vdmVFdmVudExpc3RlbmVyLmJpbmQobCksZGlzcGF0Y2hFdmVudDpsLmRpc3BhdGNoRXZlbnQuYmluZChsKSxyZXF1ZXN0QW5pbWF0aW9uRnJhbWU6ZT0+cmVxdWVzdEFuaW1hdGlvbkZyYW1lKHQ9PntkJiZlKHQpfSksY2FuY2VsQW5pbWF0aW9uRnJhbWU6ZT0+e2NhbmNlbEFuaW1hdGlvbkZyYW1lKGUpfSwuLi5zfSksRT1mdW5jdGlvbihlKXtsZXQgdD1nbG9iYWxUaGlzO3JldHVybiBuZXcgUHJveHkoZSx7Z2V0KG4scil7aWYociBpbiBlKXJldHVybiBlW3JdO2xldCBhPXRbcl07cmV0dXJuImZ1bmN0aW9uIj09dHlwZW9mIGEmJi9eW2Etel0vLnRlc3QoU3RyaW5nKHIpKT9hLmJpbmQodCk6YX0saGFzOihuLHIpPT5yIGluIGV8fHIgaW4gdH0pfSh2KTtyZXR1cm4gdi5nbG9iYWxUaGlzPXYud2luZG93PXYuc2VsZj1FLHtyb290Omksc2NvcGU6RSxyZXNpemUoKXtsLmRpc3BhdGNoRXZlbnQobmV3IEV2ZW50KCJyZXNpemUiKSl9LGVuZCgpe2Q9ITE7Zm9yKGxldCBlIG9mIHUpZS5nZXRFeHRlbnNpb24oIldFQkdMX2xvc2VfY29udGV4dCIpPy5sb3NlQ29udGV4dCgpO3UubGVuZ3RoPTAsaS5yZW1vdmUoKX19fWV4cG9ydHt0IGFzIGNyZWF0ZVBsYXRlV29ybGR9Ow==",
         "format": "esm",
         "entry": "src/index.ts"
       }

@@ -94,9 +94,7 @@ const blendNumber = (shares: readonly [SpeciesId, number][], pick: (species: Spe
  */
 export function blendSpecies(mix: Readonly<Record<string, number>>): Species {
   const shares = mixShares(mix);
-  const [first] = shares;
-  if (first === undefined) throw new Error("tree-growth: a mix always has a share");
-  const major = SPECIES[first[0]];
+  const major = SPECIES[shares[0]?.[0] ?? "cherry"];
   if (shares.length === 1 || major.palm !== null) return major;
   const mean = (pick: (species: Species) => number): number => blendNumber(shares, pick);
   const round = (pick: (species: Species) => number): number => Math.max(1, Math.round(mean(pick)));

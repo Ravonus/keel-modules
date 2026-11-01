@@ -8,7 +8,7 @@
   "category": "render",
   "owner": { "org": "keel-web3", "group": "graphics" },
   "inputs": [
-    { "key": "features", "label": "Parts", "type": "string", "required": false, "help": "Feature switches as a plugin string, for example \"-roots,-litter\". Parts: roots, leaves, flowers, fruit, deadwood, litter, snow, fallers, sway, shadows, crownShade, bark, sprays, clumps, rootSink, rootBreak.", "default": "" },
+    { "key": "features", "label": "Parts", "type": "text", "required": false, "minLength": 0, "maxLength": 240, "multiline": false, "help": "Feature switches as a plugin string, for example \"-roots,-litter\". Parts: roots, leaves, flowers, fruit, deadwood, litter, snow, fallers, sway, shadows, crownShade, bark, sprays, clumps, rootSink, rootBreak.", "default": "" },
     { "key": "form", "label": "Form", "type": "select", "required": false, "options": [{ "value": "smooth", "label": "Smooth" }, { "value": "voxel", "label": "Voxel" }], "default": "smooth" },
     { "key": "forestNear", "label": "Forest card distance", "type": "number", "required": false, "min": 4, "max": 200, "step": 1, "control": "slider", "help": "Past this distance from the camera, forest trees draw as impostor cards.", "default": 26 }
   ]

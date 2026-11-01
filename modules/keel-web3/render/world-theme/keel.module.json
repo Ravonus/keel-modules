@@ -4,7 +4,7 @@
   "version": "0.3.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "Themes for a small floating world: gold, gem, stone, lava, ice, chrome, tech, synth, hologram, glitter and cosmic planters (shape, animated surface pattern, decor and underside) and nature, city, synthwave, vaporwave, crystal, cosmic and voxel worlds, with rare tree skins (crystal, petrified, frost, gold, ember, mystic, hologram, cosmic) rolled by rarity, each resolved by a seed into its own variant, and a signal glitch rolled separately for the platform, tree and background (scanlines, colour fringe, flicker, torn signal), with a full glitch of all three the rarest.",
+  "summary": "Themes for a small floating world: gold, gem, stone, lava, ice, chrome, tech, synth, hologram, glitter and cosmic planters and nature, city, synthwave, vaporwave, crystal, cosmic and voxel worlds, with rare tree skins rolled by rarity, each resolved by a seed into its own variant, and a signal glitch rolled separately for the platform, tree and background, with a full glitch of all three the rarest.",
   "category": "render",
   "owner": {
     "org": "keel-web3",

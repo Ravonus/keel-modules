@@ -3122,6 +3122,9 @@ function skirtCage(p: Person, loop: readonly Row[], hem: number, clear: number, 
 const SLEEVE_RINGS: Readonly<Record<Top, number>> = { tank: 0, swimsuit: 0, bikini: 0, string: 0, bare: 0, dress: 1, tee: 2, polo: 2, robe: 7, long: 9, hoodie: 9, jacket: 9, blazer: 9, coat: 9, raincoat: 9, puffer: 9 };
 const SKINTIGHT: readonly Top[] = ["swimsuit", "bikini", "string"];
 
+/** The ring a top stops at: over a skirt, at the skirt's waist, or the two come through each other all round it. */
+const hemRing = ({ top, bottom }: Person["outfit"]): number => (bottom === "skirt" && LONG_TOP[top] === undefined ? Math.max(TOP_HEM[top], 3) : TOP_HEM[top]);
+
 function coverOf(p: Person): { readonly top: (t: number) => boolean; readonly lower: (t: number) => boolean; readonly feet: (t: number) => boolean; readonly bare: boolean } {
   const { top, bottom, shoe } = p.outfit;
   const bare = bottom === "skirt" ? false : top === "dress" || top === "robe";
@@ -3131,7 +3134,7 @@ function coverOf(p: Person): { readonly top: (t: number) => boolean; readonly lo
   const legsTo = bottom === "briefs" ? 1 : bottom === "swim" ? trunks : bottom === "shorts" ? 3 : 8;
   return {
     bare,
-    top: (t) => inRange(t, TORSO + TOP_HEM[top], TORSO + (TOP_END[top] ?? 10)) || inRange(t, ARM, ARM + sleeve - 1),
+    top: (t) => inRange(t, TORSO + hemRing(p.outfit), TORSO + (TOP_END[top] ?? 10)) || inRange(t, ARM, ARM + sleeve - 1),
     lower: (t) => inRange(t, TORSO + (skirted ? 3 : 0), TORSO + 3) || (!skirted && inRange(t, LEG, LEG + legsTo)),
     feet: (t) => inRange(t, FOOT, FOOT + 9) || (shoe === "boot" && inRange(t, LEG + 6, LEG + 9)),
   };
@@ -4226,9 +4229,8 @@ const arcOver = (outer: Bound, fore: number, half: number, lift: number): readon
 
 /** Clips along the side of the hair, each lying on it. */
 function layClips(lay: LayGear, outer: Bound, side: number, places: readonly number[]): void {
-  for (const at of places) lay([0.5, 0.36, 0.22].map((fore, i) => outer.on(overHead(side * (at + i * 0.03), fore), 0.012)), [0.045, 0.016, 4], CLIP);
+  for (const at of places) lay([0.42, 0.36, 0.3].map((fore, i) => outer.on(overHead(side * (at + i * 0.03), fore), 0.012)), [0.045, 0.016, 4], CLIP);
 }
-
 
 /** What is in the hair, a clip or a row of them, a bow, a band, and headphones over all of it: all of it lying on what is there. */
 function layHair(lay: LayGear, p: Person, outer: Bound): void {

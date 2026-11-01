@@ -58,24 +58,297 @@
       "count": 2
     }
   },
-  "modules/keel-web3/generative/people/src/index.ts": {
+  "modules/keel-web3/generative/people/src/bones.ts": {
+    "max-len": {
+      "count": 10
+    },
+    "no-nested-ternary": {
+      "count": 4
+    },
+    "one-var": {
+      "count": 10
+    }
+  },
+  "modules/keel-web3/generative/people/src/build.ts": {
+    "max-len": {
+      "count": 4
+    },
+    "no-nested-ternary": {
+      "count": 2
+    },
+    "one-var": {
+      "count": 3
+    }
+  },
+  "modules/keel-web3/generative/people/src/cage.ts": {
     "@typescript-eslint/max-params": {
-      "count": 62
+      "count": 6
     },
     "max-len": {
-      "count": 574
+      "count": 22
+    },
+    "max-statements-per-line": {
+      "count": 8
+    },
+    "no-nested-ternary": {
+      "count": 1
+    },
+    "one-var": {
+      "count": 19
+    }
+  },
+  "modules/keel-web3/generative/people/src/cloth.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 2
+    },
+    "max-len": {
+      "count": 52
     },
     "max-statements": {
+      "count": 1
+    },
+    "max-statements-per-line": {
+      "count": 3
+    },
+    "no-nested-ternary": {
+      "count": 6
+    },
+    "one-var": {
+      "count": 32
+    }
+  },
+  "modules/keel-web3/generative/people/src/fabric.ts": {
+    "max-len": {
+      "count": 1
+    }
+  },
+  "modules/keel-web3/generative/people/src/face.ts": {
+    "max-len": {
+      "count": 26
+    },
+    "no-nested-ternary": {
+      "count": 2
+    },
+    "one-var": {
+      "count": 19
+    }
+  },
+  "modules/keel-web3/generative/people/src/field.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 4
+    },
+    "max-len": {
+      "count": 42
+    },
+    "max-statements-per-line": {
+      "count": 6
+    },
+    "one-var": {
+      "count": 27
+    }
+  },
+  "modules/keel-web3/generative/people/src/gear.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 9
+    },
+    "max-len": {
+      "count": 76
+    },
+    "max-statements": {
+      "count": 1
+    },
+    "max-statements-per-line": {
+      "count": 27
+    },
+    "one-var": {
+      "count": 53
+    }
+  },
+  "modules/keel-web3/generative/people/src/hair.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 14
+    },
+    "max-len": {
+      "count": 116
+    },
+    "max-statements-per-line": {
+      "count": 20
+    },
+    "no-nested-ternary": {
+      "count": 6
+    },
+    "one-var": {
+      "count": 67
+    }
+  },
+  "modules/keel-web3/generative/people/src/head.ts": {
+    "max-len": {
+      "count": 11
+    },
+    "max-statements-per-line": {
+      "count": 3
+    },
+    "no-nested-ternary": {
+      "count": 1
+    },
+    "one-var": {
+      "count": 9
+    }
+  },
+  "modules/keel-web3/generative/people/src/lod.ts": {
+    "max-len": {
+      "count": 7
+    },
+    "no-nested-ternary": {
+      "count": 1
+    },
+    "one-var": {
+      "count": 2
+    }
+  },
+  "modules/keel-web3/generative/people/src/mesh.ts": {
+    "max-len": {
+      "count": 12
+    },
+    "one-var": {
+      "count": 8
+    }
+  },
+  "modules/keel-web3/generative/people/src/outfit.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 1
+    },
+    "max-len": {
       "count": 2
     },
     "max-statements-per-line": {
-      "count": 106
+      "count": 2
     },
     "no-nested-ternary": {
-      "count": 34
+      "count": 4
     },
     "one-var": {
-      "count": 345
+      "count": 3
+    }
+  },
+  "modules/keel-web3/generative/people/src/paint.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 6
+    },
+    "max-len": {
+      "count": 26
+    },
+    "max-statements-per-line": {
+      "count": 3
+    },
+    "one-var": {
+      "count": 14
+    }
+  },
+  "modules/keel-web3/generative/people/src/palette.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 1
+    },
+    "max-len": {
+      "count": 8
+    },
+    "max-statements-per-line": {
+      "count": 1
+    },
+    "one-var": {
+      "count": 3
+    }
+  },
+  "modules/keel-web3/generative/people/src/parts.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 8
+    },
+    "max-len": {
+      "count": 16
+    },
+    "max-statements-per-line": {
+      "count": 7
+    },
+    "no-nested-ternary": {
+      "count": 1
+    },
+    "one-var": {
+      "count": 7
+    }
+  },
+  "modules/keel-web3/generative/people/src/person.ts": {
+    "max-len": {
+      "count": 4
+    }
+  },
+  "modules/keel-web3/generative/people/src/pose.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 2
+    },
+    "max-len": {
+      "count": 11
+    },
+    "max-statements-per-line": {
+      "count": 1
+    },
+    "no-nested-ternary": {
+      "count": 2
+    },
+    "one-var": {
+      "count": 3
+    }
+  },
+  "modules/keel-web3/generative/people/src/roll.ts": {
+    "max-len": {
+      "count": 1
+    },
+    "max-statements-per-line": {
+      "count": 2
+    },
+    "one-var": {
+      "count": 1
+    }
+  },
+  "modules/keel-web3/generative/people/src/skeleton.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 5
+    },
+    "max-len": {
+      "count": 78
+    },
+    "max-statements-per-line": {
+      "count": 7
+    },
+    "no-nested-ternary": {
+      "count": 3
+    },
+    "one-var": {
+      "count": 36
+    }
+  },
+  "modules/keel-web3/generative/people/src/vec.ts": {
+    "max-len": {
+      "count": 2
+    },
+    "max-statements-per-line": {
+      "count": 1
+    }
+  },
+  "modules/keel-web3/generative/people/src/wrap.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 4
+    },
+    "max-len": {
+      "count": 47
+    },
+    "max-statements-per-line": {
+      "count": 15
+    },
+    "no-nested-ternary": {
+      "count": 1
+    },
+    "one-var": {
+      "count": 29
     }
   },
   "modules/keel-web3/generative/seeded-random/src/index.ts": {

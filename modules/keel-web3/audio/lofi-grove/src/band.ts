@@ -23,6 +23,10 @@ interface InstrumentLike extends NodeLike {
   triggerAttackRelease(note: number, duration: number, time?: number, velocity?: number): unknown;
   releaseAll?(time?: number): unknown;
 }
+/** A noise synth has no pitch: its trigger takes the duration first. */
+type NoiseSynthLike = InstrumentLike & {
+  triggerAttackRelease(duration: number, time?: number, velocity?: number): unknown;
+};
 interface SourceLike extends NodeLike {
   readonly volume: ParamLike;
   start(time?: number): unknown;
@@ -60,7 +64,7 @@ export interface ToneLike {
   readonly Synth: new (options?: Options) => InstrumentLike;
   readonly MonoSynth: new (options?: Options) => InstrumentLike;
   readonly MembraneSynth: new (options?: Options) => InstrumentLike;
-  readonly NoiseSynth: new (options?: Options) => InstrumentLike & { triggerAttackRelease(duration: number, time?: number, velocity?: number): unknown };
+  readonly NoiseSynth: new (options?: Options) => NoiseSynthLike;
   readonly Noise: new (options?: Options) => SourceLike;
   readonly Player: new (options?: Options) => SourceLike;
   readonly ToneAudioBuffer: { fromArray(array: Float32Array): unknown };
@@ -127,8 +131,19 @@ interface Rig {
   readonly nodes: NodeLike[];
 }
 
-function buildBus(tone: ToneLike, options: LofiOptions, nodes: NodeLike[]): { input: GainLike; lowpass: FilterLike; send: GainLike; wow: LfoEffectLike } {
-  const keep = <T extends NodeLike>(node: T): T => { nodes.push(node); return node; };
+/** The bus: where the band plays into, the tape and tone it goes through, and the room send. */
+interface Bus {
+  readonly input: GainLike;
+  readonly lowpass: FilterLike;
+  readonly send: GainLike;
+  readonly wow: LfoEffectLike;
+}
+
+function buildBus(tone: ToneLike, options: LofiOptions, nodes: NodeLike[]): Bus {
+  const keep = <T extends NodeLike>(node: T): T => {
+    nodes.push(node);
+    return node;
+  };
   const compressor = keep(new tone.Compressor({ threshold: -20, ratio: 3, attack: 0.02, release: 0.25 }));
   compressor.connect(options.destination ?? tone.getDestination());
   const master = keep(new tone.Gain(10 ** ((options.volume ?? 0) / 20)));
@@ -187,6 +202,13 @@ const LEAD_PATCHES: Readonly<Record<LeadVoice, Patch>> = {
 
 type Keep = <T extends NodeLike>(node: T) => T;
 
+/** What every section of the rig is built with: Tone, the list every node joins, and the layer gains. */
+interface Builder {
+  readonly tone: ToneLike;
+  readonly keep: Keep;
+  readonly gains: Rig["gains"];
+}
+
 /** Builds a patch as synth → wobble → tone filter → out. */
 function buildPatch(tone: ToneLike, keep: Keep, patch: Patch, out: NodeLike): InstrumentLike {
   const synth = keep(new tone.PolySynth(tone[patch.synth], patch.options));
@@ -209,26 +231,48 @@ function buildPatch(tone: ToneLike, keep: Keep, patch: Patch, out: NodeLike): In
   return synth;
 }
 
-function buildVoices<V extends string>(tone: ToneLike, keep: Keep, patches: Readonly<Record<V, Patch>>, out: NodeLike): Record<V, InstrumentLike> {
+function buildVoices<V extends string>(
+  tone: ToneLike,
+  keep: Keep,
+  patches: Readonly<Record<V, Patch>>,
+  out: NodeLike,
+): Record<V, InstrumentLike> {
   const voices = {} as Record<V, InstrumentLike>;
   for (const voice of Object.keys(patches) as V[]) voices[voice] = buildPatch(tone, keep, patches[voice], out);
   return voices;
 }
 
-function buildDrums(tone: ToneLike, keep: <T extends NodeLike>(node: T) => T, gains: Rig["gains"], out: NodeLike): Pick<Rig["instruments"], "kick" | "snare" | "wood" | "hat"> {
+function buildDrums(builder: Builder, out: NodeLike): Pick<Rig["instruments"], "kick" | "snare" | "wood" | "hat"> {
+  const { tone, keep, gains } = builder;
   // The kit is dusty: low-passed and a little crushed before the tape.
   const kitTone = keep(new tone.Filter({ type: "lowpass", frequency: 5200, Q: 0.5 }));
   const grit = keep(new tone.Distortion({ distortion: 0.18, wet: 0.35 }));
   kitTone.connect(grit);
   grit.connect(out);
-  const kick = keep(new tone.MembraneSynth({ pitchDecay: 0.045, octaves: 4.5, envelope: { attack: 0.001, decay: 0.38, sustain: 0, release: 0.1 } }));
+  const kick = keep(
+    new tone.MembraneSynth({
+      pitchDecay: 0.045,
+      octaves: 4.5,
+      envelope: { attack: 0.001, decay: 0.38, sustain: 0, release: 0.1 },
+    }),
+  );
   kick.volume.value = -8;
-  const snare = keep(new tone.NoiseSynth({ noise: { type: "pink" }, envelope: { attack: 0.001, decay: 0.17, sustain: 0, release: 0.05 } }));
+  const snare = keep(
+    new tone.NoiseSynth({ noise: { type: "pink" }, envelope: { attack: 0.001, decay: 0.17, sustain: 0, release: 0.05 } }),
+  );
   snare.volume.value = -10;
   const snareBand = keep(new tone.Filter({ type: "bandpass", frequency: 1900, Q: 0.7 }));
-  const wood = keep(new tone.MembraneSynth({ pitchDecay: 0.008, octaves: 1.6, envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.03 } }));
+  const wood = keep(
+    new tone.MembraneSynth({
+      pitchDecay: 0.008,
+      octaves: 1.6,
+      envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.03 },
+    }),
+  );
   wood.volume.value = -10;
-  const hat = keep(new tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.035, sustain: 0, release: 0.02 } }));
+  const hat = keep(
+    new tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.035, sustain: 0, release: 0.02 } }),
+  );
   hat.volume.value = -12;
   const hatBand = keep(new tone.Filter({ type: "highpass", frequency: 7200 }));
   kick.connect(gains.kick);
@@ -243,7 +287,8 @@ function buildDrums(tone: ToneLike, keep: <T extends NodeLike>(node: T) => T, ga
   return { kick, snare, wood, hat };
 }
 
-function buildAir(tone: ToneLike, keep: <T extends NodeLike>(node: T) => T, gains: Rig["gains"], seed: number, out: NodeLike): SourceLike[] {
+function buildAir(builder: Builder, seed: number, out: NodeLike): SourceLike[] {
+  const { tone, keep, gains } = builder;
   const crackle = keep(new tone.Player({ url: crackleBuffer(tone, seed), loop: true }));
   crackle.volume.value = -20;
   const hiss = keep(new tone.Noise({ type: "brown" }));
@@ -253,7 +298,9 @@ function buildAir(tone: ToneLike, keep: <T extends NodeLike>(node: T) => T, gain
   const rainTone = keep(new tone.Filter({ type: "bandpass", frequency: 2400, Q: 0.35 }));
   const wind = keep(new tone.Noise({ type: "pink" }));
   wind.volume.value = -20;
-  const gust = keep(new tone.AutoFilter({ frequency: 0.07, baseFrequency: 160, octaves: 3.4, filter: { type: "bandpass", Q: 1.4 } }));
+  const gust = keep(
+    new tone.AutoFilter({ frequency: 0.07, baseFrequency: 160, octaves: 3.4, filter: { type: "bandpass", Q: 1.4 } }),
+  );
   gust.start();
   crackle.connect(gains.crackle);
   hiss.connect(gains.hiss);
@@ -265,10 +312,19 @@ function buildAir(tone: ToneLike, keep: <T extends NodeLike>(node: T) => T, gain
   return [crackle, hiss, rain, wind];
 }
 
-function buildNature(tone: ToneLike, keep: <T extends NodeLike>(node: T) => T, gains: Rig["gains"], out: NodeLike): Pick<Rig["instruments"], "bird" | "cricket"> {
-  const bird = keep(new tone.Synth({ portamento: 0.028, oscillator: { type: "sine" }, envelope: { attack: 0.004, decay: 0.07, sustain: 0.2, release: 0.05 } }));
+function buildNature(builder: Builder, out: NodeLike): Pick<Rig["instruments"], "bird" | "cricket"> {
+  const { tone, keep, gains } = builder;
+  const bird = keep(
+    new tone.Synth({
+      portamento: 0.028,
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.004, decay: 0.07, sustain: 0.2, release: 0.05 },
+    }),
+  );
   bird.volume.value = -27;
-  const cricket = keep(new tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.002, decay: 0.02, sustain: 0, release: 0.01 } }));
+  const cricket = keep(
+    new tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.002, decay: 0.02, sustain: 0, release: 0.01 } }),
+  );
   cricket.volume.value = -36;
   bird.connect(gains.birds);
   cricket.connect(gains.crickets);
@@ -279,9 +335,15 @@ function buildNature(tone: ToneLike, keep: <T extends NodeLike>(node: T) => T, g
 
 function buildRig(tone: ToneLike, seed: number, options: LofiOptions): Rig {
   const nodes: NodeLike[] = [];
-  const keep = <T extends NodeLike>(node: T): T => { nodes.push(node); return node; };
+  const keep = <T extends NodeLike>(node: T): T => {
+    nodes.push(node);
+    return node;
+  };
   const bus = buildBus(tone, options, nodes);
-  const gains = Object.fromEntries(Object.keys(NO_LAYERS).map((key) => [key, keep(new tone.Gain(0))])) as unknown as Rig["gains"];
+  const gains = Object.fromEntries(
+    Object.keys(NO_LAYERS).map((key) => [key, keep(new tone.Gain(0))]),
+  ) as unknown as Rig["gains"];
+  const builder: Builder = { tone, keep, gains };
   const keysVoices = buildVoices(tone, keep, KEYS_PATCHES, gains.keys);
   // The leads share a dotted-eighth echo.
   const echo = keep(new tone.FeedbackDelay({ delayTime: "8n.", feedback: 0.26, wet: 0.24 }));
@@ -302,11 +364,21 @@ function buildRig(tone: ToneLike, seed: number, options: LofiOptions): Rig {
   gains.keys.connect(bus.send);
   gains.melody.connect(bus.send);
   gains.bud.connect(bus.send);
-  const drums = buildDrums(tone, keep, gains, bus.input);
-  const sources = buildAir(tone, keep, gains, seed, bus.lowpass);
-  const nature = buildNature(tone, keep, gains, bus.lowpass);
+  const drums = buildDrums(builder, bus.input);
+  const sources = buildAir(builder, seed, bus.lowpass);
+  const nature = buildNature(builder, bus.lowpass);
   gains.birds.connect(bus.send);
-  return { instruments: { keys: keysVoices.felt, melody: leads.kalimba, bud, bass, ...drums, ...nature }, keysVoices, leads, gains, sources, lowpass: bus.lowpass, wow: bus.wow, send: bus.send, nodes };
+  return {
+    instruments: { keys: keysVoices.felt, melody: leads.kalimba, bud, bass, ...drums, ...nature },
+    keysVoices,
+    leads,
+    gains,
+    sources,
+    lowpass: bus.lowpass,
+    wow: bus.wow,
+    send: bus.send,
+    nodes,
+  };
 }
 
 function applyMix(rig: Rig, score: LofiScore, ramp: number): void {
@@ -338,21 +410,82 @@ function inOrder(instrument: InstrumentLike, time: number): number {
   return start;
 }
 
-function play(rig: Rig, score: LofiScore, item: LofiEvent, time: number, sixteenth: number): void {
+/** When a step falls on the transport, and how long a 16th is there. */
+interface Beat { readonly time: number; readonly sixteenth: number }
+
+function play(rig: Rig, score: LofiScore, item: LofiEvent, beat: Beat): void {
+  const { time, sixteenth } = beat;
   const [instrument, shift] = voiceFor(rig, score, item.voice);
   const duration = Math.max(0.03, item.length * sixteenth);
   if (item.voice === "snare" || item.voice === "hat") {
-    (instrument as InstrumentLike & { triggerAttackRelease(duration: number, time?: number, velocity?: number): unknown }).triggerAttackRelease(duration, inOrder(instrument, time + item.nudge), item.velocity);
+    const noise = instrument as NoiseSynthLike;
+    noise.triggerAttackRelease(duration, inOrder(instrument, time + item.nudge), item.velocity);
     return;
   }
   item.notes.forEach((note, index) => {
-    instrument.triggerAttackRelease(hz(note + shift), duration, inOrder(instrument, time + item.nudge + index * item.spread), item.velocity);
+    const start = inOrder(instrument, time + item.nudge + index * item.spread);
+    instrument.triggerAttackRelease(hz(note + shift), duration, start, item.velocity);
   });
 }
 
 function silence(rig: Rig, now: number): void {
   for (const source of rig.sources) source.stop(now + 0.05);
-  for (const instrument of [...Object.values(rig.instruments), ...Object.values(rig.keysVoices), ...Object.values(rig.leads)]) instrument.releaseAll?.(now);
+  const all = [...Object.values(rig.instruments), ...Object.values(rig.keysVoices), ...Object.values(rig.leads)];
+  for (const instrument of all) instrument.releaseAll?.(now);
+}
+
+/** What the band is playing, what waits for the bar line, and where in the loop it has got to. */
+interface Playing {
+  rig: Rig | null;
+  current: LofiScore | null;
+  pending: LofiScore | null;
+  fromTop: boolean;
+  repeat: number;
+  step: number;
+}
+
+/** One 16th on the transport: a pending structure takes over at a bar line, then every voice's events play. */
+function advance(state: Playing, transport: TransportLike, time: number): void {
+  if (state.rig === null || state.current === null) return;
+  if (state.pending !== null && state.step % STEPS_PER_BAR === 0) {
+    state.current = state.pending;
+    state.pending = null;
+    state.step = state.fromTop ? 0 : state.step;
+    state.fromTop = false;
+  }
+  const sixteenth = 60 / transport.bpm.value / 4;
+  for (const item of stepEvents(state.current, state.step)) play(state.rig, state.current, item, { time, sixteenth });
+  state.step += 1;
+}
+
+/** A new score while playing: the mix and tempo follow now; a new structure waits for the next bar line. */
+function retune(state: Playing, transport: TransportLike, score: LofiScore, fromTop: boolean): void {
+  if (state.rig === null || state.current === null) {
+    state.current = score;
+    return;
+  }
+  if (JSON.stringify(score) === JSON.stringify(state.pending ?? state.current)) return;
+  applyMix(state.rig, score, 2.5);
+  transport.bpm.rampTo(score.bpm, fromTop ? 0.5 : 4);
+  transport.swing = score.swing;
+  // A routine update must not cancel a restart already waiting for the bar line.
+  if (score.structure !== state.current.structure) {
+    state.fromTop = fromTop || (state.fromTop && state.pending?.structure === score.structure);
+    state.pending = score;
+  } else {
+    state.current = score;
+    state.pending = null;
+  }
+}
+
+function halt(state: Playing, tone: ToneLike, transport: TransportLike): void {
+  if (state.repeat >= 0) {
+    transport.clear(state.repeat);
+    state.repeat = -1;
+  }
+  transport.stop();
+  transport.cancel(0);
+  if (state.rig !== null) silence(state.rig, tone.now());
 }
 
 /**
@@ -360,64 +493,46 @@ function silence(rig: Rig, now: number): void {
  * transport. Tone is injected; the module never imports it or reads globals.
  */
 export function createLofi(tone: ToneLike, options: LofiOptions = {}): LofiBand {
-  let rig: Rig | null = null;
-  let current: LofiScore | null = null;
-  let pending: LofiScore | null = null;
-  let fromTop = false;
-  let repeat = -1;
-  let step = 0;
+  const state: Playing = { rig: null, current: null, pending: null, fromTop: false, repeat: -1, step: 0 };
   const transport = tone.getTransport();
-
   const tick = (time: number): void => {
-    if (rig === null || current === null) return;
-    if (pending !== null && step % STEPS_PER_BAR === 0) {
-      [current, pending, step, fromTop] = [pending, null, fromTop ? 0 : step, false];
-    }
-    const sixteenth = 60 / transport.bpm.value / 4;
-    for (const item of stepEvents(current, step)) play(rig, current, item, time, sixteenth);
-    step += 1;
+    advance(state, transport, time);
   };
-
   const band: LofiBand = {
-    get playing() { return repeat >= 0; },
-    get score() { return pending ?? current; },
+    get playing() {
+      return state.repeat >= 0;
+    },
+    get score() {
+      return state.pending ?? state.current;
+    },
     start(score) {
       band.stop();
-      rig ??= buildRig(tone, score.seed, options);
-      current = score;
-      pending = null;
-      step = 0;
+      const rig = state.rig ?? buildRig(tone, score.seed, options);
+      state.rig = rig;
+      state.current = score;
+      state.pending = null;
+      state.step = 0;
       transport.bpm.value = score.bpm;
       transport.swing = score.swing;
       transport.swingSubdivision = "16n";
       applyMix(rig, score, 1.5);
       const now = tone.now();
       for (const source of rig.sources) source.start(now);
-      repeat = transport.scheduleRepeat(tick, "16n", 0);
+      state.repeat = transport.scheduleRepeat(tick, "16n", 0);
       transport.start(now + 0.1);
     },
     setScore(score, options) {
-      if (rig === null || current === null) { current = score; return; }
-      if (JSON.stringify(score) === JSON.stringify(pending ?? current)) return;
-      applyMix(rig, score, 2.5);
-      transport.bpm.rampTo(score.bpm, options?.fromTop === true ? 0.5 : 4);
-      transport.swing = score.swing;
-      // A routine update must not cancel a restart already waiting for the bar line.
-      if (score.structure !== current.structure) [fromTop, pending] = [options?.fromTop === true || (fromTop && pending?.structure === score.structure), score];
-      else { current = score; pending = null; }
+      retune(state, transport, score, options?.fromTop === true);
     },
     stop() {
-      if (repeat >= 0) { transport.clear(repeat); repeat = -1; }
-      transport.stop();
-      transport.cancel(0);
-      if (rig !== null) silence(rig, tone.now());
+      halt(state, tone, transport);
     },
     dispose() {
       band.stop();
-      for (const node of rig?.nodes ?? []) node.dispose();
-      rig = null;
-      current = null;
-      pending = null;
+      for (const node of state.rig?.nodes ?? []) node.dispose();
+      state.rig = null;
+      state.current = null;
+      state.pending = null;
     },
   };
   return band;

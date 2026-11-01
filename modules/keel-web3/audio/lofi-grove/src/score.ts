@@ -241,8 +241,10 @@ function voiceLead(pitchClasses: readonly number[], previous: readonly number[])
     if (top > KEYS_RANGE[1]) continue;
     const mean = voicing.reduce((sum, note) => sum + note, 0) / voicing.length;
     const cost = Math.abs(mean - centre) + (previous.length > 0 ? 0 : Math.abs(mean - 62));
-    if (cost < bestCost) { bestCost = cost;
-    best = voicing; }
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = voicing;
+    }
   }
   return best;
 }

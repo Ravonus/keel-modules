@@ -55,15 +55,6 @@
   "modules/keel-web3/render/skin-body/src/index.ts": {
     "@typescript-eslint/max-params": {
       "count": 1
-    },
-    "max-len": {
-      "count": 13
-    },
-    "max-statements-per-line": {
-      "count": 5
-    },
-    "one-var": {
-      "count": 3
     }
   },
   "modules/keel-web3/render/tree-render/src/instances.ts": {

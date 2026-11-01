@@ -613,9 +613,22 @@ void main() { gl_FragColor = packDepthToRGBA(gl_FragCoord.z); }`;
 
 interface LitV4 { set(x: number, y: number, z: number, w: number): unknown }
 interface LitColor { r: number; g: number; b: number; set(value: string): LitColor }
-interface LitNode { add(...nodes: unknown[]): void; remove(...nodes: unknown[]): void; position: { set(x: number, y: number, z: number): void }; rotation: { y: number }; visible: boolean; frustumCulled: boolean; castShadow: boolean; customDepthMaterial: unknown }
+interface LitNode {
+  add(...nodes: unknown[]): void;
+  remove(...nodes: unknown[]): void;
+  position: { set(x: number, y: number, z: number): void };
+  rotation: { y: number };
+  visible: boolean;
+  frustumCulled: boolean;
+  castShadow: boolean;
+  customDepthMaterial: unknown;
+}
 interface Uniform<T = unknown> { value: T }
-interface LitGeometry { setAttribute(name: string, attribute: unknown): void; setIndex(attribute: unknown): void; dispose(): void }
+interface LitGeometry {
+  setAttribute(name: string, attribute: unknown): void;
+  setIndex(attribute: unknown): void;
+  dispose(): void;
+}
 interface Disposable { dispose(): void }
 
 /** What this module uses of keel/lit. */
@@ -668,16 +681,33 @@ function skinOf(lit: SkinLit, look: SkinLook | undefined): InstanceType<SkinLit[
 }
 
 function lookUniforms(lit: SkinLit, face: SkinFace): Record<string, Uniform> {
-  const { shadow, blush, liner = 0, freckles = 0, spots = 0, tired = 0, seed = 0, moles = [] } = face.look ?? {}, [a, b, c, d] = face.browLine ?? [2.4, 0, 0.14, 0.2];
-  const washed = (wash: readonly [string, number] | undefined): Uniform => { const v = linear(lit, wash?.[0] ?? "#000000"); return { value: new lit.Vector4(v.r, v.g, v.b, wash?.[1] ?? 0) }; };
-  const mole = (at: readonly [number, number, number] | undefined): Uniform => ({ value: new lit.Vector3(at?.[0] ?? 0, at?.[1] ?? 0, at?.[2] ?? 0) });
-  return { uBrowLine: { value: new lit.Vector4(a, b, c, d) }, uMarks: { value: new lit.Vector4(freckles, spots, tired, seed % 97) }, uShadow: washed(shadow), uBlush: washed(blush), uLiner: { value: liner }, uSkin: { value: skinOf(lit, face.look) }, uMoleA: mole(moles[0]), uMoleB: mole(moles[1]) };
+  const { shadow, blush, liner = 0, freckles = 0, spots = 0, tired = 0, seed = 0, moles = [] } = face.look ?? {};
+  const [a, b, c, d] = face.browLine ?? [2.4, 0, 0.14, 0.2];
+  const washed = (wash: readonly [string, number] | undefined): Uniform => {
+    const v = linear(lit, wash?.[0] ?? "#000000");
+    return { value: new lit.Vector4(v.r, v.g, v.b, wash?.[1] ?? 0) };
+  };
+  const mole = (at: readonly [number, number, number] | undefined): Uniform => ({
+    value: new lit.Vector3(at?.[0] ?? 0, at?.[1] ?? 0, at?.[2] ?? 0),
+  });
+  return {
+    uBrowLine: { value: new lit.Vector4(a, b, c, d) },
+    uMarks: { value: new lit.Vector4(freckles, spots, tired, seed % 97) },
+    uShadow: washed(shadow),
+    uBlush: washed(blush),
+    uLiner: { value: liner },
+    uSkin: { value: skinOf(lit, face.look) },
+    uMoleA: mole(moles[0]),
+    uMoleB: mole(moles[1]),
+  };
 }
 
 function legUniforms(lit: SkinLit, legs: SkinLegs | undefined): Record<string, Uniform> {
-  const n = (i: number): number => legs?.joints[i] ?? 0, [a, b, c, d] = legs?.bones ?? [0, 0, 0, 0];
+  const n = (i: number): number => legs?.joints[i] ?? 0;
+  const [a, b, c, d] = legs?.bones ?? [0, 0, 0, 0];
+  const joint = (i: number): LitV4 => new lit.Vector4(n(i * 4), n(i * 4 + 1), n(i * 4 + 2), n(i * 4 + 3));
   return {
-    uLegJoints: { value: Array.from({ length: LEG_JOINTS }, (_, i) => new lit.Vector4(n(i * 4), n(i * 4 + 1), n(i * 4 + 2), n(i * 4 + 3))) },
+    uLegJoints: { value: Array.from({ length: LEG_JOINTS }, (_, i) => joint(i)) },
     uLegBones: { value: new lit.Vector4(a, b, c, d) },
     uFootBones: { value: new lit.Vector3(legs?.feet[0] ?? 0, legs?.feet[1] ?? 0, 0) },
     uClothBone: { value: legs?.cloth ?? 0 },
@@ -705,59 +735,122 @@ function faceUniforms(lit: SkinLit, given: SkinFace | undefined): Record<string,
   };
 }
 
+/** What every body of the pool shares: the host depth, the lights and the material defines. */
+interface Shared {
+  readonly defines: Readonly<Record<string, number>>;
+  readonly uHostDepth: Uniform;
+  readonly uHostForward: Uniform;
+  readonly lights: Record<string, Uniform>;
+}
+
+const bonesUniform = (lit: SkinLit): Uniform<LitV4[]> => ({
+  value: Array.from({ length: MOST_BONES * 3 }, () => new lit.Vector4()),
+});
+
+function bonesInto(slot: Uniform<LitV4[]>, bones: Float32Array): void {
+  slot.value.forEach((row, i) => {
+    if (i * 4 < bones.length) {
+      row.set(bones[i * 4] ?? 0, bones[i * 4 + 1] ?? 0, bones[i * 4 + 2] ?? 0, bones[i * 4 + 3] ?? 0);
+    }
+  });
+}
+
+/** One body in the pool: its geometry, its lit and depth materials and its node under `group`. */
+function addBody(lit: SkinLit, group: LitNode, shared: Shared, mesh: SkinMesh): SkinOne {
+  const { defines, uHostDepth, uHostForward, lights } = shared;
+  const geometry = geometryOf(lit, mesh);
+  const uBones = bonesUniform(lit);
+  const uSway: Uniform = { value: new lit.Vector4() };
+  const uJiggle: Uniform = { value: new lit.Vector3() };
+  const legs = legUniforms(lit, mesh.legs);
+  const uniforms: Record<string, Uniform> = {
+    uBones,
+    uSway,
+    uJiggle,
+    ...legs,
+    uHostDepth,
+    uHostForward,
+    ...lights,
+    ...faceUniforms(lit, mesh.face),
+  };
+  const material = new lit.CustomMaterial({
+    side: "both",
+    defines,
+    uniforms,
+    vertexShader: VERTEX,
+    fragmentShader: FRAGMENT,
+  });
+  const depth = new lit.CustomMaterial({
+    uniforms: { uBones, uSway, uJiggle, ...legs },
+    vertexShader: DEPTH_VERTEX,
+    fragmentShader: DEPTH_FRAGMENT,
+  });
+  const node = new lit.Mesh(geometry, material);
+  node.frustumCulled = false;
+  node.castShadow = true;
+  node.customDepthMaterial = depth;
+  group.add(node);
+  return {
+    pose(bones, at, yaw, face, sway = [0, 0, 0, 0], jiggle = [0, 0, 0]) {
+      bonesInto(uBones, bones);
+      (uSway.value as LitV4).set(...sway);
+      (uJiggle.value as { set(x: number, y: number, z: number): void }).set(...jiggle);
+      node.position.set(at[0], at[1], at[2]);
+      node.rotation.y = yaw;
+      if (!face) return;
+      (uniforms.uFace?.value as LitV4).set(face.lid, face.look[0], face.look[1], face.mouth);
+      if (uniforms.uSmile) uniforms.uSmile.value = face.smile;
+    },
+    show(on) {
+      node.visible = on;
+    },
+    remove() {
+      group.remove(node);
+      geometry.dispose();
+      material.dispose();
+      depth.dispose();
+    },
+  };
+}
+
+/** The scene's light into the pool's shared uniforms. */
+function lightInto(lights: Record<string, Uniform>, light: SkinLight): void {
+  const set = (name: string, v: Vec | undefined): void => {
+    const target = lights[name]?.value as { set(x: number, y: number, z: number): void } | undefined;
+    target?.set(...(v ?? ([0, 0, 0] as const)));
+  };
+  set("uSun", light.sun);
+  set("uSunCol", light.sunColor);
+  set("uFill", light.fill ?? [0, 1, 0]);
+  set("uFillCol", light.fillColor);
+  set("uSky", light.sky);
+  set("uGround", light.ground);
+  set("uRim", light.rim ?? [0, 1, 0]);
+  set("uRimCol", light.rimColor);
+  set("uFront", light.front);
+}
+
 export function createSkinBodies(lit: SkinLit, options: SkinOptions = {}): SkinBodies {
   const group = new lit.Group();
   const defines = options.hostDepth === true ? { HOST_DEPTH: 1 } : {};
-  const uHostDepth: Uniform = { value: new lit.Vector3() }, uHostForward: Uniform = { value: new lit.Vector4() };
-  const lights: Record<string, Uniform> = Object.fromEntries(LIGHTS.map((name) => [name, { value: new lit.Vector3() }]));
-  const bonesUniform = (): Uniform<LitV4[]> => ({ value: Array.from({ length: MOST_BONES * 3 }, () => new lit.Vector4()) });
-  const bonesInto = (slot: Uniform<LitV4[]>, bones: Float32Array): void => {
-    slot.value.forEach((row, i) => { if (i * 4 < bones.length) row.set(bones[i * 4] ?? 0, bones[i * 4 + 1] ?? 0, bones[i * 4 + 2] ?? 0, bones[i * 4 + 3] ?? 0); });
-  };
+  const uHostDepth: Uniform = { value: new lit.Vector3() };
+  const uHostForward: Uniform = { value: new lit.Vector4() };
+  const lights: Record<string, Uniform> = Object.fromEntries(
+    LIGHTS.map((name) => [name, { value: new lit.Vector3() }]),
+  );
+  const shared: Shared = { defines, uHostDepth, uHostForward, lights };
   return {
     group,
     add(mesh) {
-      const geometry = geometryOf(lit, mesh);
-      const uBones = bonesUniform();
-      const uSway: Uniform = { value: new lit.Vector4() };
-      const uJiggle: Uniform = { value: new lit.Vector3() };
-      const legs = legUniforms(lit, mesh.legs);
-      const uniforms: Record<string, Uniform> = { uBones, uSway, uJiggle, ...legs, uHostDepth, uHostForward, ...lights, ...faceUniforms(lit, mesh.face) };
-      const material = new lit.CustomMaterial({ side: "both", defines, uniforms, vertexShader: VERTEX, fragmentShader: FRAGMENT });
-      const depth = new lit.CustomMaterial({ uniforms: { uBones, uSway, uJiggle, ...legs }, vertexShader: DEPTH_VERTEX, fragmentShader: DEPTH_FRAGMENT });
-      const node = new lit.Mesh(geometry, material);
-      node.frustumCulled = false;
-      node.castShadow = true;
-      node.customDepthMaterial = depth;
-      group.add(node);
-      return {
-        pose(bones, at, yaw, face, sway = [0, 0, 0, 0], jiggle = [0, 0, 0]) {
-          bonesInto(uBones, bones);
-          (uSway.value as LitV4).set(...sway);
-          (uJiggle.value as { set(x: number, y: number, z: number): void }).set(...jiggle);
-          node.position.set(at[0], at[1], at[2]);
-          node.rotation.y = yaw;
-          if (!face) return;
-          (uniforms.uFace?.value as LitV4).set(face.lid, face.look[0], face.look[1], face.mouth);
-          if (uniforms.uSmile) uniforms.uSmile.value = face.smile;
-        },
-        show(on) { node.visible = on; },
-        remove() {
-          group.remove(node);
-          geometry.dispose();
-          material.dispose();
-          depth.dispose();
-        },
-      };
+      return addBody(lit, group, shared, mesh);
     },
     hostDepth(origin, forward, base, scale) {
       (uHostDepth.value as { set(x: number, y: number, z: number): void }).set(base, scale, 0);
-      (uHostForward.value as LitV4).set(forward[0], forward[1], forward[2], origin[0] * forward[0] + origin[1] * forward[1] + origin[2] * forward[2]);
+      const along = origin[0] * forward[0] + origin[1] * forward[1] + origin[2] * forward[2];
+      (uHostForward.value as LitV4).set(forward[0], forward[1], forward[2], along);
     },
     light(light) {
-      const set = (name: string, v: Vec | undefined): void => { (lights[name]?.value as { set(x: number, y: number, z: number): void } | undefined)?.set(...(v ?? ([0, 0, 0] as const))); };
-      set("uSun", light.sun); set("uSunCol", light.sunColor); set("uFill", light.fill ?? [0, 1, 0]); set("uFillCol", light.fillColor);
-      set("uSky", light.sky); set("uGround", light.ground); set("uRim", light.rim ?? [0, 1, 0]); set("uRimCol", light.rimColor); set("uFront", light.front);
+      lightInto(lights, light);
     },
   };
 }

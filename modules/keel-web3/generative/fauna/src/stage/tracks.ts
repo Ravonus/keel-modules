@@ -1,8 +1,8 @@
 // Tracks: the prints feet leave, shaped like their own, that dirt lets go of long before snow.
 
-import { SPECIES } from "./roster.js";
-import type { Foot, Plan, SpeciesId } from "./roster.js";
-import type { Body } from "./bodies.js";
+import { SPECIES } from "../roster.js";
+import type { Foot, Plan, SpeciesId } from "../roster.js";
+import type { Body } from "../animals/bodies.js";
 
 /** What a foot comes down on. */
 export type Tread = "snow" | "sand" | "dirt";

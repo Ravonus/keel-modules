@@ -1,10 +1,10 @@
 // Four legs, the rest: tails, the trunk and its coat marks, shells, mantles and quills, and the animal posed whole.
 
-import { UP, add, cross, dirOf, lerpV, madd, mix, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
-import type { Build, Role, Station, Tail } from "./roster.js";
-import type { Moment, Pose } from "./moments.js";
+import { UP, add, cross, dirOf, lerpV, madd, mix, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
+import type { Build, Role, Station, Tail } from "../roster.js";
+import type { Moment, Pose } from "../stage/moments.js";
 import { ball, buildOf, cap, cone, decal } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { LEG, legFinish, nosing, quadFoot, quadLeg, quadSpine } from "./quad.js";

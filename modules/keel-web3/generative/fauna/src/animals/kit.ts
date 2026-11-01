@@ -1,10 +1,10 @@
 // The kit: capsules in the animal's own frame, and the build a seed gives one animal.
 
-import { UP, add, clamp, cross, dirToWorld, madd, rollV, solveTwoBone, sub, toWorld, unit } from "./vec.js";
-import type { Frame, Vec } from "./vec.js";
-import type { Build, Role } from "./roster.js";
-import type { Capsule, Finish } from "./moments.js";
-import type { CastMember } from "./casting.js";
+import { UP, add, clamp, cross, dirToWorld, madd, rollV, solveTwoBone, sub, toWorld, unit } from "../vec.js";
+import type { Frame, Vec } from "../vec.js";
+import type { Build, Role } from "../roster.js";
+import type { Capsule, Finish } from "../stage/moments.js";
+import type { CastMember } from "../casting.js";
 import type { Who } from "./bodies.js";
 
 // ---------------------------------------------------------------- the kit: capsules in the animal's own frame

@@ -1,10 +1,10 @@
 // The director: each actor's next segment, routed over ground and wood, to food, a perch, a bug or a rest.
 
-import { TAU, add, clamp, dot, length, madd, mix, sub } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { between, createRandom } from "./roll.js";
-import { HOPPERS, MOVES, speciesOf } from "./roster.js";
-import type { Action, SpeciesId, SpeciesSpec } from "./roster.js";
+import { TAU, add, clamp, dot, length, madd, mix, sub } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { between, createRandom } from "../roll.js";
+import { HOPPERS, MOVES, speciesOf } from "../roster.js";
+import type { Action, SpeciesId, SpeciesSpec } from "../roster.js";
 import { GROUNDED, SPAN, matrixOf, nextAction } from "./idle.js";
 import type { IdleMatrix, Mood } from "./idle.js";
 import { APPETITE, FRUIT_EATERS, anchorOf, groundSpot, perchOf, trunkAxis, trunkClear, trunkShare } from "./stage.js";
@@ -16,10 +16,10 @@ import {
 import type { Loop, PathPoint } from "./paths.js";
 import { liesAlong } from "./moments.js";
 import type { Capsule } from "./moments.js";
-import { memberOf } from "./casting.js";
-import type { CastGroup, CastMember } from "./casting.js";
-import { poseSpecies } from "./bodies.js";
-import type { Who } from "./bodies.js";
+import { memberOf } from "../casting.js";
+import type { CastGroup, CastMember } from "../casting.js";
+import { poseSpecies } from "../animals/bodies.js";
+import type { Who } from "../animals/bodies.js";
 
 // ---------------------------------------------------------------- the director
 

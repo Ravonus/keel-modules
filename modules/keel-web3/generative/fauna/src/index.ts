@@ -30,26 +30,26 @@ export { MOVES, SPECIES, SPECIES_IDS } from "./roster.js";
 export type {
   Plan, Rarity, RegionId, WorldKey, Season, EyeRole, Role, Palette, Action, Build, SpeciesSpec, SpeciesId,
 } from "./roster.js";
-export { idleMatrix } from "./idle.js";
-export type { IdleMatrix, Mood } from "./idle.js";
-export { FRUIT_EATERS } from "./stage.js";
-export type { Place, Wood, Perch, Root, Stage, Food } from "./stage.js";
-export { woodMapOf } from "./paths.js";
-export type { WoodMap, WoodEdge } from "./paths.js";
-export { searchRoute } from "./director.js";
-export type { Capsule } from "./moments.js";
-export { MORPHS } from "./coats.js";
-export type { Morph } from "./coats.js";
+export { idleMatrix } from "./stage/idle.js";
+export type { IdleMatrix, Mood } from "./stage/idle.js";
+export { FRUIT_EATERS } from "./stage/stage.js";
+export type { Place, Wood, Perch, Root, Stage, Food } from "./stage/stage.js";
+export { woodMapOf } from "./stage/paths.js";
+export type { WoodMap, WoodEdge } from "./stage/paths.js";
+export { searchRoute } from "./stage/director.js";
+export type { Capsule } from "./stage/moments.js";
+export { MORPHS } from "./animals/coats.js";
+export type { Morph } from "./animals/coats.js";
 export { fits, shownSize, regionWeight, castFor } from "./casting.js";
 export type {
   CastMember, Traits, CastGroup, PlaneKind, SkyKind, SkyTraffic, SkyPlan, SkyNow, Cast, CastInput, PoseOptions,
 } from "./casting.js";
-export { poseSpecies } from "./bodies.js";
-export type { PeltSpec, Body } from "./bodies.js";
-export { skyFade } from "./sky.js";
-export { createHerd, pickBody } from "./herd.js";
-export type { Herd, Order } from "./herd.js";
-export { shoveApart, clearOfLimbs, passOnWood } from "./collision.js";
-export type { Ring, Footprint, WoodPrint, Clipping } from "./collision.js";
-export { TREADS, createTracks } from "./tracks.js";
-export type { Tread, Print, PrintShape, Tracks } from "./tracks.js";
+export { poseSpecies } from "./animals/bodies.js";
+export type { PeltSpec, Body } from "./animals/bodies.js";
+export { skyFade } from "./stage/sky.js";
+export { createHerd, pickBody } from "./stage/herd.js";
+export type { Herd, Order } from "./stage/herd.js";
+export { shoveApart, clearOfLimbs, passOnWood } from "./stage/collision.js";
+export type { Ring, Footprint, WoodPrint, Clipping } from "./stage/collision.js";
+export { TREADS, createTracks } from "./stage/tracks.js";
+export type { Tread, Print, PrintShape, Tracks } from "./stage/tracks.js";

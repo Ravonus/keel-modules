@@ -1,8 +1,8 @@
 // Where animals are: the stage, its trunk, perches, roots and food, and the spots on it an animal may take.
 
-import { TAU, UP, add, clamp, lerpV, madd, mix } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { SpeciesId } from "./roster.js";
+import { TAU, UP, add, clamp, lerpV, madd, mix } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { SpeciesId } from "../roster.js";
 
 // ---------------------------------------------------------------- where animals are
 

@@ -1,8 +1,8 @@
 // Coats and rare morphs: eye styles, coat colours varied by seed, and the albino, melanistic, golden and spirit skins.
 
-import { clamp, mix } from "./vec.js";
-import { SPECIES } from "./roster.js";
-import type { Palette, Rarity, Role, SpeciesId, WorldKey } from "./roster.js";
+import { clamp, mix } from "../vec.js";
+import { SPECIES } from "../roster.js";
+import type { Palette, Rarity, Role, SpeciesId, WorldKey } from "../roster.js";
 import type { Head } from "./quad-head.js";
 import type { Who } from "./bodies.js";
 

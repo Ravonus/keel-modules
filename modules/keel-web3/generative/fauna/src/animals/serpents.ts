@@ -1,11 +1,11 @@
 // Snakes and lizards: a spine laid on its trail, its girth, lines and saddles, and a gecko's feet.
 
-import { TAU, UP, add, cross, dot, length, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
-import type { Role } from "./roster.js";
-import { bodyStride } from "./moments.js";
-import type { Moment } from "./moments.js";
+import { TAU, UP, add, cross, dot, length, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
+import type { Role } from "../roster.js";
+import { bodyStride } from "../stage/moments.js";
+import type { Moment } from "../stage/moments.js";
 import { ball, cap, decal, footCycle, headAxes, limb } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { at3, eyeAt } from "./quad-head.js";

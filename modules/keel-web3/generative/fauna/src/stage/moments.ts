@@ -1,17 +1,17 @@
 // Moments and poses: where an actor is this instant, how far through its act, and the frame its body stands in.
 
-import { TAU, UP, add, clamp, dirOf, dot, flat, frameOf, length, madd, mix, scale, smooth, sub, unit } from "./vec.js";
-import type { Frame, Vec } from "./vec.js";
-import { wingStyle } from "./roster.js";
-import type { Action, Role } from "./roster.js";
+import { TAU, UP, add, clamp, dirOf, dot, flat, frameOf, length, madd, mix, scale, smooth, sub, unit } from "../vec.js";
+import type { Frame, Vec } from "../vec.js";
+import { wingStyle } from "../roster.js";
+import type { Action, Role } from "../roster.js";
 import { anchorOf, trunkPoint } from "./stage.js";
 import type { Place, Stage } from "./stage.js";
 import { alongPath, bankedUp, branchWay, pathLength, woodMapOf, woodNear } from "./paths.js";
 import type { PathPoint } from "./paths.js";
 import { offWood, pathFor, springOf, yawFrom } from "./director.js";
 import type { Actor, MoveMode, Scene, Segment } from "./director.js";
-import { ownPhase } from "./kit.js";
-import type { Who } from "./bodies.js";
+import { ownPhase } from "../animals/kit.js";
+import type { Who } from "../animals/bodies.js";
 import { clearOfLimbs } from "./collision.js";
 
 // ---------------------------------------------------------------- moments and poses

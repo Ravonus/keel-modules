@@ -1,18 +1,18 @@
 // The sky: flocks, swarms, bats and planes passing over, on routes that fit the hour, the weather and the world.
 
-import { TAU, UP, add, clamp, cross, frameOf, length, lerpV, madd, smooth, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { between, intBetween } from "./roll.js";
-import type { Palette } from "./roster.js";
+import { TAU, UP, add, clamp, cross, frameOf, length, lerpV, madd, smooth, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { between, intBetween } from "../roll.js";
+import type { Palette } from "../roster.js";
 import { bankedUp } from "./paths.js";
 import type { Segment } from "./director.js";
 import { restPose } from "./moments.js";
 import type { Moment } from "./moments.js";
-import { ball, cap } from "./kit.js";
-import type { Kit } from "./kit.js";
-import type { PlaneKind, SkyKind, SkyNow, SkyPlan, SkyTraffic } from "./casting.js";
-import { bodyOf, poseWho } from "./bodies.js";
-import type { Body, Who } from "./bodies.js";
+import { ball, cap } from "../animals/kit.js";
+import type { Kit } from "../animals/kit.js";
+import type { PlaneKind, SkyKind, SkyNow, SkyPlan, SkyTraffic } from "../casting.js";
+import { bodyOf, poseWho } from "../animals/bodies.js";
+import type { Body, Who } from "../animals/bodies.js";
 
 // ---------------------------------------------------------------- the sky
 

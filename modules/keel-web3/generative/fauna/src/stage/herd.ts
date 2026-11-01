@@ -1,10 +1,10 @@
 // The herd: the cast alive on the stage frame by frame, taking orders, and a tap that picks one animal out.
 
-import { TAU, clamp, dot, length, madd, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { between, streamOf } from "./roll.js";
-import { speciesOf } from "./roster.js";
-import type { SpeciesId } from "./roster.js";
+import { TAU, clamp, dot, length, madd, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { between, streamOf } from "../roll.js";
+import { speciesOf } from "../roster.js";
+import type { SpeciesId } from "../roster.js";
 import { matrixOf } from "./idle.js";
 import { anchorOf, groundSpot } from "./stage.js";
 import type { Place, Spot, Stage } from "./stage.js";
@@ -17,10 +17,10 @@ import {
 import type { Actor, Pantry, Scene, Troupe } from "./director.js";
 import { extend } from "./scenes.js";
 import { frameYaw, momentOf, movingFrame } from "./moments.js";
-import { memberOf, specOf } from "./casting.js";
-import type { Cast, CastGroup, CastMember, SkyNow } from "./casting.js";
-import { backOf, poseWho } from "./bodies.js";
-import type { Body, Who } from "./bodies.js";
+import { memberOf, specOf } from "../casting.js";
+import type { Cast, CastGroup, CastMember, SkyNow } from "../casting.js";
+import { backOf, poseWho } from "../animals/bodies.js";
+import type { Body, Who } from "../animals/bodies.js";
 import {
   FLY_SEGMENT, SKY_AT_ONCE, fading, flockBodies, nextTraffic, passOf, passesUntil, planeBody, swarmBodies,
 } from "./sky.js";

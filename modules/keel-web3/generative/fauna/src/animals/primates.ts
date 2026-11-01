@@ -2,12 +2,12 @@
 
 import {
   TAU, UP, add, clamp, cross, dirOf, dirToWorld, dot, lerpV, madd, mix, scale, solveTwoBone, sub, toWorld, unit,
-} from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
-import type { Role, Station } from "./roster.js";
-import { bodyStride, bump } from "./moments.js";
-import type { Capsule, Moment, Pose } from "./moments.js";
+} from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
+import type { Role, Station } from "../roster.js";
+import { bodyStride, bump } from "../stage/moments.js";
+import type { Capsule, Moment, Pose } from "../stage/moments.js";
 import { ball, cap, cone, decal, footCycle, headAxes, limb } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { CHARM, at3, earsOf, eyeOf, facePatch, frontAt, loft, onFace, toSkin } from "./quad-head.js";

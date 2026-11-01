@@ -1,10 +1,10 @@
 // Four legs, the head: lofted from its outline, with neck, ears, eyes, face, markings and antlers.
 
-import { TAU, UP, add, clamp, cross, dirOf, dot, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
-import type { Build, Ears, Role, Station } from "./roster.js";
-import type { Moment, Pose } from "./moments.js";
+import { TAU, UP, add, clamp, cross, dirOf, dot, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
+import type { Build, Ears, Role, Station } from "../roster.js";
+import type { Moment, Pose } from "../stage/moments.js";
 import { ball, buildOf, cap, cone, decal, headAxes, ownPhase } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { nosing } from "./quad.js";

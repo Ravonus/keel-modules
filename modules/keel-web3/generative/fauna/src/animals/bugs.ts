@@ -1,12 +1,12 @@
 // Insects and crabs: butterflies and fireflies on the wing, and a crab on its legs with claws up.
 
-import { TAU, UP, add, clamp, cross, lerpV, madd, mix, scale, smooth, solveTwoBone, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
-import type { Role } from "./roster.js";
-import type { Place } from "./stage.js";
-import { bodyStride, pulse } from "./moments.js";
-import type { Moment } from "./moments.js";
+import { TAU, UP, add, clamp, cross, lerpV, madd, mix, scale, smooth, solveTwoBone, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
+import type { Role } from "../roster.js";
+import type { Place } from "../stage/stage.js";
+import { bodyStride, pulse } from "../stage/moments.js";
+import type { Moment } from "../stage/moments.js";
 import { ball, cap, cone, footCycle, ownPhase } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { markOf } from "./bodies.js";

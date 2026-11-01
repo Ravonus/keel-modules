@@ -1,8 +1,8 @@
 // The idle matrix: what an animal does next, by species, hour and weather, as a Markov chain over its actions.
 
-import { pick } from "./roll.js";
-import { MOVES, speciesOf } from "./roster.js";
-import type { Action, Plan, SpeciesId, SpeciesSpec } from "./roster.js";
+import { pick } from "../roll.js";
+import { MOVES, speciesOf } from "../roster.js";
+import type { Action, Plan, SpeciesId, SpeciesSpec } from "../roster.js";
 
 // ---------------------------------------------------------------- the idle matrix
 

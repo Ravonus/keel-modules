@@ -2,13 +2,13 @@
 
 import {
   TAU, UP, add, clamp, cross, dirOf, dot, length, lerpV, madd, mix, scale, smooth, solveTwoBone, sub, unit,
-} from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
-import { wingStyle } from "./roster.js";
-import type { Build, Role, SpeciesId, Station } from "./roster.js";
-import { bodyStride } from "./moments.js";
-import type { Finish, Moment, Pose } from "./moments.js";
+} from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
+import { wingStyle } from "../roster.js";
+import type { Build, Role, SpeciesId, Station } from "../roster.js";
+import { bodyStride } from "../stage/moments.js";
+import type { Finish, Moment, Pose } from "../stage/moments.js";
 import { ball, cap, cone, decal, footCycle, headAxes, ownPhase } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { CHARM, at3, eyeOf, eyeSpot, loft, onFace, outlinedEye, sectionAt, sideAt } from "./quad-head.js";

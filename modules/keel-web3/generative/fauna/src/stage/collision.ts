@@ -1,8 +1,8 @@
 // Collision: animals shoved apart on the ground, swung round each other and round the limbs on the wood.
 
-import { add, clamp, dot, length, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { Action } from "./roster.js";
+import { add, clamp, dot, length, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { Action } from "../roster.js";
 import { groundY, perchOf, trunkAxis } from "./stage.js";
 import type { Place, Stage, Wood } from "./stage.js";
 import { woodKey, woodMapOf, woodNear } from "./paths.js";
@@ -10,8 +10,8 @@ import type { WoodMap } from "./paths.js";
 import { offWood } from "./director.js";
 import type { Actor, Scene, Segment } from "./director.js";
 import type { Capsule, Moment } from "./moments.js";
-import { bodyOf } from "./bodies.js";
-import type { Body } from "./bodies.js";
+import { bodyOf } from "../animals/bodies.js";
+import type { Body } from "../animals/bodies.js";
 
 // ---------------------------------------------------------------- collision
 

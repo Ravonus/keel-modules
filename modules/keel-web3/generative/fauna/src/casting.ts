@@ -5,9 +5,9 @@ import { ALL_REGIONS, MOVES, SPECIES, SPECIES_IDS, speciesOf } from "./roster.js
 import type {
   Action, Build, GroupKind, Palette, Rarity, RegionId, Season, SpeciesId, SpeciesSpec, WorldKey,
 } from "./roster.js";
-import { actionsOf } from "./idle.js";
-import { MORPHS, WILD_SKINS, WORLD_SKINS, paletteOf, varied } from "./coats.js";
-import type { CoatColors, Morph } from "./coats.js";
+import { actionsOf } from "./stage/idle.js";
+import { MORPHS, WILD_SKINS, WORLD_SKINS, paletteOf, varied } from "./animals/coats.js";
+import type { CoatColors, Morph } from "./animals/coats.js";
 
 // ---------------------------------------------------------------- casting
 

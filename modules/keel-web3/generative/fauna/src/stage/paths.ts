@@ -1,8 +1,8 @@
 // Paths: walks round the trunk, flights out and back, climbs along the wood, and the map of the wood they follow.
 
-import { TAU, UP, add, clamp, cross, dot, flat, length, lerpV, madd, mix, scale, smooth, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
+import { TAU, UP, add, clamp, cross, dot, flat, length, lerpV, madd, mix, scale, smooth, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
 import { bareY, groundY, perchOf, trunkAxis, trunkClear, trunkPoint, trunkR, trunkShare } from "./stage.js";
 import type { Anchor, Place, Stage, Wood } from "./stage.js";
 

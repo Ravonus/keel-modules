@@ -1,12 +1,12 @@
 // Four legs: the quadruped's gaits, spine, stance, feet, paws and legs.
 
-import { TAU, UP, add, clamp, lerpV, madd, mix, solveTwoBone, sub } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom } from "./roll.js";
-import { HOPPERS } from "./roster.js";
-import type { Action, Build, Foot, Role, SitStyle } from "./roster.js";
-import { bodyStride } from "./moments.js";
-import type { Moment, Pose } from "./moments.js";
+import { TAU, UP, add, clamp, lerpV, madd, mix, solveTwoBone, sub } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom } from "../roll.js";
+import { HOPPERS } from "../roster.js";
+import type { Action, Build, Foot, Role, SitStyle } from "../roster.js";
+import { bodyStride } from "../stage/moments.js";
+import type { Moment, Pose } from "../stage/moments.js";
 import { buildOf, cap, cone, footCycle } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { markOf } from "./bodies.js";

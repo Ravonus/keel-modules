@@ -1,6 +1,6 @@
 // The roster: every species, its build, outline, coat, voice and company, and how rare it is.
 
-import type { Who } from "./bodies.js";
+import type { Who } from "./animals/bodies.js";
 
 // ---------------------------------------------------------------- the roster
 

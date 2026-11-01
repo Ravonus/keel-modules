@@ -1,10 +1,10 @@
 // Owls: the facial disc by coat, the turned head, folded wings, barred belly, feathered legs and veil.
 
-import { UP, add, cross, dirOf, lerpV, madd, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { wingStyle } from "./roster.js";
-import type { Role, WingStyle } from "./roster.js";
-import type { Finish, Moment } from "./moments.js";
+import { UP, add, cross, dirOf, lerpV, madd, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { wingStyle } from "../roster.js";
+import type { Role, WingStyle } from "../roster.js";
+import type { Finish, Moment } from "../stage/moments.js";
 import { ball, cap, decal } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { at3 } from "./quad-head.js";

@@ -1,16 +1,16 @@
 // Bodies: one animal posed as capsules, with its grain, pattern, eyes and palette, and the gallery's standing poses.
 
-import { UP, add, dirOf, frameOf, lerpV, madd, mix, scale, sub, toWorld, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { createRandom, streamOf } from "./roll.js";
-import { ALL_REGIONS } from "./roster.js";
-import type { Action, Palette, Plan, Role, SpeciesId, SpeciesSpec } from "./roster.js";
-import { perchOf } from "./stage.js";
-import type { Anchor, Place } from "./stage.js";
-import { PACE } from "./director.js";
-import type { Actor, MoveMode, Scene, Segment } from "./director.js";
-import { FADE, paramsOf } from "./moments.js";
-import type { Capsule, Moment, Pose } from "./moments.js";
+import { UP, add, dirOf, frameOf, lerpV, madd, mix, scale, sub, toWorld, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { createRandom, streamOf } from "../roll.js";
+import { ALL_REGIONS } from "../roster.js";
+import type { Action, Palette, Plan, Role, SpeciesId, SpeciesSpec } from "../roster.js";
+import { perchOf } from "../stage/stage.js";
+import type { Anchor, Place } from "../stage/stage.js";
+import { PACE } from "../stage/director.js";
+import type { Actor, MoveMode, Scene, Segment } from "../stage/director.js";
+import { FADE, paramsOf } from "../stage/moments.js";
+import type { Capsule, Moment, Pose } from "../stage/moments.js";
 import { buildOf, ownPhase } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { quadSpine, shoulderOf } from "./quad.js";
@@ -21,8 +21,8 @@ import { poseSerpent } from "./serpents.js";
 import { poseBug, poseCrab } from "./bugs.js";
 import { EYE, MORPHS, eyeOfSpecies, mixColor } from "./coats.js";
 import type { EyeStyle, Morph } from "./coats.js";
-import { TOY, memberOf, poseCoat, specOf, traitsOf } from "./casting.js";
-import type { CastMember, PlaneKind, PoseOptions } from "./casting.js";
+import { TOY, memberOf, poseCoat, specOf, traitsOf } from "../casting.js";
+import type { CastMember, PlaneKind, PoseOptions } from "../casting.js";
 
 // ---------------------------------------------------------------- bodies
 

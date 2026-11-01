@@ -1,8 +1,8 @@
 // Joint scenes: what company does together, grooming, chasing, chorusing, huddling, feeding, fleeing and more.
 
-import { TAU, lerpV, sub, unit } from "./vec.js";
-import { between, pick } from "./roll.js";
-import type { Action } from "./roster.js";
+import { TAU, lerpV, sub, unit } from "../vec.js";
+import { between, pick } from "../roll.js";
+import type { Action } from "../roster.js";
 import { SPAN } from "./idle.js";
 import { groundSpot } from "./stage.js";
 import type { Place, Stage } from "./stage.js";

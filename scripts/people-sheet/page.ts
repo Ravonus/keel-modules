@@ -77,7 +77,7 @@ function render(sheet: Sheet): HTMLCanvasElement {
     const p = personOf(seed, weather), action = pose as Action, seated = pose === "seated", plain = meshOf(p, cell), mesh = seated ? chaired(plain, p) : plain;
     const one = bodies.add(mesh as never), top = meshTop(plain.position), x = (i % per) * size, y = Math.floor(i / per) * size;
     one.show(false);
-    const frame = studio.shoot({ one, bones: poseMesh(p, action, time), top, head: top * 0.62, face: FACE, size, yaw } as never);
+    const frame = studio.shoot({ one, bones: poseMesh(p, action, time), top, head: top * 0.62, motion: { face: FACE }, size, yaw } as never);
     const tile = new OffscreenCanvas(size, size), inTile = tile.getContext("2d");
     inTile?.putImageData(new ImageData(new Uint8ClampedArray(frame), size, size), 0, 0);
     page.drawImage(tile, x, y);

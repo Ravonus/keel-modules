@@ -70,7 +70,7 @@ node scripts/people-sheet/sheet.mjs --seeds 3,8,15 --poses walk,run --time 0.3 -
 
 Each seed is drawn from the front, side and back, and `seated` sits on a chair, solid to the floor: cloth is judged against something that stops it. Look for legs through cloth, holes, and cloth that does not fall from the knee.
 
-Cloth is layered by rule, not tuned garment by garment: a mesh carries its `legs`, and render/skin-body pushes anything hanging from the skirt bones out of them in every pose.
+A body with anything hanging over it also draws its legs and pelvis a hand's width back in the depth test, so hanging cloth wins wherever the two overlap; with nothing in front the skin shows as it is. Cloth is layered by rule, not tuned garment by garment: a mesh carries its `legs`, and render/skin-body pushes anything hanging from the skirt bones out of them in every pose.
 
 ### Cloth over time
 
@@ -84,4 +84,4 @@ Cloth is layered by rule, not tuned garment by garment: a mesh carries its `legs
 node scripts/people-sheet/sheet.mjs --score --seeds 1-40 --poses rest,stand,walk,run,sit,crouch,dance,seated --views front,side,back --time .1,.35,.6,.85 --size 240 --out worst.png
 ```
 
-Run it before and after a cloth change and compare. It scored 0.037 on 2026-11-01, posed with cloth's state. `rest` is its floor, 0.022 then: nothing has moved there, so anything it shows is a mark left by the test itself, such as a line of scalp on a few people. It leaves out the head, the neck, and sleeve mouths and armholes, where skin is seen at rest. Skin a flaring hem bares counts, since that is a fault of the flare; a hem that really is meant to lift would need its own say.
+Run it before and after a cloth change and compare. It scored 0.030 on 2026-11-01, posed with cloth's state. `rest` is its floor, 0.022 then: nothing has moved there, so anything it shows is a mark left by the test itself, such as a line of scalp on a few people. It leaves out the head, the neck, and sleeve mouths and armholes, where skin is seen at rest. Skin a flaring hem bares counts, since that is a fault of the flare; a hem that really is meant to lift would need its own say.

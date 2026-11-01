@@ -163,6 +163,7 @@ uniform vec4 uLegJoints[8];  // hip, knee, ankle and toe, each leg, and how thic
 uniform vec4 uLegBones;
 uniform vec3 uFootBones;
 uniform float uClothBone;
+uniform float uHangsOver;  // whether anything hangs over this body's legs
 vec3 boned(int b, vec4 v) { return vec3(dot(uBones[b * 3], v), dot(uBones[b * 3 + 1], v), dot(uBones[b * 3 + 2], v)); }
 vec3 skinned(vec4 v) { return boned(int(aBones.x + 0.5), v) * aWeight + boned(int(aBones.y + 0.5), v) * (1.0 - aWeight); }
 // Out of a length of leg to its surface, if inside it.
@@ -254,7 +255,14 @@ void main() {
   vRest = position;
   vWorld = world.xyz;
   vView = cameraPosition - world.xyz;
-  gl_Position = projectionMatrix * viewMatrix * world;
+  // (What hangs always wins over the legs inside it: they lose the depth test by a hand's width, and show as themselves
+  // wherever no cloth is in front of them.)
+  float bone = aBones.x + 0.5;
+  vec4 seen = viewMatrix * world;
+  bool leg = bone < 1.0 || abs(bone - uLegBones.x - 0.5) < 0.5 || abs(bone - uLegBones.y - 0.5) < 0.5
+    || abs(bone - uLegBones.z - 0.5) < 0.5 || abs(bone - uLegBones.w - 0.5) < 0.5;
+  if (uHangsOver > 0.5 && aFabric < 0.5 && leg) seen.xyz *= 1.0 + 0.1 / length(seen.xyz);
+  gl_Position = projectionMatrix * seen;
 }`;
 
 const FRAGMENT = /* glsl */ `
@@ -744,7 +752,7 @@ function lookUniforms(lit: SkinLit, face: SkinFace): Record<string, Uniform> {
   };
 }
 
-function legUniforms(lit: SkinLit, legs: SkinLegs | undefined): Record<string, Uniform> {
+function legUniforms(lit: SkinLit, legs: SkinLegs | undefined, hangs: boolean): Record<string, Uniform> {
   const n = (i: number): number => legs?.joints[i] ?? 0;
   const [a, b, c, d] = legs?.bones ?? [0, 0, 0, 0];
   const joint = (i: number): LitV4 => new lit.Vector4(n(i * 4), n(i * 4 + 1), n(i * 4 + 2), n(i * 4 + 3));
@@ -753,6 +761,7 @@ function legUniforms(lit: SkinLit, legs: SkinLegs | undefined): Record<string, U
     uLegBones: { value: new lit.Vector4(a, b, c, d) },
     uFootBones: { value: new lit.Vector3(legs?.feet[0] ?? 0, legs?.feet[1] ?? 0, 0) },
     uClothBone: { value: legs?.cloth ?? 0 },
+    uHangsOver: { value: hangs ? 1 : 0 },
   };
 }
 
@@ -805,7 +814,8 @@ function addBody(lit: SkinLit, group: LitNode, shared: Shared, mesh: SkinMesh): 
   const uSway: Uniform = { value: new lit.Vector4() };
   const uJiggle: Uniform = { value: new lit.Vector3() };
   const uDrape: Uniform = { value: new lit.Vector3() };
-  const legs = legUniforms(lit, mesh.legs);
+  const firstCloth = mesh.legs?.cloth ?? 0;
+  const legs = legUniforms(lit, mesh.legs, firstCloth > 0 && mesh.bones.some((bone) => bone >= firstCloth));
   const uniforms: Record<string, Uniform> = {
     uBones,
     uSway,

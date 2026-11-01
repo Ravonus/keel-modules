@@ -28,23 +28,25 @@ export interface PortraitLit {
   PerspectiveCamera: new (fov: number, aspect: number, near: number, far: number) => Lens;
 }
 export interface PortraitBodies { readonly group: unknown; light(light: PortraitLight): void }
-export interface PortraitOne<F> {
-  pose(bones: Float32Array, at: Vec, yaw: number, face: F): void;
+/** A body that can be sat for a portrait; `M` is whatever its pose takes beyond bones and place, its face usually. */
+export interface PortraitOne<M> {
+  pose(bones: Float32Array, at: Vec, yaw: number, motion: M): void;
   show(on: boolean): void;
 }
 
-export interface Sitting<F> {
-  readonly one: PortraitOne<F>;
+export interface Sitting<M> {
+  readonly one: PortraitOne<M>;
   readonly bones: Float32Array;
   /** Height of the highest point of the mesh (meshTop), and of the head's centre. */
   readonly top: number;
   readonly head: number;
-  readonly face: F;
+  /** What the body's pose takes beyond bones and place: its face, say. */
+  readonly motion: M;
   readonly size: number;
   /** How far it turns, radians. */
   readonly yaw?: number;
 }
-export interface PortraitStudio { shoot<F>(sitting: Sitting<F>): Uint8Array }
+export interface PortraitStudio { shoot<M>(sitting: Sitting<M>): Uint8Array }
 
 /**
  * How much taller the frame is than the top of the head to the head's centre, and where in it that centre sits: closer
@@ -171,11 +173,11 @@ export function createPortraitStudio(
   stage.add(bodies.group);
   bodies.light(light);
   return {
-    shoot({ one, bones, top, head, face, size, yaw = YAW }) {
+    shoot({ one, bones, top, head, motion, size, yaw = YAW }) {
       const shot = portraitShot(top, head, size);
       const wide = size * Math.max(1, Math.min(OVER, Math.floor(MOST / size)));
       render.setSize(wide, wide, false);
-      one.pose(bones, [0, 0, 0], yaw, face);
+      one.pose(bones, [0, 0, 0], yaw, motion);
       one.show(true);
       lens.position.set(0, shot.middle + shot.high * LIFT, shot.away);
       lens.lookAt(0, shot.middle, 0);

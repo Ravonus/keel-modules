@@ -36,8 +36,8 @@ export default [
     run: ({ glowSettings, drawGlow }) => {
       const settings = glowSettings({ revealOn: '2026-10-05', rings: 2 });
       const before = recorder(), after = recorder();
-      drawGlow(before.context, 320, 180, 1, settings, '2026-10-04');
-      drawGlow(after.context, 320, 180, 1, settings, '2026-10-05');
+      drawGlow(before.context, { width: 320, height: 180 }, 1, { settings, today: '2026-10-04' });
+      drawGlow(after.context, { width: 320, height: 180 }, 1, { settings, today: '2026-10-05' });
       return [before.events.filter(row => row[0] === 'arc').length, after.events.filter(row => row[0] === 'arc').length];
     },
     expect: [0, 2],
@@ -47,9 +47,9 @@ export default [
     run: ({ glowSettings, drawGlow }) => {
       const settings = glowSettings({ rings: 3, accents: ['#abcdef'] });
       const first = recorder(), replay = recorder(), next = recorder();
-      drawGlow(first.context, 320, 180, 1, settings);
-      drawGlow(replay.context, 320, 180, 1, settings);
-      drawGlow(next.context, 320, 180, 2, settings);
+      drawGlow(first.context, { width: 320, height: 180 }, 1, { settings });
+      drawGlow(replay.context, { width: 320, height: 180 }, 1, { settings });
+      drawGlow(next.context, { width: 320, height: 180 }, 2, { settings });
       assert.deepEqual(first.events, replay.events);
       assert.notDeepEqual(first.events, next.events);
       return true;

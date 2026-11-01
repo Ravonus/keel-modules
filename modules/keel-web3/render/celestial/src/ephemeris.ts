@@ -101,11 +101,11 @@ export function keplerPlace(row: readonly number[], giant: readonly number[] | u
 /** Adds a body's terms to a place: channels 0 and 1 are degrees of longitude and latitude, 2 is distance. */
 export function applyTerms(
   place: Vec3,
-  terms: readonly Term[],
+  series: Readonly<{ terms: readonly Term[]; distanceUnit: number }>,
   args: readonly number[],
   t: number,
-  distanceUnit: number,
 ): Vec3 {
+  const { terms, distanceUnit } = series;
   const tau = t / 10;
   const out: Vec3 = [place[0], place[1], place[2]];
   for (const term of terms) {
@@ -144,7 +144,7 @@ interface Place {
 function place(pack: SkyPack, id: ElementId, t: number, args: number[]): Vec3 {
   const row = rowOf(pack.elements, id);
   const terms = pack.terms[ELEMENT_IDS.indexOf(id)] ?? [];
-  return applyTerms(keplerPlace(row, pack.giants[id], t), terms, args, t, DISTANCE_UNIT);
+  return applyTerms(keplerPlace(row, pack.giants[id], t), { terms, distanceUnit: DISTANCE_UNIT }, args, t);
 }
 const xyz = (p: Vec3): Vec3 => [
   p[2] * Math.cos(p[1] * RAD) * Math.cos(p[0] * RAD),
@@ -154,7 +154,7 @@ const xyz = (p: Vec3): Vec3 => [
 function moonPlace(pack: SkyPack, t: number): Place {
   const moonRow = pack.moon;
   const terms = pack.terms[ELEMENT_IDS.length] ?? [];
-  const m = applyTerms(moonBase(moonRow, t), terms, moonArgs(moonRow, t), t, MOON_KM);
+  const m = applyTerms(moonBase(moonRow, t), { terms, distanceUnit: MOON_KM }, moonArgs(moonRow, t), t);
   return { longitude: wrap(m[0], 360), latitude: m[1], distance: m[2] };
 }
 

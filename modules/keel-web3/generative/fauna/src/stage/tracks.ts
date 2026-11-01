@@ -100,8 +100,7 @@ export interface Tracks {
    */
   paint(
     pixels: Uint8Array,
-    side: number,
-    extent: number,
+    map: Readonly<{ side: number; extent: number }>,
     t: number,
     tint: (tread: Tread) => readonly [number, number, number],
   ): void;
@@ -238,7 +237,7 @@ export function createTracks(options: Ground): Tracks {
       if (prints.length > limit) prints = prints.slice(prints.length - limit);
       for (const [key, foot] of feet) if (t - foot.seen > 4 || t < foot.seen) feet.delete(key);
     },
-    paint(pixels, side, extent, t, tint) {
+    paint(pixels, { side, extent }, t, tint) {
       pixels.fill(0);
       const map: Canvas = { pixels, side, extent, scale: side / (2 * extent) };
       for (const p of prints) paintPrint(map, p, t, tint);

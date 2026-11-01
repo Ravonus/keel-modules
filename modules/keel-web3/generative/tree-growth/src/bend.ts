@@ -114,15 +114,17 @@ function loadDrop(bending: Bending, load: Load): void {
  * The frame with branches bent under `loads`: a bird's twig dips, a monkey's
  * limb sags, the trunk hardly moves. Pass `out` from the last call to reuse
  * its arrays (the same object comes back, so a renderer can tell it is the
- * same pose); everything but the positions is shared with `frame`.
+ * same pose); everything but the positions is shared with `frame`. `sag` is
+ * how far a unit weight bends a unit limb, the wood's own when left out.
  */
-export function bendFrame(
-  model: TreeModel,
-  frame: TreeFrame,
-  loads: readonly Load[],
-  out?: TreeFrame,
-  sag = WOOD_SAG,
-): TreeFrame {
+export interface BendInto {
+  readonly out?: TreeFrame;
+  readonly sag?: number;
+}
+
+export function bendFrame(model: TreeModel, frame: TreeFrame, loads: readonly Load[], into: BendInto = {}): TreeFrame {
+  const { out } = into;
+  const sag = into.sag ?? WOOD_SAG;
   const target = out ?? {
     ...frame,
     x: new Float32Array(frame.x),

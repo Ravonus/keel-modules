@@ -733,7 +733,7 @@ function birdLeg(kit: Kit, body: BirdBody, leg: BirdLeg): void {
   const hip = add(lerpV(body.C, body.T, 0.2), [x * body.r * 0.4, -body.r * 0.55, 0]);
   const r = Math.max(0.005, body.r * 0.085);
   const sole: Vec = [foot[0], foot[1] + r, foot[2]];
-  const { mid } = solveTwoBone(hip, sole, legH * 0.62, legH * 0.62, [0, 0, -1]);
+  const { mid } = solveTwoBone(hip, sole, [legH * 0.62, legH * 0.62], [0, 0, -1]);
   cone(kit, `${part}.thigh`, "coat", { a: hip, b: mid, r: body.r * 0.34, r1: r * 1.4, melt: 0.7 });
   cone(kit, `${part}.shank`, "horn", { a: mid, b: sole, r: r * 1.2, r1: r, melt: 0.3 });
   birdFoot(kit, part, { sole, r }, detail);

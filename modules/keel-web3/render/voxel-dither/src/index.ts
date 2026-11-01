@@ -29,6 +29,7 @@ export type {
   ScreenId, ScreenChoice, Shading, ColorMode, DepthBand, BandScreen, BandScreens, DitherSettings, StyleId, PixelGrid,
 } from "./settings.js";
 export { thresholdAt, quantizeTone, celRamp, okLab, paletteUniform } from "./screens.js";
+export type { ToneStep } from "./screens.js";
 export { VOXEL_DITHER_GLSL } from "./dither.glsl.js";
 export { screenLight } from "./light.js";
 export type { RaySpec, ScreenLight } from "./light.js";

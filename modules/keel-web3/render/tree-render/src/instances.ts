@@ -26,42 +26,47 @@ export function clearSlot(array: Float32Array, index: number): void {
   array[index * 16 + 15] = 1;
 }
 
-/** A box turned `yaw` about up, scaled (sx, sy, sz). */
-export function writeBox(
-  array: Float32Array,
-  index: number,
-  x: number,
-  y: number,
-  z: number,
-  sx: number,
-  sy: number,
-  sz: number,
-  yaw: number,
-): void {
-  const c = Math.cos(yaw);
-  const s = Math.sin(yaw);
+export type V3 = readonly [number, number, number];
+
+/** A box's place: its origin, its size along each axis, and its turn about up. */
+export interface BoxPlace {
+  readonly at: V3;
+  readonly size: V3;
+  readonly yaw: number;
+}
+
+/** A box turned `yaw` about up, scaled by `size`. */
+export function writeBox(array: Float32Array, index: number, box: BoxPlace): void {
+  const [sx, sy, sz] = box.size;
+  const c = Math.cos(box.yaw);
+  const s = Math.sin(box.yaw);
   writeColumns(array, index, [c * sx, 0, -s * sx, 0, 0, sy, 0, 0, s * sz, 0, c * sz, 0]);
-  writeOrigin(array, index, [x, y, z]);
+  writeOrigin(array, index, box.at);
+}
+
+/** A limb a slab lies on: its middle, the way it runs, and its radius. */
+export interface Limb {
+  readonly at: V3;
+  readonly along: V3;
+  readonly radius: number;
+}
+
+/** A slab's size: across the limb, through, and along it. */
+export interface SlabSize {
+  readonly width: number;
+  readonly depth: number;
+  readonly long: number;
 }
 
 /**
  * A slab `width` wide and `depth` thick lying on the top of a limb from its middle along (dx, dy, dz), which it follows
  * however it slopes.
  */
-export function writeSlab(
-  array: Float32Array,
-  index: number,
-  x: number,
-  y: number,
-  z: number,
-  dx: number,
-  dy: number,
-  dz: number,
-  radius: number,
-  width: number,
-  depth: number,
-  long: number,
-): void {
+export function writeSlab(array: Float32Array, index: number, limb: Limb, slab: SlabSize): void {
+  const [x, y, z] = limb.at;
+  const [dx, dy, dz] = limb.along;
+  const { radius } = limb;
+  const { width, depth, long } = slab;
   const length = Math.hypot(dx, dy, dz);
   const flat = Math.hypot(dx, dz);
   if (length < 1e-5 || flat < 1e-5) {
@@ -94,31 +99,33 @@ export function writeSlab(
   writeOrigin(array, index, [x + nx * lift, y + ny * lift, z + nz * lift]);
 }
 
+/** A voxel's look: how wide it is, how it is turned, and how much it is flattened (1, the default, is a cube). */
+export interface VoxelLook {
+  readonly size: number;
+  readonly yaw: number;
+  readonly flat?: number;
+}
+
 /** A cube `size` wide, flattened by `flat`, turned `yaw`. */
-export function writeVoxel(
-  array: Float32Array,
-  index: number,
-  x: number,
-  y: number,
-  z: number,
-  size: number,
-  yaw: number,
-  flat = 1,
-): void {
-  writeBox(array, index, x, y, z, size, size * flat, size, yaw);
+export function writeVoxel(array: Float32Array, index: number, at: V3, voxel: VoxelLook): void {
+  const { size, yaw } = voxel;
+  const flat = voxel.flat ?? 1;
+  writeBox(array, index, { at, size: [size, size * flat, size], yaw });
+}
+
+/** One piece of wood: from `a` to `b`, `radius` thick. */
+export interface WoodPiece {
+  readonly a: V3;
+  readonly b: V3;
+  readonly radius: number;
 }
 
 /**
  * One wood piece from a to b, `radius` thick, overlapping its joints. Rotation is the shortest arc from up, so bark
  * never swims.
  */
-export function writeSegment(
-  array: Float32Array,
-  index: number,
-  a: readonly [number, number, number],
-  b: readonly [number, number, number],
-  radius: number,
-): void {
+export function writeSegment(array: Float32Array, index: number, piece: WoodPiece): void {
+  const { a, b, radius } = piece;
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const dz = b[2] - a[2];
@@ -159,7 +166,6 @@ export const norm3 = (x: number, y: number, z: number): [number, number, number]
   const l = Math.hypot(x, y, z);
   return l > 1e-6 ? [x / l, y / l, z / l] : [0, 0, 0];
 };
-export type V3 = readonly [number, number, number];
 export const cross3 = (a: V3, b: V3): [number, number, number] => [
   a[1] * b[2] - a[2] * b[1],
   a[2] * b[0] - a[0] * b[2],
@@ -241,19 +247,21 @@ function bladeAxes(n: V3, droop: number): void {
   bladeFace();
 }
 
+/** One leaf blade: its stalk `p`, the way it points `n`, its size, and `long` times longer than wide (1). */
+export interface Blade {
+  readonly p: V3;
+  readonly n: V3;
+  readonly size: number;
+  readonly long?: number;
+}
+
 /**
- * One leaf blade at its stalk, pointing along (nx, ny, nz), drooped, twisted and nodded by `motion`; `long` draws it
+ * One leaf blade at its stalk, pointing along `n`, drooped, twisted and nodded by `motion`; `long` draws it
  * that much longer than wide.
  */
-export function writeBlade(
-  array: Float32Array,
-  index: number,
-  p: V3,
-  n: V3,
-  size: number,
-  motion: Flutter,
-  long = 1,
-): void {
+export function writeBlade(array: Float32Array, index: number, blade: Blade, motion: Flutter): void {
+  const { p, n, size } = blade;
+  const long = blade.long ?? 1;
   bladeAxes(n, motion.droop);
   const c = Math.cos(motion.twist);
   const s = Math.sin(motion.twist);

@@ -59,13 +59,14 @@ function poseLeafLitter(tree: Tree, mesh: InstancedLike, tick: Tick): void {
     const y = ground.y + 0.015 + (slot % 3) * 0.006;
     const size = tree.colors.leafScale * at(model.leaves.size, index);
     // A fallen blade lies flat along a random heading, a little curled.
-    if (tree.blades)
-      writeBlade(array, slot, [spot.x, y, spot.z], [Math.cos(lie), 0, Math.sin(lie)], size * 1.9, {
-        droop: 0,
-        twist: 0.25 * Math.sin(lie * 3),
-        nod: 0,
-      });
-    else writeVoxel(array, slot, spot.x, y, spot.z, size, lie, 0.22);
+    if (tree.blades) {
+      writeBlade(
+        array,
+        slot,
+        { p: [spot.x, y, spot.z], n: [Math.cos(lie), 0, Math.sin(lie)], size: size * 1.9 },
+        { droop: 0, twist: 0.25 * Math.sin(lie * 3), nod: 0 },
+      );
+    } else writeVoxel(array, slot, [spot.x, y, spot.z], { size, yaw: lie, flat: 0.22 });
   }
   mesh.instanceMatrix.needsUpdate = true;
 }
@@ -104,17 +105,11 @@ function poseOrnamentLitter(tree: Tree, set: OrnamentSet, tick: Tick, array: Flo
     const spot = litterSpot(tree, frame, { slots: set.slots, index, scale: set.name === "fruit" ? 0.45 : 1 });
     const unit = tree.colors.leafScale * at(set.slots.size, index);
     const flat = set.name === "fruit" ? 1 : 0.2;
-    writeBox(
-      array,
-      target,
-      spot.x,
-      tree.ground.y + 0.02 + unit * look.size[2] * 0.5 * flat,
-      spot.z,
-      look.size[0] * unit,
-      look.size[2] * unit * flat,
-      look.size[1] * unit,
-      at(set.slots.rank, index) * 17,
-    );
+    writeBox(array, target, {
+      at: [spot.x, tree.ground.y + 0.02 + unit * look.size[2] * 0.5 * flat, spot.z],
+      size: [look.size[0] * unit, look.size[2] * unit * flat, look.size[1] * unit],
+      yaw: at(set.slots.rank, index) * 17,
+    });
   }
 }
 
@@ -191,16 +186,8 @@ export function poseSnow(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, 
     writeSlab(
       array,
       node,
-      mx + tree.offset.x,
-      my,
-      mz + tree.offset.z,
-      dx,
-      dy,
-      dz,
-      radius,
-      radius * 2.1,
-      depth,
-      Math.hypot(level, dy) + radius,
+      { at: [mx + tree.offset.x, my, mz + tree.offset.z], along: [dx, dy, dz], radius },
+      { width: radius * 2.1, depth, long: Math.hypot(level, dy) + radius },
     );
   }
   mesh.instanceMatrix.needsUpdate = true;
@@ -381,14 +368,15 @@ function drawFaller(draw: FallDraw, faller: Faller, slot: number): void {
   if (tree.blades && faller.kind === "leaf") {
     // A falling blade tumbles end over end and side to side, then lies flat.
     const tumble = faller.landed ? 0 : Math.sin(spin * 0.8) * 0.9;
-    writeBlade(array, slot, [faller.x, faller.y, faller.z], [Math.cos(spin), tumble, Math.sin(spin)], sx * 1.9, {
-      droop: 0,
-      twist: faller.landed ? 0.2 : spin * 1.3,
-      nod: 0,
-    });
+    writeBlade(
+      array,
+      slot,
+      { p: [faller.x, faller.y, faller.z], n: [Math.cos(spin), tumble, Math.sin(spin)], size: sx * 1.9 },
+      { droop: 0, twist: faller.landed ? 0.2 : spin * 1.3, nod: 0 },
+    );
   } else {
     const flat = faller.landed && faller.speed <= 1.5 ? 0.22 : 1;
-    writeBox(array, slot, faller.x, faller.y, faller.z, sx, sy * flat, sz, spin);
+    writeBox(array, slot, { at: [faller.x, faller.y, faller.z], size: [sx, sy * flat, sz], yaw: spin });
   }
   mesh.setColorAt(slot, tree.a.set(faller.color));
 }

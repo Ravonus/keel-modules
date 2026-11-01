@@ -473,14 +473,21 @@ function holeShards(site: ShardSite, hole: Hole): RootShard[] {
  * cracks: smaller pieces); where it bursts through the side, a ring of broken
  * wall round the hole, one fallen lower, and the rim above split.
  */
+/** What a root breaks: the trunk it grows from, the ground it breaks, its plan, and the tree's seed (1). */
+export interface Breakage {
+  readonly trunk: number;
+  readonly ground: TreeGround;
+  readonly plan: RootBreak;
+  readonly seed?: number;
+}
+
 export function rootShards(
   root: { readonly angle: number; readonly reach: number },
   index: number,
-  trunk: number,
-  ground: TreeGround,
-  plan: RootBreak,
-  seed = 1,
+  breakage: Breakage,
 ): RootShard[] {
+  const { trunk, ground, plan } = breakage;
+  const seed = breakage.seed ?? 1;
   if (plan.heave < 0.2 || !ground.lip) return [];
   const random = seededRandom((hash32((seed ^ Math.imul(index + 7, 0x85ebca6b)) >>> 0) ^ 0x2545f491) >>> 0);
   const { hard } = planterWall(ground);

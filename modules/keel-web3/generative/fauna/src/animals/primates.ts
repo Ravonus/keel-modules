@@ -156,7 +156,7 @@ function slothArm(kit: Kit, body: PrimateBody, m: Moment, hand: { readonly x: nu
     [x * 0.7, -1, -0.3],
     m.pose.hand,
   );
-  const { mid, end } = solveTwoBone(root, target, arm * 0.5, arm * 0.5, pole);
+  const { mid, end } = solveTwoBone(root, target, [arm * 0.5, arm * 0.5], pole);
   cone(kit, `arm.${side}.upper`, "coat", { a: root, b: mid, r: r * 0.4, r1: r * 0.3, melt: 0.6 });
   cone(kit, `arm.${side}.lower`, "coat", { a: mid, b: end, r: r * 0.34, r1: r * 0.18, melt: 0.5 });
   const along = unit(sub(end, mid));
@@ -388,8 +388,7 @@ function macaqueLimb(kit: Kit, part: string, reach: LimbReach & { readonly long:
   const { mid, end } = solveTwoBone(
     root,
     [target[0], target[1] + sole * clamp(1 - target[1] / (sole * 2), 0, 1), target[2]],
-    length / 2,
-    length / 2,
+    [length / 2, length / 2],
     pole,
   );
   cone(kit, `${part}.upper`, "coat", { a: root, b: mid, r, r1: r * 0.62, melt: 0.8 });
@@ -613,8 +612,7 @@ function monkeyLimb(kit: Kit, part: string, reach: LimbReach): void {
   const { mid, end } = solveTwoBone(
     root,
     [target[0], target[1] + sole * clamp(1 - target[1] / (sole * 2), 0, 1), target[2]],
-    length / 2,
-    length / 2,
+    [length / 2, length / 2],
     pole,
   );
   cone(kit, `${part}.upper`, "coat", { a: root, b: mid, r, r1: r * 0.6, melt: 0.6 });

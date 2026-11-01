@@ -1,6 +1,7 @@
 // Wind: a breeze that rises, falls and wanders, the sway it gives a tree and the flutter it gives a leaf.
 
 import { TAU, clamp, smoothstep } from "./math.js";
+import type { V3 } from "./instances.js";
 
 // ---------------------------------------------------------------- wind
 
@@ -31,6 +32,20 @@ export function breezeAt(elapsed: number, base: number, seed = 0): Breeze {
   return { wind, dir };
 }
 
+/** The breeze a tree sways in: the moment, its strength, the tree's height, and the way it blows (0, +x). */
+export interface Gust {
+  readonly elapsed: number;
+  readonly wind: number;
+  readonly height: number;
+  readonly dir?: number | undefined;
+}
+
+/** The air a leaf flutters in: the moment and the wind's strength. */
+export interface Airflow {
+  readonly elapsed: number;
+  readonly wind: number;
+}
+
 /** How strongly a gust is passing over a point `along` the wind, at a time. */
 const gustAt = (elapsed: number, along: number): number => {
   const front = elapsed * 0.5 - along * 0.22;
@@ -44,16 +59,10 @@ const gustAt = (elapsed: number, along: number): number => {
  * eases back after it; limbs far from the trunk give a little more. In still
  * air it only breathes.
  */
-export function sway(
-  out: Offset,
-  x: number,
-  y: number,
-  z: number,
-  elapsed: number,
-  wind: number,
-  height: number,
-  dir = 0,
-): Offset {
+export function sway(out: Offset, at: V3, breeze: Gust): Offset {
+  const [x, y, z] = at;
+  const { elapsed, wind, height } = breeze;
+  const dir = breeze.dir ?? 0;
   const reach = clamp(y / Math.max(height, 1), 0, 1.4);
   const spread = Math.min(Math.hypot(x, z) / Math.max(height * 0.5, 0.5), 1.5);
   const dx = Math.cos(dir);
@@ -87,7 +96,8 @@ export interface Flutter { readonly droop: number; readonly twist: number; reado
  * breeze sets it trembling a little, and a passing gust lifts and flips it to
  * show the paler underside before it settles back.
  */
-export function leafFlutter(elapsed: number, wind: number, rank: number, phase: number, along = phase * 2.1): Flutter {
+export function leafFlutter(air: Airflow, rank: number, phase: number, along = phase * 2.1): Flutter {
+  const { elapsed, wind } = air;
   const idle = 0.035 * Math.sin(elapsed * 0.8 + rank * 31) + 0.02 * Math.sin(elapsed * 1.9 + rank * 57);
   const gust = gustAt(elapsed, along);
   const tremble = wind * (0.12 + 0.45 * gust) * Math.sin(elapsed * (6 + rank * 4) + rank * 40);

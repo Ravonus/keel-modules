@@ -111,7 +111,7 @@ export function limb(kit: Kit, part: string, role: Role, reach: Reach): Vec {
   // centre sits its own height above, fading out as the foot lifts.
   const sole = radius * 0.8;
   const lifted: Vec = [target[0], target[1] + sole * clamp(1 - target[1] / (sole * 2), 0, 1), target[2]];
-  const { mid, end: tip } = solveTwoBone(root, lifted, lengths[0], lengths[1], pole);
+  const { mid, end: tip } = solveTwoBone(root, lifted, [lengths[0], lengths[1]], pole);
   if (melt === undefined) {
     cap(kit, `${part}.upper`, role, { a: root, b: mid, r: radius });
     cap(kit, `${part}.lower`, role, { a: mid, b: tip, r: radius * 0.78 });

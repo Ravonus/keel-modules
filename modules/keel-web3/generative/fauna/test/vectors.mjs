@@ -50,7 +50,7 @@ export default [
   {
     name: 'two-bone IK reaches a target in range and keeps both bone lengths',
     run: ({ solveTwoBone }) => {
-      const { mid, end } = solveTwoBone([0, 0, 0], [0.3, 0.8, 0.1], 0.6, 0.6, [0, 0, 1]);
+      const { mid, end } = solveTwoBone([0, 0, 0], [0.3, 0.8, 0.1], [0.6, 0.6], [0, 0, 1]);
       const len = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
       return [Math.abs(len([0, 0, 0], mid) - 0.6) < 1e-9, Math.abs(len(mid, end) - 0.6) < 1e-9, len(end, [0.3, 0.8, 0.1]) < 1e-9];
     },
@@ -528,9 +528,9 @@ export default [
       const limb = (x, z) => [{ p: [0, 2, 0], r: 0.2 }, { p: [x * 0.5, 2, z * 0.5], r: 0.1 }, { p: [x, 2, z], r: 0.08 }];
       const perch = (x, z) => ({ p: [x, 2, z], d: [1, 0, 0], r: 0.08, path: limb(x, z) });
       const stage = { radius: 4, top: 0, perches: [perch(1, 0), perch(1, 0.4), perch(1, 0.8), perch(1.25, 0.4)] };
-      const across = searchRoute(stage, 0, 2, 0.5, () => 0);
-      const tooSmall = searchRoute(stage, 0, 2, 0.05, () => 0);
-      const round = searchRoute(stage, 0, 2, 0.5, (i) => (i === 1 ? 3 : 0));
+      const across = searchRoute(stage, { start: 0, goal: 2 }, 0.5, () => 0);
+      const tooSmall = searchRoute(stage, { start: 0, goal: 2 }, 0.05, () => 0);
+      const round = searchRoute(stage, { start: 0, goal: 2 }, 0.5, (i) => (i === 1 ? 3 : 0));
       return [across.via, tooSmall, round.via];
     },
     expect: [[1], null, [3]],
@@ -558,7 +558,7 @@ export default [
       const ball = { kind: 'deer', id: 'd', front: [1, 0, 0], capsules: [{ part: 'leg.FL.paw', a: [1, 0.1, -2], b: [1, 0.4, -2], r: 0.1 }] };
       tracks.step([ball], 0);
       const side = 80, pixels = new Uint8Array(side * side * 4);
-      tracks.paint(pixels, side, 4, 1, () => [10, 20, 30]);
+      tracks.paint(pixels, { side, extent: 4 }, 1, () => [10, 20, 30]);
       let xs = 0, zs = 0, n = 0, wide = [99, -99], long = [99, -99];
       for (let r = 0; r < side; r += 1) for (let c = 0; c < side; c += 1) if (pixels[(r * side + c) * 4 + 3] > 0) { const x = (c + 0.5) / 10 - 4, z = 4 - (r + 0.5) / 10; xs += x; zs += z; n += 1; wide = [Math.min(wide[0], z), Math.max(wide[1], z)]; long = [Math.min(long[0], x), Math.max(long[1], x)]; }
       return [Math.abs(xs / n - 1) < 0.25, Math.abs(zs / n + 2) < 0.25, long[1] - long[0] > wide[1] - wide[0]];

@@ -67,7 +67,7 @@ export default [
   },
   {
     name: 'a tone between two steps lands on the screen, never off the ramp',
-    run: ({ quantizeTone }) => [quantizeTone(0.5, 3, 0), quantizeTone(0.5, 3, 0.99), quantizeTone(0.6, 3, 0.2), quantizeTone(0.6, 3, 0.9), quantizeTone(0.6, 3, 0.9, 0), quantizeTone(2, 4, 0.5)],
+    run: ({ quantizeTone }) => [quantizeTone(0.5, { levels: 3, threshold: 0 }), quantizeTone(0.5, { levels: 3, threshold: 0.99 }), quantizeTone(0.6, { levels: 3, threshold: 0.2 }), quantizeTone(0.6, { levels: 3, threshold: 0.9 }), quantizeTone(0.6, { levels: 3, threshold: 0.9 }, 0), quantizeTone(2, { levels: 4, threshold: 0.5 })],
     expect: [0.5, 0.5, 0.5, 1, 0.5, 1],
   },
   {
@@ -94,9 +94,9 @@ export default [
   {
     name: 'snap keeps flat in-between tones clean and dithers only the middle of a step',
     run: ({ quantizeTone }) => {
-      const flat = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.3, 2, threshold, 1, 0.6));
-      const plain = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.3, 2, threshold, 1, 0));
-      const middle = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.5, 2, threshold, 1, 0.6));
+      const flat = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.3, { levels: 2, threshold }, 1, 0.6));
+      const plain = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.3, { levels: 2, threshold }, 1, 0));
+      const middle = [0, 0.25, 0.5, 0.75].map((threshold) => quantizeTone(0.5, { levels: 2, threshold }, 1, 0.6));
       return [flat, plain, middle];
     },
     expect: [[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 1]],

@@ -78,13 +78,25 @@ export function glowRevealed(settings: GlowSettings, today: string): boolean {
  * time and day always draw the same frame.
  *
  * @param context 2D context to draw into.
- * @param width Drawing width in pixels.
- * @param height Drawing height in pixels.
+ * @param size Drawing width and height in pixels.
  * @param seconds Elapsed time in seconds.
- * @param settings Normalized settings from glowSettings().
- * @param today Local day as YYYY-MM-DD, for the reveal date.
+ * @param day Normalized settings from glowSettings(), and the local day as YYYY-MM-DD for the reveal date.
  */
-export function drawGlow(context: CanvasRenderingContext2D, width: number, height: number, seconds: number, settings: GlowSettings = DEFAULT_GLOW_SETTINGS, today = "9999-12-31"): void {
+export interface GlowSize {
+  readonly width: number;
+  readonly height: number;
+}
+export interface GlowDay {
+  readonly settings?: GlowSettings;
+  readonly today?: string;
+}
+
+export function drawGlow(
+  context: CanvasRenderingContext2D,
+  { width, height }: GlowSize,
+  seconds: number,
+  { settings = DEFAULT_GLOW_SETTINGS, today = "9999-12-31" }: GlowDay = {},
+): void {
   const revealed = glowRevealed(settings, today);
   const t = seconds * settings.speed * (settings.mood === "lively" ? 1.8 : 0.7);
   const breath = settings.pulse ? 0.78 + 0.22 * Math.sin(t * 1.3) : 1;

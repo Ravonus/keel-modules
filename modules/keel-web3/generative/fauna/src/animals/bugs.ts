@@ -174,7 +174,7 @@ function crabLegs(kit: Kit, who: Who, m: Moment, side: CrabSide): void {
     const step = footCycle(m.phase - i / 4 - (x > 0 ? 0.5 : 0), 0.5, 0.5 * bodyStride(who) * m.moving, legLen * 0.3);
     const foot: Vec = [x * (r * 1.25 + legLen * 0.8) + step.z, step.y, z * 1.5];
     const root = add(C, [x * r * 1.05, -r * 0.05, z]);
-    const { mid, end } = solveTwoBone(root, foot, legLen * 0.62, legLen * 0.62, [x, 1, 0]);
+    const { mid, end } = solveTwoBone(root, foot, [legLen * 0.62, legLen * 0.62], [x, 1, 0]);
     cone(kit, `leg.${String(x)}.${String(i)}.upper`, "alt", { a: root, b: mid, r: r * 0.1, r1: r * 0.075, melt: 0.2 });
     cap(kit, `leg.${String(x)}.${String(i)}.lower`, "alt", { a: mid, b: end, r: r * 0.075, flat: 1, up: UP, finish: { r1: r * 0.012, melt: 0.1 } });
   }
@@ -193,7 +193,7 @@ function crabClaw(
   const { big, wave, open } = claw;
   const root = add(C, [x * r * 1.0, 0, r * 0.55]);
   const palm = add(C, [x * r * 0.86, r * 0.1 + wave * r * 1.5, r * 1.3]);
-  const { mid } = solveTwoBone(root, palm, r * 0.62, r * 0.62, [x, 0, -0.4]);
+  const { mid } = solveTwoBone(root, palm, [r * 0.62, r * 0.62], [x, 0, -0.4]);
   cone(kit, `claw.${String(x)}`, "coat", { a: root, b: mid, r: r * 0.14, r1: r * 0.17 * Math.sqrt(big), melt: 0.3 });
   cone(kit, `claw.${String(x)}.wrist`, "coat", {
     a: mid,

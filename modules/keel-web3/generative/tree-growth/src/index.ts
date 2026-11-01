@@ -19,6 +19,6 @@ export type { TreeModel, LeafSlots, GrowInput, KindOrnament, Pace } from "./mode
 export { GRAND, grandAt, treeFrame } from "./frame.js";
 export type { TreeFrame, FrameOptions } from "./frame.js";
 export { WOOD_SAG, bendFrame } from "./bend.js";
-export type { Load } from "./bend.js";
+export type { Load, BendInto } from "./bend.js";
 export { yearState } from "./year.js";
 export type { Climate, YearInput, YearState } from "./year.js";

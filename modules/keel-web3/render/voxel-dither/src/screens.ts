@@ -52,8 +52,15 @@ export function thresholdAt(screen: ScreenId, x: number, y: number): number {
   return THRESHOLDS[screen](x, y);
 }
 
-/** One channel through a screen: `levels` steps, the threshold deciding which neighbour a tone between two lands on. */
-export function quantizeTone(value: number, levels: number, threshold: number, amount = 1, snap = 0): number {
+/** A screen's step for one channel: `levels` steps, and the threshold deciding where a tone between two lands. */
+export interface ToneStep {
+  readonly levels: number;
+  readonly threshold: number;
+}
+
+/** One channel through a screen (see `ToneStep`); `amount` scales the threshold's pull and `snap` the band it holds. */
+export function quantizeTone(value: number, step: ToneStep, amount = 1, snap = 0): number {
+  const { levels, threshold } = step;
   const steps = Math.max(1, levels - 1);
   const t = 0.5 + (threshold - 0.5) * Math.min(1, Math.max(0, amount));
   const scaled = Math.min(1, Math.max(0, value)) * steps;

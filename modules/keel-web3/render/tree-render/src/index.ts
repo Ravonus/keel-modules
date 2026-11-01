@@ -39,8 +39,9 @@ export { TREE_FEATURES, treeFeatures } from "./features.js";
 export type { TreeFeature, TreeFeatures } from "./features.js";
 export { smoothstep, hash32, seededRandom } from "./math.js";
 export { breezeAt, sway, leafFlutter } from "./wind.js";
-export type { Offset, Breeze, Flutter } from "./wind.js";
+export type { Offset, Breeze, Flutter, Gust, Airflow } from "./wind.js";
 export { clearSlot, writeBox, writeSlab, writeVoxel, writeSegment, writeBlade } from "./instances.js";
+export type { V3, BoxPlace, VoxelLook, Limb, SlabSize, WoodPiece, Blade } from "./instances.js";
 export {
   LEAF_OUTLINE, bladeGeometry, softBladeGeometry, sprayGeometry, lightSprig, needleGeometry, PALM_LEAFLET,
   speciesBlade, treeShapes,
@@ -49,7 +50,7 @@ export type { TreeShapes, NeedleKind } from "./tree/shapes.js";
 export { barkMaterial, ORNAMENTS, ornamentLook } from "./tree/bark.js";
 export type { OrnamentLook } from "./tree/bark.js";
 export { ROOT_SEGMENTS, NO_ROOT_BREAK, rootBreaks, rootPath, ROOT_SHARDS, rootShards } from "./tree/roots.js";
-export type { RootPoint, RootBreak, RootShard } from "./tree/roots.js";
+export type { RootPoint, RootBreak, RootShard, Breakage } from "./tree/roots.js";
 export { createTreeRender } from "./tree/tree.js";
 export type { TreeLimits, TreeRenderOptions, TreeMotion, TreeMeshes, TreeRender, TreeFruit } from "./tree/tree.js";
 export { writeShard } from "./tree/wood.js";

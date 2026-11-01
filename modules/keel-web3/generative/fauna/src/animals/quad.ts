@@ -422,8 +422,7 @@ export function quadLeg(kit: Kit, actor: Who, work: Legwork, leg: LegId): void {
   const { mid, end } = solveTwoBone(
     root,
     madd(sole, dir, lowLen),
-    span * upper,
-    span * lower,
+    [span * upper, span * lower],
     poleOf(fore, body, b, x),
   );
   const name = `leg.${leg}`;

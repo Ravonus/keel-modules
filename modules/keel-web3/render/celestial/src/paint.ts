@@ -150,7 +150,16 @@ function paintOmens(brush: Brush, chart: Chart): void {
  * Paints what never moves against the stars into RGBA pixels: the real stars and zodiac, and the tree's own chart,
  * which reads as one more constellation, with the planets of its birth as its stars.
  */
-export function paintChart(sky: FixedSky, chart: Chart, width: number, height: number, level = 1): Uint8Array {
+export interface ChartSize {
+  readonly width: number;
+  readonly height: number;
+  /** How strongly it is drawn, 1 full. */
+  readonly level?: number;
+}
+
+export function paintChart(sky: FixedSky, chart: Chart, size: ChartSize): Uint8Array {
+  const { width, height } = size;
+  const level = size.level ?? 1;
   const canvas = new Canvas(new Uint8Array(width * height * 4), width, height);
   for (let at = 3; at < canvas.pixels.length; at += 4) canvas.pixels[at] = 255;
   const brush: Brush = { canvas, when: chart.timestamp, level };
@@ -200,17 +209,30 @@ function paintWeb(brush: Brush, now: Sky): void {
  * birth place a planet is crossing now. `target` receives the chart with those on top; a `web` above 0 adds the
  * planets' live aspects at that strength.
  */
-export function paintTransits(
-  base: Uint8Array,
-  target: Uint8Array,
-  width: number,
-  height: number,
-  skyAt: (timestamp: number) => Sky,
-  chart: Chart,
-  now: Sky,
-  level = 1,
-  web = 0,
-): Uint8Array {
+/** The painted chart to draw over, and the pixels that receive it. */
+export interface TransitPixels {
+  readonly base: Uint8Array;
+  readonly target: Uint8Array;
+  readonly width: number;
+  readonly height: number;
+}
+/** The sky being crossed: how to read it at any instant, the birth chart, and the sky now. */
+export interface Crossing {
+  readonly skyAt: (timestamp: number) => Sky;
+  readonly chart: Chart;
+  readonly now: Sky;
+}
+/** How strongly the transits and, above 0, the live aspect web are drawn. */
+export interface TransitLevels {
+  readonly level?: number;
+  readonly web?: number;
+}
+
+export function paintTransits(pixels: TransitPixels, crossing: Crossing, levels: TransitLevels = {}): Uint8Array {
+  const { base, target, width, height } = pixels;
+  const { skyAt, chart, now } = crossing;
+  const level = levels.level ?? 1;
+  const web = levels.web ?? 0;
   target.set(base);
   const canvas = new Canvas(target, width, height);
   const overlay: Overlay = { canvas, skyAt, now, level };

@@ -172,11 +172,11 @@ function nearestOpen(costs: readonly number[], settled: ReadonlySet<number>): nu
  */
 export function searchRoute(
   stage: Stage,
-  start: number,
-  goal: number,
+  ends: Readonly<{ start: number; goal: number }>,
   size: number,
   crowd: (i: number) => number,
 ): { via: number[]; cost: number } | null {
+  const { start, goal } = ends;
   const list = stage.perches ?? [];
   const costs = list.map((): number => Infinity);
   const before = list.map((): number => -1);
@@ -209,7 +209,7 @@ function routeVia(actor: Actor, from: Place, to: Place, scene: Scene): readonly 
   const wrap = (i: number): number => ((i % count) + count) % count;
   const size = actor.member.size;
   const crowd = (i: number): number => (perchFree(actor, scene, i) ? 0 : size * CROWD_COST);
-  const found = searchRoute(stage, wrap(from.i), wrap(to.i), size, crowd);
+  const found = searchRoute(stage, { start: wrap(from.i), goal: wrap(to.i) }, size, crowd);
   if (!found || found.via.length === 0) return undefined;
   const byTrunk = pathLength(
     climbPath({ from, to, a: anchorOf(from, stage, []), b: anchorOf(to, stage, []) }, stage, size),

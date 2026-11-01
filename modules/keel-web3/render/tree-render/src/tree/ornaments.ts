@@ -1,9 +1,11 @@
 // Flowers and fruit: the sets each kind bears, the fruit to eat and the fruit eaten, posed and coloured by ripeness.
 
-import type { ColorLike, GeometryLike, InstancedLike, TreeColors, TreeKindOrnaments, YearLike } from "../inputs.js";
+import type {
+  ColorLike, GeometryLike, InstancedLike, TreeColors, TreeFrameLike, TreeKindOrnaments, YearLike,
+} from "../inputs.js";
 import { TAU, at, clamp, hash32 } from "../math.js";
 import { sway } from "../wind.js";
-import type { Offset } from "../wind.js";
+import type { Gust, Offset } from "../wind.js";
 import { clearSlot, writeBox } from "../instances.js";
 import { ornamentLook } from "./bark.js";
 import { bearingNode, makeMesh, ornamentState, sprayPlan } from "./tree.js";
@@ -233,22 +235,64 @@ export function stillOrSway(tree: Tree, p: V3, air: Air, wind = air.wind): void 
     return;
   }
   const { motion } = air;
-  sway(tree.offset, p[0], p[1], p[2], motion.elapsed, wind * (motion.field ?? 1), air.height, motion.windDir);
+  const gust: Gust = {
+    elapsed: motion.elapsed,
+    wind: wind * (motion.field ?? 1),
+    height: air.height,
+    dir: motion.windDir,
+  };
+  sway(tree.offset, p, gust);
+}
+
+/** One pass over a set's slots: what every hanging flower or fruit is posed by, and the box it is written from. */
+interface HangPass {
+  readonly tree: Tree;
+  readonly set: OrnamentSet;
+  readonly frame: TreeFrameLike;
+  readonly air: Air;
+  readonly open: number;
+  readonly grow: number;
+  readonly array: Float32Array;
+  /** One box, written per slot: the loop allocates nothing. */
+  readonly box: { at: [number, number, number]; size: [number, number, number]; yaw: number };
+}
+
+/** Hangs one flower or fruit from its node, swaying with the tree and swinging on its stalk. */
+function hangOrnament(pass: HangPass, index: number): void {
+  const { tree, set, frame, air, open, grow, box } = pass;
+  const { slots, look } = set;
+  const node = at(slots.node, index);
+  const rank = at(slots.rank, index);
+  const unit = tree.colors.leafScale * at(slots.size, index) * grow * (0.35 + 0.65 * clamp((open - rank) * 8, 0, 1));
+  const x = at(frame.x, node) + at(slots.dx, index);
+  const z = at(frame.z, node) + at(slots.dz, index);
+  const y = at(frame.y, node) + at(slots.dy, index) * 0.5 + look.lift * unit;
+  stillOrSway(tree, [x, y, z], air);
+  const swing = hangSwing(look.lift, air.wind, air.motion, rank);
+  box.at[0] = x + tree.offset.x + swing.x;
+  box.at[1] = y;
+  box.at[2] = z + tree.offset.z + swing.z;
+  box.size[0] = look.size[0] * unit;
+  box.size[1] = look.size[1] * unit;
+  box.size[2] = look.size[2] * unit;
+  box.yaw = rank * TAU;
+  writeBox(pass.array, index, box);
 }
 
 export function poseOrnaments(tree: Tree, set: OrnamentSet, tick: Tick): void {
   const { frame, year, motion } = tick;
-  const { slots, mesh, look } = set;
+  const { slots, mesh } = set;
   const { open, fallen } = ornamentState(set, year);
   mesh.visible = motion.dead !== true && open > 0 && fallen < 1 && frame.cycle >= set.spec.from;
   if (!mesh.visible) return;
   const array = mesh.instanceMatrix.array;
   const height = Math.max(frame.height, 0.5);
   const wind = tree.features.sway ? motion.wind : 0;
-  const air: Air = { motion, wind, height };
   const gone = goneSlots(tree, set);
   // A young crown's sprays stay near life size, so its twigs read through them.
   const grow = 1 + (set.grow - 1) * clamp(frame.visible / 1500, 0.2, 1);
+  const box: HangPass["box"] = { at: [0, 0, 0], size: [0, 0, 0], yaw: 0 };
+  const pass: HangPass = { tree, set, frame, air: { motion, wind, height }, open, grow, array, box };
   // Thinned slots were cleared when the mesh was made and stay cleared.
   for (let index = 0; index < slots.count; index += set.thin) {
     const node = at(slots.node, index);
@@ -257,23 +301,7 @@ export function poseOrnaments(tree: Tree, set: OrnamentSet, tick: Tick): void {
       clearSlot(array, index);
       continue;
     }
-    const unit = tree.colors.leafScale * at(slots.size, index) * grow * (0.35 + 0.65 * clamp((open - rank) * 8, 0, 1));
-    const x = at(frame.x, node) + at(slots.dx, index);
-    const z = at(frame.z, node) + at(slots.dz, index);
-    const y = at(frame.y, node) + at(slots.dy, index) * 0.5 + look.lift * unit;
-    stillOrSway(tree, [x, y, z], air);
-    const swing = hangSwing(look.lift, wind, motion, rank);
-    writeBox(
-      array,
-      index,
-      x + tree.offset.x + swing.x,
-      y,
-      z + tree.offset.z + swing.z,
-      look.size[0] * unit,
-      look.size[1] * unit,
-      look.size[2] * unit,
-      rank * TAU,
-    );
+    hangOrnament(pass, index);
   }
   mesh.instanceMatrix.needsUpdate = true;
 }

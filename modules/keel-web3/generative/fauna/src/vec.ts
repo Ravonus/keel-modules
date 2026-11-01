@@ -64,7 +64,13 @@ export const dirToWorld = (f: Frame, v: Vec): Vec => add(add(scale(f.x, v[0]), s
  * bending toward `pole`. Lengths are kept: a target out of reach is fallen short of.
  * (The pixel engine's rig.js solveTwoBone.)
  */
-export function solveTwoBone(a: Vec, target: Vec, l1: number, l2: number, pole: Vec): { mid: Vec; end: Vec } {
+export function solveTwoBone(
+  a: Vec,
+  target: Vec,
+  lengths: readonly [number, number],
+  pole: Vec,
+): { mid: Vec; end: Vec } {
+  const [l1, l2] = lengths;
   const d = sub(target, a);
   let dist = length(d);
   const n = dist > 1e-9 ? scale(d, 1 / dist) : unit(pole);

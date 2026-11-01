@@ -3,7 +3,7 @@
 import type { TreeColors, TreeFrameLike, TreeSkin, TreeStrain, YearLike } from "../inputs.js";
 import { at, hash32 } from "../math.js";
 import { sway } from "../wind.js";
-import type { Offset } from "../wind.js";
+import type { Gust, Offset } from "../wind.js";
 import { clearSlot, writeColumns, writeOrigin, writeSegment } from "../instances.js";
 import { NEEDLE_KINDS } from "./shapes.js";
 import { HOLE_TONE, NO_ROOT_BREAK, ROOT_SEGMENTS, ROOT_SHARDS, rootBreaks, rootPath, rootShards } from "./roots.js";
@@ -18,6 +18,7 @@ export function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): 
   const height = Math.max(frame.height, 0.5);
   const wind = tree.features.sway ? motion.wind * (motion.field ?? 1) : 0;
   const swayB: Offset = { x: 0, z: 0 };
+  const gust: Gust = { elapsed: motion.elapsed, wind, height, dir: motion.windDir };
   for (let node = 0; node < model.count; node += 1) {
     const fallen = at(frame.fall, node) > 0;
     if (at(frame.grow, node) <= 0 || at(frame.rot, node) >= 1 || (fallen && !tree.features.deadwood)) {
@@ -28,14 +29,14 @@ export function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): 
     const a: [number, number, number] = [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)];
     const b: [number, number, number] = [at(frame.x, node), at(frame.y, node), at(frame.z, node)];
     if (!fallen && !tree.still) {
-      sway(offset, a[0], a[1], a[2], motion.elapsed, wind, height, motion.windDir);
-      sway(swayB, b[0], b[1], b[2], motion.elapsed, wind, height, motion.windDir);
+      sway(offset, a, gust);
+      sway(swayB, b, gust);
       a[0] += offset.x;
       a[2] += offset.z;
       b[0] += swayB.x;
       b[2] += swayB.z;
     }
-    writeSegment(array, node, a, b, radius);
+    writeSegment(array, node, { a, b, radius });
   }
   poseRoots(tree, frame, array);
   meshes.wood.instanceMatrix.needsUpdate = true;
@@ -73,13 +74,11 @@ function poseBlockRoot(tree: Tree, array: Float32Array, site: RootSite): void {
   const reach = (0.25 + trunk * 2.4) * root.reach;
   const c = Math.cos(root.angle);
   const s = Math.sin(root.angle);
-  writeSegment(
-    array,
-    first,
-    [c * trunk * 0.5, ground.y + trunk * 0.9, s * trunk * 0.5],
-    [c * reach, ground.y + 0.02, s * reach],
-    trunk * 0.42,
-  );
+  writeSegment(array, first, {
+    a: [c * trunk * 0.5, ground.y + trunk * 0.9, s * trunk * 0.5],
+    b: [c * reach, ground.y + 0.02, s * reach],
+    radius: trunk * 0.42,
+  });
 }
 
 /** How far out a `rootSink` root may run before it dives: the inner part of the planter till the tree is old. */
@@ -132,7 +131,8 @@ function poseShards(tree: Tree, trunk: number): void {
   const own = tree.ground.planter?.colors;
   const colors = own && own.length > 0 ? own : SHARD_COLORS;
   for (const [index, root] of tree.model.roots.entries()) {
-    const shards = rootShards(root, index, trunk, tree.ground, tree.breaks.plans[index] ?? NO_ROOT_BREAK, tree.seed);
+    const breakage = { trunk, ground: tree.ground, plan: tree.breaks.plans[index] ?? NO_ROOT_BREAK, seed: tree.seed };
+    const shards = rootShards(root, index, breakage);
     for (let slot = 0; slot < ROOT_SHARDS; slot += 1) {
       const shard = shards[slot];
       const place = index * ROOT_SHARDS + slot;
@@ -197,7 +197,7 @@ function poseRootPath(array: Float32Array, first: number, path: readonly RootPoi
     const q = path[part + 1];
     if (p === undefined || q === undefined || p.gone) continue;
     if (part > 1 && (p.radius < sink || Math.hypot(p.x, p.z) > reach)) break;
-    writeSegment(array, first + part, [p.x, p.y, p.z], [q.x, q.y, q.z], (p.radius + q.radius) / 2);
+    writeSegment(array, first + part, { a: [p.x, p.y, p.z], b: [q.x, q.y, q.z], radius: (p.radius + q.radius) / 2 });
   }
 }
 

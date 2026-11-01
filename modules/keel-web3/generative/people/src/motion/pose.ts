@@ -137,9 +137,15 @@ const turned = (c: Capsule, at: Vec, yaw: number, size: number): Capsule => ({
   ...(c.up ? { up: placed(c.up, [0, 0, 0], yaw) } : {}),
 });
 
+/** Where a posed person stands and which way it faces; the origin, facing +z, when left out. */
+export interface Placing {
+  readonly at?: Vec;
+  readonly yaw?: number;
+}
+
 /** A person in an action at time `t`, seconds, standing at `at` and turned by `yaw`. */
-export const posePerson = (p: Person, action: Action, t: number, at: Vec = [0, 0, 0], yaw = 0): PersonBody =>
-  bodyOf(p, action, t, { at, yaw, rich: false });
+export const posePerson = (p: Person, action: Action, t: number, place: Placing = {}): PersonBody =>
+  bodyOf(p, action, t, { at: place.at ?? [0, 0, 0], yaw: place.yaw ?? 0, rich: false });
 
 /** Where a posed body stands and faces, and whether its head is the rich one a mesh is built from. */
 export interface Stance {

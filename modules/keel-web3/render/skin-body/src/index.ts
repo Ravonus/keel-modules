@@ -116,9 +116,16 @@ export interface SkinLight {
   readonly front?: Vec;
 }
 
+/** What else a posed body shows: its face, the hair's sway and the flesh's jiggle, all still when left out. */
+export interface SkinMotion {
+  readonly face?: FaceState;
+  readonly sway?: Sway;
+  readonly jiggle?: Vec;
+}
+
 export interface SkinOne {
   /** `bones` is three rows of four for each bone. */
-  pose(bones: Float32Array, at: Vec, yaw: number, face?: FaceState, sway?: Sway, jiggle?: Vec): void;
+  pose(bones: Float32Array, at: Vec, yaw: number, motion?: SkinMotion): void;
   /** Whether it is drawn: a host can keep many built and draw those in view. */
   show(on: boolean): void;
   remove(): void;
@@ -791,7 +798,10 @@ function addBody(lit: SkinLit, group: LitNode, shared: Shared, mesh: SkinMesh): 
   node.customDepthMaterial = depth;
   group.add(node);
   return {
-    pose(bones, at, yaw, face, sway = [0, 0, 0, 0], jiggle = [0, 0, 0]) {
+    pose(bones, at, yaw, motion = {}) {
+      const { face } = motion;
+      const sway = motion.sway ?? [0, 0, 0, 0];
+      const jiggle = motion.jiggle ?? [0, 0, 0];
       bonesInto(uBones, bones);
       (uSway.value as LitV4).set(...sway);
       (uJiggle.value as { set(x: number, y: number, z: number): void }).set(...jiggle);

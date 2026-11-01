@@ -226,13 +226,11 @@ function bakeWood(lit: LitLike, bake: Bake, variant: ForestVariant, spec: Pick<R
   for (let node = 0; node < model.count; node += 1) {
     const radius = at(frame.radius, node);
     if (!bakedWood(frame, node, spec.wood)) continue;
-    writeSegment(
-      m,
-      0,
-      [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)],
-      [at(frame.x, node), at(frame.y, node), at(frame.z, node)],
+    writeSegment(m, 0, {
+      a: [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)],
+      b: [at(frame.x, node), at(frame.y, node), at(frame.z, node)],
       radius,
-    );
+    });
     color.set(trunkTone(colors.trunk, radius) ?? "#6b4a33");
     if (at(frame.dead, node) > 0.3) color.lerp(new lit.Color("#8e897f"), 0.6);
     appendShape(bake, template, m, {
@@ -303,9 +301,11 @@ function bakeNeighbour(leaf: LeafBake, index: number, own: BakedLeaf, extra: num
   writeBlade(
     leaf.m,
     0,
-    near,
-    norm3(d[0] + Math.cos(spin) * 0.5, d[1], d[2] + Math.sin(spin) * 0.5),
-    leaf.size * at(slots.size, index) * 0.82,
+    {
+      p: near,
+      n: norm3(d[0] + Math.cos(spin) * 0.5, d[1], d[2] + Math.sin(spin) * 0.5),
+      size: leaf.size * at(slots.size, index) * 0.82,
+    },
     leaf.needles ? { droop: 0.04, twist: spin, nod: 0 } : { droop: 0.3 + 0.3 * rank, twist: spin * 0.25, nod: 0 },
   );
   appendShape(leaf.bake, leaf.template, leaf.m, {
@@ -325,7 +325,7 @@ function bakeLeaf(leaf: LeafBake, index: number): void {
   const flutter = needles
     ? { droop: 0.04, twist: rank * TAU, nod: 0 }
     : { droop: 0.35 + 0.25 * rank, twist: rank * TAU * 0.25, nod: 0 };
-  writeBlade(leaf.m, 0, stalk, d, leaf.size * at(slots.size, index), flutter);
+  writeBlade(leaf.m, 0, { p: stalk, n: d, size: leaf.size * at(slots.size, index) }, flutter);
   const s = at(leaf.shade, index);
   appendShape(leaf.bake, leaf.template, leaf.m, {
     rgb: [s, s, s],

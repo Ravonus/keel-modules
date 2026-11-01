@@ -31,3 +31,4 @@ export { deltaT, centuries, keplerPlace, applyTerms, planetArgs, moonArgs, moonB
 export type { SkyModel } from "./ephemeris.js";
 export { horizonMatrix, toScene, moonFrom, eclipticPoint } from "./frame.js";
 export { BODY_LIGHT, paintChart, paintTransits } from "./paint.js";
+export type { ChartSize, TransitPixels, Crossing, TransitLevels } from "./paint.js";

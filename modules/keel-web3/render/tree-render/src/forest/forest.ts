@@ -6,6 +6,7 @@ import type {
 } from "../inputs.js";
 import { TAU, seededRandom } from "../math.js";
 import { writeBox } from "../instances.js";
+import type { BoxPlace } from "../instances.js";
 import { bakedGeometry, boxOf, forestMaterial, seasonUniforms, setYear } from "./bake.js";
 import type { Box, RungSpec, Vector4Like } from "./bake.js";
 import { MAX_VARIANTS, bakeCards, createCards } from "./cards.js";
@@ -451,6 +452,20 @@ interface Placing {
   far: number;
 }
 
+// One place's box, reused for every tree every frame: nothing is allocated while the forest is placed.
+const BOX = { at: [0, 0, 0] as [number, number, number], size: [0, 0, 0] as [number, number, number], yaw: 0 };
+/** Where a place's tree stands, as the box its instance is written from. */
+function boxAt(place: ForestPlace): BoxPlace {
+  BOX.at[0] = place.x;
+  BOX.at[1] = place.y;
+  BOX.at[2] = place.z;
+  BOX.size[0] = place.scale;
+  BOX.size[1] = place.scale;
+  BOX.size[2] = place.scale;
+  BOX.yaw = place.yaw;
+  return BOX;
+}
+
 /** Does a tree at `distance` stand on this level (or past its far edge, when nothing coarser would draw it)? */
 function onRung(rung: Rung, last: boolean, distance: number, cardsOn: boolean): boolean {
   if (distance < rung.from - rung.lodIn.y) return false;
@@ -474,8 +489,7 @@ function placeOnLadder(state: ForestState, placing: Placing, tree: LadderTree, p
     if (!target?.built || (drawn & (1 << at)) !== 0) continue;
     drawn |= 1 << at;
     const { mesh } = target.built;
-    const { scale } = place;
-    writeBox(mesh.instanceMatrix.array, target.count, place.x, place.y, place.z, scale, scale, scale, place.yaw);
+    writeBox(mesh.instanceMatrix.array, target.count, boxAt(place));
     mesh.setColorAt(target.count, state.tint.setRGB(place.tint, place.tint, place.tint));
     target.count += 1;
   }
@@ -485,8 +499,7 @@ function placeOnLadder(state: ForestState, placing: Placing, tree: LadderTree, p
 /** Draws one tree as the next impostor card. */
 function placeCard(cards: Cards, placing: Placing, place: ForestPlace): void {
   const { far } = placing;
-  const { scale } = place;
-  writeBox(cards.mesh.instanceMatrix.array, far, place.x, place.y, place.z, scale, scale, scale, place.yaw);
+  writeBox(cards.mesh.instanceMatrix.array, far, boxAt(place));
   cards.card[far * 2] = place.variant;
   cards.card[far * 2 + 1] = place.tint;
   placing.far += 1;

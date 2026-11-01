@@ -5,6 +5,7 @@ import type {
 } from "../inputs.js";
 import { TAU, at, clamp } from "../math.js";
 import { leafFlutter, sway } from "../wind.js";
+import type { Airflow, Gust } from "../wind.js";
 import { UP, clearSlot, cross3, isZero, norm3, writeBlade, writeVoxel } from "../instances.js";
 import type { V3 } from "../instances.js";
 import { leafTipLimit, leafyNode } from "./tree.js";
@@ -31,6 +32,9 @@ interface LeafPass {
   readonly field: number;
   readonly dir: number;
   readonly elapsed: number;
+  /** The breeze the sway field moves leaves by, and the air they flutter in, built once for the pass. */
+  readonly gust: Gust;
+  readonly air: Airflow;
   /** A seedling shows every leaf; otherwise only the outer twigs (to `tipLimit`) carry them. */
   readonly seedling: boolean;
   readonly tipLimit: number;
@@ -49,7 +53,7 @@ function drift(tree: Tree, pass: LeafPass, p: V3): void {
     tree.offset.z = 0;
     return;
   }
-  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.field, pass.height, pass.dir);
+  sway(tree.offset, p, pass.gust);
 }
 
 /** How far downwind a point is, so a gust reaches it in turn. */
@@ -90,21 +94,17 @@ function poseBlade(tree: Tree, pass: LeafPass, index: number): void {
   const z = at(frame.z, node) + n[2] * out + (dz / scale) * clear;
   drift(tree, pass, [x, y, z]);
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
-  const motion = leafFlutter(
-    pass.elapsed,
-    pass.wind,
-    at(slots.rank, index),
-    at(tree.model.phase, node),
-    downwind(pass, x, z),
-  );
+  const motion = leafFlutter(pass.air, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, x, z));
   writeBlade(
     pass.array,
     index,
-    [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4],
-    n,
-    leafSize * (weeps ? 1.5 : 1.9),
+    {
+      p: [x + tree.offset.x + swing, y, z + tree.offset.z + swing * 0.4],
+      n,
+      size: leafSize * (weeps ? 1.5 : 1.9),
+      long: weeps ? 2.4 : 1,
+    },
     motion,
-    weeps ? 2.4 : 1,
   );
 }
 
@@ -220,9 +220,7 @@ function poseLeaflet(tree: Tree, fronds: FrondLayout, pass: LeafPass, index: num
   writeBlade(
     pass.array,
     index,
-    [p[0] + tree.offset.x + swing, p[1], p[2] + tree.offset.z + swing * 0.4],
-    norm3(...n),
-    length,
+    { p: [p[0] + tree.offset.x + swing, p[1], p[2] + tree.offset.z + swing * 0.4], n: norm3(...n), size: length },
     { droop: 0.04, twist: sign * 0.35 + shiver * 0.6, nod: 0 },
   );
 }
@@ -259,13 +257,7 @@ function poseSprig(tree: Tree, pass: LeafPass, index: number): void {
   const node = at(slots.node, index);
   const { p, n } = sprigPlace(frame, slots, index);
   drift(tree, pass, p);
-  const motion = leafFlutter(
-    pass.elapsed,
-    pass.wind,
-    at(slots.rank, index),
-    at(tree.model.phase, node),
-    downwind(pass, p[0], p[2]),
-  );
+  const motion = leafFlutter(pass.air, at(slots.rank, index), at(tree.model.phase, node), downwind(pass, p[0], p[2]));
   const stiff = {
     droop: motion.droop * 0.12,
     twist: at(slots.rank, index) * TAU + motion.twist * 0.2,
@@ -274,9 +266,7 @@ function poseSprig(tree: Tree, pass: LeafPass, index: number): void {
   writeBlade(
     pass.array,
     index,
-    [p[0] + tree.offset.x + swing * 0.3, p[1], p[2] + tree.offset.z + swing * 0.12],
-    n,
-    leafSize * 1.9,
+    { p: [p[0] + tree.offset.x + swing * 0.3, p[1], p[2] + tree.offset.z + swing * 0.12], n, size: leafSize * 1.9 },
     stiff,
   );
 }
@@ -294,15 +284,12 @@ function poseLump(tree: Tree, pass: LeafPass, index: number): void {
   const flutter = pass.wind * 0.012 * Math.sin(pass.elapsed * 6.3 + rank * 40);
   const fx = flutter * Math.cos(pass.dir);
   const fz = flutter * Math.sin(pass.dir);
-  writeVoxel(
-    pass.array,
-    index,
+  const lump: V3 = [
     x + tree.offset.x + fx + swing * Math.cos(pass.dir),
     y + flutter * 0.4,
     z + tree.offset.z + fz + swing * Math.sin(pass.dir),
-    leafSize,
-    rank * TAU + flutter * 6,
-  );
+  ];
+  writeVoxel(pass.array, index, lump, { size: leafSize, yaw: rank * TAU + flutter * 6 });
 }
 
 /** Does this leaf show: on a leafy twig (or any twig of a seedling), grown, not yet dropped, and not falling? */
@@ -334,17 +321,23 @@ function leafPass(tree: Tree, mesh: InstancedLike, tick: Tick): LeafPass {
   const bare = year.leaf <= 0;
   // A grand tree is bigger than life but has the same twigs, so each clump fills more of its crown.
   const grand = Math.max(1, frame.scale ?? 1) ** 0.75;
+  const height = Math.max(frame.height, 0.5);
+  const wind = tree.features.sway ? motion.wind : 0;
+  const dir = motion.windDir ?? 0;
+  const field = tree.features.sway ? motion.wind * (motion.field ?? 1) : 0;
   return {
     array: mesh.instanceMatrix.array,
     frame,
-    height: Math.max(frame.height, 0.5),
+    height,
     bare,
     size: tree.colors.leafScale * youngLeaf(tree, frame) * (tree.skin?.leafSize ?? 1) * grand,
     spread: (bare ? 0.15 : 0.35 + 0.65 * year.leaf) * grand,
-    wind: tree.features.sway ? motion.wind : 0,
-    dir: motion.windDir ?? 0,
+    wind,
+    dir,
     elapsed: motion.elapsed,
-    field: tree.features.sway ? motion.wind * (motion.field ?? 1) : 0,
+    field,
+    gust: { elapsed: motion.elapsed, wind: field, height, dir },
+    air: { elapsed: motion.elapsed, wind },
     seedling: frame.visible <= 4,
     tipLimit: leafTipLimit(tree),
     leaf: { size: 0, swing: 0 },

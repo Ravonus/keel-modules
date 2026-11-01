@@ -18,7 +18,7 @@ export { ACTIONS, skeletonOf } from "./motion/skeleton.js";
 export type { Action, Skeleton } from "./motion/skeleton.js";
 export type { Capsule } from "./mesh/parts.js";
 export { strideOf, posePerson, createHang, velocityAt, jiggleAt, trailAt, faceAt } from "./motion/pose.js";
-export type { PersonBody } from "./motion/pose.js";
+export type { PersonBody, Placing } from "./motion/pose.js";
 export { BONE_COUNT } from "./body/bones.js";
 export type { PersonMesh } from "./body/field.js";
 export { FABRICS } from "./clothes/fabric.js";

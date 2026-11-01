@@ -5,6 +5,17 @@ const STREAM_HASH = -1213391656;
 
 export default [
   {
+    name: 'a crowd keeps to its triangles nearest first, and the budget gives way to long frames and comes back',
+    run: ({ PERSON_LODS, lodsWithin, crowdBudget }) => {
+      const cost = (tiers) => tiers.reduce((n, t) => n + PERSON_LODS[t].tris, 0);
+      const wants = [0, 1, 2, 2, 3, 3, 4, 4], rich = lodsWithin(wants, 1e9), poor = lodsWithin(wants, 100000), broke = lodsWithin(wants, 0);
+      const budget = crowdBudget(1000, 100);
+      const fell = Array.from({ length: 200 }, () => budget(40)).at(-1), paused = budget(5000), rose = Array.from({ length: 200 }, () => budget(10)).at(-1);
+      return [rich.join(), poor[0], cost(poor) <= 100000, broke.every((t) => t === 4), fell, paused, rose > 100 && rose < 1000];
+    },
+    expect: ['0,1,2,2,3,3,4,4', 0, true, true, 100, 100, true],
+  },
+  {
     name: 'one seed is one person, the same every time, and the seeds differ',
     run: ({ personOf }) => [JSON.stringify(personOf(7)) === JSON.stringify(personOf(7)), JSON.stringify(personOf(7)) === JSON.stringify(personOf(8))],
     expect: [true, false],

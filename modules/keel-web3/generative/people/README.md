@@ -27,6 +27,8 @@ collars are still melted from capsules and meshed with surface nets. `cell` of
 mouth, and `trailAt` how far what hangs free trails the body. `render/skin-body`
 draws it.
 
+A crowd keeps to a triangle budget: `lodFor` says what each person wants by distance, `lodsWithin` gives the nearest what they want while the budget lasts and everyone else the least, and `crowdBudget` moves the budget with the frame time.
+
 ## Weather, costumes and cloth
 
 `personOf(seed, weather, costume)` dresses the same person for a `mild`, `rain`, `cold`, `hot` or `beach` day, or in a `suit`, `firefighter`, `police`, `cowboy`, `fursuit` or `latex` costume. Beachwear cut skimpy is only ever on grown people; a child at the beach wears a tee and swim shorts.

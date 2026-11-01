@@ -88,7 +88,7 @@ export function coveredSkin(mesh: PersonMesh): readonly number[] {
 
 /** The same mesh, those vertices painted a colour nothing else is. */
 export function tinted(mesh: PersonMesh, covered: readonly number[]): PersonMesh {
-  const role = Uint8Array.from(mesh.role), roles = [...mesh.roles, "clip"];
+  const role = Uint8Array.from(mesh.role), roles = [...mesh.roles, "clip-score"];
   for (const v of covered) role[v] = roles.length - 1;
-  return { ...mesh, role, roles, palette: { ...mesh.palette, clip: TINT } };
+  return { ...mesh, role, roles, palette: { ...mesh.palette, "clip-score": TINT } };
 }

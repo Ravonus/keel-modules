@@ -155,6 +155,7 @@ uniform vec4 uBones[ROWS];
 attribute vec2 aBones;
 attribute float aWeight;
 attribute float aLoose;
+attribute float aFabric;
 attribute float aSoft;
 uniform vec4 uSway;
 uniform vec3 uJiggle;  // how far soft flesh has been left behind
@@ -175,41 +176,44 @@ vec3 offLimb(vec3 at, vec4 a, vec4 b, float bone) {
   float far = length(off);
   return far < r && far > 1e-4 ? at + off * (r - far) / far : at;
 }
-// Out from the body's axis to clear a length of leg, seen from the axis along this bit of cloth. Pushing off the leg
-// alone would send cloth the wrong way once a leg had swung out past it.
-vec3 overLimb(vec3 at, vec2 axis, vec4 a, vec4 b, float bone) {
+// Cloth seen from the pelvis is a surface with one point on every ray, so a leg is under it if each ray leaves the leg
+// before it reaches the cloth. This finds where this cloth's ray leaves this length of leg, a tapered capsule, and goes
+// past it: true of a leg in any pose, level or upright, swung out or crossed.
+vec3 overLimb(vec3 at, vec3 centre, vec4 a, vec4 b, float bone) {
   int i = int(bone + 0.5);
   vec3 from = boned(i, vec4(a.xyz, 1.0)), along = boned(i, vec4(b.xyz, 1.0)) - from;
-  float t = clamp(dot(at - from, along) / max(dot(along, along), 1e-6), 0.0, 1.0), r = mix(a.w, b.w, t);
-  r *= 1.5;  // (A leg's whole thickness, with the cloth's own bulk: the capsule alone is only what stops it being crossed.)
-  vec3 limb = from + along * t;
-  vec2 out_ = at.xz - axis;
-  float reach = length(out_);
+  vec3 ray = at - centre;
+  float reach = length(ray);
   if (reach < 1e-4) return at;
-  out_ /= reach;
-  vec2 to = limb.xz - axis;
-  float ahead = dot(to, out_), aside = length(to - out_ * ahead);
-  if (ahead < 0.0 || aside > r) return at;
-  float clear = ahead + sqrt(r * r - aside * aside);
-  float upright = smoothstep(0.02, 0.3, along.y * along.y / max(dot(along, along), 1e-6));  // (Cloth lies on a level thigh.)
-  float near = upright * (1.0 - smoothstep(r * 0.6, r, aside)) * (1.0 - smoothstep(r * 0.7, r * 1.3, abs(at.y - limb.y)));
-  float to_ = mix(reach, max(reach, clear), near);
-  return vec3(axis.x + out_.x * to_, at.y, axis.y + out_.y * to_);
+  ray /= reach;
+  vec3 start = centre - from;
+  float across = dot(ray, along), span = dot(along, along), parts = span - across * across;
+  float t = parts > 1e-6 ? clamp((dot(along, start) - across * dot(ray, start)) / parts, 0.0, 1.0) : 0.0;
+  vec3 limb = from + along * t;
+  float ahead = dot(limb - centre, ray), r = mix(a.w, b.w, t) * 1.5;
+  float off = length(limb - centre - ray * ahead);
+  if (ahead < 0.0 || off > r) return at;
+  float clear = min(ahead + sqrt(r * r - off * off), reach + 0.35);  // (No hem is pulled the length of a leg lying along its ray.)
+  return centre + ray * mix(reach, max(reach, clear), 1.0 - smoothstep(r * 0.6, r, off));
 }
 // Cloth is the outer layer: whatever a pose does, no leg comes through it.
 vec3 layered(vec3 at) {
-  if (uClothBone < 0.5 || aBones.x + 0.5 < uClothBone) return at;
-  at = offLimb(at, uLegJoints[0], uLegJoints[1], uLegBones.x);
-  at = offLimb(at, uLegJoints[1], uLegJoints[2], uLegBones.y);
-  at = offLimb(at, uLegJoints[2], uLegJoints[3], uFootBones.x);
-  at = offLimb(at, uLegJoints[4], uLegJoints[5], uLegBones.z);
-  at = offLimb(at, uLegJoints[5], uLegJoints[6], uLegBones.w);
-  at = offLimb(at, uLegJoints[6], uLegJoints[7], uFootBones.y);
-  vec2 axis = (boned(int(uLegBones.x + 0.5), vec4(uLegJoints[0].xyz, 1.0)).xz + boned(int(uLegBones.z + 0.5), vec4(uLegJoints[4].xyz, 1.0)).xz) * 0.5;
-  at = overLimb(at, axis, uLegJoints[0], uLegJoints[1], uLegBones.x);
-  at = overLimb(at, axis, uLegJoints[1], uLegJoints[2], uLegBones.y);
-  at = overLimb(at, axis, uLegJoints[4], uLegJoints[5], uLegBones.z);
-  return overLimb(at, axis, uLegJoints[5], uLegJoints[6], uLegBones.w);
+  if (uClothBone < 0.5) return at;
+  bool panel = aBones.x + 0.5 >= uClothBone;
+  if (!panel && (aFabric < 0.5 || aLoose <= 0.0)) return at;  // cloth still on the pelvis only rides over the thighs
+  if (panel) {
+    at = offLimb(at, uLegJoints[0], uLegJoints[1], uLegBones.x);
+    at = offLimb(at, uLegJoints[1], uLegJoints[2], uLegBones.y);
+    at = offLimb(at, uLegJoints[2], uLegJoints[3], uFootBones.x);
+    at = offLimb(at, uLegJoints[4], uLegJoints[5], uLegBones.z);
+    at = offLimb(at, uLegJoints[5], uLegJoints[6], uLegBones.w);
+    at = offLimb(at, uLegJoints[6], uLegJoints[7], uFootBones.y);
+  }
+  vec3 centre = (boned(int(uLegBones.x + 0.5), vec4(uLegJoints[0].xyz, 1.0)) + boned(int(uLegBones.z + 0.5), vec4(uLegJoints[4].xyz, 1.0))) * 0.5;
+  at = overLimb(at, centre, uLegJoints[0], uLegJoints[1], uLegBones.x);
+  at = overLimb(at, centre, uLegJoints[1], uLegJoints[2], uLegBones.y);
+  at = overLimb(at, centre, uLegJoints[4], uLegJoints[5], uLegBones.z);
+  return overLimb(at, centre, uLegJoints[5], uLegJoints[6], uLegBones.w);
 }
 // What hangs from the body trails it, more toward its free edge, a ripple running down through it.
 vec3 hung(vec3 at) {
@@ -226,7 +230,6 @@ vec3 hung(vec3 at) {
 
 const VERTEX = /* glsl */ `${SKIN}
 attribute vec3 aColor;
-attribute float aFabric;
 attribute vec4 aCloth;
 attribute float aShade;
 varying float vShade;
@@ -261,7 +264,12 @@ void main() {
   vec4 seen = viewMatrix * world;
   bool leg = bone < 1.0 || abs(bone - uLegBones.x - 0.5) < 0.5 || abs(bone - uLegBones.y - 0.5) < 0.5
     || abs(bone - uLegBones.z - 0.5) < 0.5 || abs(bone - uLegBones.w - 0.5) < 0.5;
-  if (uHangsOver > 0.5 && aFabric < 0.5 && leg) seen.xyz *= 1.0 + 0.1 / length(seen.xyz);
+  if (uHangsOver > 0.5 && aFabric < 0.5 && leg) {
+    // The top of a thigh is under the cloth however the hem flies, so it can give way further: folds gather there.
+    float hip = min(distance(position, uLegJoints[0].xyz), distance(position, uLegJoints[4].xyz));
+    float top = 1.0 - smoothstep(0.3, 0.55, hip / distance(uLegJoints[0].xyz, uLegJoints[1].xyz));
+    seen.xyz *= 1.0 + (0.1 + 0.25 * top) / length(seen.xyz);
+  }
   gl_Position = projectionMatrix * seen;
 }`;
 

@@ -219,6 +219,21 @@ const overHead = (along: number, fore: number): Vec => unit([Math.sin(along), Ma
 const arcOver = (outer: Bound, fore: number, half: number, lift: number): readonly Vec[] =>
   Array.from({ length: 21 }, (_, i) => outer.on(overHead(half * (i / 10 - 1), fore), lift));
 
+/** A band over a head from ear to ear: taut across the hair's tops, so no lock comes up through it. */
+function tautOver(outer: Bound, fore: number, half: number, lift: number): readonly Vec[] {
+  const along = (i: number): number => half * (i / 10 - 1);
+  const tops = Array.from({ length: 21 }, (_, i) =>
+    Math.max(
+      ...[-0.2, 0, 0.2].flatMap((f) => [-0.1, 0, 0.1].map((a) => outer.far(overHead(along(i) + a, fore + f)))),
+    ),
+  );
+  return tops.map((_, i) => {
+    const near = tops.slice(Math.max(0, i - 1), i + 2);
+    const far = near.reduce((all, top) => all + top, 0) / near.length;
+    return scale(overHead(along(i), fore), far + lift);
+  });
+}
+
 /** Clips along the side of the hair, each lying on it. */
 function layClips(lay: LayGear, outer: Bound, side: number, places: readonly number[]): void {
   for (const at of places) {
@@ -235,7 +250,7 @@ function layHair({ lay, p, outer }: Trim): void {
   const kind = p.gear.hair;
   const side = p.seed % 2 === 0 ? -1 : 1;
   if (p.hair !== "bald") {
-    if (kind === "band") lay(arcOver(outer, 0.2, 1.45, 0.008), [0.07, 0.022, 4], CLIP);
+    if (kind === "band") lay(tautOver(outer, 0.2, 1.45, 0.02), [0.1, 0.03, 4], CLIP);
     if (kind === "clip" || kind === "clips") layClips(lay, outer, side, kind === "clip" ? [0.8] : [0.62, 0.8, 0.98]);
     if (kind === "bow") {
       const at = outer.on(overHead(side * 0.8, 0.4), 0.02);

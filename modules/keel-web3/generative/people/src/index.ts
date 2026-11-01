@@ -1638,7 +1638,7 @@ function drawEars(kit: Kit, p: Person, h: HeadFrame): void {
 const BRIMS: Partial<Record<Hat, number>> = { fedora: 1.5, sunhat: 2, stetson: 1.9, helmet: 1.5, bucket: 1.42, bowler: 1.34, tophat: 1.36 };
 
 /** How much taller than the skull each hat's crown stands. */
-const CROWN_RISE: Partial<Record<Hat, number>> = { stetson: 0.24, peaked: 0.24, bowler: 0.12, bucket: 0.07, headwrap: 0.2, hardhat: 0.1 };
+const CROWN_RISE: Partial<Record<Hat, number>> = { stetson: 0.24, peaked: 0.24, bowler: 0.12, bucket: 0.07, beret: 0.1, headwrap: 0.2, hardhat: 0.1 };
 
 /** The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over it. A hood and a helmet stand well clear of it. */
 function drawCrown(kit: Kit, hat: Hat, h: HeadFrame, wide: number): void {
@@ -4229,8 +4229,6 @@ function layClips(lay: LayGear, outer: Bound, side: number, places: readonly num
   for (const at of places) lay([0.5, 0.36, 0.22].map((fore, i) => outer.on(overHead(side * (at + i * 0.03), fore), 0.012)), [0.045, 0.016, 4], CLIP);
 }
 
-/** A band round a head at the height of a visor's, on its boundary. */
-const bandRound = (outer: Bound): readonly Vec[] => Array.from({ length: 33 }, (_, i) => outer.on(bearingOf((i / 32) * TAU, 0.56), 0.006));
 
 /** What is in the hair, a clip or a row of them, a bow, a band, and headphones over all of it: all of it lying on what is there. */
 function layHair(lay: LayGear, p: Person, outer: Bound): void {
@@ -4243,7 +4241,6 @@ function layHair(lay: LayGear, p: Person, outer: Bound): void {
       lay([add(at, [-0.2, 0.05, 0]), at, add(at, [0.2, 0.05, 0])], [0.1, 0.02, 4], { ...CLIP, taper: (s) => 0.35 + 1.3 * Math.abs(s - 0.5) });
     }
   }
-  if (p.outfit.hat === "visor") lay(bandRound(outer), [0.09, 0.02, 4], { role: "trim", fabric: FABRICS.cotton });
   if (!p.gear.phones) return;
   lay(arcOver(outer, 0, 1.38, 0.016), [0.06, 0.026, 4], FRAME);
   for (const x of [-1, 1]) { const at = outer.on(unit([x, 0, -0.12], SIDE)), d = unit(at, SIDE); lay([at, madd(at, d, 0.06), madd(at, d, 0.13)], [0.27, 0.27, 12], { ...FRAME, taper: bead }); }
@@ -4343,7 +4340,7 @@ function poloFront(net: Net, p: Person, roles: readonly string[], cell: number):
 const CROWN_REACH = 1.6;
 
 /** The hats whose crown is built over what is under it. The rest are their own shape. */
-const FITTED_HATS: ReadonlySet<Hat> = new Set<Hat>(["cap", "beanie", "pompom", "bucket", "flatcap", "bandana", "hardhat", "helmet", "fedora", "stetson", "bowler", "peaked", "sunhat", "headwrap"]);
+const FITTED_HATS: ReadonlySet<Hat> = new Set<Hat>(["cap", "beanie", "pompom", "bucket", "flatcap", "bandana", "hardhat", "helmet", "fedora", "stetson", "bowler", "peaked", "sunhat", "headwrap", "visor", "beret"]);
 
 /** Whether a person's hat is near enough to be built over their head. */
 const fitsHat = (p: Person, cell: number): boolean => cell < WRAPPED && FITTED_HATS.has(p.outfit.hat) && p.outfit.costume !== "fursuit";
@@ -4357,8 +4354,10 @@ function highestNear(bound: Bound, dir: Vec): number {
 /** Where a crown's hem lies at each bearing: level round the head and only a little lower behind, as a hat sits. A helmet and a tied scarf come down the neck. */
 const crownHem = (hat: Hat, az: number): number => mix(0.5, hat === "helmet" || hat === "bandana" ? 0.24 : 0.42, (1 - Math.cos(az)) / 2);
 
+const BERET_SLUMP = unit([0.72, 0.66, -0.2], UP);
+
 /** How far a hat's bill reaches past its hem, in head radii. */
-const BILLS: Partial<Record<Hat, number>> = { cap: 0.74, peaked: 0.56, flatcap: 0.44, hardhat: 0.46 };
+const BILLS: Partial<Record<Hat, number>> = { cap: 0.74, peaked: 0.56, flatcap: 0.44, hardhat: 0.46, visor: 0.7 };
 
 /** A bill: one thin curved sheet out of the crown's hem across the brow, its sides falling away and its edge rounded. Returns how many vertices it took. */
 function billOn(net: Net, role: number, fabric: number, to: (q: Vec) => Vec, hat: Hat, hemAt: (az: number) => Vec): number {
@@ -4377,10 +4376,24 @@ function billOn(net: Net, role: number, fabric: number, to: (q: Vec) => Vec, hat
   return (rows + 1) * cols;
 }
 
+/** Hair that a crown cannot clear goes under it: `over` says how far out the crown lies along a direction. */
+function tuckedHair(net: Net, roles: readonly string[], h: HeadFrame, size: number, over: (d: Vec) => number): void {
+  const hair = roles.indexOf("hair");
+  for (let v = 0; v < net.fabric.length; v += 1) {
+    if (net.role[v] !== hair || net.bones[v * 2] !== HEAD) continue;
+    const q = scale(sub(scale(vecAt(net.position, v), 1 / size), h.c), 1 / h.r), far = Math.hypot(...q), d = unit(q, UP), most = over(d) - 0.03;
+    if (far <= most) continue;
+    const at = scale(add(h.c, scale(d, most * h.r)), size);
+    net.position[v * 3] = at[0]; net.position[v * 3 + 1] = at[1]; net.position[v * 3 + 2] = at[2];
+  }
+}
+
 /** How far out a crown lies along `d`, from what it must clear: under hair the skull has no skin to read, so its reach is held to a head's. */
 function crownFar(skin: number, hair: number, d: Vec, hat: Hat): number {
   const ridge = hat === "hardhat" ? 0.035 * smooth(0.3, 0.12, Math.abs(d[0])) * smooth(0.4, 0.7, d[1]) : 0;
-  return Math.max(skin + 0.05 * smooth(0.5, 1, d[1]), Math.min(hair + 0.05, CROWN_REACH)) + (CROWN_RISE[hat] ?? 0) * smooth(0.3, 1, d[1]) + ridge;
+  // (A beret slumps to one side.)
+  const slump = hat === "beret" ? 0.2 * smooth(0.3, 1, dot(d, BERET_SLUMP)) : 0;
+  return Math.max(skin + 0.05 * smooth(0.5, 1, d[1]), Math.min(hair + 0.05, CROWN_REACH)) + (CROWN_RISE[hat] ?? 0) * smooth(0.3, 1, d[1]) + ridge + slump;
 }
 
 /** A crown, built over the head and the hair really under it: the hem level round the brow and lower behind, the top only as much taller as the hat is. */
@@ -4388,7 +4401,7 @@ function crownOver(net: Net, p: Person, roles: readonly string[], cell: number, 
   if (!fitsHat(p, cell)) return [];
   const size = p.build.size, hat = p.outfit.hat, trim = roles.indexOf("trim"), under = boundOf(net, h, size, (v) => net.role[v] !== trim);
   const rows = 14, cols = 64, clear = hat === "helmet" || hat === "hardhat" ? 0.09 : 0.035, far = new Float64Array((rows + 1) * cols);
-  const dirOf = (r: number, c: number): Vec => { const az = (c / cols) * TAU; return bearingOf(az, mix(crownHem(hat, az), Math.PI / 2 - 0.02, (r / rows) ** 0.8)); };
+  const dirOf = (r: number, c: number): Vec => { const az = (c / cols) * TAU; const hem = crownHem(hat, az); return bearingOf(az, mix(hem, hat === "visor" ? hem + 0.2 : Math.PI / 2 - 0.02, (r / rows) ** 0.8)); };
   for (let r = 0; r <= rows; r += 1) for (let c = 0; c < cols; c += 1) {
     const d = dirOf(r, c), skin = seat.skin.far(d) + clear;
     far[r * cols + c] = crownFar(skin, highestNear(under, d), d, hat);
@@ -4403,6 +4416,7 @@ function crownOver(net: Net, p: Person, roles: readonly string[], cell: number, 
   }
   for (let r = 0; r <= rows; r += 1) for (let c = 0; c < cols; c += 1) { const a = from + r * cols + c, b = from + r * cols + (c + 1) % cols, d = a + cols, e = b + cols; net.index.push(a, b, e, a, e, d); }
   headNormals(net, from, rows + 2, cols);
+  tuckedHair(net, roles, h, size, (d) => { const az = (Math.atan2(d[0], d[2]) + TAU) % TAU, el = Math.asin(clamp(d[1], -1, 1)), hem = crownHem(hat, az), top = hat === "visor" ? hem + 0.2 : Math.PI / 2 - 0.02, t = (el - hem) / (top - hem); return t < 0 || t > 1 ? FAR : (far[Math.round(t ** 1.25 * rows) * cols + Math.round((az / TAU) * cols) % cols] ?? FAR); });
   const hemAt = (az: number): Vec => { const turn = ((az / TAU + 1) % 1) * cols, c = Math.floor(turn), d = bearingOf(az, crownHem(hat, az)); return scale(d, mix(far[c % cols] ?? 1, far[(c + 1) % cols] ?? 1, turn - c) - 0.04); };
   const bill = billOn(net, role, fabric, to, hat, hemAt);
   return Array.from({ length: (rows + 2) * cols + bill }, () => 1);

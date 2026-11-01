@@ -112,6 +112,14 @@ scene.add(forest.group);
 forest.update({ camera, renderer, year, elapsed, wind, light, fog });
 ```
 
+Levels of detail need no setup. Every level is cut from the real tree: the
+richest near the eye, the plain bake to `near`, then the big wood and the crown's
+real masses under a few big leaves, then impostor cards. Each is one instanced
+mesh, built the first time a tree comes within its distance and freed after
+`keep` updates unused; forests of the same tree frame share shapes. So a forest
+seen only from afar never builds a near level. `forest.levels` reports what is
+drawn and held.
+
 Each variant (a model, a frame and its colours, up to 8) is baked once into
 merged geometry and drawn instanced.
 
@@ -142,3 +150,6 @@ These are exported for hosts that draw their own parts:
 - `seededRandom` and `hash32` give stable randomness.
 
 MIT.
+
+`forest.setPlaces(places)` moves, adds or removes trees of the same variants
+without rebuilding any level, so a scene being built by hand updates at once.

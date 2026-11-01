@@ -102,14 +102,14 @@ export default [
   {
     name: "a crest is thrown up the shore only where it breaks",
     run: ({ surfThrow }) => {
-      const most = (depth) => { let top = 0; for (let t = 0; t < 30; t += 0.05) top = Math.max(top, surfThrow(depth, 4, 9, t, 7)); return top; };
+      const most = (depth) => { let top = 0; for (let t = 0; t < 30; t += 0.05) top = Math.max(top, surfThrow(depth, [4, 9], t, 7)); return top; };
       return [most(1.5) > 0.8, most(6) === 0, most(0.2) === 0];
     },
     expect: [true, true, true],
   },
   {
     name: "a lip is thrown further in a stronger wind",
-    run: ({ surfThrow }) => Math.abs(surfThrow(1.5, 4, 9, 3, 14) - surfThrow(1.5, 4, 9, 3, 7) * 2) < 1e-9,
+    run: ({ surfThrow }) => Math.abs(surfThrow(1.5, [4, 9], 3, 14) - surfThrow(1.5, [4, 9], 3, 7) * 2) < 1e-9,
     expect: true,
   },
   {
@@ -124,9 +124,9 @@ export default [
     name: "surf is nothing in deep water and builds near the shore",
     run: ({ surfAt }) => {
       let shallow = 0;
-      for (let t = 0; t < 30; t += 0.1) shallow = Math.max(shallow, surfAt(1.5, 4, 9, t, 7));
+      for (let t = 0; t < 30; t += 0.1) shallow = Math.max(shallow, surfAt(1.5, [4, 9], t, 7));
       let deep = 0;
-      for (let t = 0; t < 30; t += 0.1) deep = Math.max(deep, surfAt(12, 4, 9, t, 7));
+      for (let t = 0; t < 30; t += 0.1) deep = Math.max(deep, surfAt(12, [4, 9], t, 7));
       return [deep, shallow > 0.2];
     },
     expect: [0, true],
@@ -134,14 +134,14 @@ export default [
   {
     name: "swash runs up and drains away",
     run: ({ surfAt }) => {
-      const heights = Array.from({ length: 90 }, (_, i) => surfAt(-0.2, 4, 9, i * 0.1, 7));
+      const heights = Array.from({ length: 90 }, (_, i) => surfAt(-0.2, [4, 9], i * 0.1, 7));
       return Math.max(...heights) - Math.min(...heights) > 0.2;
     },
     expect: true,
   },
   {
     name: "a stronger sea breaks harder",
-    run: ({ surfAt }) => Math.abs(surfAt(1.5, 4, 9, 3, 14) - surfAt(1.5, 4, 9, 3, 7) * 2) < 1e-9 && surfAt(1.5, 4, 9, 3, 7) > 0,
+    run: ({ surfAt }) => Math.abs(surfAt(1.5, [4, 9], 3, 14) - surfAt(1.5, [4, 9], 3, 7) * 2) < 1e-9 && surfAt(1.5, [4, 9], 3, 7) > 0,
     expect: true,
   },
   {

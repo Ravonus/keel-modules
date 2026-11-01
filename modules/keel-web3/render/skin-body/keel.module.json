@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "skin-body",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Skinned meshes for keel/lit, posed by a palette of bones in the vertex shader, with a person's eyes, blinks and mouth painted per pixel.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" }
+}

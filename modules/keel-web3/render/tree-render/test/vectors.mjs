@@ -27,7 +27,7 @@ export default [
     name: 'a wood segment sits at its midpoint, long along its axis and thick across',
     run: ({ writeSegment }) => {
       const m = new Float32Array(16);
-      writeSegment(m, 0, [0, 0, 0], [0, 2, 0], 0.1);
+      writeSegment(m, 0, { a: [0, 0, 0], b: [0, 2, 0], radius: 0.1 });
       return [m[12], m[13], m[14], Math.round(columnLength(m, 0, 1) * 100) / 100, Math.round(columnLength(m, 0, 0) * 100) / 100];
     },
     expect: [0, 1, 0, 2.1, 0.2],
@@ -36,7 +36,7 @@ export default [
     name: 'a zero-length segment and a cleared slot hide below the world',
     run: ({ writeSegment, clearSlot }) => {
       const m = new Float32Array(32);
-      writeSegment(m, 0, [1, 1, 1], [1, 1, 1], 0.1);
+      writeSegment(m, 0, { a: [1, 1, 1], b: [1, 1, 1], radius: 0.1 });
       clearSlot(m, 1);
       return [m[13], m[29], m[0], m[31]];
     },
@@ -45,8 +45,8 @@ export default [
   {
     name: 'the wind leaves the trunk foot still and bends the top',
     run: ({ sway }) => {
-      const foot = sway({ x: 0, z: 0 }, 0, 0, 0, 3.2, 1, 6);
-      const top = sway({ x: 0, z: 0 }, 0, 6, 0, 3.2, 1, 6);
+      const foot = sway({ x: 0, z: 0 }, [0, 0, 0], { elapsed: 3.2, wind: 1, height: 6 });
+      const top = sway({ x: 0, z: 0 }, [0, 6, 0], { elapsed: 3.2, wind: 1, height: 6 });
       return [Math.hypot(foot.x, foot.z) < 1e-6, Math.hypot(top.x, top.z) > 0];
     },
     expect: [true, true],
@@ -113,7 +113,7 @@ export default [
         let along = 0;
         let across = 0;
         for (let t = 0; t < 60; t += 0.25) {
-          const o = sway({ x: 0, z: 0 }, 0.5, 6, 0.3, t, wind, 6, dir);
+          const o = sway({ x: 0, z: 0 }, [0.5, 6, 0.3], { elapsed: t, wind, height: 6, dir });
           along += o.x * Math.cos(dir) + o.z * Math.sin(dir);
           across += Math.abs(-o.x * Math.sin(dir) + o.z * Math.cos(dir));
         }
@@ -154,7 +154,7 @@ export default [
       for (let k = 0; k < 200; k += 1) {
         const n = k === 0 ? [0, 0.4, 0] : k === 1 ? [0, -1, 0] : [Math.sin(k * 1.3), Math.cos(k * 0.7), Math.sin(k * 2.9)];
         const motion = { droop: (k % 7) * 0.1, twist: k * 0.37, nod: Math.sin(k) * 0.2 };
-        writeBlade(m, 0, [k, -k, 0.5], n, 0.3, motion, 1 + (k % 3));
+        writeBlade(m, 0, { p: [k, -k, 0.5], n, size: 0.3, long: 1 + (k % 3) }, motion);
         const want = reference([k, -k, 0.5], n, 0.3, motion, 1 + (k % 3));
         for (let i = 0; i < 16; i += 1) worst = Math.max(worst, Math.abs(m[i] - want[i]));
       }
@@ -199,7 +199,7 @@ export default [
       const roots = [0, 1.3, 2.6, 3.9, 5.2].map((angle) => ({ angle, reach: 1.1 }));
       const plans = rootBreaks(roots, 0.3, pot, 99);
       const same = JSON.stringify(rootPath(roots[0], 0.3, pot)) === JSON.stringify(rootPath(roots[0], 0.3, pot, NO_ROOT_BREAK));
-      return [plans.every((p) => p.heave === 0 && p.burst === 0), rootShards(roots[0], 0, 0.3, pot, plans[0], 99).length, same];
+      return [plans.every((p) => p.heave === 0 && p.burst === 0), rootShards(roots[0], 0, { trunk: 0.3, ground: pot, plan: plans[0], seed: 99 }).length, same];
     },
     expect: [true, 0, true],
   },
@@ -237,7 +237,7 @@ export default [
       const gem = { y: 0, radius: 4, rootReach: 4.5, lip: () => 4.5, wall: { depth: 1.1, flare: 0 }, planter: { hard: true } };
       const bursts = [3, 11, 29, 47].flatMap((seed) => [...rootBreaks(roots, 0.9, metal, seed), ...rootBreaks(roots, 0.9, gem, seed)]).filter((p) => p.burst > 0).length;
       const plan = rootBreaks(roots, 0.9, metal, 3)[0];
-      const shards = rootShards(roots[0], 0, 0.9, metal, plan, 3);
+      const shards = rootShards(roots[0], 0, { trunk: 0.9, ground: metal, plan, seed: 3 });
       return [bursts, shards.length >= 1 && shards.length <= 3, shards.every((s) => s.y > -0.2)];
     },
     expect: [0, true, true],
@@ -247,7 +247,7 @@ export default [
     run: ({ rootShards, ROOT_SHARDS }) => {
       const pot = { y: 0, radius: 4, rootReach: 4.5, lip: () => 4.5, wall: { depth: 1.1, flare: 0 } };
       // Deep enough below the rim for the crack to run up to it.
-      const shards = rootShards({ angle: 0, reach: 1.1 }, 0, 0.9, pot, { heave: 1, burst: 0.6, hang: 1 }, 5);
+      const shards = rootShards({ angle: 0, reach: 1.1 }, 0, { trunk: 0.9, ground: pot, plan: { heave: 1, burst: 0.6, hang: 1 }, seed: 5 });
       const r = (s) => Math.hypot(s.x, s.z);
       return [shards.length, shards.length <= ROOT_SHARDS, shards.every((s) => s.tone >= 0 && s.tone <= 3), shards.some((s) => s.tone === 3), shards.filter((s) => s.y < -0.2).every((s) => r(s) > 4.4)];
     },
@@ -266,4 +266,17 @@ export default [
     },
     expect: [true, 0.4, 0.2, 0.3, 1, 2, 3],
   },
+  {
+    name: 'snow on a sloping limb slopes with it, lying on its top from end to end',
+    run: ({ writeSlab }) => {
+      const a = new Float32Array(16);
+      writeSlab(a, 0, { at: [0, 1, 0], along: [1, 1, 0], radius: 0.1 }, { width: 0.2, depth: 0.04, long: 1 });
+      const end = (k) => [a[12] + a[8] * k, a[13] + a[9] * k, a[14] + a[10] * k];
+      const gap = (p, q) => { const t = p[0] + p[1] - 1, r = [p[0] - t / 2, p[1] - 1 - t / 2]; return Math.hypot(r[0], r[1]); };
+      const [low, high] = [end(-0.5), end(0.5)];
+      return [Math.abs(gap(low) - gap(high)) < 1e-6, Math.abs(gap(low) - 0.12) < 1e-5, high[1] - low[1] > 0.7];
+    },
+    expect: [true, true, true],
+  },
 ];
+

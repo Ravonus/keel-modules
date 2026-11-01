@@ -39,7 +39,11 @@ export function createSeededRandom(hexSeed: string): SeededRandom {
     const result = Math.imul(((b * 5) >>> 0), 0x7fffffff) >>> 0;
     const value = (((result << 7) | (result >>> 25)) * 9) >>> 0;
     const t = (b << 9) >>> 0;
-    c ^= a; d ^= b; b ^= c; a ^= d; c ^= t;
+    c ^= a;
+    d ^= b;
+    b ^= c;
+    a ^= d;
+    c ^= t;
     d = ((d << 11) | (d >>> 21)) >>> 0;
     return value / 0x1_0000_0000;
   };

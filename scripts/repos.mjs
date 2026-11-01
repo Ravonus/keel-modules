@@ -23,7 +23,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const CREATE = process.argv.includes("--create");
 const ORG = (() => {
   const index = process.argv.indexOf("--org");
-  return index === -1 ? "keel-web3" : process.argv[index + 1];
+  return (index === -1 ? undefined : process.argv[index + 1]) ?? "keel-web3";
 })();
 
 /** Every module manifest, wherever it is filed under modules/. */

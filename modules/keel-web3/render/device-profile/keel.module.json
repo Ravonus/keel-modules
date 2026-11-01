@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "device-profile",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Tells a phone, tablet or desktop from what a browser and its GPU report, and names the detail to draw there.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
+  "repository": "https://github.com/keel-web3/device-profile"
+}

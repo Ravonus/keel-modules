@@ -65,7 +65,11 @@ const unit = (a: Vec, fallback: Vec = [0, 0, 1]): Vec => {
   const l = length(a);
   return l > 1e-9 ? scale(a, 1 / l) : fallback;
 };
-const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const cross = (a: Vec, b: Vec): Vec => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
 
 /** mulberry32: a seed's stream of numbers in [0, 1). */
 function streamOf(seed: number): () => number {
@@ -174,7 +178,13 @@ export function castFor(input: CastInput): Cast {
   const lives = (id: string): boolean => speciesOf(id).zones.includes(zone);
   const companies: Company[] = [];
   const add1 = (id: string, count: number, reach: number): void => {
-    if (lives(id)) companies.push({ id, count: Math.max(1, Math.round(count * plenty)), home: [cx, middle, cz], reach, seed: Math.floor(random() * 2 ** 32) });
+    if (lives(id)) companies.push({
+      id,
+      count: Math.max(1, Math.round(count * plenty)),
+      home: [cx, middle, cz],
+      reach,
+      seed: Math.floor(random() * 2 ** 32),
+    });
   };
   add1("sardine", 140 + random() * 80, 12);
   add1("shark", 1 + Math.floor(random() * 1.6), 18);
@@ -208,9 +218,17 @@ type Path = (t: number) => Vec;
 function wanderOf(company: Company, pace: number): Path {
   const random = streamOf(company.seed);
   // (Up and down runs slower than across: a swimmer rises and dives far less steeply than it turns.)
-  const terms = [1, 0.35, 1].map((calm) => [0, 1, 2].map((order) => ({ rate: pace * calm * (0.6 + random() * 0.8) * (order + 1), phase: random() * TAU, weight: 1 / (order + 1.4) })));
+  const terms = [1, 0.35, 1].map((calm) =>
+    [0, 1, 2].map((order) => ({
+      rate: pace * calm * (0.6 + random() * 0.8) * (order + 1),
+      phase: random() * TAU,
+      weight: 1 / (order + 1.4),
+    })),
+  );
   const reaches = [company.reach, company.reach * 0.22, company.reach];
-  const axis = (index: number, t: number): number => (terms[index] ?? []).reduce((sum, term) => sum + term.weight * Math.sin(term.rate * t + term.phase), 0) * (reaches[index] ?? 0);
+  const axis = (index: number, t: number): number =>
+    (terms[index] ?? []).reduce((sum, term) => sum + term.weight * Math.sin(term.rate * t + term.phase), 0) *
+    (reaches[index] ?? 0);
   return (t) => [company.home[0] + axis(0, t), company.home[1] + axis(1, t), company.home[2] + axis(2, t)];
 }
 
@@ -283,12 +301,18 @@ const FEAR_RADIUS = 3.8;
 function fishPlace(path: Path, sharks: readonly Path[], fin: Fin, t: number): Vec {
   const center = path(t - fin.lag);
   const breath = 1 + 0.16 * Math.sin(t * 0.21 + fin.phase * 0.2);
-  const stir: Vec = [Math.sin(t * fin.rates[0] + fin.phase) * 0.5, Math.sin(t * fin.rates[1] + fin.phase * 2) * 0.3, Math.sin(t * fin.rates[2] + fin.phase * 3) * 0.5];
+  const stir: Vec = [
+    Math.sin(t * fin.rates[0] + fin.phase) * 0.5,
+    Math.sin(t * fin.rates[1] + fin.phase * 2) * 0.3,
+    Math.sin(t * fin.rates[2] + fin.phase * 3) * 0.5,
+  ];
   const place = add(center, add(scale(fin.place, SCHOOL_RADIUS * breath), stir));
   return sharks.reduce<Vec>((at, shark) => {
     const away = sub(at, shark(t));
     const gap = length(away);
-    return gap < FEAR_RADIUS ? add(at, scale(unit(away), (FEAR_RADIUS - gap) * smooth(1 - gap / FEAR_RADIUS + 0.35))) : at;
+    return gap < FEAR_RADIUS
+      ? add(at, scale(unit(away), (FEAR_RADIUS - gap) * smooth(1 - gap / FEAR_RADIUS + 0.35)))
+      : at;
   }, place);
 }
 
@@ -308,7 +332,15 @@ function bedUnder(sea: SeaLike, center: Vec, margin: number): (at: Vec) => Vec {
   return (at) => [at[0], Math.max(at[1], height + east * (at[0] - x) + north * (at[2] - z) + margin), at[2]];
 }
 
-function schoolAt(company: Company, school: readonly Fin[], sea: SeaLike, path: Path, sharks: readonly Path[], t: number): Swimmer[] {
+/** A school's run: the path it follows, the sharks it keeps clear of, and the moment. */
+interface Run {
+  readonly path: Path;
+  readonly sharks: readonly Path[];
+  readonly t: number;
+}
+
+function schoolAt(company: Company, school: readonly Fin[], sea: SeaLike, run: Run): Swimmer[] {
+  const { path, sharks, t } = run;
   const species = speciesOf(company.id);
   // One school, one turn: it moves as a body, and asking the seabed once saves hundreds of asks a frame.
   const heldAt = (now: number): Path => {
@@ -330,14 +362,26 @@ function loners(company: Company, sea: SeaLike, paths: readonly Path[], t: numbe
   const species = speciesOf(company.id);
   return paths.map((path, index) => {
     const held: Path = (when) => inWater(sea, path(when), when, species.size);
-    return { id: company.id, index, at: held(t), front: unit(sub(held(t + 0.3), held(t - 0.3))), phase: species.beat * TAU * t + index, build: 1, seed: company.seed + index };
+    return {
+      id: company.id,
+      index,
+      at: held(t),
+      front: unit(sub(held(t + 0.3), held(t - 0.3))),
+      phase: species.beat * TAU * t + index,
+      build: 1,
+      seed: company.seed + index,
+    };
   });
 }
 
 function jellyAt(company: Company, sea: SeaLike, index: number, t: number): Swimmer {
   const species = speciesOf(company.id);
   const random = streamOf(company.seed + index * 7919);
-  const home: Vec = [company.home[0] + (random() * 2 - 1) * company.reach, company.home[1] + (random() * 2 - 1) * 7, company.home[2] + (random() * 2 - 1) * company.reach];
+  const home: Vec = [
+    company.home[0] + (random() * 2 - 1) * company.reach,
+    company.home[1] + (random() * 2 - 1) * 7,
+    company.home[2] + (random() * 2 - 1) * company.reach,
+  ];
   const rate = 0.05 + random() * 0.05;
   const phase = random() * TAU;
   const tilt = 0.2 + random() * 0.3;
@@ -347,8 +391,21 @@ function jellyAt(company: Company, sea: SeaLike, index: number, t: number): Swim
   const moved = sea.displace(rest[0], rest[2], t);
   const kept = offShallows(sea, rest, species.shallowest);
   const carried = Math.exp(clamp(rest[1], -60, 0) * 0.14);
-  const at = inWater(sea, [kept[0] + (moved[0] - rest[0]) * carried, rest[1] + moved[1] * carried, kept[2] + (moved[2] - rest[2]) * carried], t, species.size);
-  return { id: company.id, index, at, front: unit([Math.sin(t * rate * 2 + phase) * tilt, 1, Math.cos(t * rate * 1.6 + phase) * tilt]), phase: beat, build: 0.8 + random() * 0.45, seed: company.seed + index };
+  const at = inWater(
+    sea,
+    [kept[0] + (moved[0] - rest[0]) * carried, rest[1] + moved[1] * carried, kept[2] + (moved[2] - rest[2]) * carried],
+    t,
+    species.size,
+  );
+  return {
+    id: company.id,
+    index,
+    at,
+    front: unit([Math.sin(t * rate * 2 + phase) * tilt, 1, Math.cos(t * rate * 1.6 + phase) * tilt]),
+    phase: beat,
+    build: 0.8 + random() * 0.45,
+    seed: company.seed + index,
+  };
 }
 
 /**
@@ -362,9 +419,21 @@ export function createSwim(cast: Cast, sea: SeaLike): Swim {
   const school = cast.companies.filter((company) => speciesOf(company.id).plan === "fish" && company.count > 8);
   const hunters = cast.companies.filter((company) => speciesOf(company.id).plan === "fish" && company.count <= 8);
   const drifters = cast.companies.filter((company) => speciesOf(company.id).plan === "jelly");
-  const kept = (company: Company, path: Path): Path => (t) => offShallows(sea, path(t), speciesOf(company.id).shallowest);
-  const schoolPaths = new Map(school.map((company) => [company, { path: wanderOf(company, 0.075), fins: schoolOf(company) }]));
-  const hunterPaths = new Map(hunters.map((company) => [company, Array.from({ length: company.count }, (_, index) => kept(company, wanderOf({ ...company, seed: company.seed + index * 104729 }, 0.06)))]));
+  const kept =
+    (company: Company, path: Path): Path =>
+    (t) =>
+      offShallows(sea, path(t), speciesOf(company.id).shallowest);
+  const schoolPaths = new Map(
+    school.map((company) => [company, { path: wanderOf(company, 0.075), fins: schoolOf(company) }]),
+  );
+  const hunterPaths = new Map(
+    hunters.map((company) => [
+      company,
+      Array.from({ length: company.count }, (_, index) =>
+        kept(company, wanderOf({ ...company, seed: company.seed + index * 104729 }, 0.06)),
+      ),
+    ]),
+  );
   const sharks = [...hunterPaths.values()].flat();
   return {
     at(t) {
@@ -374,9 +443,13 @@ export function createSwim(cast: Cast, sea: SeaLike): Swim {
         const [now, before] = [shark(t), shark(t - LOOK_BACK)];
         return (when) => (when === t ? now : before);
       });
-      for (const [company, { path, fins }] of schoolPaths) swimmers.push(...schoolAt(company, fins, sea, path, fixed, t));
+      for (const [company, { path, fins }] of schoolPaths) {
+        swimmers.push(...schoolAt(company, fins, sea, { path, sharks: fixed, t }));
+      }
       for (const [company, paths] of hunterPaths) swimmers.push(...loners(company, sea, paths, t));
-      for (const company of drifters) for (let index = 0; index < company.count; index += 1) swimmers.push(jellyAt(company, sea, index, t));
+      for (const company of drifters) {
+        for (let index = 0; index < company.count; index += 1) swimmers.push(jellyAt(company, sea, index, t));
+      }
       return swimmers;
     },
   };
@@ -412,9 +485,18 @@ export interface PoseOptions {
 }
 
 /** A fish's swing at a share of the way down its body: nothing at the head, most at the tail, travelling backward. */
-const swingAt = (back: number, phase: number, swing: number, size: number): number => swing * size * back * back * Math.sin(phase - back * 5.2);
+const swingAt = (back: number, phase: number, swing: number, size: number): number =>
+  swing * size * back * back * Math.sin(phase - back * 5.2);
 
-function trunkParts(f: Frame, species: Species, size: number, phase: number, swing: number): Part[] {
+/** How big a fish is drawn and how its body is swinging this moment. */
+interface Stroke {
+  readonly size: number;
+  readonly phase: number;
+  readonly swing: number;
+}
+
+function trunkParts(f: Frame, species: Species, stroke: Stroke): Part[] {
+  const { size, phase, swing } = stroke;
   const stations = species.stations;
   const point = (back: number): Vec => place(f, swingAt(back, phase, swing, size), 0, size * (0.5 - back));
   const parts: Part[] = [];
@@ -427,17 +509,21 @@ function trunkParts(f: Frame, species: Species, size: number, phase: number, swi
   for (let index = 0; index + 2 < stations.length; index += 2) {
     const [from, r] = stations[index] ?? [0, 0];
     const [to, r1] = stations[index + 2] ?? [0, 0];
-    const low = (back: number, half: number): Vec => place(f, swingAt(back, phase, swing, size), -half * size * 0.75, size * (0.5 - back));
-    const high = (back: number, half: number): Vec => place(f, swingAt(back, phase, swing, size), half * size * 0.8, size * (0.5 - back));
+    const low = (back: number, half: number): Vec =>
+      place(f, swingAt(back, phase, swing, size), -half * size * 0.75, size * (0.5 - back));
+    const high = (back: number, half: number): Vec =>
+      place(f, swingAt(back, phase, swing, size), half * size * 0.8, size * (0.5 - back));
     parts.push({ a: high(from, r), b: high(to, r1), r: r * size * 0.62, r1: r1 * size * 0.62, role: "back", decal: true, melt: 0.7 });
     parts.push({ a: low(from, r), b: low(to, r1), r: r * size * 0.62, r1: r1 * size * 0.62, role: "belly", decal: true, melt: 0.7 });
   }
   return parts;
 }
 
-function caudalParts(f: Frame, size: number, phase: number, swing: number, top: number, low: number): Part[] {
+function caudalParts(f: Frame, stroke: Stroke, top: number, low: number): Part[] {
+  const { size, phase, swing } = stroke;
   const root = place(f, swingAt(0.9, phase, swing, size), 0, -size * 0.4);
-  const tip = (rise: number): Vec => place(f, swingAt(1, phase, swing, size) * 1.25, rise * size, -size * (0.5 + Math.abs(rise) * 0.55));
+  const tip = (rise: number): Vec =>
+    place(f, swingAt(1, phase, swing, size) * 1.25, rise * size, -size * (0.5 + Math.abs(rise) * 0.55));
   const up = turn(f, 1, 0, 0);
   return [
     { a: root, b: tip(top), r: size * 0.032, r1: size * 0.004, role: "fin", flat: 0.22, up, melt: 0.5 },
@@ -445,7 +531,8 @@ function caudalParts(f: Frame, size: number, phase: number, swing: number, top: 
   ];
 }
 
-function finParts(f: Frame, size: number, phase: number, swing: number, species: Species): Part[] {
+function finParts(f: Frame, stroke: Stroke, species: Species): Part[] {
+  const { size, phase, swing } = stroke;
   const shark = species.size > 1;
   const up = turn(f, 1, 0, 0);
   const sail = (back: number, height: number, lean: number, r: number): Part => {
@@ -464,7 +551,8 @@ function finParts(f: Frame, size: number, phase: number, swing: number, species:
   return [dorsal, pectoral(1), pectoral(-1), ...(shark ? [sail(0.7, 0.03, 0.05, 0.016)] : [])];
 }
 
-function eyeParts(f: Frame, size: number, phase: number, swing: number, species: Species): Part[] {
+function eyeParts(f: Frame, stroke: Stroke, species: Species): Part[] {
+  const { size, phase, swing } = stroke;
   const shark = species.size > 1;
   const back = shark ? 0.1 : 0.11;
   const r = size * (shark ? 0.0085 : 0.022);
@@ -484,16 +572,32 @@ function fishBody(swimmer: Swimmer, species: Species, options: PoseOptions): Mar
   const swing = options.rest === true ? 0 : species.swing;
   const phase = swimmer.phase;
   const shark = species.size > 1;
+  const stroke: Stroke = { size, phase, swing };
   const capsules = [
-    ...trunkParts(f, species, size, phase, swing),
-    ...caudalParts(f, size, phase, swing, shark ? 0.2 : 0.11, shark ? 0.1 : 0.11),
-    ...finParts(f, size, phase, swing, species),
-    ...eyeParts(f, size, phase, swing, species),
+    ...trunkParts(f, species, stroke),
+    ...caudalParts(f, stroke, shark ? 0.2 : 0.11, shark ? 0.1 : 0.11),
+    ...finParts(f, stroke, species),
+    ...eyeParts(f, stroke, species),
   ];
-  return { capsules, palette: species.palette, front: f.z, at: swimmer.at, material: shark ? { gloss: 0.3 } : { gloss: 0.9, sheen: 0.5, iridescence: 0.4 } };
+  return {
+    capsules,
+    palette: species.palette,
+    front: f.z,
+    at: swimmer.at,
+    material: shark ? { gloss: 0.3 } : { gloss: 0.9, sheen: 0.5, iridescence: 0.4 },
+  };
 }
 
-function tentacle(f: Frame, size: number, angle: number, reach: number, phase: number, role: string, r: number): Part[] {
+/** One arm of a jelly: how long it is drawn, where round the bell it hangs, how far down it reaches, and its beat. */
+interface Arm {
+  readonly size: number;
+  readonly angle: number;
+  readonly reach: number;
+  readonly phase: number;
+}
+
+function tentacle(f: Frame, arm: Arm, role: string, r: number): Part[] {
+  const { size, angle, reach, phase } = arm;
   const out = (share: number): number => share * Math.cos(phase * 0.5 + angle) * 0.1 + 0.42;
   const stop = (share: number): Vec => {
     const wave = Math.sin(phase * 0.6 - share * 4 + angle * 3) * 0.1 * share;
@@ -503,7 +607,16 @@ function tentacle(f: Frame, size: number, angle: number, reach: number, phase: n
   const shares = [0, 0.35, 0.7, 1];
   const parts: Part[] = [];
   for (let index = 0; index + 1 < shares.length; index += 1) {
-    parts.push({ a: stop(shares[index] ?? 0), b: stop(shares[index + 1] ?? 1), r: r * size * (1 - (index / 3) * 0.7), r1: r * size * (1 - ((index + 1) / 3) * 0.7), role, melt: 0.3, shadow: false, detail: 1 });
+    parts.push({
+      a: stop(shares[index] ?? 0),
+      b: stop(shares[index + 1] ?? 1),
+      r: r * size * (1 - (index / 3) * 0.7),
+      r1: r * size * (1 - ((index + 1) / 3) * 0.7),
+      role,
+      melt: 0.3,
+      shadow: false,
+      detail: 1,
+    });
   }
   return parts;
 }
@@ -523,8 +636,8 @@ function jellyBody(swimmer: Swimmer, species: Species): MarineBody {
     { a: place(f, 0, size * 0.03, 0), b: place(f, 0, size * 0.03, 0), r: wide * 0.42, role: "inner", decal: true, melt: 1.4 },
     { a: place(f, wide, -size * 0.07, 0), b: place(f, wide * -1, -size * 0.07, 0), r: size * 0.02, role: "rim", decal: true, melt: 1.4 },
   ];
-  for (let index = 0; index < 4; index += 1) capsules.push(...tentacle(f, size * 0.4, (index / 4) * TAU + 0.6, 1.5, swimmer.phase, "arm", 0.09));
-  for (let index = 0; index < 6; index += 1) capsules.push(...tentacle(f, size, (index / 6) * TAU, 1.1, swimmer.phase + index, "tentacle", 0.013));
+  for (let index = 0; index < 4; index += 1) capsules.push(...tentacle(f, { size: size * 0.4, angle: (index / 4) * TAU + 0.6, reach: 1.5, phase: swimmer.phase }, "arm", 0.09));
+  for (let index = 0; index < 6; index += 1) capsules.push(...tentacle(f, { size, angle: (index / 6) * TAU, reach: 1.1, phase: swimmer.phase + index }, "tentacle", 0.013));
   return { capsules, palette: species.palette, front: axis, at: swimmer.at, glow: 0.3, material: { gloss: 0.8 } };
 }
 

@@ -246,3 +246,9 @@ deployed, which is normal and how every module here started.
 
 Note what is not on that list: your language, your layout, your tooling, and
 your taste.
+
+## Size limits
+
+Limits go by kind of file, in `scripts/size-limits.mjs`: generators 800 lines with 60-line functions, renderers 1000 and 80, data (`*.data.ts`, `*.table.ts`) and shaders (`*.glsl.ts`) 1200 with longer functions and no line length, tooling 500. Nothing passes 1200. Everywhere else lines stop at 120 columns and arguments at 4, with one statement a line. `pnpm install` points git at `.githooks` (or run `git config core.hooksPath .githooks` yourself): every commit is then checked. `pnpm lint` checks everything, with no warnings allowed and nothing grandfathered; `pnpm test` runs it before the type check and the vectors.
+
+There is no ledger of old debt: every source passes as it stands. Split a file instead of raising its number, and give a function with too many arguments an object to name them.

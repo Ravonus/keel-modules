@@ -52,6 +52,13 @@ export function mixHex(a: string, b: string, amount: number): string {
   return toHex(ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t);
 }
 
+/** Which sixth of the hue wheel a colour sits in, and how far along it, from the channel that leads. */
+function hueSector(rgb: readonly [number, number, number], max: number, delta: number): number {
+  const [r, g, b] = rgb;
+  if (max === r) return ((g - b) / delta) % 6;
+  return max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+}
+
 /** Turns a colour round the hue wheel by `degrees`, keeping its lightness and saturation. */
 export function shiftHue(hex: string, degrees: number): string {
   const [r, g, b] = parseHex(hex).map((channel) => channel / 255) as [number, number, number];
@@ -61,12 +68,19 @@ export function shiftHue(hex: string, degrees: number): string {
   const delta = max - min;
   if (delta === 0) return hex.toLowerCase();
   const saturation = delta / (1 - Math.abs(2 * light - 1));
-  const raw = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+  const raw = hueSector([r, g, b], max, delta);
   const hue = (((raw * 60 + degrees) % 360) + 360) % 360;
   const chroma = (1 - Math.abs(2 * light - 1)) * saturation;
   const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
   const sector = Math.floor(hue / 60);
-  const sectors: readonly (readonly [number, number, number])[] = [[chroma, x, 0], [x, chroma, 0], [0, chroma, x], [0, x, chroma], [x, 0, chroma], [chroma, 0, x]];
+  const sectors: readonly (readonly [number, number, number])[] = [
+    [chroma, x, 0],
+    [x, chroma, 0],
+    [0, chroma, x],
+    [0, x, chroma],
+    [x, 0, chroma],
+    [chroma, 0, x],
+  ];
   const [rr, gg, bb] = sectors[sector] ?? [0, 0, 0];
   const base = light - chroma / 2;
   return toHex((rr + base) * 255, (gg + base) * 255, (bb + base) * 255);
@@ -89,7 +103,10 @@ export type Sculpt = "skull" | "urn" | "stump" | "shell" | "head";
 export type Pattern =
   | "turf" | "ingot" | "hammered" | "brushed" | "coins" | "nugget" | "facet" | "marble" | "speckle" | "strata"
   | "magma" | "frost" | "mirror" | "circuit" | "grid" | "checker" | "tile" | "scan" | "flake" | "stars";
-/** How the surface moves: a light sweep, twinkles, pulses, scrolling, hue shimmer, swirling, flicker, flow, slow breathing, rainbow. */
+/**
+ * How the surface moves: a light sweep, twinkles, pulses, scrolling, hue shimmer, swirling, flicker, flow, slow
+ * breathing, rainbow.
+ */
 export type Effect = "none" | "sweep" | "sparkle" | "pulse" | "scroll" | "shimmer" | "swirl" | "flicker" | "flow" | "breathe" | "rainbow";
 /** Things set on the planter. */
 export type Decor =
@@ -233,7 +250,12 @@ export interface PlanterLook {
   readonly label: string;
   readonly family: PlanterRecipe["family"];
   readonly variant: string;
-  readonly colors: { readonly top: readonly [string, string]; readonly body: readonly [string, string]; readonly rim: string; readonly accent: string };
+  readonly colors: {
+    readonly top: readonly [string, string];
+    readonly body: readonly [string, string];
+    readonly rim: string;
+    readonly accent: string;
+  };
   readonly shape: Shape;
   /** Side slope: below 0 the body narrows toward its foot like a pedestal, above 0 it flares like a bowl. */
   readonly flare: number;
@@ -276,7 +298,10 @@ export interface PlanterLook {
 
 /** Plain outlines, equally likely. */
 export const PLAIN_SHAPES: readonly Shape[] = ["square", "rounded", "octagon", "round", "hex", "tiered", "blob", "scallop", "diamond"];
-/** Sculpts by draw weight out of 1000 (130 in all, so about one planter in eight): urns and stumps are the commonest, a skull the rarest. */
+/**
+ * Sculpts by draw weight out of 1000 (130 in all, so about one planter in eight): urns and stumps are the commonest, a
+ * skull the rarest.
+ */
 export const SCULPT_WEIGHTS: Readonly<Record<Sculpt, number>> = { urn: 34, stump: 30, shell: 26, head: 22, skull: 18 };
 export const SHAPE_IDS: readonly Shape[] = [...PLAIN_SHAPES, ...(Object.keys(SCULPT_WEIGHTS) as Sculpt[])];
 
@@ -304,7 +329,10 @@ function rolledShape(roll: number, plain: Shape): Shape {
   return plain;
 }
 
-/** The planter's shape and size; `forced` is a shape id, anything else lets the seed roll. Every draw is taken either way, so forcing the shape never moves the size. */
+/**
+ * The planter's shape and size; `forced` is a shape id, anything else lets the seed roll. Every draw is taken either
+ * way, so forcing the shape never moves the size.
+ */
 export function resolveForm(forced: string | undefined, random: () => number): PlanterForm {
   const { size, word } = planterSize(random);
   const roll = Math.floor(random() * 1000);
@@ -325,7 +353,12 @@ const PLANTER_SIZES: readonly (readonly [number, number, number, string])[] = [
 ];
 
 /** A sculpt is its own foot: it floats on loose rocks, with no rim band. */
-function footFor(form: PlanterForm, underside: Underside, trim: Trim, bob: number): { readonly underside: Underside; readonly trim: Trim; readonly bob: number } {
+function footFor(
+  form: PlanterForm,
+  underside: Underside,
+  trim: Trim,
+  bob: number,
+): { readonly underside: Underside; readonly trim: Trim; readonly bob: number } {
   return form.sculpted ? { underside: "float", trim: "none", bob: 0.05 } : { underside, trim, bob };
 }
 
@@ -359,13 +392,35 @@ function resolvePlanter(id: PlanterId, random: () => number, form: PlanterForm, 
   const foot = footFor(form, underside, trim, bob);
   const words = [form.sizeWord, form.sculpted ? form.shape : "", paletteName, pattern === "turf" ? "" : pattern, effect === "none" ? "" : effect, decor === "none" ? "" : decor].filter((word) => word !== "");
   return {
-    id, label: recipe.label, family: recipe.family, variant: words.join(" · "),
+    id,
+    label: recipe.label,
+    family: recipe.family,
+    variant: words.join(" · "),
     colors: { top: [top, top2], body: [body, body2], rim, accent },
-    shape: form.shape, sculpted: form.sculpted, flare: form.flare, height: form.height, wobble: form.wobble, pattern, effect, decor, decorCount, grain: 0.75 + random() * 0.6, speed: 0.7 + random() * 0.7,
-    surface: BLOCK_SURFACE[pattern], underside: foot.underside, trim: foot.trim, shine: recipe.shine, glow: recipe.glow, sparkle: recipe.sparkle, veins,
-    crystals: decor === "shards" || decor === "geodes" ? decorCount : 0, alpha: recipe.alpha,
+    shape: form.shape,
+    sculpted: form.sculpted,
+    flare: form.flare,
+    height: form.height,
+    wobble: form.wobble,
+    pattern,
+    effect,
+    decor,
+    decorCount,
+    grain: 0.75 + random() * 0.6,
+    speed: 0.7 + random() * 0.7,
+    surface: BLOCK_SURFACE[pattern],
+    underside: foot.underside,
+    trim: foot.trim,
+    shine: recipe.shine,
+    glow: recipe.glow,
+    sparkle: recipe.sparkle,
+    veins,
+    crystals: decor === "shards" || decor === "geodes" ? decorCount : 0,
+    alpha: recipe.alpha,
     seasonal: recipe.family === "earth",
-    bob: foot.bob, depth, size: form.size,
+    bob: foot.bob,
+    depth,
+    size: form.size,
   };
 }
 
@@ -381,7 +436,10 @@ export type MoonStyle = "disc" | "ringed" | "big" | "neon";
 interface WorldPalette {
   /** Sky top and horizon by day, horizon and top by night. */
   readonly sky: readonly [string, string, string, string];
-  /** Skyline low, mid and high, then its accent (window lights, neon, crystal glow). On a shore: sand, shallows, deep water, surf. */
+  /**
+   * Skyline low, mid and high, then its accent (window lights, neon, crystal glow). On a shore: sand, shallows, deep
+   * water, surf.
+   */
   readonly skyline: readonly [string, string, string, string];
   readonly cloud: readonly [string, string];
   /** Sun gradient top to bottom. */
@@ -487,6 +545,12 @@ export interface WorldLook {
   readonly density: number;
 }
 
+/** How big the sun is drawn: a striped one wide, a star small, the rest about a twentieth of the sky. */
+function sunSize(sun: SunStyle, random: () => number): number {
+  if (sun === "striped") return 0.16 + random() * 0.06;
+  return sun === "star" ? 0.05 : 0.04 + random() * 0.02;
+}
+
 function resolveWorld(id: WorldId, random: () => number): WorldLook {
   const recipe = WORLDS[id];
   const [variant, palette] = pick(recipe.palettes, random);
@@ -495,7 +559,7 @@ function resolveWorld(id: WorldId, random: () => number): WorldLook {
   return {
     id, label: recipe.label, variant, form: recipe.form, skyline: recipe.skyline, clouds: pick(recipe.clouds, random),
     sky: palette.sky, skylineColors: palette.skyline, cloudColors: palette.cloud,
-    sun: { style: sun, colors: palette.sun, size: sun === "striped" ? 0.16 + random() * 0.06 : sun === "star" ? 0.05 : 0.04 + random() * 0.02 },
+    sun: { style: sun, colors: palette.sun, size: sunSize(sun, random) },
     moon: { style: moon, color: palette.moon, size: moon === "big" || moon === "neon" ? 0.1 + random() * 0.05 : 0.035 + random() * 0.02 },
     skyMix: recipe.skyMix, light: { tint: palette.light, mix: recipe.lightMix }, stars: recipe.stars,
     height: 0.8 + random() * 0.5, density: 0.75 + random() * 0.5,
@@ -577,7 +641,11 @@ export interface TreeLook {
   readonly leaf: LeafShape;
   readonly bark: BarkPattern;
   readonly effect: Effect;
-  readonly colors: { readonly bark: readonly [string, string]; readonly leaves: readonly [string, string, string]; readonly accent: string };
+  readonly colors: {
+    readonly bark: readonly [string, string];
+    readonly leaves: readonly [string, string, string];
+    readonly accent: string;
+  };
   readonly glow: number;
   readonly shine: number;
   readonly alpha: number;
@@ -602,15 +670,27 @@ function resolveTree(id: TreeSkinId, random: () => number, pinned?: number): Tre
   const [variant, palette] = pinned !== undefined && recipe.palettes[pinned] ? recipe.palettes[pinned] : rolled;
   const [bark, bark2, leaf, leaf2, leaf3, accent] = palette;
   return {
-    id, label: recipe.label, rarity: recipe.rarity, variant, leaf: recipe.leaf, bark: recipe.bark, effect: recipe.effect,
+    id,
+    label: recipe.label,
+    rarity: recipe.rarity,
+    variant,
+    leaf: recipe.leaf,
+    bark: recipe.bark,
+    effect: recipe.effect,
     colors: { bark: [bark, bark2], leaves: [leaf, leaf2, leaf3], accent },
-    glow: recipe.glow, shine: recipe.shine, alpha: recipe.alpha, motes: recipe.motes, leafSize: recipe.leafSize, natural: id === "natural",
+    glow: recipe.glow,
+    shine: recipe.shine,
+    alpha: recipe.alpha,
+    motes: recipe.motes,
+    leafSize: recipe.leafSize,
+    natural: id === "natural",
   };
 }
 
 /**
  * One skin's look on its own, for a tree that carries it on only some limbs (a chimera). An unknown id is natural.
- * `palette` pins one of the skin's palettes (0 is its signature: ember burns orange, crystal is ice blue); left out, the seed picks.
+ * `palette` pins one of the skin's palettes (0 is its signature: ember burns orange, crystal is ice blue); left out,
+ * the seed picks.
  */
 export function treeLook(id: string, seed: number, palette?: number): TreeLook {
   return resolveTree(Object.hasOwn(TREE_SKINS, id) ? (id as TreeSkinId) : "natural", createRandom(seed ^ 0x5c1d), palette);
@@ -710,8 +790,11 @@ function rollKind(random: () => number): GlitchKind {
 /** Each strength wavers a little per seed, so two torn trees never tear alike. */
 function partGlitch(kind: GlitchKind, random: () => number, full = false): PartGlitch {
   const recipe = GLITCH_KINDS[kind];
-  const vary = (value: number): number => (value === 0 ? 0 : Math.min(1, Math.round(value * (0.85 + random() * 0.3) * 100) / 100));
-  return full ? { kind, scanlines: 0.8, chroma: 1, glitch: 1 } : { kind, scanlines: vary(recipe.scanlines), chroma: vary(recipe.chroma), glitch: vary(recipe.glitch) };
+  const vary = (value: number): number =>
+    value === 0 ? 0 : Math.min(1, Math.round(value * (0.85 + random() * 0.3) * 100) / 100);
+  return full
+    ? { kind, scanlines: 0.8, chroma: 1, glitch: 1 }
+    : { kind, scanlines: vary(recipe.scanlines), chroma: vary(recipe.chroma), glitch: vary(recipe.glitch) };
 }
 
 /**
@@ -735,7 +818,13 @@ function resolveGlitch(forced: string | undefined, random: () => number): Glitch
     const rarity = GLITCH_KINDS[parts[part].kind].rarity;
     return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(rarest) ? rarity : rarest;
   }, "common");
-  return { id: full ? "full" : hit.length === 0 ? "clean" : hit.join("+"), rarity: full ? "legendary" : worst, full, parts };
+  return { id: glitchId(full, hit), rarity: full ? "legendary" : worst, full, parts };
+}
+
+/** A glitch's id: "full", "clean", or the parts it hits joined. */
+function glitchId(full: boolean, hit: readonly GlitchPart[]): string {
+  if (full) return "full";
+  return hit.length === 0 ? "clean" : hit.join("+");
 }
 
 /**
@@ -752,14 +841,17 @@ function givenGlitch(signals: SignalInput, strength: number): GlitchLook {
     const kind = full ? "full" : kindOf(part);
     const recipe = GLITCH_KINDS[kind];
     const filter = recipe.filter === undefined ? {} : { filter: recipe.filter, amount: at(recipe.amount ?? 1) };
-    return [part, { kind, scanlines: at(recipe.scanlines), chroma: at(recipe.chroma), glitch: at(recipe.glitch), ...filter }];
+    return [
+      part,
+      { kind, scanlines: at(recipe.scanlines), chroma: at(recipe.chroma), glitch: at(recipe.glitch), ...filter },
+    ];
   })) as Record<GlitchPart, PartGlitch>;
   const hit = GLITCH_PARTS.filter((part) => parts[part].kind !== "clean");
   const worst = hit.reduce<Rarity>((rarest, part) => {
     const rarity = GLITCH_KINDS[parts[part].kind].rarity;
     return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(rarest) ? rarity : rarest;
   }, "common");
-  return { id: full ? "full" : hit.length === 0 ? "clean" : hit.join("+"), rarity: full ? "legendary" : worst, full, parts };
+  return { id: glitchId(full, hit), rarity: full ? "legendary" : worst, full, parts };
 }
 
 function glitchName(glitch: GlitchLook): string {
@@ -788,13 +880,19 @@ export interface ThemeInput {
   readonly world?: string;
   /** A tree skin id, or "seed" to roll one: most trees are natural, the finest are the rarest. */
   readonly tree?: string;
-  /** "clean", "full", a part to tear ("planter", "tree", "world"), or "seed" to roll each part: most are clean, a full glitch is the rarest. */
+  /**
+   * "clean", "full", a part to tear ("planter", "tree", "world"), or "seed" to roll each part: most are clean, a full
+   * glitch is the rarest.
+   */
   readonly glitch?: string;
   /** Each part's signal kind (any of `GLITCH_KINDS`), overriding `glitch`: nothing is rolled. */
   readonly signals?: SignalInput;
   /** How strongly given `signals` apply, 0 to 1 (default 1). */
   readonly signalStrength?: number;
-  /** Pin the planter's palette to this one of its recipe's (0 is the material's signature look: lava is basalt and fire); left out, the seed picks. */
+  /**
+   * Pin the planter's palette to this one of its recipe's (0 is the material's signature look: lava is basalt and
+   * fire); left out, the seed picks.
+   */
   readonly planterPalette?: number;
   readonly seed: number;
 }

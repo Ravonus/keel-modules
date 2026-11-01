@@ -76,7 +76,11 @@ export function scheduleEnvelope(
  * @param options Waveform and frequency overrides.
  * @returns The oscillator and its gain node; the gain starts at 0.
  */
-export function oscillatorVoice(context: BaseAudioContext, destination: AudioNode, options: OscillatorVoiceOptions = {}): OscillatorVoice {
+export function oscillatorVoice(
+  context: BaseAudioContext,
+  destination: AudioNode,
+  options: OscillatorVoiceOptions = {},
+): OscillatorVoice {
   const oscillator = new OscillatorNode(context, { type: options.type ?? "sine", frequency: options.frequency ?? 440 });
   const gain = new GainNode(context, { gain: 0 });
   oscillator.connect(gain).connect(destination);

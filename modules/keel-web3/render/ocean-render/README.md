@@ -21,7 +21,7 @@ scene.add(swarm.group);
 
 // every frame, in place of renderer.render(scene, camera):
 swarm.draw(swim.at(t), eye, bodyLight);
-ocean.draw(renderer, scene, camera, t, { sun, sunColor });
+ocean.draw(renderer, scene, camera, { t, sun, sunColor });
 ```
 
 keel/lit is injected, and the module never imports it.

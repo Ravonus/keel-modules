@@ -148,7 +148,7 @@ function frame(t, frameMs) {
   camera.lookAt(look[0], look[1], look[2]);
   camera.updateMatrixWorld();
   swarm.draw(all, eye, bodyLight);
-  ocean.draw(renderer, scene, camera, t, { sun: sunDirection, sunColor, casters: swarm.casters, frameMs, level });
+  ocean.draw(renderer, scene, camera, { t, sun: sunDirection, sunColor, casters: swarm.casters, frameMs, level });
   lastTide = `tide ${level.toFixed(2)} m, next ${tideTimes(clock)[0].kind} in ${(tideTimes(clock)[0].at - clock).toFixed(1)} h`;
   return all;
 }

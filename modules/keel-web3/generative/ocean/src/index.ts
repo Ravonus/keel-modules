@@ -120,7 +120,10 @@ export interface Sea {
   readonly packed: Float32Array;
   /** Where the water that started at (x, z) has moved to at t. */
   displace(x: number, z: number, t: number): Vec3;
-  /** The water's height and normal directly above or below (x, z) at t, with the tide at `level`, breakers and swash included. */
+  /**
+   * The water's height and normal directly above or below (x, z) at t, with the tide at `level`, breakers and swash
+   * included.
+   */
   surfaceAt(x: number, z: number, t: number, level?: number): SurfacePoint;
   /** The height of the ground at (x, z). */
   seabedAt(x: number, z: number): number;
@@ -153,7 +156,14 @@ export function wavesOf(input: SeaInput = {}): Wave[] {
     // (A share of the peak wave's height that falls as the lengths shorten.)
     const amp = 0.012 * wind * wind * Math.pow(length / peak, 1.25) * (0.75 + random() * 0.5);
     steep += k * amp;
-    waves.push({ dir: [Math.sin(angle), Math.cos(angle)], k, omega: Math.sqrt(GRAVITY * k), amp, q: 1, phase: random() * TAU });
+    waves.push({
+      dir: [Math.sin(angle), Math.cos(angle)],
+      k,
+      omega: Math.sqrt(GRAVITY * k),
+      amp,
+      q: 1,
+      phase: random() * TAU,
+    });
   }
   // All the waves can crest in one spot, so their steepness has to share out MOST_STEEP between them.
   const q = Math.min(1.1, MOST_STEEP / Math.max(steep, 1e-6));
@@ -187,18 +197,23 @@ export function shoalOf(k: number, depth: number): number {
 
 const SURF_PERIOD = 9;
 const SURF_OMEGA = TAU / SURF_PERIOD;
-/** Fronts travel at sqrt(g depth): on a beach's slope this is the phase that builds up on the way in, so they wrap to the shore. */
+/**
+ * Fronts travel at sqrt(g depth): on a beach's slope this is the phase that builds up on the way in, so they wrap to
+ * the shore.
+ */
 const SURF_TRAVEL = 9;
 
 /** Where a set stands along the coast, in radians: fronts arrive at a slant and in sets. */
-const slant = (x: number, z: number): number => Math.sin(x * 0.021 + z * 0.033) * 0.9 + Math.sin(x * 0.0071 - z * 0.011 + 1.3) * 1.3;
+const slant = (x: number, z: number): number =>
+  Math.sin(x * 0.021 + z * 0.033) * 0.9 + Math.sin(x * 0.0071 - z * 0.011 + 1.3) * 1.3;
 
 const sawOf = (phase: number): number => phase / TAU - Math.floor(phase / TAU);
 
 const surfSets = (x: number, z: number, t: number): number => 0.72 + 0.28 * Math.sin(t * 0.09 + slant(x, z));
 
 /** How far through its front the surf at a place is: 0 at the leading edge. */
-const surfSaw = (depth: number, x: number, z: number, t: number): number => sawOf(SURF_OMEGA * t + SURF_TRAVEL * Math.sqrt(Math.max(depth, 0)) + slant(x, z));
+const surfSaw = (depth: number, x: number, z: number, t: number): number =>
+  sawOf(SURF_OMEGA * t + SURF_TRAVEL * Math.sqrt(Math.max(depth, 0)) + slant(x, z));
 
 /**
  * What the surf adds to the water near a shore: a front that steepens as the
@@ -207,13 +222,13 @@ const surfSaw = (depth: number, x: number, z: number, t: number): number => sawO
  * ground's contours and bend into a bay by themselves.
  *
  * @param depth Water over the ground, negative where the ground stands above the tide.
- * @param x Where on the water.
- * @param z Where on the water.
+ * @param at Where on the water, [x, z].
  * @param t Seconds.
  * @param wind The sea's wind, which sets the surf's size.
  * @returns Metres added to the water's height.
  */
-export function surfAt(depth: number, x: number, z: number, t: number, wind: number): number {
+export function surfAt(depth: number, at: readonly [number, number], t: number, wind: number): number {
+  const [x, z] = at;
   const sets = surfSets(x, z, t);
   const saw = surfSaw(depth, x, z, t);
   const front = Math.pow(1 - saw, 3) * clamp(saw / 0.05, 0, 1);
@@ -230,13 +245,13 @@ export function surfAt(depth: number, x: number, z: number, t: number, wind: num
  * does not move with the lip.
  *
  * @param depth Water over the ground.
- * @param x Where on the water.
- * @param z Where on the water.
+ * @param at Where on the water, [x, z].
  * @param t Seconds.
  * @param wind The sea's wind, which sets the surf's size.
  * @returns Metres up the shore.
  */
-export function surfThrow(depth: number, x: number, z: number, t: number, wind: number): number {
+export function surfThrow(depth: number, at: readonly [number, number], t: number, wind: number): number {
+  const [x, z] = at;
   const saw = surfSaw(depth, x, z, t);
   const lip = smooth(clamp(saw / 0.09, 0, 1)) * (1 - smooth(clamp((saw - 0.09) / 0.21, 0, 1)));
   const breaking = smooth(clamp((3 - depth) / 1.5, 0, 1)) * smooth(clamp((depth - 0.35) / 0.5, 0, 1));
@@ -258,7 +273,8 @@ export function surfBurst(depth: number, x: number, z: number, t: number): numbe
   return landing * (1 - smooth(clamp(surfSaw(depth, x, z, t) / 0.18, 0, 1))) * surfSets(x, z, t);
 }
 
-function displaceBy(waves: readonly Wave[], x: number, z: number, t: number, depth: number): Vec3 {
+function displaceBy(waves: readonly Wave[], at: readonly [number, number], t: number, depth: number): Vec3 {
+  const [x, z] = at;
   let dx = 0;
   let dy = 0;
   let dz = 0;
@@ -273,7 +289,8 @@ function displaceBy(waves: readonly Wave[], x: number, z: number, t: number, dep
   return [x + dx, dy, z + dz];
 }
 
-function normalBy(waves: readonly Wave[], x: number, z: number, t: number, depth: number): Vec3 {
+function normalBy(waves: readonly Wave[], at: readonly [number, number], t: number, depth: number): Vec3 {
+  const [x, z] = at;
   let nx = 0;
   let nz = 0;
   let ny = 1;
@@ -288,7 +305,8 @@ function normalBy(waves: readonly Wave[], x: number, z: number, t: number, depth
   return [nx / length, ny / length, nz / length];
 }
 
-function orbit(waves: readonly Wave[], x: number, y: number, z: number, t: number): Vec3 {
+function orbit(waves: readonly Wave[], at: Vec3, t: number): Vec3 {
+  const [x, y, z] = at;
   let vx = 0;
   let vy = 0;
   let vz = 0;
@@ -326,22 +344,25 @@ export function createSea(input: SeaInput = {}): Sea {
   return {
     seed, wind, heading, depth, waves,
     packed: pack(waves),
-    displace: (x, z, t) => displaceBy(waves, x, z, t, Math.max(0, -seabedAt(x, z))),
+    displace: (x, z, t) => displaceBy(waves, [x, z], t, Math.max(0, -seabedAt(x, z))),
     surfaceAt(x, z, t, level = 0) {
       const signed = level - seabedAt(x, z);
       const water = Math.max(0, signed);
       let sx = x;
       let sz = z;
       for (let round = 0; round < SETTLE; round += 1) {
-        const moved = displaceBy(waves, sx, sz, t, water);
+        const moved = displaceBy(waves, [sx, sz], t, water);
         sx += x - moved[0];
         sz += z - moved[2];
       }
-      return { height: level + displaceBy(waves, sx, sz, t, water)[1] + surfAt(signed, x, z, t, wind), normal: normalBy(waves, sx, sz, t, water) };
+      return {
+        height: level + displaceBy(waves, [sx, sz], t, water)[1] + surfAt(signed, [x, z], t, wind),
+        normal: normalBy(waves, [sx, sz], t, water),
+      };
     },
     seabedAt,
     currentAt(x, y, z, t) {
-      const swing = orbit(waves, x, y, z, t);
+      const swing = orbit(waves, [x, y, z], t);
       const fade = Math.exp(clamp(y, -60, 0) * 0.05);
       return [Math.sin(heading) * drift * fade + swing[0], swing[1], Math.cos(heading) * drift * fade + swing[2]];
     },

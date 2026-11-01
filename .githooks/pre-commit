@@ -1,0 +1,9 @@
+#!/bin/sh
+# The bar every commit has to meet: `pnpm install` points git here (scripts/install-hooks.mjs), as does
+# `git config core.hooksPath .githooks` by hand.
+set -e
+node scripts/check-size.mjs
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- 'modules/*/*/*/src/*.ts' 'modules/*/*/*/src/**/*.ts' 'template/src/*.ts' 'template/src/**/*.ts')
+[ -z "$staged" ] || ./node_modules/.bin/eslint --max-warnings 0 $staged
+# A module's change can leave a script behind it, so scripts are checked whatever was staged.
+./node_modules/.bin/tsc -p scripts/tsconfig.json

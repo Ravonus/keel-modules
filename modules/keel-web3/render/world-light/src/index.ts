@@ -5,7 +5,8 @@
  * and the weather. MIT.
  *
  *   const place = locateTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
- *   const light = worldLight({ timestamp: Date.now(), lat: place.lat, lon: place.lon, season: "autumn", climate: "maritime", weather: "clear" });
+ *  const light = worldLight({ timestamp: Date.now(), lat: place.lat, lon: place.lon, season: "autumn", climate:
+ * "maritime", weather: "clear" });
  *   light.sun.direction   -> [x, y, z], +y up, -z north
  *   light.sky.horizon     -> "#f4a259"
  *   light.rays            -> { source: "sun", strength, color, decay, density }
@@ -58,12 +59,21 @@ export function solarPosition(timestamp: number, lat: number, lon: number): Sola
   const declination = Math.asin(Math.sin(obliquity) * Math.sin(lambda));
   const siderealHours = wrap(18.697374558 + 24.06570982441908 * n, 24);
   const hourAngle = wrap(siderealHours * 15 + lon - rightAscension / RAD + 180, 360) - 180;
-  return { ...horizontal(hourAngle * RAD, declination, clamp(lat, -89.9, 89.9) * RAD), declination: declination / RAD, hourAngle };
+  return {
+    ...horizontal(hourAngle * RAD, declination, clamp(lat, -89.9, 89.9) * RAD),
+    declination: declination / RAD,
+    hourAngle,
+  };
 }
 
 function horizontal(hourAngle: number, declination: number, lat: number): SkyPosition {
-  const elevation = Math.asin(Math.sin(lat) * Math.sin(declination) + Math.cos(lat) * Math.cos(declination) * Math.cos(hourAngle));
-  const azimuth = Math.atan2(-Math.sin(hourAngle), Math.tan(declination) * Math.cos(lat) - Math.sin(lat) * Math.cos(hourAngle));
+  const elevation = Math.asin(
+    Math.sin(lat) * Math.sin(declination) + Math.cos(lat) * Math.cos(declination) * Math.cos(hourAngle),
+  );
+  const azimuth = Math.atan2(
+    -Math.sin(hourAngle),
+    Math.tan(declination) * Math.cos(lat) - Math.sin(lat) * Math.cos(hourAngle),
+  );
   return { elevation: elevation / RAD, azimuth: wrap(azimuth / RAD, 360) };
 }
 
@@ -83,7 +93,12 @@ export function moonState(timestamp: number, lat: number, lon: number): MoonStat
   const days = timestamp / DAY_MS + 2440587.5 - 2451550.1;
   const phase = wrap(days / SYNODIC_MONTH, 1);
   const position = solarPosition(timestamp - phase * DAY_MS, lat, lon);
-  return { elevation: position.elevation, azimuth: position.azimuth, phase, illumination: (1 - Math.cos(phase * 2 * Math.PI)) / 2 };
+  return {
+    elevation: position.elevation,
+    azimuth: position.azimuth,
+    phase,
+    illumination: (1 - Math.cos(phase * 2 * Math.PI)) / 2,
+  };
 }
 
 /** A unit vector toward a sky position: +y up, -z north, +x east. */
@@ -253,8 +268,16 @@ const WEATHER: Readonly<Record<Weather, Mood>> = {
 };
 
 function applyMood(sky: SkyStop, mood: Mood, weight = 1): SkyStop {
-  const lean = (color: string, toward: readonly [string, number] | undefined): string => (toward === undefined ? color : mixHex(color, toward[0], toward[1] * weight));
-  return { ...sky, top: lean(sky.top, mood.top), horizon: lean(sky.horizon, mood.horizon), sun: lean(sky.sun, mood.sun), fill: lean(sky.fill, mood.fill), sunIntensity: sky.sunIntensity * mood.sunScale };
+  const lean = (color: string, toward: readonly [string, number] | undefined): string =>
+    toward === undefined ? color : mixHex(color, toward[0], toward[1] * weight);
+  return {
+    ...sky,
+    top: lean(sky.top, mood.top),
+    horizon: lean(sky.horizon, mood.horizon),
+    sun: lean(sky.sun, mood.sun),
+    fill: lean(sky.fill, mood.fill),
+    sunIntensity: sky.sunIntensity * mood.sunScale,
+  };
 }
 
 export interface WorldLightInput {
@@ -348,9 +371,19 @@ export function worldLight(input: WorldLightInput): WorldLight {
   // A mood's tints are daylight colours (an overcast grey, a snow-sky white): after dark they fade, so a snowy
   // midnight stays a dark sky over pale ground instead of a lit grey dome.
   const sky = moods.reduce((stop, mood) => applyMood(stop, mood, 1 - 0.8 * night), skyAt(solar.elevation));
-  const haze = clamp(0.06 + moods.reduce((sum, mood) => sum + mood.haze, 0) + mist(solar.hourAngle, solar.elevation), 0, 1);
+  const haze = clamp(
+    0.06 + moods.reduce((sum, mood) => sum + mood.haze, 0) + mist(solar.hourAngle, solar.elevation),
+    0,
+    1,
+  );
   const moodRays = moods.reduce((product, mood) => product * mood.rays, 1);
-  const sun: LightSource = { direction: skyDirection(solar), elevation: solar.elevation, azimuth: solar.azimuth, color: sky.sun, intensity: sky.sunIntensity * smooth(-3, 1, solar.elevation) };
+  const sun: LightSource = {
+    direction: skyDirection(solar),
+    elevation: solar.elevation,
+    azimuth: solar.azimuth,
+    color: sky.sun,
+    intensity: sky.sunIntensity * smooth(-3, 1, solar.elevation),
+  };
   const moon = moonLight(input.timestamp, input.lat, input.lon, night);
   return {
     phase: lightPhase(solar.elevation),
@@ -358,7 +391,11 @@ export function worldLight(input: WorldLightInput): WorldLight {
     moon,
     sky: { top: sky.top, horizon: sky.horizon, ground: mixHex(sky.horizon, sky.ground, 0.55) },
     fill: { sky: sky.fill, ground: sky.ground, intensity: sky.fillIntensity * (1 - haze * 0.15) },
-    fog: { color: mixHex(mixHex(sky.horizon, sky.top, 0.35), sky.fill, 0.2), near: 32 - haze * 8, far: 118 - haze * 34 },
+    fog: {
+      color: mixHex(mixHex(sky.horizon, sky.top, 0.35), sky.fill, 0.2),
+      near: 32 - haze * 8,
+      far: 118 - haze * 34,
+    },
     haze,
     night,
     rays: chooseRays(sun, moon, haze, moodRays),

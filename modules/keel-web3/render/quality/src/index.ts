@@ -132,7 +132,14 @@ export interface Quality {
 }
 
 /** Everything a ray would cost, gone. */
-const withoutRays = (settings: Settings): Settings => ({ ...settings, reflectSteps: 0, shadowSteps: 0, traceFar: 0, traceNear: 0, casters: 0 });
+const withoutRays = (settings: Settings): Settings => ({
+  ...settings,
+  reflectSteps: 0,
+  shadowSteps: 0,
+  traceFar: 0,
+  traceNear: 0,
+  casters: 0,
+});
 
 /** Frames between two changes of scale, so one slow frame moves nothing. */
 const SETTLE_FRAMES = 30;
@@ -177,7 +184,12 @@ export function createQuality(input: QualityInput = {}): Quality {
     },
     at(place) {
       const here = settingsAt(settings, place);
-      return { ...(tracing ? here : withoutRays(here)), spray: spray ? here.spray : 0, upscale: upscale && settings.upscale, renderScale: upscale && settings.upscale ? scale : Math.max(scale, 1 - (1 - scale) / 2) };
+      return {
+        ...(tracing ? here : withoutRays(here)),
+        spray: spray ? here.spray : 0,
+        upscale: upscale && settings.upscale,
+        renderScale: upscale && settings.upscale ? scale : Math.max(scale, 1 - (1 - scale) / 2),
+      };
     },
     frame(milliseconds) {
       smoothed += (milliseconds - smoothed) * SMOOTH_TIME;

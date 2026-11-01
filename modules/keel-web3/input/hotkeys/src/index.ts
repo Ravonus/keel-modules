@@ -37,16 +37,35 @@ export interface Hotkeys {
  * @param options Target and input-field filtering overrides.
  * @returns A handle whose destroy method removes the listener.
  */
-export function createHotkeys(bindings: HotkeyBindings, { target = window, ignoreInputs = true }: HotkeyOptions = {}): Hotkeys {
+export function createHotkeys(
+  bindings: HotkeyBindings,
+  { target = window, ignoreInputs = true }: HotkeyOptions = {},
+): Hotkeys {
   const normalized = new Map(Object.entries(bindings).map(([key, handler]) => [key.toLowerCase(), handler]));
   const listener = (event: KeyboardEvent): void => {
-    if (ignoreInputs && event.target instanceof Element && event.target.closest("input,textarea,select,[contenteditable=true]")) return;
-    const chord = [event.metaKey || event.ctrlKey ? "mod" : "", event.altKey ? "alt" : "", event.shiftKey ? "shift" : "", event.key.toLowerCase()].filter(Boolean).join("+");
+    if (
+      ignoreInputs &&
+      event.target instanceof Element &&
+      event.target.closest("input,textarea,select,[contenteditable=true]")
+    )
+      return;
+    const chord = [
+      event.metaKey || event.ctrlKey ? "mod" : "",
+      event.altKey ? "alt" : "",
+      event.shiftKey ? "shift" : "",
+      event.key.toLowerCase(),
+    ]
+      .filter(Boolean)
+      .join("+");
     const handler = normalized.get(chord) ?? normalized.get(event.key.toLowerCase());
     if (handler === undefined) return;
     event.preventDefault();
     handler(event);
   };
   target.addEventListener("keydown", listener);
-  return { destroy() { target.removeEventListener("keydown", listener); } };
+  return {
+    destroy() {
+      target.removeEventListener("keydown", listener);
+    },
+  };
 }

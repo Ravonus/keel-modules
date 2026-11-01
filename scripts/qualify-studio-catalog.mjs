@@ -14,9 +14,9 @@ const sdk = path.resolve(root, "../keel-sdk");
 const site = path.resolve(root, "../keel-site");
 const zodVersion = createRequire(path.join(site, "apps/studio/package.json"))("zod/package.json").version;
 assert.equal(zodVersion, "4.4.3", "Use the approved Studio lockfile's Zod version.");
-const { build } = await import(pathToFileURL(path.join(sdk, "node_modules/esbuild/lib/main.js")));
-const { prepareKeelModuleRuntime } = await import(pathToFileURL(path.join(sdk, "packages/sdk/dist/module-runtime.js")));
-const { canonicalJson } = await import(pathToFileURL(path.join(sdk, "packages/protocol/dist/index.js")));
+const { build } = await import(pathToFileURL(path.join(sdk, "node_modules/esbuild/lib/main.js")).href);
+const { prepareKeelModuleRuntime } = await import(pathToFileURL(path.join(sdk, "packages/sdk/dist/module-runtime.js")).href);
+const { canonicalJson } = await import(pathToFileURL(path.join(sdk, "packages/protocol/dist/index.js")).href);
 const source = path.join(site, "apps/studio/src/lib/verified-module-catalog.ts");
 const result = await build({
   entryPoints: [source], bundle: true, write: false, platform: "node", format: "esm",
@@ -26,7 +26,7 @@ const result = await build({
 });
 const { parseVerifiedModuleCatalogDocument } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`);
 const bytes = await readFile(path.join(root, "catalog/catalog.json"));
-const catalog = JSON.parse(bytes);
+const catalog = JSON.parse(bytes.toString());
 const parsed = parseVerifiedModuleCatalogDocument(catalog);
 assert.ok(catalog.modules.length > 0);
 assert.deepEqual(parsed.modules.map(module => module.id), catalog.modules.map(module => module.id));

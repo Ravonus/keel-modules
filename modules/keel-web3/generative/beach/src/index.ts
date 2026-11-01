@@ -39,7 +39,11 @@ function valueNoise(x: number, z: number, seed: number): number {
   const iz = Math.floor(z);
   const fx = smooth(x - ix);
   const fz = smooth(z - iz);
-  return mix(mix(lattice(ix, iz, seed), lattice(ix + 1, iz, seed), fx), mix(lattice(ix, iz + 1, seed), lattice(ix + 1, iz + 1, seed), fx), fz);
+  return mix(
+    mix(lattice(ix, iz, seed), lattice(ix + 1, iz, seed), fx),
+    mix(lattice(ix, iz + 1, seed), lattice(ix + 1, iz + 1, seed), fx),
+    fz,
+  );
 }
 
 function fractal(x: number, z: number, seed: number, octaves: number): number {
@@ -118,7 +122,11 @@ export function createBeach(input: BeachInput = {}): Beach {
   };
   const groundAt = (x: number, z: number): number => {
     const inland = inlandOf(x, z);
-    if (inland < 0) return underwater(-inland, depth) + (fractal(x * 0.03, z * 0.03, seed + 21, 3) - 0.44) * smooth(-inland / 90) * 1.6;
+    if (inland < 0) {
+      return (
+        underwater(-inland, depth) + (fractal(x * 0.03, z * 0.03, seed + 21, 3) - 0.44) * smooth(-inland / 90) * 1.6
+      );
+    }
     return onshore(inland, dunes, fractal(x * 0.022, z * 0.022, seed + 5, 3) * 1.15);
   };
   const zoneOf = (inland: number): Zone => {

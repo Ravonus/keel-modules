@@ -30,7 +30,9 @@ export interface RuffleLoaderOptions {
 
 export interface RufflePlayerApi {
   readonly newest: () => {
-    readonly createPlayer: () => HTMLElement & { load(source: string | { url: string; parameters?: Record<string, string> }): Promise<void> };
+    readonly createPlayer: () => HTMLElement & {
+      load(source: string | { url: string; parameters?: Record<string, string> }): Promise<void>;
+    };
   };
 }
 
@@ -56,9 +58,16 @@ function fileName(value: string): string {
 // when every probe succeeds; the same decision lets Keel request the optional
 // local MVP upload before the first player is created.
 const RUFFLE_EXTENSION_PROBES: readonly Uint8Array[] = [
-  new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 5, 3, 1, 0, 1, 10, 14, 1, 12, 0, 65, 0, 65, 0, 65, 0, 252, 10, 0, 0, 11]),
-  new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]),
-  new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 12, 1, 10, 0, 67, 0, 0, 0, 0, 252, 0, 26, 11]),
+  new Uint8Array([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 5, 3, 1, 0, 1, 10, 14, 1, 12, 0, 65, 0, 65, 0, 65, 0,
+    252, 10, 0, 0, 11,
+  ]),
+  new Uint8Array([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11,
+  ]),
+  new Uint8Array([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 12, 1, 10, 0, 67, 0, 0, 0, 0, 252, 0, 26, 11,
+  ]),
   new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 8, 1, 6, 0, 65, 0, 192, 26, 11]),
   new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 7, 1, 5, 0, 208, 112, 26, 11]),
 ];
@@ -127,17 +136,22 @@ function bindResources(options: RuffleLoaderOptions, objectUrls: string[]): Map<
   return resources;
 }
 
-function installResourceHooks(hostWindow: RuffleWindow, document: Document, resources: ReadonlyMap<string, string>): () => void {
+function installResourceHooks(
+  hostWindow: RuffleWindow,
+  document: Document,
+  resources: ReadonlyMap<string, string>,
+): () => void {
   const originalFetch = hostWindow.fetch.bind(hostWindow);
   const originalAppend = document.head.appendChild.bind(document.head);
   // A locked sandbox fetch already resolves verified keel://ruffle aliases.
   // Keep that gateway and the host's URL-property guard intact.
   try {
     hostWindow.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      return originalFetch(resources.get(fileName(raw)) ?? input, init);
+      return originalFetch(resources.get(fileName(urlOf(input))) ?? input, init);
     };
-  } catch { /* The host gateway continues to enforce the same aliases. */ }
+  } catch {
+    /* The host gateway continues to enforce the same aliases. */
+  }
   try {
     document.head.appendChild = ((node: Node): Node => {
       if (node instanceof HTMLScriptElement) {
@@ -146,11 +160,23 @@ function installResourceHooks(hostWindow: RuffleWindow, document: Document, reso
       }
       return originalAppend(node);
     }) as typeof document.head.appendChild;
-  } catch { /* The host URL-property guard still rewrites declared aliases. */ }
+  } catch {
+    /* The host URL-property guard still rewrites declared aliases. */
+  }
   return () => {
-    try { hostWindow.fetch = originalFetch; } catch {}
-    try { document.head.appendChild = originalAppend; } catch {}
+    try {
+      hostWindow.fetch = originalFetch;
+    } catch {}
+    try {
+      document.head.appendChild = originalAppend;
+    } catch {}
   };
+}
+
+/** The URL a fetch was asked for, whatever form it came in. */
+function urlOf(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  return input instanceof URL ? input.href : input.url;
 }
 
 function loadPlayer(hostWindow: RuffleWindow, document: Document, main: string | undefined): Promise<RufflePlayerApi> {
@@ -165,7 +191,9 @@ function loadPlayer(hostWindow: RuffleWindow, document: Document, main: string |
         if (typeof api?.newest !== "function") reject(new Error("Ruffle did not expose RufflePlayer.newest()."));
         else resolve(api as RufflePlayerApi);
       };
-      script.onerror = () => { reject(new Error("Verified Ruffle main resource failed to load.")); };
+      script.onerror = () => {
+        reject(new Error("Verified Ruffle main resource failed to load."));
+      };
       document.head.appendChild(script);
     } catch (error) {
       reject(error instanceof Error ? error : new Error(String(error)));

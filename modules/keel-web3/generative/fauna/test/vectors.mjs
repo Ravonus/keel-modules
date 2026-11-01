@@ -50,7 +50,7 @@ export default [
   {
     name: 'two-bone IK reaches a target in range and keeps both bone lengths',
     run: ({ solveTwoBone }) => {
-      const { mid, end } = solveTwoBone([0, 0, 0], [0.3, 0.8, 0.1], 0.6, 0.6, [0, 0, 1]);
+      const { mid, end } = solveTwoBone([0, 0, 0], [0.3, 0.8, 0.1], [0.6, 0.6], [0, 0, 1]);
       const len = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
       return [Math.abs(len([0, 0, 0], mid) - 0.6) < 1e-9, Math.abs(len(mid, end) - 0.6) < 1e-9, len(end, [0.3, 0.8, 0.1]) < 1e-9];
     },
@@ -230,9 +230,9 @@ export default [
     run: ({ SPECIES, poseSpecies }) => {
       const seeing = Object.keys(SPECIES).filter((id) => SPECIES[id].plan !== 'bug');
       const has = (body, role) => body.capsules.some((c) => c.role === role);
-      const open = seeing.filter((id) => { const body = poseSpecies(id, 'stand'); return has(body, 'pupil') && has(body, 'shine'); });
+      const open = seeing.filter((id) => { const body = poseSpecies(id, 'stand'); return body.eye !== undefined || (has(body, 'pupil') && has(body, 'shine')); });
       const asleep = poseSpecies('fox', 'sleep');
-      const most = Math.max(...Object.keys(SPECIES).flatMap((id) => ['stand', 'wander', 'fly', 'climb'].map((act) => poseSpecies(id, act).capsules.length)));
+      const most = Math.max(...Object.keys(SPECIES).flatMap((id) => ['stand', 'wander', 'fly', 'climb'].map((act) => poseSpecies(id, act).capsules.filter((c) => !c.detail).length)));
       return [open.length === seeing.length, has(asleep, 'pupil'), most <= 48];
     },
     expect: [true, false, true],
@@ -351,7 +351,7 @@ export default [
     name: 'four legs in three bones down to a paw, hoof or sole; the head drawn from its outline tapers to the nose; markings are paint-only decals; a deer folds down to lie where a fox sits; every pose fits the 48-part budget',
     run: ({ poseSpecies, SPECIES_IDS }) => {
       const fox = poseSpecies('fox', 'stand', 1).capsules;
-      const bones = fox.filter((c) => c.part.startsWith('leg.FL')).map((c) => c.part.split('.').pop());
+      const bones = fox.filter((c) => c.part.startsWith('leg.FL')).map((c) => c.part.split('.').pop()).filter((n) => !['toes', 'claws', 'mass'].includes(n));
       const bib = fox.find((c) => c.part === 'bib');
       // (The muzzle is the head's outline's last part, tapering to the nose; the chest is the torso outline's front.)
       const snout = fox.filter((c) => c.part.startsWith('head.')).at(-1);
@@ -359,7 +359,7 @@ export default [
       const deerSit = height(poseSpecies('deer', 'sit', 1)) < height(poseSpecies('deer', 'stand', 1)) * 0.6;
       const foxSit = height(poseSpecies('fox', 'sit', 1)) > height(poseSpecies('fox', 'stand', 1)) * 0.9;
       const actions = ['stand', 'wander', 'run', 'sit', 'lie', 'sleep', 'rear', 'hang', 'fly', 'hover', 'coil'];
-      const most = Math.max(...SPECIES_IDS.flatMap((id) => actions.map((a) => poseSpecies(id, a, 1.3).capsules.length)));
+      const most = Math.max(...SPECIES_IDS.flatMap((id) => actions.map((a) => poseSpecies(id, a, 1.3).capsules.filter((c) => !c.detail).length)));
       return [bones, bib?.decal === true, snout.r1 < snout.r, deerSit, foxSit, most <= 48];
     },
     expect: [['upper', 'lower', 'cannon', 'paw'], true, true, true, true, true],
@@ -454,13 +454,13 @@ export default [
     expect: [true, 0, true],
   },
   {
-    name: 'every species, in every act, grown or young, male or female, fits sdf-body\'s 48 parts a body (past them the face is left out)',
+    name: 'every species, in every act, grown or young, male or female, fits sdf-body\'s 48 parts a body with its detail groups dropped, 64 with them (past them the face is left out)',
     run: ({ poseSpecies, SPECIES_IDS }) => {
       const acts = ['stand', 'wander', 'run', 'hop', 'fly', 'climb', 'sit', 'lie', 'sleep', 'sniff', 'dig', 'groom', 'look', 'play', 'stretch', 'coil', 'drum', 'peck', 'preen', 'flap', 'sing', 'graze', 'howl', 'rear', 'eat', 'hang', 'roll', 'shake', 'stalk', 'bask'];
       const over = [];
       for (const id of SPECIES_IDS) for (const act of acts) for (const young of [false, true]) for (const sex of ['male', 'female']) for (const t of [0, 0.7, 1.9]) {
         let n = 0;
-        try { n = poseSpecies(id, act, t, { young, sex }).capsules.length; } catch { continue; }
+        try { const parts = poseSpecies(id, act, t, { young, sex }).capsules; n = parts.filter((c) => !c.detail).length; if (parts.length > 64) over.push(`${id} ${act} rich`); } catch { continue; }
         if (n > 48) over.push(`${id} ${act}`);
       }
       return [...new Set(over)];
@@ -485,4 +485,85 @@ export default [
     },
     expect: ['crow', true, true],
   },
+  {
+    name: 'animals on the ground never stand in one another: the lighter gives way, a pair greeting may come closer but never through, and the same places always part the same way',
+    run: ({ shoveApart }) => {
+      const at = (x, weight, self, faces = -1, team = 0) => ({ rings: [{ x, z: 0, r: 1 }], weight, team, self, faces });
+      const [a, b] = shoveApart([at(0, 1, 0), at(1, 1, 1)]);
+      const [big, small] = shoveApart([at(0, 9, 0), at(1, 1, 1)]);
+      const greeting = shoveApart([at(0, 1, 0, 1), at(1, 1, 1)]);
+      const strangers = shoveApart([at(0, 1, 0, 1, 0), at(1, 1, 1, -1, 1)]);
+      const through = shoveApart([at(0, 1, 0, 1), at(0.2, 1, 1)]);
+      const clear = shoveApart([at(0, 1, 0), at(5, 1, 1), null]);
+      const stacked = shoveApart([at(0, 1, 0), at(0, 1, 1)]);
+      return [Math.round((b[0] - a[0] + 1) * 100) / 100, Math.abs(big[0]) < Math.abs(small[0]), greeting[0][0], through[0][0] !== 0, strangers[0][0] !== 0, clear[1][0], Math.hypot(stacked[0][0] - stacked[1][0], stacked[0][1] - stacked[1][1]) > 1.9];
+    },
+    expect: [2, true, 0, true, true, 0, true],
+  },
+  {
+    name: 'nothing is pushed into the tree: bodies on the wood swing round each other to their own right, and round any limb that is not theirs, and stay out of their own',
+    run: ({ shoveApart, passOnWood, clearOfLimbs, woodMapOf }) => {
+      const at = (x, weight, self) => ({ rings: [{ x, z: 0, r: 1 }], weight, team: 0, self, faces: -1 });
+      const tree = { rings: [{ x: 0, z: 0, r: 0.5 }], weight: 1e9, team: -1, self: -1, faces: -1 };
+      const [pushed, rooted] = shoveApart([at(0.5, 1, 0), tree]);
+      const on = (z, side) => ({ balls: [[0, 1, z]], r: 0.2, weight: 1, side });
+      const [north, south] = passOnWood([on(0.01, [1, 0, 0]), on(-0.01, [-1, 0, 0])]);
+      const limb = [{ p: [-1, 1, 0], r: 0.05 }, { p: [1, 1, 0], r: 0.05 }];
+      const map = woodMapOf({ radius: 4, top: 0, perches: [{ p: limb[1].p, d: [1, 0, 0], r: 0.05, path: limb }] });
+      const round = clearOfLimbs(on(0.02, [0, 1, 0]), map);
+      const mine = clearOfLimbs({ ...on(0.06, [0, 1, 0]), own: limb }, map);
+      const inside = clearOfLimbs({ ...on(0.02, [0, 1, 0]), own: limb }, map);
+      return [pushed[0] > 0, Math.abs(rooted[0]) < 1e-6, north[0] > 0, south[0] < 0, round[2] > 0, mine[2], inside[2] > 0];
+    },
+    expect: [true, true, true, true, true, 0, true],
+  },
+  {
+    name: 'sky traffic comes out of the sky and goes back into it, whole between, however short the pass',
+    run: ({ skyFade }) => [skyFade(10, 40, 10), skyFade(10, 40, 11.5), skyFade(10, 40, 25), skyFade(10, 40, 40), skyFade(0, 4, 0.5), skyFade(0, 4, 2)],
+    expect: [0, 0.5, 1, 0, 0.5, 1],
+  },
+  {
+    name: 'a climber finds its way over the wood: across a gap it can reach, not one it cannot, and round a perch that is crowded',
+    run: ({ searchRoute }) => {
+      const limb = (x, z) => [{ p: [0, 2, 0], r: 0.2 }, { p: [x * 0.5, 2, z * 0.5], r: 0.1 }, { p: [x, 2, z], r: 0.08 }];
+      const perch = (x, z) => ({ p: [x, 2, z], d: [1, 0, 0], r: 0.08, path: limb(x, z) });
+      const stage = { radius: 4, top: 0, perches: [perch(1, 0), perch(1, 0.4), perch(1, 0.8), perch(1.25, 0.4)] };
+      const across = searchRoute(stage, { start: 0, goal: 2 }, 0.5, () => 0);
+      const tooSmall = searchRoute(stage, { start: 0, goal: 2 }, 0.05, () => 0);
+      const round = searchRoute(stage, { start: 0, goal: 2 }, 0.5, (i) => (i === 1 ? 3 : 0));
+      return [across.via, tooSmall, round.via];
+    },
+    expect: [[1], null, [3]],
+  },
+  {
+    name: 'a foot leaves one print each time it comes down, shaped like its own, and dirt lets go of it long before snow',
+    run: ({ createTracks, poseSpecies, TREADS }) => {
+      const tracks = createTracks({ floor: 0, tread: (x) => (x < 0 ? 'snow' : 'dirt') });
+      const walk = (kind, id, shift, seconds) => { for (let t = 0; t < seconds; t += 1 / 30) { const body = poseSpecies(kind, 'wander', t, { seed: 3 }); tracks.step([{ ...body, id, capsules: body.capsules.map((c) => ({ ...c, a: [c.a[0] + shift, c.a[1], c.a[2]], b: [c.b[0] + shift, c.b[1], c.b[2]] })) }], t); } };
+      walk('deer', 'deer', -9, 2);
+      const deer = tracks.prints.length;
+      tracks.step([], 2.1);
+      const a = createTracks({ floor: 0, tread: () => 'dirt' }), b = createTracks({ floor: 0, tread: () => null });
+      const fox = poseSpecies('fox', 'stand', 0, { seed: 3 });
+      for (let t = 0; t < 1; t += 0.1) { a.step([fox], t); b.step([fox], t); }
+      a.step([], 7.5);
+      return [deer > 3 && deer < 30, tracks.prints.every((p) => p.shape === 'hoof' && p.tread === 'snow'), b.prints.length, a.prints.length, TREADS.dirt.life < TREADS.sand.life && TREADS.sand.life < TREADS.snow.life];
+    },
+    expect: [true, true, 0, 0, true],
+  },
+  {
+    name: 'a print paints where it was set, pointing the way the critter went',
+    run: ({ createTracks }) => {
+      const tracks = createTracks({ floor: 0, tread: () => 'snow' });
+      const ball = { kind: 'deer', id: 'd', front: [1, 0, 0], capsules: [{ part: 'leg.FL.paw', a: [1, 0.1, -2], b: [1, 0.4, -2], r: 0.1 }] };
+      tracks.step([ball], 0);
+      const side = 80, pixels = new Uint8Array(side * side * 4);
+      tracks.paint(pixels, { side, extent: 4 }, 1, () => [10, 20, 30]);
+      let xs = 0, zs = 0, n = 0, wide = [99, -99], long = [99, -99];
+      for (let r = 0; r < side; r += 1) for (let c = 0; c < side; c += 1) if (pixels[(r * side + c) * 4 + 3] > 0) { const x = (c + 0.5) / 10 - 4, z = 4 - (r + 0.5) / 10; xs += x; zs += z; n += 1; wide = [Math.min(wide[0], z), Math.max(wide[1], z)]; long = [Math.min(long[0], x), Math.max(long[1], x)]; }
+      return [Math.abs(xs / n - 1) < 0.25, Math.abs(zs / n + 2) < 0.25, long[1] - long[0] > wide[1] - wide[0]];
+    },
+    expect: [true, true, true],
+  },
 ];
+

@@ -246,3 +246,9 @@ deployed, which is normal and how every module here started.
 
 Note what is not on that list: your language, your layout, your tooling, and
 your taste.
+
+## Size limits
+
+Files stop at 500 lines, functions at 60, lines at 120 columns, and arguments at 4, with one statement a line. Run `git config core.hooksPath .githooks` once in a clone: every commit is then checked. `npm run lint` checks everything.
+
+What broke these rules before they existed is recorded in `eslint-suppressions.json` and `scripts/size-baseline.json`, so it does not fail, but new code has to pass and a listed file may only shrink. Split a file instead of raising its number. After paying some of it off, run `npx eslint --prune-suppressions "modules/*/*/*/src/**/*.ts"` and `node scripts/check-size.mjs --update`.

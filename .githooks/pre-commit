@@ -1,0 +1,6 @@
+#!/bin/sh
+# The bar every commit has to meet: `git config core.hooksPath .githooks` turns this on in a clone.
+set -e
+node scripts/check-size.mjs
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- 'modules/*/*/*/src/*.ts' 'modules/*/*/*/src/**/*.ts' 'template/src/*.ts' 'template/src/**/*.ts')
+[ -z "$staged" ] || ./node_modules/.bin/eslint --pass-on-unpruned-suppressions $staged

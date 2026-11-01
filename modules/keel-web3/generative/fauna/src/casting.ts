@@ -120,7 +120,12 @@ export interface CastInput {
   readonly morph?: string | undefined;
 }
 
-interface CastContext { readonly region: RegionId | null; readonly world: WorldKey; readonly season: Season; readonly radius: number }
+interface CastContext {
+  readonly region: RegionId | null;
+  readonly world: WorldKey;
+  readonly season: Season;
+  readonly radius: number;
+}
 
 const RARITY_ORDER: readonly Rarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 const rarer = (a: Rarity, b: Rarity): Rarity => (RARITY_ORDER.indexOf(a) >= RARITY_ORDER.indexOf(b) ? a : b);
@@ -193,13 +198,104 @@ function morphFor(skin: () => number, input: CastInput): Morph {
  * out, a species keeps its weight.
  */
 const LOCAL_WEIGHT: Readonly<Record<RegionId, Partial<Record<SpeciesId, number>>>> = {
-  rockies: { deer: 1.7, crow: 1.3, rabbit: 1.2, raccoon: 1.1, bear: 1.4, wolf: 0.4, cat: 0.6, mouse: 0.6, squirrel: 0.9, butterfly: 0.8, songbird: 0.9, marmot: 1.2 },
-  atlantic: { squirrel: 1.5, raccoon: 1.7, deer: 1.3, rabbit: 1.1, firefly: 1.5, crow: 1.2, gull: 1.2, cat: 0.7, mouse: 0.6, songbird: 0.9, butterfly: 0.8 },
-  alps: { deer: 1.4, fox: 1.3, squirrel: 1.1, rabbit: 0.5, crow: 1.3, hedgehog: 1.5, bear: 0.5, wolf: 0.7, cat: 0.6, mouse: 0.7, songbird: 0.9, butterfly: 0.9, marmot: 2.2 },
-  tokyo: { macaque: 2.2, deer: 1.3, crow: 2, crane: 1.4, firefly: 1.5, tanuki: 1.6, squirrel: 0.6, rabbit: 0.35, capybara: 0.3, redpanda: 0.5, gull: 0.8, songbird: 0.9, butterfly: 0.8, mouse: 0.6 },
-  sydney: { kangaroo: 2.4, koala: 2, parrot: 2.6, crow: 1.6, kookaburra: 1.8, possum: 1.4, cat: 0.5, mouse: 0.5, songbird: 0.8, butterfly: 0.7, gecko: 0.8 },
-  nairobi: { monkey: 2.2, crane: 2.4, guineafowl: 1.8, dikdik: 1.6, mongoose: 1.8, songbird: 1, crow: 1, tortoise: 1.2, cat: 0.4, mouse: 0.6, butterfly: 0.8, owl: 0.8 },
-  bali: { monkey: 2.6, gecko: 2.2, loris: 1.5, peacock: 1.5, firefly: 1.2, crow: 0.7, gull: 0.3, parrot: 0.35, cat: 0.6, mouse: 0.6, butterfly: 0.9 },
+  rockies: {
+    deer: 1.7,
+    crow: 1.3,
+    rabbit: 1.2,
+    raccoon: 1.1,
+    bear: 1.4,
+    wolf: 0.4,
+    cat: 0.6,
+    mouse: 0.6,
+    squirrel: 0.9,
+    butterfly: 0.8,
+    songbird: 0.9,
+    marmot: 1.2,
+  },
+  atlantic: {
+    squirrel: 1.5,
+    raccoon: 1.7,
+    deer: 1.3,
+    rabbit: 1.1,
+    firefly: 1.5,
+    crow: 1.2,
+    gull: 1.2,
+    cat: 0.7,
+    mouse: 0.6,
+    songbird: 0.9,
+    butterfly: 0.8,
+  },
+  alps: {
+    deer: 1.4,
+    fox: 1.3,
+    squirrel: 1.1,
+    rabbit: 0.5,
+    crow: 1.3,
+    hedgehog: 1.5,
+    bear: 0.5,
+    wolf: 0.7,
+    cat: 0.6,
+    mouse: 0.7,
+    songbird: 0.9,
+    butterfly: 0.9,
+    marmot: 2.2,
+  },
+  tokyo: {
+    macaque: 2.2,
+    deer: 1.3,
+    crow: 2,
+    crane: 1.4,
+    firefly: 1.5,
+    tanuki: 1.6,
+    squirrel: 0.6,
+    rabbit: 0.35,
+    capybara: 0.3,
+    redpanda: 0.5,
+    gull: 0.8,
+    songbird: 0.9,
+    butterfly: 0.8,
+    mouse: 0.6,
+  },
+  sydney: {
+    kangaroo: 2.4,
+    koala: 2,
+    parrot: 2.6,
+    crow: 1.6,
+    kookaburra: 1.8,
+    possum: 1.4,
+    cat: 0.5,
+    mouse: 0.5,
+    songbird: 0.8,
+    butterfly: 0.7,
+    gecko: 0.8,
+  },
+  nairobi: {
+    monkey: 2.2,
+    crane: 2.4,
+    guineafowl: 1.8,
+    dikdik: 1.6,
+    mongoose: 1.8,
+    songbird: 1,
+    crow: 1,
+    tortoise: 1.2,
+    cat: 0.4,
+    mouse: 0.6,
+    butterfly: 0.8,
+    owl: 0.8,
+  },
+  bali: {
+    monkey: 2.6,
+    gecko: 2.2,
+    loris: 1.5,
+    peacock: 1.5,
+    firefly: 1.2,
+    crow: 0.7,
+    gull: 0.3,
+    parrot: 0.35,
+    cat: 0.6,
+    mouse: 0.6,
+    butterfly: 0.9,
+  },
 };
 /** And in a world: a wild grove keeps its cats and mice few; a city has them everywhere. */
 const WORLD_WEIGHT: Partial<Record<WorldKey, Partial<Record<SpeciesId, number>>>> = {
@@ -288,7 +384,10 @@ const LOCAL_COATS: Partial<Record<SpeciesId, Readonly<Record<string, CoatColors>
 
 const GREY: CoatColors = ["#888888", "#666666", "#cccccc", "#222222", "#ffffff"];
 const coatColors = (id: SpeciesId, coat: string): CoatColors =>
-  speciesOf(id).coats.find(([name]) => name === coat)?.[1] ?? LOCAL_COATS[id]?.[coat] ?? speciesOf(id).coats[0]?.[1] ?? GREY;
+  speciesOf(id).coats.find(([name]) => name === coat)?.[1] ??
+  LOCAL_COATS[id]?.[coat] ??
+  speciesOf(id).coats[0]?.[1] ??
+  GREY;
 
 /** The coats a species can wear here, weighted: its region's own forms, or its own coats (the first five times the rest). */
 function looksFor(id: SpeciesId, region: RegionId | null): readonly Look[] {
@@ -299,7 +398,9 @@ function looksFor(id: SpeciesId, region: RegionId | null): readonly Look[] {
 
 /** A species' weight in this place and world. */
 function localWeight(id: SpeciesId, ctx: CastContext): number {
-  return speciesOf(id).weight * (ctx.region ? LOCAL_WEIGHT[ctx.region][id] ?? 1 : 1) * (WORLD_WEIGHT[ctx.world]?.[id] ?? 1);
+  return (
+    speciesOf(id).weight * (ctx.region ? (LOCAL_WEIGHT[ctx.region][id] ?? 1) : 1) * (WORLD_WEIGHT[ctx.world]?.[id] ?? 1)
+  );
 }
 
 /** A species' casting weight in a region (and, given one, a world), as `castFor` weighs it; 0 where it does not live. */
@@ -314,9 +415,33 @@ export function traitsOf(rand: (() => number) | null, young: boolean, sex?: Trai
   // (With no stream, the kind's own make: a gallery's or a test's animal, a stag rather than a doe.)
   const jit = (spread: number): number => (rand ? 1 + (rand() * 2 - 1) * spread : 1);
   const drawn = !rand || rand() < 0.5 ? "male" : "female";
-  const t = { len: jit(0.05), leg: jit(0.06), body: jit(0.07), head: jit(0.05), snout: jit(0.08), neck: jit(0.06), tail: jit(0.12), ears: jit(0.1), tempo: jit(0.1), bold: jit(0.28), lively: jit(0.22), mark: rand ? Math.floor(rand() * 4294967296) : 1 };
+  const t = {
+    len: jit(0.05),
+    leg: jit(0.06),
+    body: jit(0.07),
+    head: jit(0.05),
+    snout: jit(0.08),
+    neck: jit(0.06),
+    tail: jit(0.12),
+    ears: jit(0.1),
+    tempo: jit(0.1),
+    bold: jit(0.28),
+    lively: jit(0.22),
+    mark: rand ? Math.floor(rand() * 4294967296) : 1,
+  };
   if (!young) return { sex: sex ?? drawn, ...t };
-  return { ...t, sex: sex ?? drawn, len: t.len * 0.9, leg: t.leg * 0.88, head: t.head * 1.16, snout: t.snout * 0.72, neck: t.neck * 0.85, tail: t.tail * 0.8, ears: t.ears * 1.1, lively: t.lively * 1.35 };
+  return {
+    ...t,
+    sex: sex ?? drawn,
+    len: t.len * 0.9,
+    leg: t.leg * 0.88,
+    head: t.head * 1.16,
+    snout: t.snout * 0.72,
+    neck: t.neck * 0.85,
+    tail: t.tail * 0.8,
+    ears: t.ears * 1.1,
+    lively: t.lively * 1.35,
+  };
 }
 
 /** The local name of a coat in a region, or the species' own. */
@@ -325,7 +450,15 @@ function lookLabel(id: SpeciesId, coat: string, region: RegionId | null): string
   return look?.[2] ?? speciesOf(id).label;
 }
 
-export function memberOf(rand: () => number, id: SpeciesId, coat: string, young: boolean, input: CastInput, skin: () => number = rand, traits: Traits = traitsOf(null, young)): CastMember {
+export function memberOf(
+  rand: () => number,
+  id: SpeciesId,
+  coat: string,
+  young: boolean,
+  input: CastInput,
+  skin: () => number = rand,
+  traits: Traits = traitsOf(null, young),
+): CastMember {
   const spec = speciesOf(id);
   const colors = coatColors(id, coat);
   const morph = morphFor(skin, input);
@@ -334,7 +467,18 @@ export function memberOf(rand: () => number, id: SpeciesId, coat: string, young:
   rand(); // (the old antler roll: kept so the coat rolls after it stay where they were)
   // Antlers on a grown stag, out of velvet: not on a doe or a fawn, nor in spring, when they are growing back.
   const horned = traits.sex === "male" && !young && contextOf(input).season !== "spring";
-  return { species: id, label: lookLabel(id, coat, contextOf(input).region), size, heft, coat, palette: paletteOf(id, varied(colors, rand, young), morph, coat), morph, young, horned, traits };
+  return {
+    species: id,
+    label: lookLabel(id, coat, contextOf(input).region),
+    size,
+    heft,
+    coat,
+    palette: paletteOf(id, varied(colors, rand, young), morph, coat),
+    morph,
+    young,
+    horned,
+    traits,
+  };
 }
 
 /** Who is which sex in a group: a pair is a male and a female, a parent with young most often the mother. */
@@ -404,7 +548,17 @@ export function specOf(member: CastMember): SpeciesSpec {
   const kind = speciesOf(member.species);
   const t = member.traits;
   const b = kind.build;
-  const build: Build = { ...b, len: b.len * t.len, leg: b.leg * t.leg, body: b.body * t.body, head: b.head * t.head, snout: b.snout * t.snout, neck: b.neck * t.neck, tailLen: b.tailLen * t.tail, earLen: b.earLen * t.ears };
+  const build: Build = {
+    ...b,
+    len: b.len * t.len,
+    leg: b.leg * t.leg,
+    body: b.body * t.body,
+    head: b.head * t.head,
+    snout: b.snout * t.snout,
+    neck: b.neck * t.neck,
+    tailLen: b.tailLen * t.tail,
+    earLen: b.earLen * t.ears,
+  };
   const temper: Partial<Record<Action, number>> = { ...kind.temper };
   for (const action of actionsOf(kind)) {
     const k = WARY.has(action) ? 1 / t.bold : RESTFUL.has(action) ? 1 / t.lively : LIVELY.has(action) ? t.lively : 1;
@@ -450,7 +604,8 @@ function tierFor(rand: () => number, input: CastInput): Tier {
 
 function groupsFor(rand: () => number, tier: Tier, input: CastInput): CastGroup[] {
   if (tier === "none") return [];
-  if (tier === "mixed") { const g = mixedGroup(rand, input, isSpecies(input.species) ? input.species : null); return g ? [g] : groupsFor(rand, "solo", input); }
+  if (tier === "mixed") { const g = mixedGroup(rand, input, isSpecies(input.species) ? input.species : null);
+  return g ? [g] : groupsFor(rand, "solo", input); }
   const forced = isSpecies(input.species) ? input.species : null;
   const id = forced ?? pickSpecies(rand, input);
   if (!id) return [];
@@ -482,7 +637,9 @@ function pluralName(name: string): string {
   if (/[^aeiou]y$/.test(name)) return `${name.slice(0, -1)}ies`;
   return `${name}s`;
 }
-const plural = (member: CastMember): string => (member.label === speciesOf(member.species).label ? PLURALS[member.species] : undefined) ?? pluralName(spoken(member.label));
+const plural = (member: CastMember): string =>
+  (member.label === speciesOf(member.species).label ? PLURALS[member.species] : undefined) ??
+  pluralName(spoken(member.label));
 
 function labelOf(groups: readonly CastGroup[]): string {
   if (groups.length === 0) return "no animals";
@@ -524,20 +681,65 @@ const COUNTRY_SKY: readonly SkyTraffic[] = [
 ];
 
 /** What each world's sky carries, and how busy it is. */
-const WORLD_SKY: Readonly<Record<WorldKey, { readonly traffic: readonly SkyTraffic[]; readonly every: readonly [number, number] }>> = {
+const WORLD_SKY: Readonly<
+  Record<WorldKey, { readonly traffic: readonly SkyTraffic[]; readonly every: readonly [number, number] }>
+> = {
   nature: { traffic: COUNTRY_SKY, every: [12, 34] },
   voxel: { traffic: COUNTRY_SKY, every: [12, 34] },
   beach: {
-    traffic: [tr("flock", 6, DAY), tr("vee", 1.5, DAY), tr("kite", 2.5, FAIR_DAY), tr("prop", 3, FAIR_DAY), tr("airliner", 2), tr("balloon", 0.8, FAIR_DAY), tr("bats", 1.5, NIGHT), tr("satellite", 2.5, FAIR_NIGHT), tr("comet", 1.2, FAIR_NIGHT)],
+    traffic: [
+      tr("flock", 6, DAY),
+      tr("vee", 1.5, DAY),
+      tr("kite", 2.5, FAIR_DAY),
+      tr("prop", 3, FAIR_DAY),
+      tr("airliner", 2),
+      tr("balloon", 0.8, FAIR_DAY),
+      tr("bats", 1.5, NIGHT),
+      tr("satellite", 2.5, FAIR_NIGHT),
+      tr("comet", 1.2, FAIR_NIGHT),
+    ],
     every: [10, 30],
   },
   city: {
-    traffic: [tr("flock", 4, DAY), tr("murmuration", 1.2, FAIR_DAY), tr("helicopter", 2.5), tr("blimp", 1.2, FAIR_DAY), tr("airliner", 5), tr("jet", 1.5), tr("bats", 1, NIGHT), tr("satellite", 0.6, FAIR_NIGHT)],
+    traffic: [
+      tr("flock", 4, DAY),
+      tr("murmuration", 1.2, FAIR_DAY),
+      tr("helicopter", 2.5),
+      tr("blimp", 1.2, FAIR_DAY),
+      tr("airliner", 5),
+      tr("jet", 1.5),
+      tr("bats", 1, NIGHT),
+      tr("satellite", 0.6, FAIR_NIGHT),
+    ],
     every: [8, 24],
   },
-  synth: { traffic: [tr("jet", 5), tr("ufo", 1.8), tr("helicopter", 1), tr("comet", 1.5, NIGHT), tr("satellite", 1, NIGHT)], every: [14, 36] },
-  vapor: { traffic: [tr("jet", 3), tr("balloon", 2, FAIR_DAY), tr("blimp", 2, { fair: true }), tr("flock", 1, DAY), tr("kite", 1, FAIR_DAY), tr("ufo", 1), tr("comet", 0.8, NIGHT)], every: [14, 36] },
-  crystal: { traffic: [tr("vee", 2.5, DAY), tr("flock", 2, DAY), tr("balloon", 3, FAIR_DAY), tr("airliner", 1), tr("comet", 1.8, NIGHT), tr("satellite", 1.5, FAIR_NIGHT)], every: [14, 38] },
+  synth: {
+    traffic: [tr("jet", 5), tr("ufo", 1.8), tr("helicopter", 1), tr("comet", 1.5, NIGHT), tr("satellite", 1, NIGHT)],
+    every: [14, 36],
+  },
+  vapor: {
+    traffic: [
+      tr("jet", 3),
+      tr("balloon", 2, FAIR_DAY),
+      tr("blimp", 2, { fair: true }),
+      tr("flock", 1, DAY),
+      tr("kite", 1, FAIR_DAY),
+      tr("ufo", 1),
+      tr("comet", 0.8, NIGHT),
+    ],
+    every: [14, 36],
+  },
+  crystal: {
+    traffic: [
+      tr("vee", 2.5, DAY),
+      tr("flock", 2, DAY),
+      tr("balloon", 3, FAIR_DAY),
+      tr("airliner", 1),
+      tr("comet", 1.8, NIGHT),
+      tr("satellite", 1.5, FAIR_NIGHT),
+    ],
+    every: [14, 38],
+  },
   cosmic: { traffic: [tr("ufo", 2), tr("satellite", 3), tr("rocket", 1.5), tr("comet", 3)], every: [9, 24] },
 };
 const FLOCK_WEIGHTS: Partial<Record<SpeciesId, number>> = { songbird: 4, crow: 2, gull: 4, parrot: 2, crane: 0.6 };
@@ -548,15 +750,28 @@ function skyFor(rand: () => number, input: CastInput): SkyPlan {
   const here = (id: SpeciesId): boolean => (ctx.region === null || speciesOf(id).regions.includes(ctx.region)) && speciesOf(id).worlds.includes(ctx.world === "voxel" ? "nature" : ctx.world);
   const flockers = (Object.keys(FLOCK_WEIGHTS) as SpeciesId[]).filter(here);
   // (Weighed as the ground cast is weighed here: crows over Tokyo, gulls over the Atlantic.)
-  const local = (id: SpeciesId): number => (FLOCK_WEIGHTS[id] ?? 1) * (ctx.region ? LOCAL_WEIGHT[ctx.region][id] ?? 1 : 1);
+  const local = (id: SpeciesId): number =>
+    (FLOCK_WEIGHTS[id] ?? 1) * (ctx.region ? (LOCAL_WEIGHT[ctx.region][id] ?? 1) : 1);
   const birds = flockers.length > 0 ? pick(rand, flockers.map((id) => [id, local(id)] as const)) : null;
   const vee = BIRDS_FOR.vee.find(here) ?? null;
   const swarm = BIRDS_FOR.murmuration.find(here) ?? null;
-  const has: Partial<Record<SkyKind, boolean>> = { flock: birds !== null, vee: vee !== null, murmuration: swarm !== null };
+  const has: Partial<Record<SkyKind, boolean>> = {
+    flock: birds !== null,
+    vee: vee !== null,
+    murmuration: swarm !== null,
+  };
   const sky = WORLD_SKY[ctx.world];
   const coat = (id: SpeciesId | null): string => (id ? pick(rand, looksFor(id, ctx.region).map(([name, weight]) => [name, weight] as const)) : "");
   const coats = { birds: coat(birds), vee: coat(vee), swarm: coat(swarm) };
-  return { birds, vee, swarm, coats, region: ctx.region, traffic: sky.traffic.filter((each) => has[each.kind] !== false), every: sky.every };
+  return {
+    birds,
+    vee,
+    swarm,
+    coats,
+    region: ctx.region,
+    traffic: sky.traffic.filter((each) => has[each.kind] !== false),
+    every: sky.every,
+  };
 }
 
 /**

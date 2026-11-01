@@ -164,7 +164,12 @@ export interface ColorLike {
   offsetHSL(h: number, s: number, l: number): ColorLike;
   getHexString(): string;
 }
-interface AttributeLike { readonly count: number; readonly array: Float32Array; needsUpdate: boolean; readonly itemSize: number }
+interface AttributeLike {
+  readonly count: number;
+  readonly array: Float32Array;
+  needsUpdate: boolean;
+  readonly itemSize: number;
+}
 export interface GeometryLike {
   readonly index?: unknown;
   readonly attributes: Readonly<Record<string, AttributeLike | undefined>>;

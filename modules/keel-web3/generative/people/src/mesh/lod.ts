@@ -21,17 +21,22 @@ export function lodFor(distance: number, was?: number): number {
 
 /** The tier each of a crowd gets, nearest first, for `budget` triangles in all: everybody has the least, then the nearest have what they want while it lasts. */
 export function lodsWithin(wants: readonly number[], budget: number): readonly number[] {
-  const last = PERSON_LODS.length - 1, least = PERSON_LODS[last]?.tris ?? 0;
+  const last = PERSON_LODS.length - 1;
+  const least = PERSON_LODS[last]?.tris ?? 0;
   let left = budget - wants.length * least;
   return wants.map((want) => {
-    const tier = PERSON_LODS.findIndex((lod, i) => i >= Math.min(want, last) && (i === last || lod.tris - least <= left));
+    const tier = PERSON_LODS.findIndex(
+      (lod, i) => i >= Math.min(want, last) && (i === last || lod.tris - least <= left),
+    );
     left -= (PERSON_LODS[tier]?.tris ?? least) - least;
     return tier;
   });
 }
 
 /** Frames longer than this (ms) are too long, and shorter than this leave room; one longer still is a pause, not load. */
-const FRAME_LONG = 28, FRAME_ROOMY = 20, FRAME_PAUSE = 250;
+const FRAME_LONG = 28;
+const FRAME_ROOMY = 20;
+const FRAME_PAUSE = 250;
 
 /** A crowd's triangle budget following the frame: down quickly while frames run long, back slowly when they don't. Nothing but drawing may hang on it. */
 export function crowdBudget(most: number, floor: number): (frameMs: number) => number {

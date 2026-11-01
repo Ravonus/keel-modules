@@ -19,15 +19,41 @@ export interface Kit {
 
 const rolled = (kit: Kit, v: Vec): Vec => (kit.roll === 0 ? v : add(rollV(sub(v, kit.pivot), kit.roll), kit.pivot));
 
-export function cap(kit: Kit, part: string, role: Role, a: Vec, b: Vec, r: number, flatness = 1, up: Vec = UP, finish?: Finish): void {
+export function cap(
+  kit: Kit,
+  part: string,
+  role: Role,
+  a: Vec,
+  b: Vec,
+  r: number,
+  flatness = 1,
+  up: Vec = UP,
+  finish?: Finish,
+): void {
   if (!(r > 0.0002)) return;
   const upRolled = kit.roll === 0 ? up : rollV(up, kit.roll);
-  const capsule: Capsule = { a: toWorld(kit.f, rolled(kit, a)), b: toWorld(kit.f, rolled(kit, b)), r, role, part, flat: flatness, up: unit(dirToWorld(kit.f, upRolled), kit.f.y), fw: kit.f.z };
+  const capsule: Capsule = {
+    a: toWorld(kit.f, rolled(kit, a)),
+    b: toWorld(kit.f, rolled(kit, b)),
+    r,
+    role,
+    part,
+    flat: flatness,
+    up: unit(dirToWorld(kit.f, upRolled), kit.f.y),
+    fw: kit.f.z,
+  };
   kit.out.push(finish ? { ...capsule, ...finished(kit, finish) } : capsule);
 }
 /** A row's beads, and how far each reaches. */
 function rowOf(kit: Kit, finish: Finish): Partial<Capsule> {
-  return { ...(finish.row === undefined ? {} : { row: finish.row }), ...(finish.reach === undefined ? {} : { reach: dirToWorld(kit.f, kit.roll === 0 ? finish.reach : rollV(finish.reach, kit.roll)) }), ...(finish.sharp ? { sharp: true } : {}), ...(finish.detail === undefined ? {} : { detail: finish.detail }) };
+  return {
+    ...(finish.row === undefined ? {} : { row: finish.row }),
+    ...(finish.reach === undefined
+      ? {}
+      : { reach: dirToWorld(kit.f, kit.roll === 0 ? finish.reach : rollV(finish.reach, kit.roll)) }),
+    ...(finish.sharp ? { sharp: true } : {}),
+    ...(finish.detail === undefined ? {} : { detail: finish.detail }),
+  };
 }
 /** What a finish adds to a capsule. */
 function finished(kit: Kit, finish: Finish): Partial<Capsule> {
@@ -40,7 +66,9 @@ function finished(kit: Kit, finish: Finish): Partial<Capsule> {
     ...(finish.shadow === false ? { shadow: false } : {}),
     ...(finish.bare === true ? { bare: true } : {}),
     ...rowOf(kit, finish),
-    ...(finish.bow === undefined ? {} : { bow: dirToWorld(kit.f, kit.roll === 0 ? finish.bow : rollV(finish.bow, kit.roll)) }),
+    ...(finish.bow === undefined
+      ? {}
+      : { bow: dirToWorld(kit.f, kit.roll === 0 ? finish.bow : rollV(finish.bow, kit.roll)) }),
   };
 }
 /** A tapered part: r at a, r1 at b, melting `melt` as far as the rest. */
@@ -91,8 +119,15 @@ export function buildOf(who: Who): Build {
   const known = BUILDS.get(who.member);
   if (known) return known;
   const own: Build = {
-    ...b, len: b.len * t.len, leg: b.leg * t.leg, body: b.body * t.body, head: b.head * t.head, snout: b.snout * t.snout,
-    neck: b.neck * t.neck, tailLen: b.tailLen * t.tail, earLen: b.earLen * t.ears,
+    ...b,
+    len: b.len * t.len,
+    leg: b.leg * t.leg,
+    body: b.body * t.body,
+    head: b.head * t.head,
+    snout: b.snout * t.snout,
+    neck: b.neck * t.neck,
+    tailLen: b.tailLen * t.tail,
+    earLen: b.earLen * t.ears,
   };
   BUILDS.set(who.member, own);
   return own;

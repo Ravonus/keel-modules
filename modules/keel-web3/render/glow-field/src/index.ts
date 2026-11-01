@@ -103,7 +103,10 @@ export function drawGlow(context: CanvasRenderingContext2D, width: number, heigh
   for (let ring = 0; ring < settings.rings; ring += 1) {
     const phase = (ring / settings.rings + t * 0.08) % 1;
     const radius = phase * reach;
-    const accent = settings.accents.length > 0 && ring % 2 === 1 ? settings.accents[(ring >> 1) % settings.accents.length] : undefined;
+    const accent =
+      settings.accents.length > 0 && ring % 2 === 1
+        ? settings.accents[(ring >> 1) % settings.accents.length]
+        : undefined;
     const alpha = Math.round(255 * breath * (1 - phase) * 0.85).toString(16).padStart(2, "0");
     context.strokeStyle = `${accent ?? settings.color}${alpha}`;
     context.beginPath();

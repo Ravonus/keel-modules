@@ -34,7 +34,17 @@ export function sectionAt(st: readonly Station[], k: number): Section {
  * height and width, so the silhouette follows the species' own back line,
  * belly line and girth (a bear's hump, a dog's tucked waist) and not a tube's.
  */
-export function loft(kit: Kit, part: string, role: Role, st: readonly Station[], along: (k: number) => Vec, u: Vec, s: Vec, size: number, melt: number): void {
+export function loft(
+  kit: Kit,
+  part: string,
+  role: Role,
+  st: readonly Station[],
+  along: (k: number) => Vec,
+  u: Vec,
+  s: Vec,
+  size: number,
+  melt: number,
+): void {
   for (let i = 0; i + 1 < st.length; i += 1) {
     const [ka, ta, ba, wa] = st[i] ?? [0, 1, 1, 1];
     const [kb, tb, bb, wb] = st[i + 1] ?? [ka, ta, ba, wa];
@@ -44,7 +54,10 @@ export function loft(kit: Kit, part: string, role: Role, st: readonly Station[],
     const flat = wide ? (ha + hb) / (wa + wb) : (wa + wb) / (ha + hb);
     const a = madd(along(ka), u, ((ta - ba) / 2) * size);
     const b = madd(along(kb), u, ((tb - bb) / 2) * size);
-    cap(kit, `${part}.${String(i)}`, role, a, b, Math.max(ha, wa) * size, flat, wide ? u : s, { r1: Math.max(hb, wb) * size, melt });
+    cap(kit, `${part}.${String(i)}`, role, a, b, Math.max(ha, wa) * size, flat, wide ? u : s, {
+      r1: Math.max(hb, wb) * size,
+      melt,
+    });
   }
 }
 
@@ -54,8 +67,15 @@ export function loft(kit: Kit, part: string, role: Role, st: readonly Station[],
  * the muzzle ends (`tip`); a round head has none.
  */
 export interface Head {
-  readonly c: Vec; readonly d: Vec; readonly s: Vec; readonly u: Vec; readonly r: number;
-  readonly sec?: (k: number) => Section; readonly stations?: readonly Station[]; readonly stop?: number; readonly tip?: number;
+  readonly c: Vec;
+  readonly d: Vec;
+  readonly s: Vec;
+  readonly u: Vec;
+  readonly r: number;
+  readonly sec?: (k: number) => Section;
+  readonly stations?: readonly Station[];
+  readonly stop?: number;
+  readonly tip?: number;
   /** How its eyes are made; without one, round. */
   readonly eye?: EyeStyle;
 }
@@ -102,7 +122,13 @@ function shellNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose): Head {
   cap(kit, "neck.collar", "coat", madd(n0, out, reach * 0.16), madd(n0, out, reach * 0.16), girth * 1.5, 0.42, out, { melt: 0.3, shadow: false });
   cap(kit, "neck.fold", "coat", madd(n0, out, reach * 0.32), madd(n0, out, reach * 0.32), girth * 1.22, 0.4, out, { melt: 0.3, shadow: false });
   const hd = dirOf(yaw * 1.8, mix(-0.1, -0.54, down) + up * 0.5);
-  return { c: madd(madd(n1, hd, hr * 0.5), UP, -hr * 0.2 * down), d: hd, ...headAxes(hd, q.headRoll), r: hr, ...eyeOfSpecies(actor) };
+  return {
+    c: madd(madd(n1, hd, hr * 0.5), UP, -hr * 0.2 * down),
+    d: hd,
+    ...headAxes(hd, q.headRoll),
+    r: hr,
+    ...eyeOfSpecies(actor),
+  };
 }
 
 export function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose, m: Moment): Head {
@@ -128,8 +154,17 @@ export function quadNeck(kit: Kit, actor: Who, body: QuadBody, q: Pose, m: Momen
   cone(kit, "neck", "coat", n0, n1, r * 0.62 * b.neckGirth, Math.max(hr * 0.55 * b.neckGirth, r * (b.neckEnd ?? 0.32)), b.neckEnd === undefined ? 1 : 0.3);
   if (b.extras.includes("ruff")) cap(kit, "ruff", "coat", lerpV(n0, S, 0.4), lerpV(n0, n1, 0.35), chest * 0.82, 1, UP, { melt: 1.4 });
   if (b.extras.includes("bib")) decal(kit, "bib", "belly", add(S, [0, -chest * 0.35, chest * 0.75]), madd(n1, dirOf(yaw, np - 1.2), hr * 0.4), chest * 0.5);
-  const hd = dirOf(yaw * 1.8 + q.curl * 0.8, headDrop(b, (pitch * 0.55 - down * 0.45) * (1 - nose * 0.45)) - q.curl * 0.4);
-  const head: Head = { c: madd(madd(n1, hd, hr * 0.55), [0, 0, 1], -(b.curlIn ?? 0) * q.curl * r), d: hd, ...headAxes(hd, q.headRoll), r: hr, ...eyeOfSpecies(actor) };
+  const hd = dirOf(
+    yaw * 1.8 + q.curl * 0.8,
+    headDrop(b, (pitch * 0.55 - down * 0.45) * (1 - nose * 0.45)) - q.curl * 0.4,
+  );
+  const head: Head = {
+    c: madd(madd(n1, hd, hr * 0.55), [0, 0, 1], -(b.curlIn ?? 0) * q.curl * r),
+    d: hd,
+    ...headAxes(hd, q.headRoll),
+    r: hr,
+    ...eyeOfSpecies(actor),
+  };
   const outline = headStations(b, b.snout * size, hr);
   if (!outline) return head;
   const { stations } = outline;
@@ -146,20 +181,43 @@ export const at3 = (h: Head, d: number, s: number, u: number): Vec => {
   if (!h.sec) return add(h.c, add(add(scale(h.d, d * h.r), scale(h.s, s * h.r)), scale(h.u, u * h.r)));
   const sec = h.sec(d);
   const rho = Math.sqrt(Math.max(1 - d * d, 0.2));
-  return add(h.c, add(add(scale(h.d, d * h.r), scale(h.s, (s / rho) * sec.w * h.r)), scale(h.u, (sec.o + (u / rho) * sec.h) * h.r)));
+  return add(
+    h.c,
+    add(add(scale(h.d, d * h.r), scale(h.s, (s / rho) * sec.w * h.r)), scale(h.u, (sec.o + (u / rho) * sec.h) * h.r)),
+  );
 };
 
 export function earsOf(kit: Kit, kind: Ears, h: Head, back: number, size = 1, role: Role = "coat", base = 1): void {
   for (const x of [-1, 1]) earOf(kit, `ear.${x < 0 ? "L" : "R"}`, kind, h, x, back, size, role, base);
 }
 
-function earOf(kit: Kit, part: string, kind: Ears, h: Head, x: number, back: number, size: number, role: Role, base: number): void {
+function earOf(
+  kit: Kit,
+  part: string,
+  kind: Ears,
+  h: Head,
+  x: number,
+  back: number,
+  size: number,
+  role: Role,
+  base: number,
+): void {
   if (kind === "point" || kind === "tuft") {
     const root = at3(h, -0.05, x * (0.5 + (base - 1) * 0.15), 0.6);
     const dir = unit(add(add(scale(h.u, 1), scale(h.d, -(0.25 + back * 0.8))), scale(h.s, x * 0.3)));
     const len = h.r * (kind === "tuft" ? 0.7 : 0.95) * size;
     // (Pointed: broad at the root, narrowing to the tip.)
-    cap(kit, part, kind === "tuft" ? "alt" : role, root, madd(root, dir, len), h.r * 0.4 * Math.sqrt(size) * base, 0.34, unit(madd(h.d, h.s, -x * 0.4)), { r1: h.r * 0.06, melt: 0.45 });
+    cap(
+      kit,
+      part,
+      kind === "tuft" ? "alt" : role,
+      root,
+      madd(root, dir, len),
+      h.r * 0.4 * Math.sqrt(size) * base,
+      0.34,
+      unit(madd(h.d, h.s, -x * 0.4)),
+      { r1: h.r * 0.06, melt: 0.45 },
+    );
   } else if (kind === "cup") cupEar(kit, part, h, x, size);
   else if (kind === "round" || kind === "fluffy" || kind === "rimmed") roundEar(kit, part, kind, h, x, size);
   else if (kind === "long") {
@@ -167,11 +225,30 @@ function earOf(kit: Kit, part: string, kind: Ears, h: Head, x: number, back: num
     // (Broad and standing up off the head, so they clear the hunched back and still read when the head is a few pixels.)
     const root = at3(h, -0.12, x * 0.36, 0.72);
     const dir = unit(add(add(scale(h.u, 1.15 - back * 0.7), scale(h.d, -(0.08 + back))), scale(h.s, x * 0.3)));
-    cap(kit, part, "coat", root, madd(root, dir, h.r * 2.2 * size), h.r * 0.42, 0.75, h.d, { r1: h.r * 0.4, melt: 0.35 });
-    decal(kit, `${part}.tip`, "dark", madd(root, dir, h.r * 2.45 * size), madd(root, dir, h.r * 2.45 * size), h.r * 0.45);
+    cap(kit, part, "coat", root, madd(root, dir, h.r * 2.2 * size), h.r * 0.42, 0.75, h.d, {
+      r1: h.r * 0.4,
+      melt: 0.35,
+    });
+    decal(
+      kit,
+      `${part}.tip`,
+      "dark",
+      madd(root, dir, h.r * 2.45 * size),
+      madd(root, dir, h.r * 2.45 * size),
+      h.r * 0.45,
+    );
   } else if (kind === "flop") {
     const root = at3(h, -0.05, x * 0.7, 0.4);
-    cap(kit, part, "alt", root, madd(root, unit(add(scale(h.s, x), scale(h.u, -1.2))), h.r * 0.9 * size), h.r * 0.25, 0.4, h.s);
+    cap(
+      kit,
+      part,
+      "alt",
+      root,
+      madd(root, unit(add(scale(h.s, x), scale(h.u, -1.2))), h.r * 0.9 * size),
+      h.r * 0.25,
+      0.4,
+      h.s,
+    );
   }
 }
 
@@ -182,8 +259,19 @@ function roundEar(kit: Kit, part: string, kind: Ears, h: Head, x: number, size: 
   // (A raccoon's sits wide on the skull's corner, thick and turned well outward, so its white rim shows from every side.)
   const at = rimmed ? at3(h, -0.16, x * 0.7, 0.84) : fluffy ? at3(h, -0.1, x * 0.8, 0.85) : at3(h, -0.2, x * 0.6, 0.98);
   const er = h.r * 0.32 * size;
-  cap(kit, part, rimmed ? "accent" : "coat", at, at, er, rimmed ? 0.66 : 0.55, rimmed ? unit(madd(h.d, h.s, x * 0.72)) : h.d, { melt: 0.35 });
-  if (fluffy) decal(kit, `${part}.fluff`, "belly", madd(at, h.s, x * er * 0.35), madd(at, h.s, x * er * 0.35), er * 0.75);
+  cap(
+    kit,
+    part,
+    rimmed ? "accent" : "coat",
+    at,
+    at,
+    er,
+    rimmed ? 0.66 : 0.55,
+    rimmed ? unit(madd(h.d, h.s, x * 0.72)) : h.d,
+    { melt: 0.35 },
+  );
+  if (fluffy)
+    decal(kit, `${part}.fluff`, "belly", madd(at, h.s, x * er * 0.35), madd(at, h.s, x * er * 0.35), er * 0.75);
   if (rimmed) decal(kit, `${part}.in`, "alt", at, at, er * 0.86);
 }
 
@@ -409,7 +497,8 @@ function catFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void 
   // (A point on the face: along the head, then out and up from its axis, in head radii.)
   const on: FaceAt = (d, s, u) => add(along(d), add(scale(h.s, s * h.r), scale(h.u, u * h.r)));
   // (The skull lies across the head, so it is round from the side and broad from the front; this is a point on its skin.)
-  const skin: Skin = (s, u) => on(Math.sqrt(Math.max(0.88 ** 2 - Math.max(Math.abs(s) - 0.1, 0) ** 2 - u ** 2, 0.02)), s, u);
+  const skin: Skin = (s, u) =>
+    on(Math.sqrt(Math.max(0.88 ** 2 - Math.max(Math.abs(s) - 0.1, 0) ** 2 - u ** 2, 0.02)), s, u);
   cap(kit, "head.0", "coat", on(0, -0.1, 0), on(0, 0.1, 0), h.r * 0.88);
   // (The muzzle is one short wide pale roll across the face, parted down its middle into two whisker pads.)
   cap(kit, "pad", "belly", on(0.78, -0.2, -0.22), on(0.78, 0.2, -0.22), h.r * 0.42, 0.86, h.u);
@@ -421,7 +510,12 @@ function catFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void 
   for (const x of [-1, 1]) {
     catEar(kit, h, on, x, q.earBack, x < 0 ? roles[0] : roles[1]);
     // (Two fine pale whiskers from each pad, fanned a little and drooping to their tips.)
-    cap(kit, "whisker", "shine", on(0.9, x * 0.5, -0.2), on(0.9, x * 0.5, -0.3), h.r * 0.012, 1, UP, { row: 2, reach: sub(on(0.4, x * 1.3, -0.25), on(0.9, x * 0.5, -0.25)), sharp: true, shadow: false });
+    cap(kit, "whisker", "shine", on(0.9, x * 0.5, -0.2), on(0.9, x * 0.5, -0.3), h.r * 0.012, 1, UP, {
+      row: 2,
+      reach: sub(on(0.4, x * 1.3, -0.25), on(0.9, x * 0.5, -0.25)),
+      sharp: true,
+      shadow: false,
+    });
   }
 }
 
@@ -471,7 +565,10 @@ function catEye(kit: Kit, h: Head, at: Vec, x: number, open: boolean): void {
   // (Across and up on the eye's own face, the outer corner lifted.)
   const tilted = madd(h.s, h.u, x * 0.3);
   const across = unit(madd(tilted, n, -dot(tilted, n)));
-  if (!open) { cap(kit, part, "dark", madd(at, across, -h.r * 0.27), madd(at, across, h.r * 0.27), h.r * 0.045, 1, UP, { melt: 0.2 }); return; }
+  if (!open) { cap(kit, part, "dark", madd(at, across, -h.r * 0.27), madd(at, across, h.r * 0.27), h.r * 0.045, 1, UP, {
+    melt: 0.2,
+  });
+  return; }
   // (The renderer paints the slit, iris, rim and spark on its lens, like any other eye.)
   eyeAt(kit, part, h, at, n, h.r * 0.2, true);
 }
@@ -514,7 +611,19 @@ function maskBand(kit: Kit, h: Head, eye: FacePoint, eyeR: number): void {
  * its length, and it stays as deep as it is long, so it meets the head's curve
  * from end to end.
  */
-export function facePatch(kit: Kit, part: string, role: Role, h: Head, at: Vec, run: Vec, reach: number, r: number, r1: number, flat: number, melt: number): void {
+export function facePatch(
+  kit: Kit,
+  part: string,
+  role: Role,
+  h: Head,
+  at: Vec,
+  run: Vec,
+  reach: number,
+  r: number,
+  r1: number,
+  flat: number,
+  melt: number,
+): void {
   const n = unit(sub(at, h.c), h.d);
   const along = unit(madd(run, n, -dot(run, n)), h.s);
   cap(kit, part, role, at, madd(at, along, reach), r, flat, cross(n, along), { decal: true, r1, melt });
@@ -544,7 +653,8 @@ function browMark(kit: Kit, h: Head, eye: FacePoint, band: number): void {
 function banditMarks(kit: Kit, h: Head, tip: Vec, eyes: readonly FacePoint[], eyeR: number): void {
   // (A small eye in a big patch: the band is sized to the head's mask, not to the eye.)
   const band = eyeR * 1.3;
-  for (const eye of eyes) { banditMask(kit, h, eye, band); browMark(kit, h, eye, band); }
+  for (const eye of eyes) { banditMask(kit, h, eye, band);
+  browMark(kit, h, eye, band); }
   const brow = frontAt(0, (eyes[0]?.[2] ?? 0) + 0.46);
   // (A blade, flat across the face and deep into it, so it meets the curve down the bridge from end to end.)
   cap(kit, "line", "alt", onFace(h, brow), add(tip, add(scale(h.u, h.r * 0.2), scale(h.d, -h.r * 0.14))), h.r * 0.56, 0.32, h.s, { decal: true, r1: h.r * 0.14, melt: 1.4 });
@@ -556,7 +666,8 @@ function faceMarks(kit: Kit, actor: Who, h: Head, tip: Vec, eyes: readonly FaceP
   const b = buildOf(actor);
   const cheeks = b.extras.includes("cheeks");
   const mask = b.extras.includes("mask");
-  if (b.extras.includes("brows")) { banditMarks(kit, h, tip, eyes, eyeR); return; }
+  if (b.extras.includes("brows")) { banditMarks(kit, h, tip, eyes, eyeR);
+  return; }
   if (b.extras.includes("muzzle")) decal(kit, "muzzle", cheeks || actor.member.species === "marmot" ? "accent" : "belly", at3(h, 0.65, 0, -0.4), tip, h.r * 0.45);
   if (mask) { const wide = eyeR * mix(0.86, 1.2, createRandom(markOf(actor) ^ 0x6a09e667)()); for (const eye of eyes) maskBand(kit, h, eye, wide); }
   // (A badger's white blaze runs from its nose over its crown, between dark stripes.)

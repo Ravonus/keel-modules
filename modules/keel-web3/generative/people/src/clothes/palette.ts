@@ -20,8 +20,16 @@ function clothesColours(rand: () => number): Record<string, string> {
   const loud = rand() < 0.3;
   const top = hsl(hue, loud ? mix(0.45, 0.7, rand()) : mix(0.08, 0.34, rand()), mix(0.26, 0.66, rand()));
   const blue = rand() < 0.55;
-  const bottom = blue ? hsl(mix(0.58, 0.62, rand()), mix(0.26, 0.42, rand()), mix(0.2, 0.42, rand())) : hsl(hue + 0.5, mix(0.04, 0.18, rand()), mix(0.16, 0.5, rand()));
-  return { top, bottom, trim: hsl(hue + mix(0.3, 0.7, rand()), mix(0.4, 0.7, rand()), mix(0.36, 0.76, rand())), shoe: hsl(rand(), mix(0, 0.26, rand()), mix(0.14, 0.72, rand())), sole: hsl(0.1, 0.1, mix(0.2, 0.86, rand())) };
+  const bottom = blue
+    ? hsl(mix(0.58, 0.62, rand()), mix(0.26, 0.42, rand()), mix(0.2, 0.42, rand()))
+    : hsl(hue + 0.5, mix(0.04, 0.18, rand()), mix(0.16, 0.5, rand()));
+  return {
+    top,
+    bottom,
+    trim: hsl(hue + mix(0.3, 0.7, rand()), mix(0.4, 0.7, rand()), mix(0.36, 0.76, rand())),
+    shoe: hsl(rand(), mix(0, 0.26, rand()), mix(0.14, 0.72, rand())),
+    sole: hsl(0.1, 0.1, mix(0.2, 0.86, rand())),
+  };
 }
 
 const SHADES: Readonly<Record<Genre, (rand: () => number) => Readonly<Record<string, string>>>> = {
@@ -60,14 +68,19 @@ export function parted(bottom: string, top: string): string {
 
 /** A tone of hair from one roll: the darker it is, the likelier on darker skin, and any of them can be had by anyone. */
 function hairTone(roll: number, deep: number): string {
-  const low = HAIR_TONES.slice(0, 5), high = HAIR_TONES.slice(5), dark = mix(low.length / HAIR_TONES.length, 0.93, deep);
+  const low = HAIR_TONES.slice(0, 5);
+  const high = HAIR_TONES.slice(5);
+  const dark = mix(low.length / HAIR_TONES.length, 0.93, deep);
   const [list, at] = roll < dark ? [low, roll / dark] : [high, (roll - dark) / (1 - dark)];
   return list[Math.floor(at * list.length)] ?? "#14100e";
 }
 
 /** A brow goes with its hair, as far as it can and still be a brow: never so near the skin that light takes it off the face, nor so far from it that it is a bar. */
 function browOn(skin: string, hair: string): string {
-  const brow = blend(hair, "#2a1a16", 0.3), own = glowOf(brow), most = glowOf(skin) * 0.4, least = glowOf(skin) * 0.2;
+  const brow = blend(hair, "#2a1a16", 0.3);
+  const own = glowOf(brow);
+  const most = glowOf(skin) * 0.4;
+  const least = glowOf(skin) * 0.2;
   if (own > most) return blend(brow, "#120a07", 1 - Math.sqrt(most / own));
   return own < least ? blend(brow, skin, (1 - Math.sqrt(own / least)) * 0.8) : brow;
 }
@@ -88,7 +101,8 @@ function faceColours(skin: string, hair: string, wash: string): Record<string, s
 export function paletteOf(
   rand: () => number, skin: string, age: Age, iris: string, genre: Genre,
 ): Record<string, string> {
-  const dyed = rand() < 0.04, roll = rand();
+  const dyed = rand() < 0.04;
+  const roll = rand();
   const natural = dyed ? LOUD_HAIR[Math.floor(roll * LOUD_HAIR.length)] ?? "#3a6ad8" : hairTone(roll, deepOf(skin));
   const hair = blend(apart(age === "elder" ? pick(rand, GREY_HAIR) : natural, skin), "#4c4650", 0.16);
   return { skin, hair, ...faceColours(skin, hair, hsl(mix(0.97, 1.02, rand()) % 1, 0.4, 0.42)), dark: "#2a1a16", eye: iris, ...clothesColours(rand), ...SHADES[genre](rand) };

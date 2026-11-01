@@ -4,7 +4,8 @@
 
 export function hashName(name: string): number {
   let h = 2166136261;
-  for (let i = 0; i < name.length; i += 1) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
+  for (let i = 0; i < name.length; i += 1) { h ^= name.charCodeAt(i);
+  h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
 

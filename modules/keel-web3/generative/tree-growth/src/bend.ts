@@ -25,8 +25,14 @@ const TWIG = 0.02;
 const MOST_SAG = 0.25;
 const MOST_SAG_SHARE = 0.25;
 
-const horizontal = (frame: TreeFrame, ax: number, az: number, node: number): number => Math.hypot(at(frame.x, node) - ax, at(frame.z, node) - az);
-const pieceLength = (frame: TreeFrame, node: number): number => Math.hypot(at(frame.x, node) - at(frame.baseX, node), at(frame.y, node) - at(frame.baseY, node), at(frame.z, node) - at(frame.baseZ, node));
+const horizontal = (frame: TreeFrame, ax: number, az: number, node: number): number =>
+  Math.hypot(at(frame.x, node) - ax, at(frame.z, node) - az);
+const pieceLength = (frame: TreeFrame, node: number): number =>
+  Math.hypot(
+    at(frame.x, node) - at(frame.baseX, node),
+    at(frame.y, node) - at(frame.baseY, node),
+    at(frame.z, node) - at(frame.baseZ, node),
+  );
 
 /** The limb a load bears on, from where it leaves the trunk out to the load. */
 function limbOf(model: TreeModel, node: number): number[] {
@@ -44,7 +50,10 @@ function limbDrops(frame: TreeFrame, chain: readonly number[], load: Load, sag: 
     const radius = Math.max(at(frame.radius, node), 0.006);
     // Thick wood is far stiffer than a beam's law alone says: past a twig's girth it all but stops giving.
     const give = Math.min(1, (TWIG / radius) ** 2);
-    return Math.min((sag * Math.abs(load.weight) ** 0.5 * lever * pieceLength(frame, node) * give) / radius ** 4, MOST_TURN);
+    return Math.min(
+      (sag * Math.abs(load.weight) ** 0.5 * lever * pieceLength(frame, node) * give) / radius ** 4,
+      MOST_TURN,
+    );
   });
   return chain.map((node, i) => {
     let sum = 0;
@@ -65,7 +74,10 @@ function loadDrop(model: TreeModel, frame: TreeFrame, load: Load, drop: Float32A
   const chain = limbOf(model, load.node);
   if (chain.length === 0) return;
   const drops = limbDrops(frame, chain, load, sag);
-  const reach = chain.reduce((sum, node) => sum + horizontal(frame, at(frame.baseX, node), at(frame.baseZ, node), node), 0);
+  const reach = chain.reduce(
+    (sum, node) => sum + horizontal(frame, at(frame.baseX, node), at(frame.baseZ, node), node),
+    0,
+  );
   const deepest = drops[drops.length - 1] ?? 0;
   const cap = Math.min(MOST_SAG, reach * MOST_SAG_SHARE + 0.02);
   const scale = (deepest > cap ? cap / deepest : 1) * Math.sign(load.weight);
@@ -84,8 +96,22 @@ function loadDrop(model: TreeModel, frame: TreeFrame, load: Load, drop: Float32A
  * its arrays (the same object comes back, so a renderer can tell it is the
  * same pose); everything but the positions is shared with `frame`.
  */
-export function bendFrame(model: TreeModel, frame: TreeFrame, loads: readonly Load[], out?: TreeFrame, sag = WOOD_SAG): TreeFrame {
-  const target = out ?? { ...frame, x: new Float32Array(frame.x), y: new Float32Array(frame.y), z: new Float32Array(frame.z), baseX: new Float32Array(frame.baseX), baseY: new Float32Array(frame.baseY), baseZ: new Float32Array(frame.baseZ) };
+export function bendFrame(
+  model: TreeModel,
+  frame: TreeFrame,
+  loads: readonly Load[],
+  out?: TreeFrame,
+  sag = WOOD_SAG,
+): TreeFrame {
+  const target = out ?? {
+    ...frame,
+    x: new Float32Array(frame.x),
+    y: new Float32Array(frame.y),
+    z: new Float32Array(frame.z),
+    baseX: new Float32Array(frame.baseX),
+    baseY: new Float32Array(frame.baseY),
+    baseZ: new Float32Array(frame.baseZ),
+  };
   target.x.set(frame.x);
   target.z.set(frame.z);
   target.baseX.set(frame.baseX);
@@ -96,7 +122,8 @@ export function bendFrame(model: TreeModel, frame: TreeFrame, loads: readonly Lo
     return target;
   }
   const drop = new Float32Array(model.count);
-  for (const load of loads) if (load.weight !== 0 && load.node > 0 && load.node < model.count) loadDrop(model, frame, load, drop, sag);
+  for (const load of loads)
+    if (load.weight !== 0 && load.node > 0 && load.node < model.count) loadDrop(model, frame, load, drop, sag);
   for (let node = 0; node < model.count; node += 1) {
     target.y[node] = at(frame.y, node) - at(drop, node);
     const parent = at(model.parent, node);

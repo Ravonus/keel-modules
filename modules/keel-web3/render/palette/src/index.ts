@@ -15,7 +15,9 @@ export function parseHexColor(value: string): number[] {
   if (match?.[1] === undefined) throw new TypeError(`Invalid color ${value}.`);
   const hex = match[1];
   const alpha = match[2];
-  return [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).concat(alpha === undefined ? 255 : Number.parseInt(alpha, 16));
+  return [0, 2, 4]
+    .map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16))
+    .concat(alpha === undefined ? 255 : Number.parseInt(alpha, 16));
 }
 
 /**
@@ -38,7 +40,9 @@ export function rgba(color: ColorChannels): string {
  */
 export function mixColors(left: ColorChannels, right: ColorChannels, amount: number): number[] {
   const t = Math.min(Math.max(amount, 0), 1);
-  return Array.from({ length: 4 }, (_, index) => Math.round((left[index] ?? 255) + ((right[index] ?? 255) - (left[index] ?? 255)) * t));
+  return Array.from({ length: 4 }, (_, index) =>
+    Math.round((left[index] ?? 255) + ((right[index] ?? 255) - (left[index] ?? 255)) * t),
+  );
 }
 
 /** Throws unless the value is a non-empty array; guards untyped JS callers. */

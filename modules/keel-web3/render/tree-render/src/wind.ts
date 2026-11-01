@@ -41,7 +41,16 @@ const gustAt = (elapsed: number, along: number): number => {
  * eases back after it; limbs far from the trunk give a little more. In still
  * air it only breathes.
  */
-export function sway(out: Offset, x: number, y: number, z: number, elapsed: number, wind: number, height: number, dir = 0): Offset {
+export function sway(
+  out: Offset,
+  x: number,
+  y: number,
+  z: number,
+  elapsed: number,
+  wind: number,
+  height: number,
+  dir = 0,
+): Offset {
   const reach = clamp(y / Math.max(height, 1), 0, 1.4);
   const spread = Math.min(Math.hypot(x, z) / Math.max(height * 0.5, 0.5), 1.5);
   const dx = Math.cos(dir);
@@ -51,9 +60,17 @@ export function sway(out: Offset, x: number, y: number, z: number, elapsed: numb
   // The lean: always downwind, steady with the breeze and swelling with the gust.
   const lean = wind * (0.5 + 1.0 * gust) * reach * reach * 0.3 * (1 + 0.15 * Math.sin(elapsed * 0.9 + along * 0.4));
   // Small give in the outer twigs, quick and short, mostly along the wind.
-  const flick = (wind * 0.022 + 0.003) * reach * (0.3 + spread) * (Math.sin(elapsed * 2.2 + x * 2.1 + y * 1.3) * (0.4 + gust) + 0.5 * gust);
+  const flick =
+    (wind * 0.022 + 0.003) *
+    reach *
+    (0.3 + spread) *
+    (Math.sin(elapsed * 2.2 + x * 2.1 + y * 1.3) * (0.4 + gust) + 0.5 * gust);
   const across = flick * 0.35 * Math.cos(elapsed * 1.7 + z * 1.9 + y);
-  const idle = 0.014 * reach * (Math.sin(elapsed * 0.6 + y * 0.3) + 0.6 * Math.sin(elapsed * 0.97 + 2.1)) * (1 - Math.min(1, wind * 3) * 0.5);
+  const idle =
+    0.014 *
+    reach *
+    (Math.sin(elapsed * 0.6 + y * 0.3) + 0.6 * Math.sin(elapsed * 0.97 + 2.1)) *
+    (1 - Math.min(1, wind * 3) * 0.5);
   const downwind = lean + flick;
   out.x = dx * downwind - dz * across + idle;
   out.z = dz * downwind + dx * across + idle * 0.7 * Math.cos(elapsed * 0.83 + x * 0.4);
@@ -72,5 +89,9 @@ export function leafFlutter(elapsed: number, wind: number, rank: number, phase: 
   const gust = gustAt(elapsed, along);
   const tremble = wind * (0.12 + 0.45 * gust) * Math.sin(elapsed * (6 + rank * 4) + rank * 40);
   const flip = wind * gust * 1.6 * (0.6 + 0.4 * Math.sin(elapsed * 1.6 + rank * 19));
-  return { droop: 0.35 + 0.25 * rank + idle - flip * 0.3, twist: rank * TAU * 0.25 + tremble * 0.8 + flip, nod: idle * 1.5 + tremble * 0.35 };
+  return {
+    droop: 0.35 + 0.25 * rank + idle - flip * 0.3,
+    twist: rank * TAU * 0.25 + tremble * 0.8 + flip,
+    nod: idle * 1.5 + tremble * 0.35,
+  };
 }

@@ -64,7 +64,13 @@ export function tierOf(s: DeviceSignals, cls: DeviceClass): DeviceTier {
 export function profileOf(s: DeviceSignals, options: ProfileOptions = {}): DeviceProfile {
   const cls = options.force ?? classOf(s);
   const tier = tierOf(s, cls);
-  return { class: cls, tier, uniforms: s.uniforms, parts: PARTS[tier], pixelRatio: Math.min(s.pixelRatio, RATIO[tier]) };
+  return {
+    class: cls,
+    tier,
+    uniforms: s.uniforms,
+    parts: PARTS[tier],
+    pixelRatio: Math.min(s.pixelRatio, RATIO[tier]),
+  };
 }
 
 interface NavigatorHints { readonly userAgentData?: { readonly mobile?: boolean }; readonly deviceMemory?: number }

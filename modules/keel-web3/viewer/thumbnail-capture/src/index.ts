@@ -78,7 +78,10 @@ export function thumbnailAfter(delayMs: number, label = "hero"): void {
  * @returns The initializer's resolved value.
  * @throws Error when no thumbnail-aware viewer runtime is present.
  */
-export async function thumbnailAfterInit<T>(initializer: () => T | PromiseLike<T>, options: ThumbnailAfterInitOptions = {}): Promise<T> {
+export async function thumbnailAfterInit<T>(
+  initializer: () => T | PromiseLike<T>,
+  options: ThumbnailAfterInitOptions = {},
+): Promise<T> {
   thumbnailInit(options.label);
   const value = await initializer();
   thumbnailAfter(options.delayMs ?? 0, options.label);

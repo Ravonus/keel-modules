@@ -99,7 +99,22 @@ export function atlasFrames(atlas: unknown): AtlasFrame[] {
  * @param frame Source rectangle in sheet pixels.
  * @param destination Destination rectangle in context pixels.
  */
-export function drawFrame(context: DrawTarget, image: CanvasImageSource, frame: SpriteRect, destination: SpriteRect): void {
+export function drawFrame(
+  context: DrawTarget,
+  image: CanvasImageSource,
+  frame: SpriteRect,
+  destination: SpriteRect,
+): void {
   context.imageSmoothingEnabled = false;
-  context.drawImage(image, frame.x, frame.y, frame.width, frame.height, destination.x, destination.y, destination.width, destination.height);
+  context.drawImage(
+    image,
+    frame.x,
+    frame.y,
+    frame.width,
+    frame.height,
+    destination.x,
+    destination.y,
+    destination.width,
+    destination.height,
+  );
 }

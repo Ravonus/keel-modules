@@ -17,9 +17,11 @@ const PANEL_LONG = 0.72;
 /** How softly the lead goes from one knee to the other, metres. */
 const PASSING = 0.03;
 /** Where a panel hinges, in front of or behind the hips by their width, the front over the top of the thighs: on the surface, so what turns lies on the lap and not under it. */
-const HINGE_OUT = 0.6, HINGE_UP = 0.11;
+const HINGE_OUT = 0.6;
+const HINGE_UP = 0.11;
 /** How far the front of a skirt is shoved ahead of a leg coming forward, of how far the knee has come. */
-const PUSHED = 0.4, PUSHED_MOST = 0.05;
+const PUSHED = 0.4;
+const PUSHED_MOST = 0.05;
 
 /** How far the leg leading a panel has come. The further of the two knees, without the corner where they pass each other: cloth has no way to reverse in an instant. */
 function ledOf({ left, right }: Skeleton, side: 1 | -1): number {
@@ -29,11 +31,18 @@ function ledOf({ left, right }: Skeleton, side: 1 | -1): number {
 
 /** A panel of a skirt, from between the hips to level with the knees: the front is pushed by whichever leg leads, the back by whichever trails, so neither leg ever comes through it. */
 function panelOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
-  const { left, right } = s, from = lerpV(left.leg.hip, right.leg.hip, 0.5);
+  const { left, right } = s;
+  const from = lerpV(left.leg.hip, right.leg.hip, 0.5);
   const led = ledOf(s, side);
   const z = (led * side > 0 ? led : side > 0 ? 0 : Math.max(0, led) * BACK_DRAWN) * PANEL_LONG;
-  const span = Math.hypot(...sub(left.leg.knee, left.leg.hip)) * PANEL_LONG, down = Math.sqrt(Math.max(0, span * span - z * z));
-  const hinge = add(from, [0, side > 0 ? HINGE_UP : 0, side * Math.abs(left.leg.hip[0] - right.leg.hip[0]) * HINGE_OUT + (side > 0 ? Math.min(z * PUSHED, PUSHED_MOST) : 0)]);
+  const span = Math.hypot(...sub(left.leg.knee, left.leg.hip)) * PANEL_LONG;
+  const down = Math.sqrt(Math.max(0, span * span - z * z));
+  const hinge = add(from, [
+    0,
+    side > 0 ? HINGE_UP : 0,
+    side * Math.abs(left.leg.hip[0] - right.leg.hip[0]) * HINGE_OUT +
+      (side > 0 ? Math.min(z * PUSHED, PUSHED_MOST) : 0),
+  ]);
   return [hinge, add(hinge, [0, -down, z])];
 }
 
@@ -83,13 +92,15 @@ export const boneIndex = (name: string): number => BONES.findIndex(([bone]) => b
 /** Where a body was a moment ago: what its cloth is still answering to. */
 interface Late { readonly panel: Skeleton; readonly hang: Skeleton }
 /** How far behind the legs cloth is, seconds: it arrives after them, the hem after the rest. */
-export const PANEL_LATE = 0.06, HANG_LATE = 0.14;
+export const PANEL_LATE = 0.06;
+export const HANG_LATE = 0.14;
 const CLOTH_LATE: ReadonlyMap<number, readonly ["panel" | "hang", 1 | -1]> = new Map([["skirt.front", "panel", 1], ["skirt.back", "panel", -1], ["hang.front", "hang", 1], ["hang.back", "hang", -1]].map(([bone, when, side]) => [boneIndex(bone as string), [when, side] as ["panel" | "hang", 1 | -1]]));
 /** What a piece of cloth answers to: a leg shoves it at once, but what the leg has left comes after it late. */
 function clothTime(bone: number, now: Skeleton, late?: Late): Skeleton {
   const piece = CLOTH_LATE.get(bone);
   if (!late || !piece) return now;
-  const [when, side] = piece, then = late[when];
+  const [when, side] = piece;
+  const then = late[when];
   return ledOf(then, side) * side > ledOf(now, side) * side ? then : now;
 }
 
@@ -143,8 +154,10 @@ const TURNS: readonly number[] = [-0.6, 0.5, 1];
 
 /** How far round a forearm takes the roll of its hand: half, the rest in the wrist, so neither is wrung. */
 function halfRolled(swing: readonly [Vec, Vec, Vec], hand: readonly [Vec, Vec, Vec]): readonly [Vec, Vec, Vec] {
-  const [x, along, z] = swing, a = Math.atan2(dot(cross(x, hand[0]), along), dot(x, hand[0])) / 2;
-  const c = Math.cos(a), s = Math.sin(a);
+  const [x, along, z] = swing;
+  const a = Math.atan2(dot(cross(x, hand[0]), along), dot(x, hand[0])) / 2;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
   return [add(scale(x, c), scale(z, -s)), along, add(scale(x, s), scale(z, c))];
 }
 
@@ -154,12 +167,26 @@ export function bonesOf(p: Person, now: Skeleton, late?: Late): Float32Array {
   const k = p.build.size;
   const out = new Float32Array(BONES.length * 12);
   BONES.forEach(([, joints], i) => {
-    const [ra, rb] = joints(rest), [na, nb] = joints(clothTime(i, now, late));
-    const hand = HAND_BONES.get(i), arm = FOREARMS.get(i);
-    const r = hand ? handFrame(ra, rb, rest[hand].arm.knuckles) : arm ? handFrame(ra, rb, rest[arm].arm.knuckles) : boneFrame(ra, rb);
-    const m = arm ? halfRolled(swungFrame(r, ra, rb, na, nb), handFrame(na, nb, now[arm].arm.knuckles)) : hand ? handFrame(na, nb, now[hand].arm.knuckles) : ARM_BONES.has(i) ? swungFrame(r, ra, rb, na, nb) : boneFrame(na, nb, i === HEAD ? now.turn : now.spin * (TURNS[i] ?? 0));
+    const [ra, rb] = joints(rest);
+    const [na, nb] = joints(clothTime(i, now, late));
+    const hand = HAND_BONES.get(i);
+    const arm = FOREARMS.get(i);
+    const r = hand
+      ? handFrame(ra, rb, rest[hand].arm.knuckles)
+      : arm
+        ? handFrame(ra, rb, rest[arm].arm.knuckles)
+        : boneFrame(ra, rb);
+    const m = arm
+      ? halfRolled(swungFrame(r, ra, rb, na, nb), handFrame(na, nb, now[arm].arm.knuckles))
+      : hand
+        ? handFrame(na, nb, now[hand].arm.knuckles)
+        : ARM_BONES.has(i)
+          ? swungFrame(r, ra, rb, na, nb)
+          : boneFrame(na, nb, i === HEAD ? now.turn : now.spin * (TURNS[i] ?? 0));
     for (let row = 0; row < 3; row += 1) {
-      const line: Vec = [0, 1, 2].map((c) => r.reduce((sum, axis, j) => sum + (m[j]?.[row] ?? 0) * (axis[c] ?? 0), 0)) as unknown as Vec;
+      const line: Vec = [0, 1, 2].map((c) =>
+        r.reduce((sum, axis, j) => sum + (m[j]?.[row] ?? 0) * (axis[c] ?? 0), 0),
+      ) as unknown as Vec;
       out.set(line, i * 12 + row * 4);
       out[i * 12 + row * 4 + 3] = (na[row] ?? 0) * k - (line[0] * ra[0] + line[1] * ra[1] + line[2] * ra[2]) * k;
     }

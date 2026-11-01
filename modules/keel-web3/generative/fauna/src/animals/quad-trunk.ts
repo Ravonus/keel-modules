@@ -16,7 +16,9 @@ import { grizzled, markOf } from "./bodies.js";
 import type { Who } from "./bodies.js";
 
 /** Tails: how each rises and curls, its girth and segments, and its thickness down its length (root to tip). */
-const TAILS: Readonly<Record<Tail, { rise: number; curl: number; girth: number; n: number; profile: readonly number[]; root?: number }>> = {
+const TAILS: Readonly<
+  Record<Tail, { rise: number; curl: number; girth: number; n: number; profile: readonly number[]; root?: number }>
+> = {
   bushy: { rise: 0.1, curl: -0.12, girth: 0.6, n: 3, profile: [0.5, 0.95, 0.9, 0.4] },
   curl: { rise: 1.25, curl: 0.5, girth: 0.6, n: 4, profile: [0.55, 0.95, 1, 0.9, 0.55] },
   // (A thin tail falls from the rump and curves up toward its tip, a J, never a straight stick.)
@@ -45,8 +47,22 @@ function tailLay(b: Build, body: QuadBody, q: Pose, t: number): (i: number) => V
   const held = Math.max(0, 1 - settled) * (1 - nosing(b, q) * 0.8);
   return (i) => {
     const [climb, sway] = b.tailLine?.[i] ?? [0, 0, 0];
-    const wag = q.tailWag * 0.6 * Math.sin(t * 8 - i * 0.8) + 0.15 * Math.sin(t * 1.3 - i) + q.curl * 0.9 + wrap * (0.55 + i * 0.5) + sway * held;
-    const rise = shape.rise + b.tailRise * (1 - settled) + q.tailUp * 0.9 + shape.curl * i + (i === shape.n - 1 ? hook : 0) - q.sit * 0.7 - q.lie * 0.4 - wrap * 0.6 + climb * held;
+    const wag =
+      q.tailWag * 0.6 * Math.sin(t * 8 - i * 0.8) +
+      0.15 * Math.sin(t * 1.3 - i) +
+      q.curl * 0.9 +
+      wrap * (0.55 + i * 0.5) +
+      sway * held;
+    const rise =
+      shape.rise +
+      b.tailRise * (1 - settled) +
+      q.tailUp * 0.9 +
+      shape.curl * i +
+      (i === shape.n - 1 ? hook : 0) -
+      q.sit * 0.7 -
+      q.lie * 0.4 -
+      wrap * 0.6 +
+      climb * held;
     return dirOf(Math.PI + wag, rise);
   };
 }
@@ -55,7 +71,13 @@ function tailLay(b: Build, body: QuadBody, q: Pose, t: number): (i: number) => V
 const TAIL_BANDS = [0.36, 0.51, 0.66, 0.81, 0.98] as const;
 
 /** A banded tail's dark rings, each a flat disc a touch wider than the tail where it lies, so it paints an even band right round it; the last is its whole tip. */
-function tailBands(kit: Kit, path: readonly Vec[], girth: number, profile: readonly number[], gene: () => number): void {
+function tailBands(
+  kit: Kit,
+  path: readonly Vec[],
+  girth: number,
+  profile: readonly number[],
+  gene: () => number,
+): void {
   TAIL_BANDS.forEach((rest, j) => {
     // (Each animal's rings fall a little differently; the tip stays a tip.)
     const k = j < TAIL_BANDS.length - 1 ? rest + mix(-0.04, 0.04, gene()) : rest;
@@ -64,7 +86,17 @@ function tailBands(kit: Kit, path: readonly Vec[], girth: number, profile: reado
     const at = lerpV(path[i] ?? UP, path[i + 1] ?? UP, f);
     const r = girth * mix(profile[i] ?? 1, profile[i + 1] ?? 1, f);
     const along = unit(sub(path[i + 1] ?? UP, path[i] ?? UP));
-    cap(kit, `tail.ring.${j}`, "dark", at, at, r * (j < TAIL_BANDS.length - 1 ? 1.35 : 1.14), j < TAIL_BANDS.length - 1 ? 0.25 : 1, along, { decal: true, melt: 0.5 });
+    cap(
+      kit,
+      `tail.ring.${j}`,
+      "dark",
+      at,
+      at,
+      r * (j < TAIL_BANDS.length - 1 ? 1.35 : 1.14),
+      j < TAIL_BANDS.length - 1 ? 0.25 : 1,
+      along,
+      { decal: true, melt: 0.5 },
+    );
   });
 }
 
@@ -79,11 +111,23 @@ function quadTail(kit: Kit, actor: Who, body: QuadBody, q: Pose, t: number): voi
   const b = buildOf(actor);
   const shape = TAILS[b.tail];
   // (A hedgehog's is a bare nub low on its rump, under the skirt.)
-  if (b.tail === "stub") { const root = add(body.P, [0, -body.r * 0.25, -body.r * 0.5]); cone(kit, "tail", "accent", root, add(root, [0, -body.r * 0.22, -body.r * 0.2]), body.r * shape.girth, body.r * shape.girth * 0.6, 0.5); return; }
+  if (b.tail === "stub") { const root = add(body.P, [0, -body.r * 0.25, -body.r * 0.5]);
+  cone(
+    kit,
+    "tail",
+    "accent",
+    root,
+    add(root, [0, -body.r * 0.22, -body.r * 0.2]),
+    body.r * shape.girth,
+    body.r * shape.girth * 0.6,
+    0.5,
+  );
+  return; }
   if (shape.n === 0) return;
   const hu = body.r * b.haunch;
   let at = add(body.P, [0, hu * 0.35, -hu * 0.8]);
-  if (b.tail === "puff") { ball(kit, "tail", "belly", add(body.P, [0, hu * 0.55, -hu * 0.88]), body.r * shape.girth * b.tailGirth); return; }
+  if (b.tail === "puff") { ball(kit, "tail", "belly", add(body.P, [0, hu * 0.55, -hu * 0.88]), body.r * shape.girth * b.tailGirth);
+  return; }
   const girth = body.r * shape.girth * b.tailGirth;
   const lay = tailLay(b, body, q, t);
   const path: Vec[] = [at];
@@ -110,7 +154,8 @@ function quadTrunk(kit: Kit, actor: Who, body: QuadBody): void {
   const ch = r * b.chest;
   const hu = r * b.haunch;
   // (A tortoise is all shell: its trunk would only stand out of it.)
-  if (extras.includes("shell")) { shellOf(kit, body); return; }
+  if (extras.includes("shell")) { shellOf(kit, body);
+  return; }
   if (b.torso) {
     // The species' own outline along the spine, however the spine lies (standing, sat up, lying).
     const f = unit(sub(S, P), [0, 0, 1]);
@@ -141,9 +186,25 @@ function coatMarks(kit: Kit, actor: Who, b: Build, body: QuadBody): void {
   if (extras.includes("rump")) spot("rump", "belly", add(P, [0, hu * 0.25, -hu * 0.95]), hu * 0.72);
   if (extras.includes("stripes") && !extras.includes("mask")) {
     // A skunk's pale pair down the back where its second colour is the lighter, a mongoose's dark bands across it where it is the darker.
-    const tone = (hex: string): number => { const [cr, cg, cb] = hexRgb(hex); return cr * 0.3 + cg * 0.59 + cb * 0.11; };
-    if (tone(actor.member.palette.alt) > tone(actor.member.palette.coat)) for (const x of [-1, 1]) decal(kit, "stripe", "alt", add(S, [x * r * 0.42, ch * 0.92, ch * 0.2]), add(P, [x * r * 0.42, hu * 0.92, -hu * 0.3]), r * 0.28);
-    else for (const k of [0.15, 0.38, 0.62, 0.85]) { const c = lerpV(P, S, k); decal(kit, "stripe", "alt", add(c, [-r * 1.1, r * 0.55, 0]), add(c, [r * 1.1, r * 0.55, 0]), r * 0.16); }
+    const tone = (hex: string): number => {
+      const [cr, cg, cb] = hexRgb(hex);
+      return cr * 0.3 + cg * 0.59 + cb * 0.11;
+    };
+    if (tone(actor.member.palette.alt) > tone(actor.member.palette.coat))
+      for (const x of [-1, 1])
+        decal(
+          kit,
+          "stripe",
+          "alt",
+          add(S, [x * r * 0.42, ch * 0.92, ch * 0.2]),
+          add(P, [x * r * 0.42, hu * 0.92, -hu * 0.3]),
+          r * 0.28,
+        );
+    else
+      for (const k of [0.15, 0.38, 0.62, 0.85]) {
+        const c = lerpV(P, S, k);
+        decal(kit, "stripe", "alt", add(c, [-r * 1.1, r * 0.55, 0]), add(c, [r * 1.1, r * 0.55, 0]), r * 0.16);
+      }
   }
   if (extras.includes("spots") && actor.member.young) for (let i = 0; i < 5; i += 1) spot("spot", "accent", add(lerpV(P, S, 0.15 + i * 0.17), [((i % 2) * 2 - 1) * r * 0.45, r * 0.8, 0]), r * 0.2);
 }
@@ -155,7 +216,12 @@ function coatMarks(kit: Kit, actor: Who, b: Build, body: QuadBody): void {
  * `plateGrain`), and the shell's own grain stops it flat at its rim, where
  * its sides have come down to a near-upright wall, so it is a dome and never a ball.
  */
-const CARAPACE: readonly Station[] = [[-0.03, 0.76, 0.76, 0.84], [0.4, 1.38, 1.38, 1.1], [0.72, 1.12, 1.12, 1], [1.1, 0.6, 0.6, 0.7]];
+const CARAPACE: readonly Station[] = [
+  [-0.03, 0.76, 0.76, 0.84],
+  [0.4, 1.38, 1.38, 1.1],
+  [0.72, 1.12, 1.12, 1],
+  [1.1, 0.6, 0.6, 0.7],
+];
 export const shellHeart = (body: QuadBody): Vec => lerpV(body.P, body.S, 0.45);
 /** The dome as a shell's grain takes it: half width, height and half length. */
 export const domeOf = (body: QuadBody): Vec => [body.r * 1.2, body.r * 1.38, body.L / 2 + body.r * 0.8];
@@ -180,7 +246,12 @@ function shellOf(kit: Kit, body: QuadBody): void {
  * `quillGrain`), so they keep to it and leave the face, the belly and the
  * feet soft.
  */
-const MANTLE: readonly Station[] = [[0, 0.96, 0.7, 0.92], [0.37, 1.44, 0.7, 1.12], [1, 1.02, 0.7, 0.76], [1.8, 0.585, -0.185, 0.15]];
+const MANTLE: readonly Station[] = [
+  [0, 0.96, 0.7, 0.92],
+  [0.37, 1.44, 0.7, 1.12],
+  [1, 1.02, 0.7, 0.76],
+  [1.8, 0.585, -0.185, 0.15],
+];
 export function mantleLine(body: QuadBody, k: number): Vec {
   return add(lerpV(body.P, body.S, k), [0, body.r * 0.12, 0]);
 }

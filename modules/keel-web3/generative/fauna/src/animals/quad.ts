@@ -21,9 +21,19 @@ import type { Who } from "./bodies.js";
  * lies), never one straight spine tipped up from the hip.
  */
 export interface QuadBody {
-  readonly P: Vec; readonly S: Vec; readonly r: number; readonly w: number; readonly L: number;
-  readonly legF: number; readonly legH: number;
-  readonly sit: number; readonly loaf: number; readonly lie: number; readonly rump: number; readonly haunch: number; readonly rear: number;
+  readonly P: Vec;
+  readonly S: Vec;
+  readonly r: number;
+  readonly w: number;
+  readonly L: number;
+  readonly legF: number;
+  readonly legH: number;
+  readonly sit: number;
+  readonly loaf: number;
+  readonly lie: number;
+  readonly rump: number;
+  readonly haunch: number;
+  readonly rear: number;
   readonly gait: QuadGait;
   /** 0 standing still, 1 striding (and not resting). */
   readonly free: number;
@@ -98,18 +108,33 @@ function leaping(gait: QuadGait, phase: number): number {
   return clamp(up * 9, -1, 1);
 }
 
-function strideOf(gait: QuadGait, m: Moment, q: Pose, size: number, r: number, free: number): { lift: number; flex: number; reach: number } {
+function strideOf(
+  gait: QuadGait,
+  m: Moment,
+  q: Pose,
+  size: number,
+  r: number,
+  free: number,
+): { lift: number; flex: number; reach: number } {
   const cyc = TAU * m.phase;
   const arc = airborne(gait, m.phase);
   // (A leap gathers on the ground: it sinks over its feet, drives up nose first and comes down nose first.)
   const bob = gait.bob * size * Math.cos(cyc * 2) + gait.air * size * (arc - 0.08 * (1 - arc) ** 2);
   const hop = q.hop * 0.3 * size * (gait.air > 0 ? 2 : 1.6);
   const lift = -q.crouch * 0.25 * size + free * bob + q.lift * r + hop;
-  return { lift, flex: free * size * (gait.flex * Math.sin(cyc) + gait.air * 0.55 * leaping(gait, m.phase)), reach: free * (gait.flex * size * 0.7 * Math.cos(cyc) + gait.air * size * 0.3 * arc) };
+  return {
+    lift,
+    flex: free * size * (gait.flex * Math.sin(cyc) + gait.air * 0.55 * leaping(gait, m.phase)),
+    reach: free * (gait.flex * size * 0.7 * Math.cos(cyc) + gait.air * size * 0.3 * arc),
+  };
 }
 
 /** How far into each way of resting: an action's sit becomes this animal's own sit (a deer lies, a bear sits back). */
-function restsOf(b: Build, q: Pose, m: Moment): { sit: number; loaf: number; rump: number; haunch: number; lie: number; rear: number } {
+function restsOf(
+  b: Build,
+  q: Pose,
+  m: Moment,
+): { sit: number; loaf: number; rump: number; haunch: number; lie: number; rear: number } {
   const own = (style: SitStyle): number => (b.sit === style ? q.sit : 0);
   const lie = b.sit === "lie" || b.sit === "tuck" ? Math.max(q.lie, q.sit) : q.lie;
   const loaf = own("loaf");
@@ -170,7 +195,23 @@ export function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
   const belly = free > 0 ? r * 1.5 : -Infinity;
   P = [P[0], Math.max(P[1] + lift - flex, Math.min(P[1], belly)), P[2] - reach];
   S = [S[0], Math.max(S[1] + lift + flex, Math.min(S[1], belly)), S[2] + reach];
-  return { P, S, r, w: r * (b.stance ?? 0.72), L, legF: (shY - r * 0.45) * (bipedal(b) ? b.fore : 1), legH: hipY - r * 0.2, sit, loaf, lie, rump, haunch, rear, gait, free };
+  return {
+    P,
+    S,
+    r,
+    w: r * (b.stance ?? 0.72),
+    L,
+    legF: (shY - r * 0.45) * (bipedal(b) ? b.fore : 1),
+    legH: hipY - r * 0.2,
+    sit,
+    loaf,
+    lie,
+    rump,
+    haunch,
+    rear,
+    gait,
+    free,
+  };
 }
 
 /** Each foot's share of its leg: the paw's pastern and hock, a hoof's long cannon, a sole laid flat. */
@@ -210,7 +251,11 @@ function stanceFoot(b: Build, body: QuadBody, leg: LegId, q: Pose): FootPlan {
     foot = lerpV(foot, [x * w, 0, S[2] + legF * 0.55], q.bow);
     tilt = mix(tilt, -1.3, q.bow);
     const rear = bipedal(b) ? 1 : body.rear * (1 - body.sit) * (1 - body.lie);
-    foot = lerpV(foot, add(S, bipedal(b) ? [x * w * 1.05, -legF * 0.62, legF * 0.62] : [x * w * 0.9, -legF * 0.42, legF * 0.3]), rear);
+    foot = lerpV(
+      foot,
+      add(S, bipedal(b) ? [x * w * 1.05, -legF * 0.62, legF * 0.62] : [x * w * 0.9, -legF * 0.42, legF * 0.3]),
+      rear,
+    );
     tilt = mix(tilt, 1.0, rear);
     return { foot, tilt };
   }
@@ -285,7 +330,15 @@ function poleOf(fore: boolean, body: QuadBody, b: Build, x: number): Vec {
 }
 
 /** A leg as it was drawn, for what a body spends on it last: its joints and what its foot stands on. */
-export interface LegLine { readonly name: string; readonly root: Vec; readonly mid: Vec; readonly sole: Vec; readonly ground: number; readonly legR: number; readonly x: number }
+export interface LegLine {
+  readonly name: string;
+  readonly root: Vec;
+  readonly mid: Vec;
+  readonly sole: Vec;
+  readonly ground: number;
+  readonly legR: number;
+  readonly x: number;
+}
 
 export function quadLeg(kit: Kit, actor: Who, body: QuadBody, leg: LegId, plan: FootPlan, lines: LegLine[]): void {
   const b = buildOf(actor);
@@ -297,15 +350,25 @@ export function quadLeg(kit: Kit, actor: Who, body: QuadBody, leg: LegId, plan: 
   const reach = (fore ? body.legF : body.legH) + hidden;
   const { share, lean, upper, lower } = lowOf(b, fore);
   const lowLen = reach * share;
-  const root = fore ? add(body.S, [x * body.w * 0.85, hidden - body.r * 0.45, -body.r * 0.1]) : add(body.P, [x * body.w, hidden - body.r * 0.2, hidden * 0.6]);
+  const root = fore
+    ? add(body.S, [x * body.w * 0.85, hidden - body.r * 0.45, -body.r * 0.1])
+    : add(body.P, [x * body.w, hidden - body.r * 0.2, hidden * 0.6]);
   const span = Math.max(1e-4, reach - lowLen * Math.cos(lean));
   const dir: Vec = [0, Math.cos(plan.tilt), Math.sin(plan.tilt) * (fore ? 1 : -1)];
   const plantR = legR * (b.legMake ? 0.72 : SOLE[b.foot]);
   const sole: Vec = add(plan.foot, [0, plantR, 0]);
-  const { mid, end } = solveTwoBone(root, madd(sole, dir, lowLen), span * upper, span * lower, poleOf(fore, body, b, x));
+  const { mid, end } = solveTwoBone(
+    root,
+    madd(sole, dir, lowLen),
+    span * upper,
+    span * lower,
+    poleOf(fore, body, b, x),
+  );
   const name = `leg.${leg}`;
   const [r0, r1, r2, r3] = taperOf(b, fore);
-  if (b.extras.includes("shell")) { columnLeg(kit, name, [root, mid, end], [r0, r1, r2, r3], legR, fore); stumpFoot(kit, name, sole, legR, fore, x); return; }
+  if (b.extras.includes("shell")) { columnLeg(kit, name, [root, mid, end], [r0, r1, r2, r3], legR, fore);
+  stumpFoot(kit, name, sole, legR, fore, x);
+  return; }
   lines.push({ name, root, mid, sole, ground: plan.foot[1], legR, x });
   cone(kit, `${name}.upper`, "coat", root, mid, legR * r0, legR * r1);
   cone(kit, `${name}.lower`, "coat", mid, end, legR * r2, legR * r3, b.legMake ? 0.8 : 0.45);
@@ -314,7 +377,14 @@ export function quadLeg(kit: Kit, actor: Who, body: QuadBody, leg: LegId, plan: 
 }
 
 /** A tortoise's leg: a tapered column, the foreleg's front flattened into a shield for its big scales. */
-function columnLeg(kit: Kit, name: string, [root, mid, end]: readonly [Vec, Vec, Vec], [r0, r1, r2, r3]: readonly [number, number, number, number], legR: number, fore: boolean): void {
+function columnLeg(
+  kit: Kit,
+  name: string,
+  [root, mid, end]: readonly [Vec, Vec, Vec],
+  [r0, r1, r2, r3]: readonly [number, number, number, number],
+  legR: number,
+  fore: boolean,
+): void {
   const flat = fore ? 0.78 : 1;
   cap(kit, `${name}.upper`, "coat", root, mid, legR * r0, flat, [0, 0, 1], { r1: legR * r1, melt: 0.6 });
   cap(kit, `${name}.lower`, "coat", mid, end, legR * r2, flat, [0, 0, 1], { r1: legR * r3, melt: 0.5 });
@@ -332,16 +402,42 @@ function lowOf(b: Build, fore: boolean): { share: number; lean: number; upper: n
   return { share: bipedal(b) ? 0.42 : low.hind, lean: low.hindTilt, upper: 0.56, lower: 0.56 };
 }
 
-const taperOf = (b: Build, fore: boolean): readonly [number, number, number, number] => (fore ? b.legMake?.fore ?? b.taper?.fore ?? LEG_TAPER.fore : b.legMake?.hind ?? b.taper?.hind ?? LEG_TAPER.hind);
+const taperOf = (b: Build, fore: boolean): readonly [number, number, number, number] =>
+  fore ? (b.legMake?.fore ?? b.taper?.fore ?? LEG_TAPER.fore) : (b.legMake?.hind ?? b.taper?.hind ?? LEG_TAPER.hind);
 
 const softRole = (b: Build): Role => (b.extras.includes("mitts") ? "belly" : b.extras.includes("socks") ? "dark" : "coat");
 
 /** The foot of a soft leg: a low oval paw the leg flows into with no neck above it, its pale fur running up into the leg. */
 function softPaw(kit: Kit, b: Build, name: string, sole: Vec, legR: number, fore: boolean): void {
-  if (b.extras.includes("toes")) { toedPaw(kit, name, sole, legR, fore); return; }
-  cap(kit, `${name}.paw`, softRole(b), madd(sole, [0, 0, 1], -legR * 0.2), madd(sole, [0, 0, 1], legR * 0.75), legR * 1.18, 0.62, UP, { melt: 0.9 });
+  if (b.extras.includes("toes")) {
+    toedPaw(kit, name, sole, legR, fore);
+    return;
+  }
+  cap(
+    kit,
+    `${name}.paw`,
+    softRole(b),
+    madd(sole, [0, 0, 1], -legR * 0.2),
+    madd(sole, [0, 0, 1], legR * 0.75),
+    legR * 1.18,
+    0.62,
+    UP,
+    { melt: 0.9 },
+  );
   // (A raccoon's forepaw is a hand: two lines over its front part three fingers, each a blade deep enough to follow the paw's curve.)
-  if (fore && b.extras.includes("fingers")) for (const x of [-1, 1]) cap(kit, `${name}.finger`, "alt", add(sole, [x * legR * 0.36, legR * 0.3, legR * 0.8]), add(sole, [x * legR * 0.44, legR * 0.05, legR * 1.5]), legR * 0.6, 0.16, [1, 0, 0], { decal: true });
+  if (fore && b.extras.includes("fingers"))
+    for (const x of [-1, 1])
+      cap(
+        kit,
+        `${name}.finger`,
+        "alt",
+        add(sole, [x * legR * 0.36, legR * 0.3, legR * 0.8]),
+        add(sole, [x * legR * 0.44, legR * 0.05, legR * 1.5]),
+        legR * 0.6,
+        0.16,
+        [1, 0, 0],
+        { decal: true },
+      );
 }
 
 /** An elephant's foot on a tortoise: the column's end spread round and flat on the ground, a row of stout blunt nails of pale horn along its toe edge, turned out a little. */
@@ -362,13 +458,25 @@ function toedPaw(kit: Kit, name: string, sole: Vec, legR: number, fore: boolean)
 }
 
 /** A kind's paw, in leg radii: its toes, how long and stout a claw is and how far it curls under, how wide the toes fan; `sheathed` claws stay in until they are wanted. */
-interface Paw { readonly toes: number; readonly long: number; readonly stout: number; readonly curl: number; readonly fan: number; readonly sheathed?: boolean }
+interface Paw {
+  readonly toes: number;
+  readonly long: number;
+  readonly stout: number;
+  readonly curl: number;
+  readonly fan: number;
+  readonly sheathed?: boolean;
+}
 const PAW: Paw = { toes: 4, long: 0.36, stout: 0.15, curl: 0.45, fan: 0.6 };
 const PAWS: Partial<Readonly<Record<string, Paw>>> = {
   cat: { toes: 4, long: 0.46, stout: 0.13, curl: 0.8, fan: 0.62, sheathed: true },
-  bear: { toes: 5, long: 0.8, stout: 0.18, curl: 0.62, fan: 0.8 }, badger: { toes: 5, long: 0.85, stout: 0.15, curl: 0.3, fan: 0.72 }, koala: { toes: 5, long: 0.75, stout: 0.13, curl: 0.9, fan: 0.74 },
-  marmot: { toes: 4, long: 0.62, stout: 0.14, curl: 0.4, fan: 0.66 }, squirrel: { toes: 4, long: 0.6, stout: 0.1, curl: 0.95, fan: 0.66 }, mouse: { toes: 4, long: 0.5, stout: 0.09, curl: 0.7, fan: 0.7 },
-  rabbit: { toes: 4, long: 0.3, stout: 0.14, curl: 0.3, fan: 0.46 }, wolf: { toes: 4, long: 0.4, stout: 0.17, curl: 0.35, fan: 0.56 },
+  bear: { toes: 5, long: 0.8, stout: 0.18, curl: 0.62, fan: 0.8 },
+  badger: { toes: 5, long: 0.85, stout: 0.15, curl: 0.3, fan: 0.72 },
+  koala: { toes: 5, long: 0.75, stout: 0.13, curl: 0.9, fan: 0.74 },
+  marmot: { toes: 4, long: 0.62, stout: 0.14, curl: 0.4, fan: 0.66 },
+  squirrel: { toes: 4, long: 0.6, stout: 0.1, curl: 0.95, fan: 0.66 },
+  mouse: { toes: 4, long: 0.5, stout: 0.09, curl: 0.7, fan: 0.7 },
+  rabbit: { toes: 4, long: 0.3, stout: 0.14, curl: 0.3, fan: 0.46 },
+  wolf: { toes: 4, long: 0.4, stout: 0.17, curl: 0.35, fan: 0.56 },
 };
 /** The acts a sheathed claw comes out for. */
 const CLAW_ACTS: readonly Action[] = ["scratch", "stalk", "climb", "rear", "play", "hang"];
@@ -390,7 +498,10 @@ function pawDigits(kit: Kit, b: Build, line: LegLine, paw: Paw, out: number, gen
   const long = legR * paw.long * mix(0.85, 1.15, gene());
   const toe = legR * mix(0.54, 0.68, gene());
   const edge: Vec = [sole[0] + x * legR * 0.08, ground + legR * 0.26, sole[2] + legR * 0.72];
-  const row = (o: Vec): { a: Vec; b: Vec } => ({ a: add(o, [-span, 0, -legR * 0.06]), b: add(o, [span, 0, -legR * 0.06]) });
+  const row = (o: Vec): { a: Vec; b: Vec } => ({
+    a: add(o, [-span, 0, -legR * 0.06]),
+    b: add(o, [span, 0, -legR * 0.06]),
+  });
   // (Claws a cat has just put out matter more than its toes, so they go last.)
   const toes = row(edge);
   cap(kit, `${name}.toes`, b.legMake ? softRole(b) : "dark", toes.a, toes.b, legR * 0.26, 0.8, UP, { row: paw.toes, reach: [0, -legR * 0.02, toe], melt: 0.32, shadow: false, detail: paw.sheathed && out >= 0.05 ? 2 : 1 });
@@ -410,7 +521,8 @@ export function legFinish(kit: Kit, actor: Who, lines: readonly LegLine[], m: Mo
   const paw = PAWS[actor.member.species] ?? PAW;
   const gene = createRandom(markOf(actor) ^ 0x7ac3119d);
   const shape = [gene(), gene(), gene()];
-  if (b.foot !== "hoof" && !b.extras.includes("toes") && !b.extras.includes("fingers")) for (const line of lines) { let i = 0; pawDigits(kit, b, line, paw, clawsOut(paw, m), () => shape[i++] ?? 0.5); }
+  if (b.foot !== "hoof" && !b.extras.includes("toes") && !b.extras.includes("fingers")) for (const line of lines) { let i = 0;
+  pawDigits(kit, b, line, paw, clawsOut(paw, m), () => shape[i++] ?? 0.5); }
   for (const line of lines) legMass(kit, line);
   // (A deer's slim leg shows its joints: a knobbed knee or hock, the fetlock over each hoof.)
   if (b.foot === "hoof") for (const { name, mid, legR } of lines) cap(kit, `${name}.knee`, "coat", mid, mid, legR * 0.72, 0.9, [1, 0, 0], { melt: 0.5, shadow: false, detail: 2 });

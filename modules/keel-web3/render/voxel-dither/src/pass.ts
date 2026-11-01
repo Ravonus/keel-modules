@@ -50,15 +50,51 @@ export interface VoxelDither {
 
 function createUniforms(): Record<string, Uniform> {
   return {
-    tColor: { value: null }, tDepth: { value: null }, uGrid: { value: [1, 1] }, uPixel: { value: 1 }, uOrigin: { value: [0, 0] },
-    uScreen: { value: [2, 3, 8] }, uScale: { value: [1, 1, 1] },
-    uAmount: { value: [1, 1, 1] }, uBands: { value: [18, 30] }, uLevels: { value: 6 }, uSnap: { value: 0 }, uLift: { value: 0 }, uClump: { value: 0 }, uRamp: { value: 0 }, uLuma: { value: 1 }, uPaletteSize: { value: 0 },
-    uAccentSize: { value: 0 }, uAccent: { value: new Float32Array(12) }, uAccentLab: { value: new Float32Array(12) }, uSkySaturation: { value: 1 },
-    uPalette: { value: new Float32Array(96) }, uPaletteLab: { value: new Float32Array(96) }, uOutline: { value: 0.9 }, uOutlineColor: { value: [0, 0, 0, 0] }, uCrease: { value: 0.35 },
-    uContrast: { value: 1 }, uSaturation: { value: 1 }, uSkyFrom: { value: 100 }, uRaySource: { value: [0.5, 0.5] }, uRayColor: { value: [1, 1, 1] },
-    uRayStrength: { value: 0 }, uRayDecay: { value: 0.95 }, uRayDensity: { value: 0.8 }, tLook: { value: null },
-    uScanlines: { value: 0 }, uChroma: { value: 0 }, uGlitch: { value: 0 }, uTime: { value: 0 }, uSignal: { value: new Float32Array(9) }, uFilter: { value: new Float32Array(6) },
-    tDetail: { value: null }, tDetailDepth: { value: null }, tCoarse: { value: null }, uFine: { value: 1 }, uPass: { value: 0 },
+    tColor: { value: null },
+    tDepth: { value: null },
+    uGrid: { value: [1, 1] },
+    uPixel: { value: 1 },
+    uOrigin: { value: [0, 0] },
+    uScreen: { value: [2, 3, 8] },
+    uScale: { value: [1, 1, 1] },
+    uAmount: { value: [1, 1, 1] },
+    uBands: { value: [18, 30] },
+    uLevels: { value: 6 },
+    uSnap: { value: 0 },
+    uLift: { value: 0 },
+    uClump: { value: 0 },
+    uRamp: { value: 0 },
+    uLuma: { value: 1 },
+    uPaletteSize: { value: 0 },
+    uAccentSize: { value: 0 },
+    uAccent: { value: new Float32Array(12) },
+    uAccentLab: { value: new Float32Array(12) },
+    uSkySaturation: { value: 1 },
+    uPalette: { value: new Float32Array(96) },
+    uPaletteLab: { value: new Float32Array(96) },
+    uOutline: { value: 0.9 },
+    uOutlineColor: { value: [0, 0, 0, 0] },
+    uCrease: { value: 0.35 },
+    uContrast: { value: 1 },
+    uSaturation: { value: 1 },
+    uSkyFrom: { value: 100 },
+    uRaySource: { value: [0.5, 0.5] },
+    uRayColor: { value: [1, 1, 1] },
+    uRayStrength: { value: 0 },
+    uRayDecay: { value: 0.95 },
+    uRayDensity: { value: 0.8 },
+    tLook: { value: null },
+    uScanlines: { value: 0 },
+    uChroma: { value: 0 },
+    uGlitch: { value: 0 },
+    uTime: { value: 0 },
+    uSignal: { value: new Float32Array(9) },
+    uFilter: { value: new Float32Array(6) },
+    tDetail: { value: null },
+    tDetailDepth: { value: null },
+    tCoarse: { value: null },
+    uFine: { value: 1 },
+    uPass: { value: 0 },
   };
 }
 
@@ -111,8 +147,19 @@ interface Pass {
 }
 
 /** A full-screen quad drawn with one fragment shader. */
-function createPass(lit: LitLike, geometry: DisposableLike, uniforms: Record<string, Uniform>, fragmentShader: string): Pass {
-  const material = new lit.CustomMaterial({ uniforms, vertexShader: VERTEX_GLSL, fragmentShader, depthTest: false, depthWrite: false });
+function createPass(
+  lit: LitLike,
+  geometry: DisposableLike,
+  uniforms: Record<string, Uniform>,
+  fragmentShader: string,
+): Pass {
+  const material = new lit.CustomMaterial({
+    uniforms,
+    vertexShader: VERTEX_GLSL,
+    fragmentShader,
+    depthTest: false,
+    depthWrite: false,
+  });
   const quad = new lit.Mesh(geometry, material);
   quad.frustumCulled = false;
   const scene = new lit.Stage();
@@ -137,7 +184,14 @@ function writeRays(uniforms: Record<string, Uniform>, rays: RaySpec | null, view
 
 interface Pipeline {
   resize(grid: PixelGrid): void;
-  draw(renderer: RendererLike, scene: unknown, view: CameraLike, settings: DitherSettings, rays: RaySpec | null, detail: ReadonlySet<NodeLike>): void;
+  draw(
+    renderer: RendererLike,
+    scene: unknown,
+    view: CameraLike,
+    settings: DitherSettings,
+    rays: RaySpec | null,
+    detail: ReadonlySet<NodeLike>,
+  ): void;
   dispose(): void;
 }
 
@@ -174,7 +228,14 @@ function drawScene(renderer: RendererLike, scene: unknown, view: CameraLike, tar
 }
 
 /** The look at grid size and, when split, the detail parts' look over it; returns the target the blit shows. */
-function drawLook(renderer: RendererLike, post: Pass, quad: unknown, uniforms: Record<string, Uniform>, targets: Targets, split: number): RenderTargetLike {
+function drawLook(
+  renderer: RendererLike,
+  post: Pass,
+  quad: unknown,
+  uniforms: Record<string, Uniform>,
+  targets: Targets,
+  split: number,
+): RenderTargetLike {
   setUniform(uniforms, "uFine", split);
   setUniform(uniforms, "uPass", 0);
   // A pass never samples its own target, so the world's look is bound only to the detail pass.
@@ -196,14 +257,26 @@ function drawLook(renderer: RendererLike, post: Pass, quad: unknown, uniforms: R
  * world pass and the look at grid size run.
  */
 function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeline {
-  const targets: Targets = { world: createTarget(lit, true), look: createTarget(lit, false), detail: createTarget(lit, true), detailLook: createTarget(lit, false) };
+  const targets: Targets = {
+    world: createTarget(lit, true),
+    look: createTarget(lit, false),
+    detail: createTarget(lit, true),
+    detailLook: createTarget(lit, false),
+  };
   const { world: target, look: lookTarget, detail: detailTarget, detailLook } = targets;
   let split = 1;
   const camera: Readonly<Record<"near" | "far" | "ortho" | "sky", Uniform>> = { near: { value: 0.1 }, far: { value: 100 }, ortho: { value: 0 }, sky: { value: 100 } };
   Object.assign(uniforms, {
-    tColor: { value: target.texture }, tDepth: { value: target.depthTexture }, tLook: { value: lookTarget.texture },
-    tDetail: { value: detailTarget.texture }, tDetailDepth: { value: detailTarget.depthTexture }, tCoarse: { value: detailLook.texture },
-    uNear: camera.near, uFar: camera.far, uOrtho: camera.ortho, uSkyFrom: camera.sky,
+    tColor: { value: target.texture },
+    tDepth: { value: target.depthTexture },
+    tLook: { value: lookTarget.texture },
+    tDetail: { value: detailTarget.texture },
+    tDetailDepth: { value: detailTarget.depthTexture },
+    tCoarse: { value: detailLook.texture },
+    uNear: camera.near,
+    uFar: camera.far,
+    uOrtho: camera.ortho,
+    uSkyFrom: camera.sky,
   });
   const geometry = lit.plane(2, 2);
   const post = createPass(lit, geometry, uniforms, FRAGMENT_GLSL);
@@ -289,7 +362,9 @@ export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: 
     shade(root) {
       root.traverse((node) => {
         if (node.isMesh !== true || node.material === undefined) return;
-        node.material = Array.isArray(node.material) ? node.material.map((entry) => cel.swap(entry, settings.shading)) : cel.swap(node.material, settings.shading);
+        node.material = Array.isArray(node.material)
+          ? node.material.map((entry) => cel.swap(entry, settings.shading))
+          : cel.swap(node.material, settings.shading);
       });
     },
     setRays(next) {

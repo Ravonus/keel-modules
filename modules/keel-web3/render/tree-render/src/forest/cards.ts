@@ -77,7 +77,13 @@ export interface Cards {
   idle: number;
 }
 
-export function createCards(lit: ForestLitLike, baked: readonly CardRow[], count: number, options: ForestOptions, lod: Vector4Like): Cards {
+export function createCards(
+  lit: ForestLitLike,
+  baked: readonly CardRow[],
+  count: number,
+  options: ForestOptions,
+  lod: Vector4Like,
+): Cards {
   const frames = options.frames ?? 8;
   const cell = options.cell ?? 160;
   const target = new lit.RenderTarget(frames * cell, baked.length * cell, { depthBuffer: true });
@@ -86,17 +92,40 @@ export function createCards(lit: ForestLitLike, baked: readonly CardRow[], count
     return new lit.Vector3(box?.half ?? 1, box?.height ?? 1, box?.base ?? 0);
   });
   const uniforms: Record<string, { value: unknown }> = {
-    uAtlas: { value: target.texture }, uFrames: { value: frames }, uRows: { value: baked.length }, uBox: { value: boxes },
-    uLight: { value: new lit.Vector3(1, 1, 1) }, uFogColor: { value: new lit.Vector3(1, 1, 1) }, uFog: { value: { x: 0, y: 0 } }, uLod: { value: lod },
+    uAtlas: { value: target.texture },
+    uFrames: { value: frames },
+    uRows: { value: baked.length },
+    uBox: { value: boxes },
+    uLight: { value: new lit.Vector3(1, 1, 1) },
+    uFogColor: { value: new lit.Vector3(1, 1, 1) },
+    uFog: { value: { x: 0, y: 0 } },
+    uLod: { value: lod },
   };
-  const material = new lit.CustomMaterial({ uniforms, vertexShader: CARD_VERTEX, fragmentShader: CARD_FRAGMENT, side: "both" });
+  const material = new lit.CustomMaterial({
+    uniforms,
+    vertexShader: CARD_VERTEX,
+    fragmentShader: CARD_FRAGMENT,
+    side: "both",
+  });
   const card = new Float32Array(Math.max(1, count) * 2);
   const geometry = lit.plane(1, 1);
   geometry.setAttribute("aCard", new lit.InstanceAttribute(card, 2));
   const mesh = new lit.Instances(geometry, material, Math.max(1, count));
   mesh.frustumCulled = false;
   mesh.count = 0;
-  return { mesh, material, uniforms, card, target, frames, cell, rows: baked, capacity: Math.max(1, count), key: "", idle: 0 };
+  return {
+    mesh,
+    material,
+    uniforms,
+    card,
+    target,
+    frames,
+    cell,
+    rows: baked,
+    capacity: Math.max(1, count),
+    key: "",
+    idle: 0,
+  };
 }
 
 /** Renders every variant from `frames` angles round it into one atlas row each. */
@@ -123,7 +152,15 @@ export function bakeCards(lit: ForestLitLike, renderer: RendererLike, cards: Car
   renderer.autoClear = autoClear;
 }
 
-function bakeRow(lit: ForestLitLike, renderer: RendererLike, cards: Cards, scene: NodeLike, light: NodeLike, variant: CardRow, row: number): void {
+function bakeRow(
+  lit: ForestLitLike,
+  renderer: RendererLike,
+  cards: Cards,
+  scene: NodeLike,
+  light: NodeLike,
+  variant: CardRow,
+  row: number,
+): void {
   const { half, height, base } = variant.box;
   const mesh = new lit.Mesh(variant.geometry, variant.material);
   scene.add(mesh);

@@ -20,14 +20,18 @@ export function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): 
   const swayB: Offset = { x: 0, z: 0 };
   for (let node = 0; node < model.count; node += 1) {
     const fallen = at(frame.fall, node) > 0;
-    if (at(frame.grow, node) <= 0 || at(frame.rot, node) >= 1 || (fallen && !tree.features.deadwood)) { clearSlot(array, node); continue; }
+    if (at(frame.grow, node) <= 0 || at(frame.rot, node) >= 1 || (fallen && !tree.features.deadwood)) { clearSlot(array, node);
+    continue; }
     const radius = at(frame.radius, node) * (1 - at(frame.rot, node) * 0.7);
     const a: [number, number, number] = [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)];
     const b: [number, number, number] = [at(frame.x, node), at(frame.y, node), at(frame.z, node)];
     if (!fallen && !tree.still) {
       sway(offset, a[0], a[1], a[2], motion.elapsed, wind, height, motion.windDir);
       sway(swayB, b[0], b[1], b[2], motion.elapsed, wind, height, motion.windDir);
-      a[0] += offset.x; a[2] += offset.z; b[0] += swayB.x; b[2] += swayB.z;
+      a[0] += offset.x;
+      a[2] += offset.z;
+      b[0] += swayB.x;
+      b[2] += swayB.z;
     }
     writeSegment(array, node, a, b, radius);
   }
@@ -46,8 +50,15 @@ function poseRoots(tree: Tree, frame: TreeFrameLike, array: Float32Array): void 
     if (!tree.features.roots || trunk < 0.06) continue;
     if (!tree.smooth) {
       const reach = (0.25 + trunk * 2.4) * root.reach;
-      const c = Math.cos(root.angle), s = Math.sin(root.angle);
-      writeSegment(array, first, [c * trunk * 0.5, ground.y + trunk * 0.9, s * trunk * 0.5], [c * reach, ground.y + 0.02, s * reach], trunk * 0.42);
+      const c = Math.cos(root.angle);
+      const s = Math.sin(root.angle);
+      writeSegment(
+        array,
+        first,
+        [c * trunk * 0.5, ground.y + trunk * 0.9, s * trunk * 0.5],
+        [c * reach, ground.y + 0.02, s * reach],
+        trunk * 0.42,
+      );
       continue;
     }
     // A palm's roots are a short fibrous flare at its foot, never long runners.
@@ -55,7 +66,14 @@ function poseRoots(tree: Tree, frame: TreeFrameLike, array: Float32Array): void 
     // Till a tree is old its roots stay within the inner part of the planter; an old one's run to the lip and over it.
     const reach = tree.features.rootSink && trunk < ROOT_OLD ? (ground.rootReach ?? ground.radius) * 0.42 : Infinity;
     const plan = breaks[index] ?? NO_ROOT_BREAK;
-    poseRootPath(array, first, rootPath(root, trunk, ground, plan), tree.features.rootSink ? ROOT_SINK : 0, parts, plan.heave > 0 ? Infinity : reach);
+    poseRootPath(
+      array,
+      first,
+      rootPath(root, trunk, ground, plan),
+      tree.features.rootSink ? ROOT_SINK : 0,
+      parts,
+      plan.heave > 0 ? Infinity : reach,
+    );
   }
 }
 
@@ -87,9 +105,14 @@ function poseShards(tree: Tree, trunk: number): void {
     for (let slot = 0; slot < ROOT_SHARDS; slot += 1) {
       const shard = shards[slot];
       const place = index * ROOT_SHARDS + slot;
-      if (!shard) { clearSlot(array, place); continue; }
+      if (!shard) { clearSlot(array, place);
+      continue; }
       writeShard(array, place, shard);
-      tree.a.set(shard.tone === HOLE_TONE ? (colors[0] ?? SHARD_COLORS[0]) : (colors[Math.min(shard.tone, colors.length - 1)] ?? SHARD_COLORS[0]));
+      tree.a.set(
+        shard.tone === HOLE_TONE
+          ? (colors[0] ?? SHARD_COLORS[0])
+          : (colors[Math.min(shard.tone, colors.length - 1)] ?? SHARD_COLORS[0]),
+      );
       mesh.setColorAt(place, shard.tone === HOLE_TONE ? tree.a.multiplyScalar(0.28) : tree.a);
     }
   }
@@ -99,8 +122,12 @@ function poseShards(tree: Tree, trunk: number): void {
 
 /** A chunk turned to face out from the planter at its angle, tipped out by `tilt` and rolled about its outward axis. */
 export function writeShard(array: Float32Array, index: number, shard: RootShard): void {
-  const c = Math.cos(shard.angle), n = Math.sin(shard.angle);
-  const ct = Math.cos(shard.tilt), st = Math.sin(shard.tilt), cr = Math.cos(shard.roll), sr = Math.sin(shard.roll);
+  const c = Math.cos(shard.angle);
+  const n = Math.sin(shard.angle);
+  const ct = Math.cos(shard.tilt);
+  const st = Math.sin(shard.tilt);
+  const cr = Math.cos(shard.roll);
+  const sr = Math.sin(shard.roll);
   // Tangent, up and out; up tips toward out by tilt, then up and tangent turn about out by roll.
   const tangent = [-n, 0, c];
   const up = [c * st, ct, n * st];
@@ -127,7 +154,14 @@ const ROOT_SINK = 0.06;
 /** The trunk radius past which a tree is old enough for its roots to reach the planter's lip. */
 const ROOT_OLD = 0.45;
 
-function poseRootPath(array: Float32Array, first: number, path: readonly RootPoint[], sink: number, parts: number, reach: number): void {
+function poseRootPath(
+  array: Float32Array,
+  first: number,
+  path: readonly RootPoint[],
+  sink: number,
+  parts: number,
+  reach: number,
+): void {
   for (let part = 0; part < parts; part += 1) {
     const p = path[part];
     const q = path[part + 1];
@@ -144,7 +178,8 @@ export function strainColors(tree: Tree, node: number): TreeColors {
 }
 
 /** The strain an internode belongs to, if the tree has strains. */
-export const strainAt = (tree: Tree, node: number): TreeStrain | undefined => (tree.strainOf && node < tree.model.count ? tree.strains[at(tree.strainOf, node)] : undefined);
+export const strainAt = (tree: Tree, node: number): TreeStrain | undefined =>
+  tree.strainOf && node < tree.model.count ? tree.strains[at(tree.strainOf, node)] : undefined;
 
 /** How far a leaf hangs below its twig on a weeping strain: strands of uneven length. */
 export function strainDrop(tree: Tree, node: number, index: number): number {

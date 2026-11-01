@@ -183,7 +183,18 @@ export interface Material {
  * (negative for more), `drift` how far its shade wanders over the body.
  */
 export interface Pattern {
-  readonly kind: "dapple" | "spots" | "stripes" | "streaks" | "bars" | "chevrons" | "mackerel" | "patches" | "grizzle" | "tips" | "scutes";
+  readonly kind:
+    | "dapple"
+    | "spots"
+    | "stripes"
+    | "streaks"
+    | "bars"
+    | "chevrons"
+    | "mackerel"
+    | "patches"
+    | "grizzle"
+    | "tips"
+    | "scutes";
   readonly role: string;
   /** A colour of its own (hex) in place of its role's: a shade of the coat. */
   readonly color?: string;

@@ -55,13 +55,33 @@ const KEY_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A",
 
 /** What can be auditioned, with labels, for a picker. */
 export const LOFI_PARTS = Object.freeze({
-  progressions: Object.entries(SONGS).map(([id, song]) => ({ id, mode: song.mode, label: song.label, tempo: song.tempo, keys: song.keys, lead: song.lead })),
-  keys: [5, 3, 2, 0, 10, 7, 9].map((pc) => ({ id: pc, label: `${KEY_NAMES[pc] ?? "C"} major · ${KEY_NAMES[(pc + 9) % 12] ?? "A"} minor` })),
+  progressions: Object.entries(SONGS).map(([id, song]) => ({
+    id,
+    mode: song.mode,
+    label: song.label,
+    tempo: song.tempo,
+    keys: song.keys,
+    lead: song.lead,
+  })),
+  keys: [5, 3, 2, 0, 10, 7, 9].map((pc) => ({
+    id: pc,
+    label: `${KEY_NAMES[pc] ?? "C"} major · ${KEY_NAMES[(pc + 9) % 12] ?? "A"} minor`,
+  })),
   grooves: ["Boom bap", "Lazy pocket", "Rolling", "Half-time", "Brushes"],
   comps: ["Held pads", "Push and answer", "Short stabs", "Rocking", "Half-bar swells", "Broken chord"],
   bassLines: ["Root and push", "Root, fifth, octave", "Long root", "Walking", "Sparse"],
-  keysVoices: [["felt", "Felt piano"], ["rhodes", "Electric piano"], ["organ", "Soft organ"], ["nylon", "Nylon guitar"]],
-  leads: [["kalimba", "Kalimba"], ["musicbox", "Music box"], ["flute", "Wooden flute"], ["vibes", "Vibraphone"]],
+  keysVoices: [
+    ["felt", "Felt piano"],
+    ["rhodes", "Electric piano"],
+    ["organ", "Soft organ"],
+    ["nylon", "Nylon guitar"],
+  ],
+  leads: [
+    ["kalimba", "Kalimba"],
+    ["musicbox", "Music box"],
+    ["flute", "Wooden flute"],
+    ["vibes", "Vibraphone"],
+  ],
   stages: ["sprout", "sapling", "young", "mature", "old", "ancient", "dead"],
   seasons: ["spring", "summer", "autumn", "winter"],
 } as const);
@@ -131,7 +151,9 @@ export interface LofiScore {
   readonly structure: string;
 }
 
-const SEASON_MOODS: Readonly<Record<string, { readonly mode: LofiMode; readonly bpm: number; readonly cutoff: number; readonly space: number }>> = {
+const SEASON_MOODS: Readonly<
+  Record<string, { readonly mode: LofiMode; readonly bpm: number; readonly cutoff: number; readonly space: number }>
+> = {
   spring: { mode: "major", bpm: 2, cutoff: 1, space: 0.32 },
   summer: { mode: "major", bpm: 3, cutoff: 1.08, space: 0.28 },
   autumn: { mode: "minor", bpm: -2, cutoff: 0.86, space: 0.36 },
@@ -162,10 +184,49 @@ const STAGE_LAYERS: Readonly<Record<GrowthStage, Partial<LofiLayers>>> = {
   ancient: { keys: 0.8, bud: 0.5, wood: 0.3, hat: 0.4, kick: 0.6, snare: 0.5, bass: 0.75, melody: 0.6 },
   dead: { keys: 0.7 },
 };
-const STAGE_TEMPO: Readonly<Record<GrowthStage, number>> = { sprout: -2, sapling: -1, young: 0, mature: 0, old: -3, ancient: -5, dead: -12 };
-const STAGE_DENSITY: Readonly<Record<GrowthStage, number>> = { sprout: 0, sapling: 0, young: 0, mature: 0.9, old: 0.65, ancient: 0.45, dead: 0 };
-const STAGE_BUD: Readonly<Record<GrowthStage, number>> = { sprout: 2, sapling: 3, young: 4, mature: 5, old: 5, ancient: 4, dead: 0 };
-export const NO_LAYERS: LofiLayers = { keys: 0, bass: 0, melody: 0, bud: 0, kick: 0, snare: 0, wood: 0, hat: 0, crackle: 0, hiss: 0, rain: 0, wind: 0, birds: 0, crickets: 0 };
+const STAGE_TEMPO: Readonly<Record<GrowthStage, number>> = {
+  sprout: -2,
+  sapling: -1,
+  young: 0,
+  mature: 0,
+  old: -3,
+  ancient: -5,
+  dead: -12,
+};
+const STAGE_DENSITY: Readonly<Record<GrowthStage, number>> = {
+  sprout: 0,
+  sapling: 0,
+  young: 0,
+  mature: 0.9,
+  old: 0.65,
+  ancient: 0.45,
+  dead: 0,
+};
+const STAGE_BUD: Readonly<Record<GrowthStage, number>> = {
+  sprout: 2,
+  sapling: 3,
+  young: 4,
+  mature: 5,
+  old: 5,
+  ancient: 4,
+  dead: 0,
+};
+export const NO_LAYERS: LofiLayers = {
+  keys: 0,
+  bass: 0,
+  melody: 0,
+  bud: 0,
+  kick: 0,
+  snare: 0,
+  wood: 0,
+  hat: 0,
+  crackle: 0,
+  hiss: 0,
+  rain: 0,
+  wind: 0,
+  birds: 0,
+  crickets: 0,
+};
 
 /** Places pitch classes as a close voicing starting at each rotation, and keeps the one nearest the previous voicing. */
 function voiceLead(pitchClasses: readonly number[], previous: readonly number[]): number[] {
@@ -178,7 +239,8 @@ function voiceLead(pitchClasses: readonly number[], previous: readonly number[])
     if (top > KEYS_RANGE[1]) continue;
     const mean = voicing.reduce((sum, note) => sum + note, 0) / voicing.length;
     const cost = Math.abs(mean - centre) + (previous.length > 0 ? 0 : Math.abs(mean - 62));
-    if (cost < bestCost) { bestCost = cost; best = voicing; }
+    if (cost < bestCost) { bestCost = cost;
+    best = voicing; }
   }
   return best;
 }
@@ -257,7 +319,9 @@ const WEATHER_AIR: Readonly<Record<string, Air>> = {
   snow: { rain: 0, wind: 0.2, hush: 0.8, shade: 0.72, space: 0.1 },
 };
 const airOf = (weather: string | undefined): Air => WEATHER_AIR[weather ?? "clear"] ?? { rain: 0, wind: 0, hush: 1, shade: 1, space: 0 };
-const STAGE_DUST: Readonly<Record<GrowthStage, { readonly crackle: number; readonly hiss: number; readonly shade: number; readonly wow: number }>> = {
+const STAGE_DUST: Readonly<
+  Record<GrowthStage, { readonly crackle: number; readonly hiss: number; readonly shade: number; readonly wow: number }>
+> = {
   sprout: { crackle: 0.6, hiss: 0.5, shade: 1, wow: 0.25 },
   sapling: { crackle: 0.6, hiss: 0.5, shade: 1, wow: 0.25 },
   young: { crackle: 0.6, hiss: 0.5, shade: 1, wow: 0.25 },
@@ -322,7 +386,14 @@ const stageOf = (input: LofiInput): GrowthStage => growthStage(clamp(input.life 
 
 /** The song's own parts, the seed's nudge on its tempo, then any audition overrides. */
 function arrange(base: Song, picks: SeedPicks, song: LofiSong): Song {
-  const set = Object.entries({ tempo: song.tempo, groove: song.groove, comp: song.comp, bassLine: song.bassLine, keys: song.keys, lead: song.lead }).filter(([, value]) => value !== undefined);
+  const set = Object.entries({
+    tempo: song.tempo,
+    groove: song.groove,
+    comp: song.comp,
+    bassLine: song.bassLine,
+    keys: song.keys,
+    lead: song.lead,
+  }).filter(([, value]) => value !== undefined);
   return { ...base, tempo: base.tempo + picks.nudge, ...Object.fromEntries(set) };
 }
 
@@ -345,7 +416,8 @@ function choose(input: LofiInput, seed: number): Choices {
   };
 }
 
-const known = <T>(table: Readonly<Record<string, T>>, key: string | undefined, fallback: string): string => (key !== undefined && key in table ? key : fallback);
+const known = <T>(table: Readonly<Record<string, T>>, key: string | undefined, fallback: string): string =>
+  key !== undefined && key in table ? key : fallback;
 
 /** The whole score for one moment of a tree's life. Pure. */
 export function lofiScore(input: LofiInput): LofiScore {

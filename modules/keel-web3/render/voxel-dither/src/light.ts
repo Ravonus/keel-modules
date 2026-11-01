@@ -29,7 +29,11 @@ export interface ScreenLight {
  * Projects a world direction (a light at infinity) through a camera's view
  * and projection matrices (column-major, as keel/lit keeps them).
  */
-export function screenLight(view: ArrayLike<number>, projection: ArrayLike<number>, direction: readonly [number, number, number]): ScreenLight {
+export function screenLight(
+  view: ArrayLike<number>,
+  projection: ArrayLike<number>,
+  direction: readonly [number, number, number],
+): ScreenLight {
   const at = (m: ArrayLike<number>, index: number): number => m[index] ?? 0;
   const [dx, dy, dz] = direction;
   const vx = at(view, 0) * dx + at(view, 4) * dy + at(view, 8) * dz;
@@ -41,7 +45,11 @@ export function screenLight(view: ArrayLike<number>, projection: ArrayLike<numbe
   const length = Math.hypot(vx, vy, vz) || 1;
   const facing = Math.max(0, -vz / length);
   if (cw <= 1e-4) return { x: 0.5, y: 0.5, facing: 0 };
-  return { x: Math.max(-2, Math.min(3, (cx / cw) * 0.5 + 0.5)), y: Math.max(-2, Math.min(3, (cy / cw) * 0.5 + 0.5)), facing };
+  return {
+    x: Math.max(-2, Math.min(3, (cx / cw) * 0.5 + 0.5)),
+    y: Math.max(-2, Math.min(3, (cy / cw) * 0.5 + 0.5)),
+    facing,
+  };
 }
 
 
@@ -87,7 +95,8 @@ export function createCelShader(lit: LitLike, bands: number): CelShader {
     setBands(count) {
       gradient.dispose();
       gradient = ramp(count);
-      for (const toon of toons.values()) { toon.gradientMap = gradient; toon.needsUpdate = true; }
+      for (const toon of toons.values()) { toon.gradientMap = gradient;
+      toon.needsUpdate = true; }
     },
     swap(material, mode) {
       const source = material.userData.voxelDitherSource as MaterialLike | undefined;

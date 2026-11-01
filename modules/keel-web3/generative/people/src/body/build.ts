@@ -10,7 +10,12 @@ export const TALL = 1.72;
 
 const AGES: readonly (readonly [Age, number])[] = [["toddler", 0.7], ["child", 2.2], ["teen", 1.6], ["adult", 8], ["elder", 2]];
 
-interface Stage { readonly tall: readonly [number, number]; readonly heads: readonly [number, number]; readonly legs: readonly [number, number]; readonly narrow: number }
+interface Stage {
+  readonly tall: readonly [number, number];
+  readonly heads: readonly [number, number];
+  readonly legs: readonly [number, number];
+  readonly narrow: number;
+}
 
 /** Heads hardly vary, in a whole body's terms: `heads` is how many of them tall a person stands, so nobody short gets a huge one, nor anybody tall a tiny one. */
 const STAGES: Readonly<Record<Age, Stage>> = {
@@ -89,7 +94,19 @@ export function buildOf(rand: () => number): Build {
 const HANDS: Weighted<number> = [[1.5, 3], [0.98, 3], [0.56, 2.4], [0.18, 2]];
 
 /** What an age does to anyone's stride. */
-const AGE_GAIT: Readonly<Record<Age, { readonly cadence: number; readonly stride: number; readonly swing: number; readonly bounce: number; readonly flare: number; readonly lean: number }>> = {
+const AGE_GAIT: Readonly<
+  Record<
+    Age,
+    {
+      readonly cadence: number;
+      readonly stride: number;
+      readonly swing: number;
+      readonly bounce: number;
+      readonly flare: number;
+      readonly lean: number;
+    }
+  >
+> = {
   toddler: { cadence: 1.26, stride: 0.8, swing: 0.8, bounce: 1.2, flare: 0.14, lean: 0.03 },
   child: { cadence: 1.12, stride: 0.95, swing: 1.1, bounce: 1.25, flare: 0.03, lean: 0 },
   teen: { cadence: 1.03, stride: 1.02, swing: 1, bounce: 1.1, flare: 0, lean: 0 },
@@ -99,9 +116,14 @@ const AGE_GAIT: Readonly<Record<Age, { readonly cadence: number; readonly stride
 
 /** A person's own way of moving, from a stream of its own so it changes nothing of how they look. */
 export function gaitOf(rand: () => number, build: Build): Gait {
-  const age = AGE_GAIT[build.age], heavy = clamp(build.girth - 1, 0, 1);
-  const hand = weighted(rand, HANDS), other = rand() < 0.3 ? weighted(rand, HANDS) : hand, off = mix(-0.08, 0.08, rand());
-  const easy = mix(0.2, 0.62, rand()), elbow = mix(0.95, 1.95, rand()), odd = mix(-0.2, 0.2, rand());
+  const age = AGE_GAIT[build.age];
+  const heavy = clamp(build.girth - 1, 0, 1);
+  const hand = weighted(rand, HANDS);
+  const other = rand() < 0.3 ? weighted(rand, HANDS) : hand;
+  const off = mix(-0.08, 0.08, rand());
+  const easy = mix(0.2, 0.62, rand());
+  const elbow = mix(0.95, 1.95, rand());
+  const odd = mix(-0.2, 0.2, rand());
   const lazy = rand() < 0.3 ? (rand() < 0.5 ? -1 : 1) : 0;
   return {
     cadence: mix(0.93, 1.09, rand()) * age.cadence * (build.sex === "female" ? 1.04 : 1),

@@ -14,7 +14,12 @@ import type { Who } from "./bodies.js";
  * synth, pastel in vapor, crystal in crystal, spirit in the cosmos.
  */
 export type Morph = "normal" | "albino" | "melanistic" | "golden" | "spirit" | "piebald" | "leucistic" | "erythristic" | "neon" | "pastel" | "crystal";
-export const MORPHS: Readonly<Record<Morph, { readonly label: string; readonly rarity: Rarity; readonly glow: number; readonly lit?: readonly Role[] }>> = {
+export const MORPHS: Readonly<
+  Record<
+    Morph,
+    { readonly label: string; readonly rarity: Rarity; readonly glow: number; readonly lit?: readonly Role[] }
+  >
+> = {
   normal: { label: "", rarity: "common", glow: 0 },
   albino: { label: "albino", rarity: "epic", glow: 0 },
   melanistic: { label: "black", rarity: "epic", glow: 0 },
@@ -49,11 +54,15 @@ export const WILD_SKINS: readonly (readonly [Morph, number])[] = [
  * ring frame their own).
  */
 export interface EyeStyle {
-  readonly pupil: "round" | "slit" | "bar" | "dark" | "bead"; readonly size: number; readonly rim: boolean; readonly almond: number;
+  readonly pupil: "round" | "slit" | "bar" | "dark" | "bead";
+  readonly size: number;
+  readonly rim: boolean;
+  readonly almond: number;
   /** Set low in the face, a flat dome with its spark on it: past the edge of the head it hides, and no fleck of it shows on the rim. */
   readonly set?: boolean;
   /** Its upper lid's share of the eye, where its pupil's usual one will not do, and its spark's size, a share of the eye (a tortoise's heavy lid and clear catchlight). */
-  readonly lid?: number; readonly spark?: number;
+  readonly lid?: number;
+  readonly spark?: number;
   /** Its lid is bare skin, not the coat (a macaque's). */
   readonly skinLid?: boolean;
 }
@@ -92,9 +101,12 @@ const IRIS: Partial<Record<SpeciesId, string>> = {
   tanuki: "#2a1a10", possum: "#1a1210", loris: "#4a3018", mongoose: "#8a5a1a", kookaburra: "#3a2414", guineafowl: "#5a2414",
 };
 
-export const hexRgb = (hex: string): [number, number, number] => { const v = Number.parseInt(hex.slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+export const hexRgb = (hex: string): [number, number, number] => { const v = Number.parseInt(hex.slice(1), 16);
+return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
 const rgbHex = (rgb: readonly number[]): string => `#${rgb.map((c) => Math.round(clamp(c, 0, 255)).toString(16).padStart(2, "0")).join("")}`;
-export const mixColor = (a: string, b: string, k: number): string => { const x = hexRgb(a); const y = hexRgb(b); return rgbHex(x.map((c, i) => mix(c, y[i] ?? c, k))); };
+export const mixColor = (a: string, b: string, k: number): string => { const x = hexRgb(a);
+const y = hexRgb(b);
+return rgbHex(x.map((c, i) => mix(c, y[i] ?? c, k))); };
 
 export type CoatColors = readonly [string, string, string, string, string];
 
@@ -132,7 +144,9 @@ function skinOf(base: Palette, morph: Morph): Palette {
 }
 
 /** Part way to its own grey: a plain coat sits in the scene's tones and leaves the loud colours to the tree. */
-const muted = (hex: string, k: number): string => { const [r, g, b] = hexRgb(hex); const y = r * 0.3 + g * 0.59 + b * 0.11; return rgbHex([r, g, b].map((c) => mix(c, y, k))); };
+const muted = (hex: string, k: number): string => { const [r, g, b] = hexRgb(hex);
+const y = r * 0.3 + g * 0.59 + b * 0.11;
+return rgbHex([r, g, b].map((c) => mix(c, y, k))); };
 
 /**
  * A black coat painted as pixel art paints one: a cool charcoal at least `floor` light (sRGB luma),
@@ -140,7 +154,8 @@ const muted = (hex: string, k: number): string => { const [r, g, b] = hexRgb(hex
  */
 const CHARCOAL = "#5a6274";
 function charcoal(hex: string, floor: number): string {
-  const luma = (h: string): number => { const [r, g, b] = hexRgb(h); return (r * 0.3 + g * 0.59 + b * 0.11) / 255; };
+  const luma = (h: string): number => { const [r, g, b] = hexRgb(h);
+  return (r * 0.3 + g * 0.59 + b * 0.11) / 255; };
   const y = luma(hex);
   return y >= floor ? hex : mixColor(hex, CHARCOAL, (floor - y) / Math.max(0.01, luma(CHARCOAL) - y));
 }
@@ -152,17 +167,24 @@ function faceColors(id: SpeciesId, coatName: string, accent: string, dark: strin
 }
 
 /** Whether a species' horn is its claws, a darker thing than a deer's antler or a tortoise's nail. */
-const clawed = (id: SpeciesId): boolean => { const b = SPECIES[id].build; return SPECIES[id].plan === "quad" && b.foot !== "hoof" && !b.extras.includes("shell"); };
+const clawed = (id: SpeciesId): boolean => { const b = SPECIES[id].build;
+return SPECIES[id].plan === "quad" && b.foot !== "hoof" && !b.extras.includes("shell"); };
 
 export function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph, coatName = ""): Palette {
   const plain = morph === "normal" ? 0.32 : 0;
-  const [coat, alt, belly, dark, accent] = colors.map((hex, i) => (i < 3 ? muted(hex, plain) : hex)) as unknown as CoatColors;
+  const [coat, alt, belly, dark, accent] = colors.map((hex, i) =>
+    i < 3 ? muted(hex, plain) : hex,
+  ) as unknown as CoatColors;
   const base: Palette = { coat, alt, belly, dark, accent, ...faceColors(id, coatName, accent, dark), pupil: id === "raccoon" ? IRIS.raccoon ?? "#070505" : "#070505", shine: "#ffffff", glow: accent, horn: COAT_BEAKS[coatName] ?? BEAKS[id] ?? (clawed(id) ? "#5e5044" : "#cbb38c"), shell: COAT_SHELLS[coatName] ?? alt };
   const skin = skinOf(base, morph);
   // Neon is dark on purpose: its glow carries it.
   if (morph === "neon") return skin;
   const lift = blackLift(id, coatName);
-  const lifted = { coat: charcoal(skin.coat, 0.25 * lift), alt: charcoal(skin.alt, 0.19 * lift), belly: charcoal(skin.belly, 0.34 * lift) };
+  const lifted = {
+    coat: charcoal(skin.coat, 0.25 * lift),
+    alt: charcoal(skin.alt, 0.19 * lift),
+    belly: charcoal(skin.belly, 0.34 * lift),
+  };
   // (A spread train wears the shell, so a feather's paint stops at the feathers and never lands on the wings.)
   return { ...skin, ...lifted, ...(id === "peacock" ? { shell: lifted.alt } : {}) };
 }

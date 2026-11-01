@@ -53,7 +53,12 @@ export function exposure(grid: LightGrid, p: Vec): number {
 
 /** The direction of least shadow around `p`, leaning up. */
 export function lightDirection(grid: LightGrid, p: Vec): Vec {
-  const sample = (dx: number, dy: number, dz: number): number => shadowAt(grid, vec(p.x + dx * 2, p.y + dy * 2, p.z + dz * 2));
-  const gradient = vec(sample(1, 0, 0) - sample(-1, 0, 0), sample(0, 1, 0) - sample(0, -1, 0), sample(0, 0, 1) - sample(0, 0, -1));
+  const sample = (dx: number, dy: number, dz: number): number =>
+    shadowAt(grid, vec(p.x + dx * 2, p.y + dy * 2, p.z + dz * 2));
+  const gradient = vec(
+    sample(1, 0, 0) - sample(-1, 0, 0),
+    sample(0, 1, 0) - sample(0, -1, 0),
+    sample(0, 0, 1) - sample(0, 0, -1),
+  );
   return normalize(vec(-gradient.x, -gradient.y + 0.35, -gradient.z));
 }

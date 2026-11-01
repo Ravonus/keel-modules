@@ -67,9 +67,14 @@ export function createFrameClock({ fps = 12, maxCatchUpFrames = 4, onFrame }: Fr
     request = requestAnimationFrame(tick);
   };
   return {
-    start() { if (!running) { running = true; request = requestAnimationFrame(tick); } },
-    stop() { running = false; cancelAnimationFrame(request); previous = 0; accumulator = 0; },
-    seek(nextFrame: number) { if (!Number.isSafeInteger(nextFrame) || nextFrame < 0) throw new RangeError("Invalid frame."); frame = nextFrame; },
+    start() { if (!running) { running = true;
+    request = requestAnimationFrame(tick); } },
+    stop() { running = false;
+    cancelAnimationFrame(request);
+    previous = 0;
+    accumulator = 0; },
+    seek(nextFrame: number) { if (!Number.isSafeInteger(nextFrame) || nextFrame < 0) throw new RangeError("Invalid frame.");
+    frame = nextFrame; },
     get frame() { return frame; },
   };
 }

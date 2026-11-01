@@ -33,11 +33,38 @@ export const TREADS: Readonly<Record<Tread, { readonly life: number; readonly de
 
 /** A print's blobs, foot-sized, across and along the way it walks: [across, along, half width, half length]. */
 const PRINT_BLOBS: Readonly<Record<PrintShape, readonly (readonly [number, number, number, number])[]>> = {
-  paw: [[0, -0.18, 0.34, 0.3], [-0.42, 0.22, 0.15, 0.19], [-0.15, 0.48, 0.15, 0.2], [0.15, 0.48, 0.15, 0.2], [0.42, 0.22, 0.15, 0.19]],
-  hoof: [[-0.2, 0.05, 0.16, 0.5], [0.2, 0.05, 0.16, 0.5]],
-  plant: [[0, -0.2, 0.36, 0.56], [-0.42, 0.5, 0.13, 0.15], [-0.21, 0.62, 0.13, 0.16], [0, 0.66, 0.13, 0.16], [0.21, 0.62, 0.13, 0.16], [0.42, 0.5, 0.13, 0.15]],
-  bird: [[0, 0.3, 0.07, 0.62], [-0.3, 0.42, 0.07, 0.42], [0.3, 0.42, 0.07, 0.42], [0, -0.35, 0.07, 0.28]],
-  hand: [[0, -0.2, 0.3, 0.42], [-0.48, 0.02, 0.1, 0.26], [-0.2, 0.46, 0.1, 0.24], [0, 0.5, 0.1, 0.26], [0.2, 0.46, 0.1, 0.24]],
+  paw: [
+    [0, -0.18, 0.34, 0.3],
+    [-0.42, 0.22, 0.15, 0.19],
+    [-0.15, 0.48, 0.15, 0.2],
+    [0.15, 0.48, 0.15, 0.2],
+    [0.42, 0.22, 0.15, 0.19],
+  ],
+  hoof: [
+    [-0.2, 0.05, 0.16, 0.5],
+    [0.2, 0.05, 0.16, 0.5],
+  ],
+  plant: [
+    [0, -0.2, 0.36, 0.56],
+    [-0.42, 0.5, 0.13, 0.15],
+    [-0.21, 0.62, 0.13, 0.16],
+    [0, 0.66, 0.13, 0.16],
+    [0.21, 0.62, 0.13, 0.16],
+    [0.42, 0.5, 0.13, 0.15],
+  ],
+  bird: [
+    [0, 0.3, 0.07, 0.62],
+    [-0.3, 0.42, 0.07, 0.42],
+    [0.3, 0.42, 0.07, 0.42],
+    [0, -0.35, 0.07, 0.28],
+  ],
+  hand: [
+    [0, -0.2, 0.3, 0.42],
+    [-0.48, 0.02, 0.1, 0.26],
+    [-0.2, 0.46, 0.1, 0.24],
+    [0, 0.5, 0.1, 0.26],
+    [0.2, 0.46, 0.1, 0.24],
+  ],
   pincer: [[0, 0, 0.14, 0.34]],
   drag: [[0, 0, 0.42, 0.62]],
 };
@@ -67,7 +94,13 @@ export interface Tracks {
   /** Lifts prints off one ground at once (the snow they were in has melted). */
   clear(tread: Tread): void;
   /** Paints the prints into a square rgba map of `extent` either side of the origin, its rows running from +z, as a plane's uvs do. */
-  paint(pixels: Uint8Array, side: number, extent: number, t: number, tint: (tread: Tread) => readonly [number, number, number]): void;
+  paint(
+    pixels: Uint8Array,
+    side: number,
+    extent: number,
+    t: number,
+    tint: (tread: Tread) => readonly [number, number, number],
+  ): void;
 }
 
 /**
@@ -87,7 +120,8 @@ export function createTracks(options: {
   const treads = (plan: Plan, part: string): boolean => {
     const key = `${plan}:${part}`;
     let is = treader.get(key);
-    if (is === undefined) { is = TREADERS[plan]?.test(part) ?? false; treader.set(key, is); }
+    if (is === undefined) { is = TREADERS[plan]?.test(part) ?? false;
+    treader.set(key, is); }
     return is;
   };
   return {
@@ -140,12 +174,16 @@ export function createTracks(options: {
           const cx = p.x + (fz * across + fx * along * stretch) * p.size;
           const cz = p.z + (-fx * across + fz * along * stretch) * p.size;
           const reach = Math.max(w, l * stretch) * p.size;
-          const c0 = Math.max(0, Math.floor((cx - reach + extent) * scale)), c1 = Math.min(side - 1, Math.ceil((cx + reach + extent) * scale));
-          const r0 = Math.max(0, Math.floor((extent - cz - reach) * scale)), r1 = Math.min(side - 1, Math.ceil((extent - cz + reach) * scale));
+          const c0 = Math.max(0, Math.floor((cx - reach + extent) * scale));
+          const c1 = Math.min(side - 1, Math.ceil((cx + reach + extent) * scale));
+          const r0 = Math.max(0, Math.floor((extent - cz - reach) * scale));
+          const r1 = Math.min(side - 1, Math.ceil((extent - cz + reach) * scale));
           for (let r = r0; r <= r1; r += 1) {
             for (let c = c0; c <= c1; c += 1) {
-              const dx = (c + 0.5) / scale - extent - cx, dz = extent - (r + 0.5) / scale - cz;
-              const u = (fz * dx - fx * dz) / (w * p.size), v = (fx * dx + fz * dz) / (l * stretch * p.size);
+              const dx = (c + 0.5) / scale - extent - cx;
+              const dz = extent - (r + 0.5) / scale - cz;
+              const u = (fz * dx - fx * dz) / (w * p.size);
+              const v = (fx * dx + fz * dz) / (l * stretch * p.size);
               if (u * u + v * v > 1) continue;
               const at = (r * side + c) * 4;
               if (pixels[at + 3]! >= alpha) continue;

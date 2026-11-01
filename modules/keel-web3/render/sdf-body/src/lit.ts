@@ -21,7 +21,10 @@ export interface InstancedLike extends NodeLike {
   readonly instanceMatrix: { needsUpdate: boolean };
   setMatrixAt(index: number, matrix: unknown): void;
 }
-export interface Matrix4Like { makeScale(x: number, y: number, z: number): Matrix4Like; setPosition(x: number, y: number, z: number): Matrix4Like }
+export interface Matrix4Like {
+  makeScale(x: number, y: number, z: number): Matrix4Like;
+  setPosition(x: number, y: number, z: number): Matrix4Like;
+}
 export interface DisposableLike { dispose(): void }
 
 /** The parts of keel/lit this module calls. Pass the keel/lit namespace itself. */

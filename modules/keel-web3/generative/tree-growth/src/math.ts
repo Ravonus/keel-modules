@@ -14,7 +14,8 @@ export function createRandom(seed: number): () => number {
 }
 
 export const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
-export const ramp = (value: number, start: number, end: number): number => clamp01((value - start) / Math.max(end - start, 1e-6));
+export const ramp = (value: number, start: number, end: number): number =>
+  clamp01((value - start) / Math.max(end - start, 1e-6));
 export const smooth = (value: number): number => value * value * (3 - 2 * value);
 export const at = (values: ArrayLike<number>, index: number): number => values[index] ?? 0;
 

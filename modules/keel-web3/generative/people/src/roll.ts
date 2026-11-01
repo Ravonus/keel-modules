@@ -22,7 +22,8 @@ export const bell = (rand: () => number, a: number, b: number): number => mix(a,
 
 export function weighted<T>(rand: () => number, list: readonly (readonly [T, number])[]): T {
   let left = rand() * list.reduce((sum, [, w]) => sum + w, 0);
-  const hit = list.find(([, w]) => { left -= w; return left <= 0; });
+  const hit = list.find(([, w]) => { left -= w;
+  return left <= 0; });
   const [first] = list;
   if (!first) throw new Error("nothing to pick from");
   return (hit ?? first)[0];
@@ -42,7 +43,8 @@ export function hsl(h: number, s: number, l: number): string {
 /** Skin, from deep to fair: lightness rolled freely, its warmth its own. */
 const SKIN_RAMP = ["#3f2619", "#5e3a26", "#80533a", "#a67351", "#c49270", "#ddb195", "#efcfb9"] as const;
 export const skinTone = (rand: () => number): string => {
-  const at = rand() * (SKIN_RAMP.length - 1), i = Math.floor(at);
+  const at = rand() * (SKIN_RAMP.length - 1);
+  const i = Math.floor(at);
   const tone = blend(SKIN_RAMP[i] ?? "#a67351", SKIN_RAMP[Math.min(i + 1, SKIN_RAMP.length - 1)] ?? "#a67351", at - i);
   return blend(tone, rand() < 0.5 ? "#d98c80" : "#d9ad66", rand() * 0.14);
 };
@@ -61,4 +63,5 @@ export function blend(a: string, b: string, k: number): string {
   return `#${part(0)}${part(1)}${part(2)}`;
 }
 
-export const hashed = (a: number, b: number): number => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
+export const hashed = (a: number, b: number): number => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+return v - Math.floor(v); };

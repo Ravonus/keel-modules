@@ -238,7 +238,12 @@ export const leafTipLimit = (tree: Tree): number => (tree.needles ? 40 : tree.mo
 
 /** Is node a living, leafy twig right now? Outer twigs carry the foliage. */
 export function leafyNode(frame: TreeFrameLike, node: number, tipLimit: number): boolean {
-  return at(frame.grow, node) > 0.25 && at(frame.dead, node) < 0.25 && at(frame.fall, node) === 0 && at(frame.tips, node) <= tipLimit;
+  return (
+    at(frame.grow, node) > 0.25 &&
+    at(frame.dead, node) < 0.25 &&
+    at(frame.fall, node) === 0 &&
+    at(frame.tips, node) <= tipLimit
+  );
 }
 
 export function bearingNode(
@@ -306,7 +311,10 @@ interface Build {
   readonly smooth: boolean;
 }
 
-function shapesFor(build: Build, options: TreeRenderOptions): { wood: GeometryLike; leaf: GeometryLike; blade: GeometryLike; bud: GeometryLike } {
+function shapesFor(
+  build: Build,
+  options: TreeRenderOptions,
+): { wood: GeometryLike; leaf: GeometryLike; blade: GeometryLike; bud: GeometryLike } {
   const base = treeShapes(build.lit);
   const own = options.shapes ?? {};
   if (!build.smooth) {
@@ -314,13 +322,25 @@ function shapesFor(build: Build, options: TreeRenderOptions): { wood: GeometryLi
     return { wood: base.box, leaf, blade: leaf, bud: base.box };
   }
   const blade = speciesBlade(build.lit, build.model.species.id);
-  return { wood: base.wood, leaf: base.leaf, blade: build.features.clumps && blade === base.blade ? base.softBlade : blade, bud: base.bud, ...own };
+  return {
+    wood: base.wood,
+    leaf: base.leaf,
+    blade: build.features.clumps && blade === base.blade ? base.softBlade : blade,
+    bud: base.bud,
+    ...own,
+  };
 }
 
 const hasOrnaments = (features: TreeFeatures): boolean => features.flowers || features.fruit;
 
 function woodMesh(build: Build, shape: GeometryLike, groundY: number): InstancedLike {
-  const wood = makeMesh(build, build.model.count + build.model.roots.length * ROOT_SEGMENTS, 0.86, build.features.shadows, shape);
+  const wood = makeMesh(
+    build,
+    build.model.count + build.model.roots.length * ROOT_SEGMENTS,
+    0.86,
+    build.features.shadows,
+    shape,
+  );
   if (build.smooth && build.features.bark) {
     wood.material.dispose();
     wood.material = barkMaterial(build.lit, groundY, build.features.rootSink, build.features.rootBreak);
@@ -341,9 +361,13 @@ function glowPetals(mesh: InstancedLike, colors: TreeColors): void {
 }
 
 /** A skin's own leaf shape (crystal, coin) stays its flowers' shape too; a natural crown opens in sprays. */
-const sprayShape = (build: Build, options: TreeRenderOptions): GeometryLike | null => (build.smooth && !options.shapes?.leaf ? treeShapes(build.lit).spray : null);
+const sprayShape = (build: Build, options: TreeRenderOptions): GeometryLike | null =>
+  build.smooth && !options.shapes?.leaf ? treeShapes(build.lit).spray : null;
 
-function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMeshes; flowers: OrnamentSet | null; fruits: OrnamentSet | null; kinds: OrnamentSet[] } {
+function buildMeshes(
+  build: Build,
+  options: TreeRenderOptions,
+): { meshes: TreeMeshes; flowers: OrnamentSet | null; fruits: OrnamentSet | null; kinds: OrnamentSet[] } {
   const { model, features, limits } = build;
   const shapes = shapesFor(build, options);
   const leafShape = shapes.blade;
@@ -355,19 +379,44 @@ function buildMeshes(build: Build, options: TreeRenderOptions): { meshes: TreeMe
     leaves: on(features.leaves, () => makeMesh(build, model.leaves.count, 0.78, shadows, leafShape, build.smooth)),
     flowers: null,
     fruit: null,
-    leafLitter: on(features.litter && features.leaves, () => makeMesh(build, limits.litter, 0.92, false, leafShape, build.smooth)),
-    litter: on(features.litter && hasOrnaments(features), () => makeMesh(build, limits.litter + limits.flowerLitter + limits.fruitLitter, 0.92, false, shapes.leaf)),
+    leafLitter: on(features.litter && features.leaves, () =>
+      makeMesh(build, limits.litter, 0.92, false, leafShape, build.smooth),
+    ),
+    litter: on(features.litter && hasOrnaments(features), () =>
+      makeMesh(build, limits.litter + limits.flowerLitter + limits.fruitLitter, 0.92, false, shapes.leaf),
+    ),
     snow: on(features.snow, () => makeMesh(build, model.count, 0.55, false, shapes.leaf)),
     falling: on(features.fallers, () => makeMesh(build, limits.falling, 0.78, shadows, shapes.leaf)),
     fallingLeaves: on(features.fallers, () => makeMesh(build, limits.falling, 0.78, shadows, leafShape, build.smooth)),
-    shards: on(features.rootBreak && features.roots && build.smooth && options.ground?.lip !== undefined && !model.species.palm, () => makeMesh(build, model.roots.length * ROOT_SHARDS, 0.95, shadows, treeShapes(build.lit).box)),
+    shards: on(
+      features.rootBreak && features.roots && build.smooth && options.ground?.lip !== undefined && !model.species.palm,
+      () => makeMesh(build, model.roots.length * ROOT_SHARDS, 0.95, shadows, treeShapes(build.lit).box),
+    ),
   };
   meshes.snow?.material.color.set("#f4f8ff");
   const spray = sprayShape(build, options);
-  const flowers = ornamentSet(build, "flowers", build.smooth ? shapes.leaf : shapes.wood, limits.litter, limits.flowerLitter, spray);
+  const flowers = ornamentSet(
+    build,
+    "flowers",
+    build.smooth ? shapes.leaf : shapes.wood,
+    limits.litter,
+    limits.flowerLitter,
+    spray,
+  );
   if (flowers?.spray === true) glowPetals(flowers.mesh, options.colors);
-  const fruits = ornamentSet(build, "fruit", build.smooth ? shapes.bud : shapes.wood, limits.litter + limits.flowerLitter, limits.fruitLitter);
-  const kinds = (options.kinds ?? []).flatMap((kind) => [kindSet(build, kind, "flowers", build.smooth ? shapes.leaf : shapes.wood, spray), kindSet(build, kind, "fruit", build.smooth ? shapes.bud : shapes.wood)]).filter((set): set is OrnamentSet => set !== null);
+  const fruits = ornamentSet(
+    build,
+    "fruit",
+    build.smooth ? shapes.bud : shapes.wood,
+    limits.litter + limits.flowerLitter,
+    limits.fruitLitter,
+  );
+  const kinds = (options.kinds ?? [])
+    .flatMap((kind) => [
+      kindSet(build, kind, "flowers", build.smooth ? shapes.leaf : shapes.wood, spray),
+      kindSet(build, kind, "fruit", build.smooth ? shapes.bud : shapes.wood),
+    ])
+    .filter((set): set is OrnamentSet => set !== null);
   return { meshes: { ...meshes, flowers: flowers?.mesh ?? null, fruit: fruits?.mesh ?? null }, flowers, fruits, kinds };
 }
 
@@ -380,18 +429,44 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
   const build: Build = { lit, group, model, features, limits, smooth };
   const { meshes, flowers, fruits, kinds } = buildMeshes(build, options);
   const tree: Tree = {
-    lit, model, colors: options.colors, features, smooth, group, meshes, flowers, fruits, kinds, limits,
+    lit,
+    model,
+    colors: options.colors,
+    features,
+    smooth,
+    group,
+    meshes,
+    flowers,
+    fruits,
+    kinds,
+    limits,
     ground: options.ground ?? { y: 0, radius: 4.4 },
     blades: smooth,
     needles: smooth && !options.shapes?.blade && NEEDLE_KINDS[model.species.id] !== undefined,
     fronds: smooth && !options.shapes?.blade ? frondLayout(model) : null,
     skin: options.skin ?? null,
-    strains: options.strains ?? [], strainOf: options.strainOf ?? null, strainYears: [], blooms: (options.blooms ?? []).filter((bloom) => bloom.share > 0 && bloom.colors.length > 0),
+    strains: options.strains ?? [],
+    strainOf: options.strainOf ?? null,
+    strainYears: [],
+    blooms: (options.blooms ?? []).filter((bloom) => bloom.share > 0 && bloom.colors.length > 0),
     leafStride: Math.max(1, Math.ceil(model.leaves.count / limits.litter)),
-    hidden: new Map(), hiddenSlots: { leaf: new Set(), flowers: new Set(), fruit: new Set() }, eaten: new Map(), lastYear: null, lastMotion: null, fallers: [], random: seededRandom((options.seed ?? 1) ^ 0x51f7),
-    a: new lit.Color(), b: new lit.Color(), c: new lit.Color(), offset: { x: 0, z: 0 },
-    spawnClock: 0, paintKey: "", lastFrame: null, still: false,
-    seed: options.seed ?? 1, breaks: { trunk: -1, plans: [] },
+    hidden: new Map(),
+    hiddenSlots: { leaf: new Set(), flowers: new Set(), fruit: new Set() },
+    eaten: new Map(),
+    lastYear: null,
+    lastMotion: null,
+    fallers: [],
+    random: seededRandom((options.seed ?? 1) ^ 0x51f7),
+    a: new lit.Color(),
+    b: new lit.Color(),
+    c: new lit.Color(),
+    offset: { x: 0, z: 0 },
+    spawnClock: 0,
+    paintKey: "",
+    lastFrame: null,
+    still: false,
+    seed: options.seed ?? 1,
+    breaks: { trunk: -1, plans: [] },
   };
   return {
     group, features, meshes, fallers: tree.fallers, kinds: kinds.map((set) => set.mesh),

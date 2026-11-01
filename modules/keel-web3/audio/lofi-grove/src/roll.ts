@@ -36,4 +36,5 @@ export function random(seed: number): () => number {
 }
 
 export const VOICE_SALT = { keys: 1, bass: 2, melody: 3, drums: 4, nature: 5, crackle: 6 } as const;
-export const barRandom = (seed: number, bar: number, voice: keyof typeof VOICE_SALT): (() => number) => random(mixHash(seed, bar, VOICE_SALT[voice]));
+export const barRandom = (seed: number, bar: number, voice: keyof typeof VOICE_SALT): (() => number) =>
+  random(mixHash(seed, bar, VOICE_SALT[voice]));

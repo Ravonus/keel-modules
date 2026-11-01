@@ -45,7 +45,24 @@ export const ball = (kit: Kit, part: string, role: string, p: Vec, r: number, fi
 const band = (kit: Kit, part: string, role: string, at: Vec, wide: number, thick: number): void => { put(kit, part, role, at, at, wide, { decal: true, flat: thick / wide, up: UP, melt: 0.2 }); };
 export const paint = (kit: Kit, part: string, role: string, a: Vec, b: Vec, r: number): void => { put(kit, part, role, a, b, r, { decal: true }); };
 
-const TOP_SLEEVE: Readonly<Record<Top, number>> = { tee: 0.5, polo: 0.46, tank: 0, long: 1, hoodie: 1, jacket: 1, blazer: 1, coat: 1, robe: 0.8, dress: 0.3, raincoat: 1, puffer: 1, swimsuit: 0, bikini: 0, string: 0, bare: 0 };
+const TOP_SLEEVE: Readonly<Record<Top, number>> = {
+  tee: 0.5,
+  polo: 0.46,
+  tank: 0,
+  long: 1,
+  hoodie: 1,
+  jacket: 1,
+  blazer: 1,
+  coat: 1,
+  robe: 0.8,
+  dress: 0.3,
+  raincoat: 1,
+  puffer: 1,
+  swimsuit: 0,
+  bikini: 0,
+  string: 0,
+  bare: 0,
+};
 
 
 
@@ -55,18 +72,43 @@ const clothWide = (fit: number): number => 1.04 + fit * 0.14;
 
 
 /** A limb's stretch from `a` to `b`, swelling at `belly` of the way: a muscle, not a tube, in `role`. */
-function muscle(kit: Kit, part: string, role: string, a: Vec, b: Vec, r: readonly [number, number, number], belly: number, on: Vec): void {
+function muscle(
+  kit: Kit,
+  part: string,
+  role: string,
+  a: Vec,
+  b: Vec,
+  r: readonly [number, number, number],
+  belly: number,
+  on: Vec,
+): void {
   const mid = madd(lerpV(a, b, belly), on, r[1] * 0.1);
   put(kit, `${part}.0`, role, a, mid, r[0], { r1: r[1], melt: 0.8 });
   put(kit, `${part}.1`, role, mid, b, r[1], { r1: r[2], melt: 0.8 });
 }
 
 /** Skin, or the cloth over it, up to `upto` of the limb's length. */
-function clad(kit: Kit, part: string, role: string, a: Vec, b: Vec, r: readonly [number, number, number], upto: number, on: Vec, fit: number): void {
+function clad(
+  kit: Kit,
+  part: string,
+  role: string,
+  a: Vec,
+  b: Vec,
+  r: readonly [number, number, number],
+  upto: number,
+  on: Vec,
+  fit: number,
+): void {
   const k = clothWide(fit);
   const wide: readonly [number, number, number] = [r[0] * k, r[1] * k, r[2] * k * (1 + fit * 0.12)];
-  if (upto >= 1) { muscle(kit, part, role, a, b, wide, 0.34, on); return; }
-  if (upto <= 0) { muscle(kit, part, "skin", a, b, r, 0.34, on); return; }
+  if (upto >= 1) {
+    muscle(kit, part, role, a, b, wide, 0.34, on);
+    return;
+  }
+  if (upto <= 0) {
+    muscle(kit, part, "skin", a, b, r, 0.34, on);
+    return;
+  }
   const cut = lerpV(a, b, upto);
   put(kit, `${part}.cloth`, role, a, cut, wide[0], { r1: wide[1] * 1.04, melt: 0.2 });
   put(kit, part, "skin", cut, b, r[1], { r1: r[2], melt: 0.2 });
@@ -77,7 +119,8 @@ export const SHAFT: Vec = unit([-0.2, 0.98, 0.02]);
 
 /** A vector carried the shortest way round from one direction to another, with no twist about it. */
 function swung(d: Vec, from: Vec, to: Vec): Vec {
-  const axis = cross(from, to), c = dot(from, to);
+  const axis = cross(from, to);
+  const c = dot(from, to);
   if (c < -0.9999) return add(scale(UP, 2 * dot(UP, d)), scale(d, -1));
   return add(add(scale(d, c), cross(axis, d)), scale(axis, dot(axis, d) / (1 + c)));
 }
@@ -90,23 +133,32 @@ export function swungFrame(
   na: Vec,
   nb: Vec,
 ): readonly [Vec, Vec, Vec] {
-  const from = unit(sub(rb, ra)), to = unit(sub(nb, na));
+  const from = unit(sub(rb, ra));
+  const to = unit(sub(nb, na));
   const [x, y, z] = frame;
   return [swung(x, from, to), swung(y, from, to), swung(z, from, to)];
 }
 
 /** A hand's bone's frame: its own line, and the knuckles' line square to it, so the roll of a forearm comes with it. */
 export function handFrame(a: Vec, b: Vec, knuckles: Vec): readonly [Vec, Vec, Vec] {
-  const along = unit(sub(b, a), UP), x = unit(sub(knuckles, scale(along, dot(knuckles, along))), SIDE);
+  const along = unit(sub(b, a), UP);
+  const x = unit(sub(knuckles, scale(along, dot(knuckles, along))), SIDE);
   return [x, along, cross(x, along)];
 }
 
 /** The right hand's way from holding pose to rest and back: anything carried is made where it is held, and ridden home to the bone. */
-export function heldHand(p: Person): { readonly toRest: (at: Vec) => Vec; readonly toHeld: (at: Vec) => Vec; readonly spin: (d: Vec) => Vec } {
+export function heldHand(p: Person): {
+  readonly toRest: (at: Vec) => Vec;
+  readonly toHeld: (at: Vec) => Vec;
+  readonly spin: (d: Vec) => Vec;
+} {
   const held = { ...p, outfit: { ...p.outfit, carry: "umbrella" as const } };
-  const rest = restSkeleton(p).right.arm, now = skeletonOf(held, "stand", 0).right.arm;
-  const r = handFrame(rest.wrist, rest.hand, rest.knuckles), m = handFrame(now.wrist, now.hand, now.knuckles);
-  const swap = (from: readonly [Vec, Vec, Vec], to: readonly [Vec, Vec, Vec], d: Vec): Vec => from.reduce<Vec>((n, axis, i) => madd(n, to[i] ?? axis, dot(axis, d)), [0, 0, 0]);
+  const rest = restSkeleton(p).right.arm;
+  const now = skeletonOf(held, "stand", 0).right.arm;
+  const r = handFrame(rest.wrist, rest.hand, rest.knuckles);
+  const m = handFrame(now.wrist, now.hand, now.knuckles);
+  const swap = (from: readonly [Vec, Vec, Vec], to: readonly [Vec, Vec, Vec], d: Vec): Vec =>
+    from.reduce<Vec>((n, axis, i) => madd(n, to[i] ?? axis, dot(axis, d)), [0, 0, 0]);
   return {
     toRest: (at) => add(rest.wrist, swap(m, r, sub(at, now.wrist))),
     toHeld: (at) => add(now.wrist, swap(r, m, sub(at, rest.wrist))),
@@ -130,7 +182,9 @@ function drawFist(kit: Kit, p: Person, arm: Arm): void {
   put(kit, "palm.R", "skin", madd(arm.wrist, along, 0.012), madd(centre, round, -0.02), 0.032, { r1: 0.038, flat: 0.6, up: round, melt: 0.8 });
   for (let i = 0; i < 4; i += 1) {
     const at = madd(centre, u, (i - 1.5) * 0.021);
-    const knuckle = madd(madd(at, along, 0.024), round, -0.024), bend = madd(madd(at, along, 0.03), round, 0.012), tip = madd(madd(at, along, -0.002), round, 0.03);
+    const knuckle = madd(madd(at, along, 0.024), round, -0.024);
+    const bend = madd(madd(at, along, 0.03), round, 0.012);
+    const tip = madd(madd(at, along, -0.002), round, 0.03);
     put(kit, `fingers.R.${String(i)}.0`, "skin", knuckle, bend, finger * 1.1, { r1: finger, melt: 0.3, detail: 1 });
     put(kit, `fingers.R.${String(i)}.1`, "skin", bend, tip, finger, { r1: finger * 0.8, melt: 0.3, detail: 1 });
   }
@@ -139,7 +193,8 @@ function drawFist(kit: Kit, p: Person, arm: Arm): void {
 }
 
 function drawHand(kit: Kit, p: Person, arm: Arm, side: number, L: string): void {
-  if (p.outfit.carry === "umbrella" && side > 0 && unit(sub(arm.hand, arm.wrist))[0] > 0.9) { drawFist(kit, p, arm); return; }
+  if (p.outfit.carry === "umbrella" && side > 0 && unit(sub(arm.hand, arm.wrist))[0] > 0.9) { drawFist(kit, p, arm);
+  return; }
   const along = unit(sub(arm.hand, arm.wrist), scale(UP, -1));
   const across = FRONT;
   const palm = lerpV(arm.wrist, arm.hand, 0.75);
@@ -207,7 +262,11 @@ function drawSkirt(kit: Kit, p: Person, s: Skeleton): void {
   const long = LONG_TOP[top];
   if (long === undefined && bottom !== "skirt") return;
   const reach = long ?? 0.78;
-  const hem = lerpV(lerpV(s.left.leg.hip, s.left.leg.knee, reach), lerpV(s.right.leg.hip, s.right.leg.knee, reach), 0.5);
+  const hem = lerpV(
+    lerpV(s.left.leg.hip, s.left.leg.knee, reach),
+    lerpV(s.right.leg.hip, s.right.leg.knee, reach),
+    0.5,
+  );
   const flare = hip * (1.26 + fit * 0.4);
   put(kit, "skirt", long === undefined ? "bottom" : "top", s.pelvis, madd(hem, UP, -flare * 0.72), hip * 1.04, { r1: flare, flat: 0.78, up: FRONT, melt: 0.5, hem: hem[1] });
 }
@@ -225,8 +284,15 @@ function drawStripes(kit: Kit, p: Person, s: Skeleton, ribs: Vec): void {
 
 /** A hood that is down: its opening a thick roll of cloth round the neck, crossing at the throat, and the bag of it lying flat on the back; two cords down the front. Only the bag where parts are few. */
 function drawHood(kit: Kit, p: Person, s: Skeleton, rich: boolean): void {
-  const { head } = p.build, r = head * 0.62, base = add(s.neck, [0, -0.035, -0.006]);
-  const rim = (t: number, side: number): Vec => add(base, [side * Math.sin(t) * r, 0.022 * (1 - Math.cos(t)) - 0.018 * Math.max(0, Math.cos(t)), Math.cos(t) * r * 0.86]);
+  const { head } = p.build;
+  const r = head * 0.62;
+  const base = add(s.neck, [0, -0.035, -0.006]);
+  const rim = (t: number, side: number): Vec =>
+    add(base, [
+      side * Math.sin(t) * r,
+      0.022 * (1 - Math.cos(t)) - 0.018 * Math.max(0, Math.cos(t)),
+      Math.cos(t) * r * 0.86,
+    ]);
   if (rich) for (const side of [-1, 1]) for (let i = 0; i < 4; i += 1) put(kit, `hood.rim.${String(side)}.${String(i)}`, "top", rim(-0.12 + i * 1.02, side), rim(-0.12 + (i + 1) * 1.02, side), head * 0.2, { melt: 0.5 });
   const back = lerpV(s.neck, s.chest, 0.5);
   put(kit, "hood.bag", "top", add(lerpV(s.neck, s.chest, 0.2), [0, 0, -0.095]), add(back, [0, -0.06, -0.125]), head * 0.62, { r1: head * 0.22, flat: 0.16, up: FRONT, melt: 0.8 });

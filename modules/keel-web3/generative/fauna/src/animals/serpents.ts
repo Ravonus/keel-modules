@@ -47,23 +47,30 @@ function serpentSpine(who: Who, m: Moment): Vec[] {
   const flat = lizard || m.trail ? 0 : q.curl;
   const points: Vec[] = [];
   for (let i = 0; i <= n; i += 1) {
-    const moving = m.moving * Math.sin(TAU * m.phase * 0.8 - i * 0.7) * size * 0.06 * (lizard ? 0.4 : 1) * Math.min(1, i / 3);
+    const moving =
+      m.moving * Math.sin(TAU * m.phase * 0.8 - i * 0.7) * size * 0.06 * (lizard ? 0.4 : 1) * Math.min(1, i / 3);
     // At rest a snake lies in a loose S, a lizard nearly straight.
-    const rest = size * (lizard ? 0.07 : 0.12) * Math.sin(i * (lizard ? 0.55 : 0.62) + 0.2 * Math.sin(m.t * 0.3)) * (1 - m.moving);
-    const straight: Vec = m.trail ? add(onTrail(m, i * seg), [moving * 0.3, r0, 0]) : [moving + rest, r0, -i * seg * 0.95];
+    const rest =
+      size * (lizard ? 0.07 : 0.12) * Math.sin(i * (lizard ? 0.55 : 0.62) + 0.2 * Math.sin(m.t * 0.3)) * (1 - m.moving);
+    const straight: Vec = m.trail
+      ? add(onTrail(m, i * seg), [moving * 0.3, r0, 0])
+      : [moving + rest, r0, -i * seg * 0.95];
     // Coiled, one loose turn (an open ring at a distance, not a disc), the head reared up in the middle.
     const a = i * 0.55;
     const ring = r0 * (8.5 - i * 0.42);
     const coil: Vec = [Math.cos(a) * ring, r0 + (n - i) * r0 * 0.2, Math.sin(a) * ring - r0 * 8.5];
     const lift = Math.max(0, 3 - i) / 3;
     const rear = flat === 0 ? 0 : q.curl * lift * size * 0.14;
-    points.push(add(lerpV(straight, coil, flat), [0, rear + lift * (q.headPitch * size * 0.08 + q.mouth * size * 0.02), 0]));
+    points.push(
+      add(lerpV(straight, coil, flat), [0, rear + lift * (q.headPitch * size * 0.08 + q.mouth * size * 0.02), 0]),
+    );
   }
   return points;
 }
 
 /** A snake's girth along it, 0 at the neck, 1 at the tip: slim at the neck, fullest a third of the way down, to a fine tip. */
-const snakeGirth = (k: number): number => (k < 0.3 ? 0.78 + (k / 0.3) * 0.22 : 1 - Math.pow((k - 0.3) / 0.7, 1.6) * 0.85);
+const snakeGirth = (k: number): number =>
+  k < 0.3 ? 0.78 + (k / 0.3) * 0.22 : 1 - Math.pow((k - 0.3) / 0.7, 1.6) * 0.85;
 
 export function poseSerpent(kit: Kit, who: Who, m: Moment): void {
   const b = who.spec.build;
@@ -106,7 +113,8 @@ function snakeLines(kit: Kit, who: Who, points: readonly Vec[], r0: number): voi
     if (!a || !c) continue;
     const side = spineSide(a, c);
     const [gA, gC] = [r0 * snakeGirth(i / n), r0 * snakeGirth((i + 2) / n)];
-    const on = (p: Vec, x: number, y: number, g: number): Vec => add(add(p, scale(side, x * g * 0.8)), [0, y * g * 0.8, 0]);
+    const on = (p: Vec, x: number, y: number, g: number): Vec =>
+      add(add(p, scale(side, x * g * 0.8)), [0, y * g * 0.8, 0]);
     // (Sunk well into the body, so the line stays on the skin where the bones bend away from a straight run.)
     lines.forEach(([x, y], line) => { cap(kit, `line.${line}`, role, on(a, x, y, gA), on(c, x, y, gC), gA * 0.24, 1, UP, { decal: true, r1: gC * 0.24 }); });
   }
@@ -138,7 +146,13 @@ function serpentHead(kit: Kit, who: Who, points: readonly Vec[], m: Moment): voi
   const r0 = b.body * size;
   const head = points[0] ?? [0, r0, 0];
   const hd = unit(sub(head, points[1] ?? [0, r0, -1]));
-  const h: Head = { c: madd(head, hd, b.head * size * 0.4), d: hd, ...headAxes(hd, 0), r: b.head * size, ...eyeOfSpecies(who) };
+  const h: Head = {
+    c: madd(head, hd, b.head * size * 0.4),
+    d: hd,
+    ...headAxes(hd, 0),
+    r: b.head * size,
+    ...eyeOfSpecies(who),
+  };
   // (A wedge, broad behind the jaws and flat, wider than the neck it sits on.)
   cap(kit, "head", "coat", at3(h, -0.35, 0, 0), at3(h, 0.8, 0, -0.08), h.r * 0.92, 0.62, h.u, { r1: h.r * 0.52, melt: 0.8 });
   // (Set into the flat of the head's side, not on the sphere an eye usually sits on.)

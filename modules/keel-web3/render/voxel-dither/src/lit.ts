@@ -76,7 +76,11 @@ export interface SceneLike {
 
 /** The parts of keel/lit this module calls. Pass the keel/lit namespace itself. */
 export interface LitLike {
-  readonly RenderTarget: new (width: number, height: number, options: Readonly<Record<string, unknown>>) => RenderTargetLike;
+  readonly RenderTarget: new (
+    width: number,
+    height: number,
+    options: Readonly<Record<string, unknown>>,
+  ) => RenderTargetLike;
   readonly DepthTexture: new (width: number, height: number) => TextureLike;
   readonly CustomMaterial: new (parameters: Readonly<Record<string, unknown>>) => ShaderMaterialLike;
   readonly ToonMaterial: new (parameters: Readonly<Record<string, unknown>>) => MaterialLike;
@@ -84,5 +88,12 @@ export interface LitLike {
   plane(width: number, height: number): DisposableLike;
   readonly Mesh: new (geometry: unknown, material: unknown) => MeshLike;
   readonly Stage: new () => SceneLike;
-  readonly OrthoCamera: new (left: number, right: number, top: number, bottom: number, near: number, far: number) => unknown;
+  readonly OrthoCamera: new (
+    left: number,
+    right: number,
+    top: number,
+    bottom: number,
+    near: number,
+    far: number,
+  ) => unknown;
 }

@@ -277,7 +277,12 @@ export function autoPixel(cssWidth: number, cssHeight: number): number {
  * device pixels, so the picture never has uneven rows; the grid overhangs the
  * frame by under one art pixel and is centred.
  */
-export function resolveGrid(cssWidth: number, cssHeight: number, devicePixelRatio: number, settings: DitherSettings): PixelGrid {
+export function resolveGrid(
+  cssWidth: number,
+  cssHeight: number,
+  devicePixelRatio: number,
+  settings: DitherSettings,
+): PixelGrid {
   const ratio = bounded(devicePixelRatio, 0.5, 4, 1);
   const css = settings.pixel === 0 ? autoPixel(cssWidth, cssHeight) : settings.pixel;
   const pixel = Math.max(1, Math.round(css * ratio));
@@ -286,7 +291,14 @@ export function resolveGrid(cssWidth: number, cssHeight: number, devicePixelRati
   const deviceHeight = Math.max(1, Math.floor(cssHeight * ratio));
   const width = Math.ceil(deviceWidth / pixel);
   const height = Math.ceil(deviceHeight / pixel);
-  return { width, height, pixel, originX: Math.floor((deviceWidth - width * pixel) / 2), originY: Math.floor((deviceHeight - height * pixel) / 2), detail: detailSplit(pixel, settings.detail, ratio) };
+  return {
+    width,
+    height,
+    pixel,
+    originX: Math.floor((deviceWidth - width * pixel) / 2),
+    originY: Math.floor((deviceHeight - height * pixel) / 2),
+    detail: detailSplit(pixel, settings.detail, ratio),
+  };
 }
 
 /**
@@ -300,7 +312,11 @@ export function bandScreens(settings: DitherSettings, gridShort: number): BandSc
   const amount = settings.amount;
   if (settings.screen !== "auto") {
     const screen = settings.screen;
-    return { near: { screen, scale: 1, amount }, mid: { screen, scale: 1, amount: amount * 0.85 }, far: { screen, scale: 1, amount: amount * 0.6 } };
+    return {
+      near: { screen, scale: 1, amount },
+      mid: { screen, scale: 1, amount: amount * 0.85 },
+      far: { screen, scale: 1, amount: amount * 0.6 },
+    };
   }
   if (gridShort < 128) {
     return { near: { screen: "bayer2", scale: 1, amount }, mid: { screen: "bayer2", scale: 1, amount: amount * 0.8 }, far: { screen: "checker", scale: 1, amount: amount * 0.5 } };

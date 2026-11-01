@@ -20,7 +20,17 @@ export interface PersonBody {
   readonly at: Vec;
   readonly front: Vec;
   readonly skeleton: Skeleton;
-  readonly eye: { readonly role: string; readonly lid: number; readonly slant: number; readonly color: string; readonly pupil: "round"; readonly ring: boolean; readonly spark: number; readonly white: string; readonly look: readonly [number, number] };
+  readonly eye: {
+    readonly role: string;
+    readonly lid: number;
+    readonly slant: number;
+    readonly color: string;
+    readonly pupil: "round";
+    readonly ring: boolean;
+    readonly spark: number;
+    readonly white: string;
+    readonly look: readonly [number, number];
+  };
   readonly skin: { readonly role: string; readonly chroma: number; readonly flush: number; readonly depth: number };
   readonly material: { readonly sheen: number; readonly fuzz: number };
   readonly grain: {
@@ -29,7 +39,14 @@ export interface PersonBody {
     readonly on: string;
     readonly lie: Vec;
     readonly pelt: {
-      readonly flow: readonly { readonly a: Vec; readonly b: Vec; readonly long: readonly [number, number]; readonly up: Vec; readonly girth: number; readonly fall: number }[];
+      readonly flow: readonly {
+        readonly a: Vec;
+        readonly b: Vec;
+        readonly long: readonly [number, number];
+        readonly up: Vec;
+        readonly girth: number;
+        readonly fall: number;
+      }[];
       readonly under: number;
       readonly thin: number;
       readonly crease: number;
@@ -57,8 +74,10 @@ function hairFlow(p: Person, s: Skeleton): PersonBody["grain"]["pelt"]["flow"] {
 
 function lidAt(p: Person, t: number): number {
   // (Each gap its own length, two to six seconds: nobody blinks like a clock.)
-  let since = t + p.seed * 1.37, n = 0;
-  for (let gap = 2 + 4 * hashed(p.seed, n); since > gap && n < 400; gap = 2 + 4 * hashed(p.seed, n)) { since -= gap; n += 1; }
+  let since = t + p.seed * 1.37;
+  let n = 0;
+  for (let gap = 2 + 4 * hashed(p.seed, n); since > gap && n < 400; gap = 2 + 4 * hashed(p.seed, n)) { since -= gap;
+  n += 1; }
   const shut = since < 0.07 ? since / 0.07 : since < 0.2 ? 1 - (since - 0.07) / 0.13 : 0;
   return mix(p.face.lid, 1, shut);
 }
@@ -71,13 +90,19 @@ function lookAt(p: Person, t: number): readonly [number, number] {
 }
 
 /** How far through a beat a person is at `t`: no two in step. */
-export const phaseOf = (p: Person, action: Action, t: number): number => t * strideOf(p, action) * TAU + (MOTIONS[action].own === true ? p.gait.offset : 0);
+export const phaseOf = (p: Person, action: Action, t: number): number =>
+  t * strideOf(p, action) * TAU + (MOTIONS[action].own === true ? p.gait.offset : 0);
 
 /** Strides a second, as this person takes them. */
-export const strideOf = (p: Person, action: Action): number => MOTIONS[action].beat * (MOTIONS[action].own === true ? p.gait.cadence : 1);
+export const strideOf = (p: Person, action: Action): number =>
+  MOTIONS[action].beat * (MOTIONS[action].own === true ? p.gait.cadence : 1);
 
 /** Turned about the vertical by `yaw`, and stood at `at`. */
-const placed = (v: Vec, at: Vec, yaw: number): Vec => [at[0] + v[0] * Math.cos(yaw) + v[2] * Math.sin(yaw), at[1] + v[1], at[2] - v[0] * Math.sin(yaw) + v[2] * Math.cos(yaw)];
+const placed = (v: Vec, at: Vec, yaw: number): Vec => [
+  at[0] + v[0] * Math.cos(yaw) + v[2] * Math.sin(yaw),
+  at[1] + v[1],
+  at[2] - v[0] * Math.sin(yaw) + v[2] * Math.cos(yaw),
+];
 
 const turned = (c: Capsule, at: Vec, yaw: number, size: number): Capsule => ({
   ...c,
@@ -91,7 +116,8 @@ const turned = (c: Capsule, at: Vec, yaw: number, size: number): Capsule => ({
 });
 
 /** A person in an action at time `t`, seconds, standing at `at` and turned by `yaw`. */
-export const posePerson = (p: Person, action: Action, t: number, at: Vec = [0, 0, 0], yaw = 0): PersonBody => bodyOf(p, action, t, at, yaw, false);
+export const posePerson = (p: Person, action: Action, t: number, at: Vec = [0, 0, 0], yaw = 0): PersonBody =>
+  bodyOf(p, action, t, at, yaw, false);
 
 /** A posed person, with the head a mesh is built from if `rich`, or the one that costs a raymarcher few parts. */
 export function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: number, rich: boolean): PersonBody {
@@ -112,7 +138,17 @@ export function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: numbe
     at,
     front: placed(FRONT, [0, 0, 0], yaw),
     skeleton: s,
-    eye: { role: "eye", lid: lidAt(p, t), slant: p.face.slant, color: p.palette.skin ?? "#c89878", pupil: "round", ring: false, spark: 0.13, white: "#ece6dc", look: lookAt(p, t) },
+    eye: {
+      role: "eye",
+      lid: lidAt(p, t),
+      slant: p.face.slant,
+      color: p.palette.skin ?? "#c89878",
+      pupil: "round",
+      ring: false,
+      spark: 0.13,
+      white: "#ece6dc",
+      look: lookAt(p, t),
+    },
     skin: { role: "skin", chroma: 0.8, flush: 0.15, depth: 1 },
     material: { sheen: 0.12, fuzz: 0.2 },
     grain: {
@@ -121,7 +157,13 @@ export function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: numbe
       on: "hair",
       lie: [0, -1, -0.5],
       pelt: {
-        flow: hairFlow(p, s).map((b) => ({ ...b, a: placed(scale(b.a, p.build.size), at, yaw), b: placed(scale(b.b, p.build.size), at, yaw), up: placed(b.up, [0, 0, 0], yaw), girth: b.girth * p.build.size })),
+        flow: hairFlow(p, s).map((b) => ({
+          ...b,
+          a: placed(scale(b.a, p.build.size), at, yaw),
+          b: placed(scale(b.b, p.build.size), at, yaw),
+          up: placed(b.up, [0, 0, 0], yaw),
+          girth: b.girth * p.build.size,
+        })),
         under: 0.45,
         thin: 0.2,
         crease: 0.3,
@@ -135,7 +177,9 @@ export function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: numbe
 
 /** How a person's loose cloth follows them: a damped spring in the body's frame, thrown by every change of speed, dragged back by the air as they go. */
 export function createHang(stiff = 34, damp = 5): { step(dt: number, velocity: Vec): Vec } {
-  let at: Vec = [0, 0, 0], speed: Vec = [0, 0, 0], last: Vec = [0, 0, 0];
+  let at: Vec = [0, 0, 0];
+  let speed: Vec = [0, 0, 0];
+  let last: Vec = [0, 0, 0];
   return {
     step(dt, velocity) {
       const kick = sub(velocity, last);
@@ -156,7 +200,11 @@ export function velocityAt(p: Person, action: Action, t: number): Vec {
   const dt = 1 / 60;
   const beat = (v: number): number => phaseOf(p, action, v);
   const moved = sub(skeletonOf(p, action, beat(t + dt)).pelvis, skeletonOf(p, action, beat(t)).pelvis);
-  return add(scale(moved, p.build.size / dt), [0, 0, paceOf(p, action) * (MOTIONS[action].own === true ? p.gait.cadence * p.gait.stride : 1)]);
+  return add(scale(moved, p.build.size / dt), [
+    0,
+    0,
+    paceOf(p, action) * (MOTIONS[action].own === true ? p.gait.cadence * p.gait.stride : 1),
+  ]);
 }
 
 /** How far soft flesh has been left behind at `t`: on a stiffer spring than cloth, it is thrown up and down by each step and settles after it. In the body's frame, metres. */
@@ -167,7 +215,8 @@ export function jiggleAt(p: Person, action: Action, t: number): Vec {
     const speed = velocityAt(p, action, t - i / 60);
     at = spring.step(1 / 30, [speed[0], speed[1], speed[2] - paceOf(p, action)]);
   }
-  const far = Math.hypot(...at), most = 0.007 * p.build.size;
+  const far = Math.hypot(...at);
+  const most = 0.007 * p.build.size;
   return scale(at, far * 0.18 > most ? most / far : 0.18);
 }
 

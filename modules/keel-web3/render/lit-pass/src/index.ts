@@ -15,9 +15,23 @@ export interface HostFrame {
   readonly target: WebGLFramebuffer | null;
 }
 
-interface PassMatrix { fromArray(values: ArrayLike<number>): PassMatrix; makeTranslation(x: number, y: number, z: number): PassMatrix; multiply(other: PassMatrix): PassMatrix }
-interface PassCamera { position: { set(x: number, y: number, z: number): void }; projectionMatrix: PassMatrix; projectionMatrixInverse: { copy(m: PassMatrix): { invert(): unknown } } }
-interface PassRenderer { autoClear: boolean; setViewport(x: number, y: number, width: number, height: number): void; render(stage: unknown, camera: PassCamera): void; resetState(): void; dispose(): void }
+interface PassMatrix {
+  fromArray(values: ArrayLike<number>): PassMatrix;
+  makeTranslation(x: number, y: number, z: number): PassMatrix;
+  multiply(other: PassMatrix): PassMatrix;
+}
+interface PassCamera {
+  position: { set(x: number, y: number, z: number): void };
+  projectionMatrix: PassMatrix;
+  projectionMatrixInverse: { copy(m: PassMatrix): { invert(): unknown } };
+}
+interface PassRenderer {
+  autoClear: boolean;
+  setViewport(x: number, y: number, width: number, height: number): void;
+  render(stage: unknown, camera: PassCamera): void;
+  resetState(): void;
+  dispose(): void;
+}
 
 /** What this module uses of keel/lit. */
 export interface PassLit {

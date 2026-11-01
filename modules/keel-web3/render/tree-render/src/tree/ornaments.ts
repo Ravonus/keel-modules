@@ -39,7 +39,8 @@ export function kindSet(tree: Pick<Tree, "lit" | "group" | "model" | "features" 
 }
 
 /** The year a set keeps: a minor kind's own calendar, else the tree's. */
-export const kindYear = (tree: Tree, set: OrnamentSet, year: YearLike): YearLike => (set.strain >= 0 ? tree.strainYears[set.strain] ?? year : year);
+export const kindYear = (tree: Tree, set: OrnamentSet, year: YearLike): YearLike =>
+  set.strain >= 0 ? (tree.strainYears[set.strain] ?? year) : year;
 
 // Flowers and fruit hang from the nodes that bear them, open or ripen each in
 // its own turn, and fall in rank order like the leaves.
@@ -63,10 +64,24 @@ export function forgetEaten(tree: Tree, year: YearLike): void {
 }
 
 /** Where a fruit hangs, still (the wind's sway left out): under its twig, by its own lift. */
-function hangingSpot(tree: Tree, set: OrnamentSet, frame: TreeFrameLike, year: YearLike, index: number): { x: number; y: number; z: number; unit: number } {
+function hangingSpot(
+  tree: Tree,
+  set: OrnamentSet,
+  frame: TreeFrameLike,
+  year: YearLike,
+  index: number,
+): { x: number; y: number; z: number; unit: number } {
   const node = at(set.slots.node, index);
-  const unit = tree.colors.leafScale * at(set.slots.size, index) * (0.35 + 0.65 * clamp((ornamentState(set, year).open - at(set.slots.rank, index)) * 8, 0, 1));
-  return { x: at(frame.x, node) + at(set.slots.dx, index), y: at(frame.y, node) + at(set.slots.dy, index) * 0.5 + set.look.lift * unit, z: at(frame.z, node) + at(set.slots.dz, index), unit };
+  const unit =
+    tree.colors.leafScale *
+    at(set.slots.size, index) *
+    (0.35 + 0.65 * clamp((ornamentState(set, year).open - at(set.slots.rank, index)) * 8, 0, 1));
+  return {
+    x: at(frame.x, node) + at(set.slots.dx, index),
+    y: at(frame.y, node) + at(set.slots.dy, index) * 0.5 + set.look.lift * unit,
+    z: at(frame.z, node) + at(set.slots.dz, index),
+    unit,
+  };
 }
 
 export function ripeFruit(tree: Tree): TreeFruit[] {
@@ -122,8 +137,20 @@ function goneSlots(tree: Tree, set: OrnamentSet): (index: number) => boolean {
 }
 
 /** The sway field's offset into `tree.offset`, or none when the host moves the tree itself. */
-export function stillOrSway(tree: Tree, x: number, y: number, z: number, motion: TreeMotion, wind: number, height: number): void {
-  if (tree.still) { tree.offset.x = 0; tree.offset.z = 0; return; }
+export function stillOrSway(
+  tree: Tree,
+  x: number,
+  y: number,
+  z: number,
+  motion: TreeMotion,
+  wind: number,
+  height: number,
+): void {
+  if (tree.still) {
+    tree.offset.x = 0;
+    tree.offset.z = 0;
+    return;
+  }
   sway(tree.offset, x, y, z, motion.elapsed, wind * (motion.field ?? 1), height, motion.windDir);
 }
 
@@ -148,14 +175,25 @@ export function poseOrnaments(
   for (let index = 0; index < slots.count; index += set.thin) {
     const node = at(slots.node, index);
     const rank = at(slots.rank, index);
-    if (rank >= open || rank < fallen || gone(index) || !bearingNode(tree, frame, spec, node, set.strain >= 0)) { clearSlot(array, index); continue; }
+    if (rank >= open || rank < fallen || gone(index) || !bearingNode(tree, frame, spec, node, set.strain >= 0)) { clearSlot(array, index);
+    continue; }
     const unit = tree.colors.leafScale * at(slots.size, index) * grow * (0.35 + 0.65 * clamp((open - rank) * 8, 0, 1));
     const x = at(frame.x, node) + at(slots.dx, index);
     const z = at(frame.z, node) + at(slots.dz, index);
     const y = at(frame.y, node) + at(slots.dy, index) * 0.5 + look.lift * unit;
     stillOrSway(tree, x, y, z, motion, wind, height);
     const swing = hangSwing(look.lift, wind, motion, rank);
-    writeBox(array, index, x + tree.offset.x + swing.x, y, z + tree.offset.z + swing.z, look.size[0] * unit, look.size[1] * unit, look.size[2] * unit, rank * TAU);
+    writeBox(
+      array,
+      index,
+      x + tree.offset.x + swing.x,
+      y,
+      z + tree.offset.z + swing.z,
+      look.size[0] * unit,
+      look.size[1] * unit,
+      look.size[2] * unit,
+      rank * TAU,
+    );
   }
   mesh.instanceMatrix.needsUpdate = true;
 }

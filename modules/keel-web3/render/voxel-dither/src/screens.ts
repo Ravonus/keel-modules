@@ -58,7 +58,10 @@ export function quantizeTone(value: number, levels: number, threshold: number, a
   const t = 0.5 + (threshold - 0.5) * Math.min(1, Math.max(0, amount));
   const scaled = Math.min(1, Math.max(0, value)) * steps;
   const base = Math.floor(scaled);
-  const share = Math.min(1, Math.max(0, (scaled - base - 0.5) / Math.max(1 - Math.min(0.9, Math.max(0, snap)), 0.001) + 0.5));
+  const share = Math.min(
+    1,
+    Math.max(0, (scaled - base - 0.5) / Math.max(1 - Math.min(0.9, Math.max(0, snap)), 0.001) + 0.5),
+  );
   return Math.min(steps, Math.max(0, base + (share >= 1 - t ? 1 : 0))) / steps;
 }
 
@@ -77,18 +80,34 @@ export function hexChannels(hex: string): readonly [number, number, number] {
 
 /** An sRGB colour (0..1) in OKLab: lightness, then green-red and blue-yellow. */
 export function okLab(rgb: readonly [number, number, number]): [number, number, number] {
-  const [r, g, b] = rgb.map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)) as [number, number, number];
+  const [r, g, b] = rgb.map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)) as [
+    number,
+    number,
+    number,
+  ];
   const l = Math.cbrt(0.4122 * r + 0.5363 * g + 0.0514 * b);
   const m = Math.cbrt(0.2119 * r + 0.6807 * g + 0.1074 * b);
   const s = Math.cbrt(0.0883 * r + 0.2817 * g + 0.63 * b);
-  return [0.2105 * l + 0.7936 * m - 0.0041 * s, 1.978 * l - 2.4286 * m + 0.4506 * s, 0.0259 * l + 0.7828 * m - 0.8087 * s];
+  return [
+    0.2105 * l + 0.7936 * m - 0.0041 * s,
+    1.978 * l - 2.4286 * m + 0.4506 * s,
+    0.0259 * l + 0.7828 * m - 0.8087 * s,
+  ];
 }
 
 /** A palette as the shader's flat vec3[32] (sRGB 0..1) and the same entries in OKLab, plus its length. */
-export function paletteUniform(palette: readonly string[]): { readonly data: Float32Array; readonly lab: Float32Array; readonly size: number } {
+export function paletteUniform(palette: readonly string[]): {
+  readonly data: Float32Array;
+  readonly lab: Float32Array;
+  readonly size: number;
+} {
   const data = new Float32Array(96);
   const lab = new Float32Array(96);
   const entries = palette.slice(0, 32);
-  entries.forEach((hex, index) => { const rgb = hexChannels(hex); data.set(rgb, index * 3); lab.set(okLab(rgb), index * 3); });
+  entries.forEach((hex, index) => {
+    const rgb = hexChannels(hex);
+    data.set(rgb, index * 3);
+    lab.set(okLab(rgb), index * 3);
+  });
   return { data, lab, size: entries.length };
 }

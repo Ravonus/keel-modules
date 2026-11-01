@@ -53,14 +53,23 @@ export function hatted(seed: number, build: Build, outfit: Outfit): Outfit {
 }
 
 /** One of `list`, or the first if `chance` misses. */
-const someOf = <T>(r: () => number, chance: number, list: readonly T[]): T => { const hit = r(), pick = r(); return list[hit < chance ? 1 + Math.floor(pick * (list.length - 1)) : 0] as T; };
+const someOf = <T>(r: () => number, chance: number, list: readonly T[]): T => { const hit = r();
+const pick = r();
+return list[hit < chance ? 1 + Math.floor(pick * (list.length - 1)) : 0] as T; };
 
 /** How likely each is to wear each. */
-const GEAR_ODDS = { child: { ears: 0, neck: 0, hair: 0.5 }, woman: { ears: 0.55, neck: 0.3, hair: 0.3 }, man: { ears: 0.14, neck: 0.12, hair: 0.05 } } as const;
+const GEAR_ODDS = {
+  child: { ears: 0, neck: 0, hair: 0.5 },
+  woman: { ears: 0.55, neck: 0.3, hair: 0.3 },
+  man: { ears: 0.14, neck: 0.12, hair: 0.05 },
+} as const;
 
 /** What a person has on them. A child has clips, a bow and maybe glasses, and nothing pierced; a teen's ears may be. */
 export function gearOf(seed: number, build: Build, outfit: Outfit): Gear {
-  const r = streamOf(seed, 0x67656172), child = childish(build), grown = !child && build.age !== "teen", bare = outfit.hat === "none";
+  const r = streamOf(seed, 0x67656172);
+  const child = childish(build);
+  const grown = !child && build.age !== "teen";
+  const bare = outfit.hat === "none";
   const odds = GEAR_ODDS[child ? "child" : build.sex === "female" ? "woman" : "man"];
   return {
     glasses: someOf<Gear["glasses"]>(r, build.age === "elder" ? 0.5 : 0.2, child ? ["none", "clear", "round"] : ["none", "clear", "round", "cat", "sun"]),
@@ -74,7 +83,8 @@ export function gearOf(seed: number, build: Build, outfit: Outfit): Gear {
 
 /** The little metal and glass a person wears, and a bright colour for what is in their hair. */
 export function gearColours(seed: number): Record<string, string> {
-  const r = streamOf(seed, 0x6d65746c), bright = ["#d8423c", "#e8b23a", "#3a7ad8", "#e86aa8", "#46b078", "#f4f0e8", "#7a4ac8"];
+  const r = streamOf(seed, 0x6d65746c);
+  const bright = ["#d8423c", "#e8b23a", "#3a7ad8", "#e86aa8", "#46b078", "#f4f0e8", "#7a4ac8"];
   return { metal: r() < 0.5 ? "#d8b35a" : "#c8c8cc", lens: r() < 0.5 ? "#16181c" : "#2c2418", clip: bright[Math.floor(r() * bright.length)] ?? "#d8423c" };
 }
 
@@ -150,7 +160,17 @@ const JOB_COLOURS: Partial<Record<Costume, (rand: () => number) => Record<string
 
 /** Colours only the day's clothes want: a bright raincoat, a loud swimsuit, an umbrella, a pelt. */
 export function colourFor(rand: () => number, outfit: Outfit): Record<string, string> {
-  if (outfit.costume === "fursuit") { const fur = pick(rand, FUR); return { skin: fur, belly: blend(fur, "#f4ece0", 0.66), bottom: fur, shoe: fur, sole: fur, trim: fur, lip: fur, brow: blend(fur, "#1a1412", 0.5) }; }
+  if (outfit.costume === "fursuit") { const fur = pick(rand, FUR);
+  return {
+    skin: fur,
+    belly: blend(fur, "#f4ece0", 0.66),
+    bottom: fur,
+    shoe: fur,
+    sole: fur,
+    trim: fur,
+    lip: fur,
+    brow: blend(fur, "#1a1412", 0.5),
+  }; }
   const job = JOB_COLOURS[outfit.costume]?.(rand) ?? {};
   const loud = hsl(0.2 + rand() * 0.75, 0.62, 0.48);  // (Never near a skin's hue, so a swimsuit never reads as bare.)
   const swim = outfit.bottom === "swim" || outfit.bottom === "briefs" ? { bottom: loud, top: outfit.top === "tee" ? hsl(rand(), 0.4, 0.6) : loud } : {};

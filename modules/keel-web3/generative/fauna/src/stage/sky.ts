@@ -28,7 +28,14 @@ export interface Pass {
 }
 
 /** Schedule passes ahead to `t`; `make` may decline one (nothing fits the sky just then). */
-export function passesUntil(list: Pass[], clock: { last: number }, rand: () => number, every: readonly [number, number], t: number, make: (start: number) => Pass | null): void {
+export function passesUntil(
+  list: Pass[],
+  clock: { last: number },
+  rand: () => number,
+  every: readonly [number, number],
+  t: number,
+  make: (start: number) => Pass | null,
+): void {
   while (clock.last < t + 1) {
     clock.last += between(rand, every);
     const pass = make(clock.last);
@@ -37,7 +44,12 @@ export function passesUntil(list: Pass[], clock: { last: number }, rand: () => n
   while (list.length > 0 && (list[0]?.end ?? 0) < t - 5) list.shift();
 }
 
-function chord(rand: () => number, near: readonly [number, number], height: readonly [number, number], span: number): { from: Vec; to: Vec } {
+function chord(
+  rand: () => number,
+  near: readonly [number, number],
+  height: readonly [number, number],
+  span: number,
+): { from: Vec; to: Vec } {
   const heading = rand() * TAU;
   const offset = between(rand, near) * (rand() < 0.5 ? -1 : 1);
   const y = between(rand, height);
@@ -48,7 +60,13 @@ function chord(rand: () => number, near: readonly [number, number], height: read
 }
 
 /** How each kind crosses the sky: how far off, how high, how long a path, how fast, how many together. */
-interface Route { readonly near: readonly [number, number]; readonly height: readonly [number, number]; readonly span: number; readonly speed: readonly [number, number]; readonly count: readonly [number, number] }
+interface Route {
+  readonly near: readonly [number, number];
+  readonly height: readonly [number, number];
+  readonly span: number;
+  readonly speed: readonly [number, number];
+  readonly count: readonly [number, number];
+}
 const ROUTES: Readonly<Record<SkyKind, Route>> = {
   flock: { near: [8, 26], height: [6, 15], span: 45, speed: [3.5, 5.5], count: [1, 9] },
   vee: { near: [10, 30], height: [12, 22], span: 55, speed: [4, 5.5], count: [5, 11] },
@@ -125,7 +143,16 @@ export function passOf(kind: SkyKind, start: number, rand: () => number, reach: 
   const crane = kind === "flock" && plan.birds === "crane";
   const count = crane ? intBetween(rand, 3, 7) : intBetween(rand, route.count[0], route.count[1]);
   const v = kind === "vee" || (kind === "flock" && count >= 5 && rand() < 0.4);
-  return { kind, start, end: start + Math.max(1.2, length(sub(to, from)) / between(rand, route.speed)), from, to, count, v, seed: Math.floor(rand() * 1e6) };
+  return {
+    kind,
+    start,
+    end: start + Math.max(1.2, length(sub(to, from)) / between(rand, route.speed)),
+    from,
+    to,
+    count,
+    v,
+    seed: Math.floor(rand() * 1e6),
+  };
 }
 
 /** (A cruise with no start or end in sight: no launch, no landing, just its own flaps and glides.) */
@@ -148,15 +175,26 @@ export function flockBodies(pass: Pass, who: Who, t: number): Body[] {
   const bow = ((pass.seed % 997) / 997 - 0.5) * 0.3 * span;
   const headingAt = (k: number): Vec => unit(madd(line, side, bow * Math.PI * Math.cos(Math.PI * k)));
   const dir = headingAt(u);
-  const up = bankedUp(headingAt(u - 0.02), headingAt(u + 0.02), span * 0.04, span / Math.max(0.01, pass.end - pass.start));
+  const up = bankedUp(
+    headingAt(u - 0.02),
+    headingAt(u + 0.02),
+    span * 0.04,
+    span / Math.max(0.01, pass.end - pass.start),
+  );
   const middle = madd(lerpV(pass.from, pass.to, u), side, bow * Math.sin(Math.PI * clamp(u, 0, 1)));
   const across = unit(cross(UP, dir));
   const out: Body[] = [];
   for (let i = 0; i < pass.count; i += 1) {
     const rank = Math.ceil(i / 2) * (i % 2 === 0 ? 1 : -1);
-    const spread = pass.v ? [rank * 0.9, -Math.abs(rank) * 1.1] : [Math.sin(i * 2.4 + pass.seed) * 2.2, Math.cos(i * 1.7 + pass.seed) * 2.4];
+    const spread = pass.v
+      ? [rank * 0.9, -Math.abs(rank) * 1.1]
+      : [Math.sin(i * 2.4 + pass.seed) * 2.2, Math.cos(i * 1.7 + pass.seed) * 2.4];
     const bobbing = Math.sin(t * 1.3 + i * 1.1) * 0.25;
-    const p = add(madd(madd(middle, across, spread[0] ?? 0), dir, spread[1] ?? 0), [0, bobbing + (pass.v ? 0 : Math.sin(i * 3.3) * 0.8), 0]);
+    const p = add(madd(madd(middle, across, spread[0] ?? 0), dir, spread[1] ?? 0), [
+      0,
+      bobbing + (pass.v ? 0 : Math.sin(i * 3.3) * 0.8),
+      0,
+    ]);
     // (Down a vee each bird beats a little after the one ahead, a wave along the line.)
     out.push(flyingBird(`flock.${String(pass.seed)}.${String(i)}`, who, p, dir, t + (pass.v ? Math.abs(rank) * 0.22 : i * 0.37), up));
   }
@@ -334,11 +372,24 @@ function comet(kit: Kit, size: number): void {
   for (let i = 1; i <= 10; i += 1) ball(kit, "tail", "glow", [0, 0, -size * i * 0.6], size * 0.2 * (1 - i / 12));
 }
 
-const PLANE_SIZE: Readonly<Record<PlaneKind, number>> = { airliner: 3.4, prop: 1.6, jet: 2.4, ufo: 2.6, balloon: 3, helicopter: 1.8, blimp: 7, kite: 0.9, satellite: 1.4, rocket: 4, comet: 2.2 };
+const PLANE_SIZE: Readonly<Record<PlaneKind, number>> = {
+  airliner: 3.4,
+  prop: 1.6,
+  jet: 2.4,
+  ufo: 2.6,
+  balloon: 3,
+  helicopter: 1.8,
+  blimp: 7,
+  kite: 0.9,
+  satellite: 1.4,
+  rocket: 4,
+  comet: 2.2,
+};
 
 const PLANE_SHAPES: Readonly<Record<PlaneKind, (kit: Kit, size: number, t: number) => void>> = {
   airliner: (kit, size, t) => { airliner(kit, size, false, t); },
-  prop: (kit, size, t) => { airliner(kit, size, true, t); banner(kit, size, t); },
+  prop: (kit, size, t) => { airliner(kit, size, true, t);
+  banner(kit, size, t); },
   jet: (kit, size, t) => {
     airliner(kit, size, false, t);
     for (let i = 1; i <= 10; i += 1) ball(kit, "contrail", "glow", [0, 0, -size * (0.5 + i * 0.45)], size * (0.03 + i * 0.012), 0.9);

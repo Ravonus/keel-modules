@@ -28,8 +28,20 @@ import type { Who } from "./bodies.js";
  * of it; and whether it sits in a tuft of bristles (a snowy owl's).
  */
 interface OwlFace {
-  readonly heart: boolean; readonly disc: Role; readonly rim: Role; readonly ring: number; readonly open: boolean; readonly dish: number;
-  readonly eye: number; readonly apart: number; readonly high: number; readonly lid: number; readonly crown: number; readonly bill: number; readonly tip: Role; readonly bristle: boolean;
+  readonly heart: boolean;
+  readonly disc: Role;
+  readonly rim: Role;
+  readonly ring: number;
+  readonly open: boolean;
+  readonly dish: number;
+  readonly eye: number;
+  readonly apart: number;
+  readonly high: number;
+  readonly lid: number;
+  readonly crown: number;
+  readonly bill: number;
+  readonly tip: Role;
+  readonly bristle: boolean;
 }
 const OWL_FACE: OwlFace = { heart: false, disc: "accent", rim: "dark", ring: 0.13, open: false, dish: 0.04, eye: 0.3, apart: 0.46, high: 0.1, lid: 1.28, crown: 0.4, bill: 0.3, tip: "dark", bristle: false };
 const OWL_FACES: Readonly<Record<string, OwlFace>> = {
@@ -40,7 +52,11 @@ const OWL_FACES: Readonly<Record<string, OwlFace>> = {
 const owlFaceOf = (who: Who): OwlFace => OWL_FACES[who.member.coat] ?? OWL_FACE;
 
 /** An owl's skull: how far back of its middle it sits, its radius across, and how flat its front, in head radii. */
-const owlSkull = (face: OwlFace): { readonly back: number; readonly r: number; readonly flat: number } => ({ back: -0.05, r: 1.2 - face.crown * 0.5, flat: 0.76 });
+const owlSkull = (face: OwlFace): { readonly back: number; readonly r: number; readonly flat: number } => ({
+  back: -0.05,
+  r: 1.2 - face.crown * 0.5,
+  flat: 0.76,
+});
 
 /** A point `s` across and `u` up an owl's face, `out` head radii off the skull's front (as `owlHead` draws it). */
 function onOwlFace(h: Head, face: OwlFace, s: number, u: number, out = 0): Vec {
@@ -79,16 +95,43 @@ export function owlHead(kit: Kit, who: Who, head: Head, m: Moment): void {
  * lies across the face; carved, it stands off it so it cuts in only `dish`
  * head radii at its deepest.
  */
-function discHalf(kit: Kit, part: string, role: Role, h: Head, face: OwlFace, x: number, grow: number, finish: Finish): void {
+function discHalf(
+  kit: Kit,
+  part: string,
+  role: Role,
+  h: Head,
+  face: OwlFace,
+  x: number,
+  grow: number,
+  finish: Finish,
+): void {
   // (A heart's lobes overlap down its middle, so it reads as one white face and never as two goggles.)
-  const [top, end] = face.heart ? [[0.42, 0.22], [0.04, -0.52]] as const : [[0.52, 0.12], [0.3, -0.24]] as const;
+  const [top, end] = face.heart
+    ? ([
+        [0.42, 0.22],
+        [0.04, -0.52],
+      ] as const)
+    : ([
+        [0.52, 0.12],
+        [0.3, -0.24],
+      ] as const);
   const [r, r1] = face.heart ? [0.66 + grow, 0.26 + grow] : [0.66 + grow, 0.54 + grow];
   const n = unit(madd(h.d, h.s, x * 0.3));
   // (Painted, nearly round, so it marks the face the same however far the face curves back from it.)
   const thick = finish.carve === true ? 0.12 : r * 0.75;
   // (A tapered part thins with its radius: each end stands off by its own thickness.)
   const off = (k: number): number => (finish.carve === true ? thick * k - face.dish : 0);
-  cap(kit, part, role, onOwlFace(h, face, x * top[0], top[1], off(1)), onOwlFace(h, face, x * end[0], end[1], off(r1 / r)), h.r * r, thick / r, n, { ...finish, r1: h.r * r1 });
+  cap(
+    kit,
+    part,
+    role,
+    onOwlFace(h, face, x * top[0], top[1], off(1)),
+    onOwlFace(h, face, x * end[0], end[1], off(r1 / r)),
+    h.r * r,
+    thick / r,
+    n,
+    { ...finish, r1: h.r * r1 },
+  );
 }
 
 /**
@@ -108,7 +151,10 @@ function owlDisc(kit: Kit, h: Head, face: OwlFace): void {
 /** The line round a half of the disc: all the way round it, or (an `open` rim) a crescent down its outer side only. */
 function owlRim(kit: Kit, h: Head, face: OwlFace, x: number): void {
   const part = `rim.${x < 0 ? "L" : "R"}`;
-  if (face.open) cap(kit, part, face.rim, onOwlFace(h, face, x * 0.94, 0.34), onOwlFace(h, face, x * 0.78, -0.24), h.r * 0.25, 1, UP, { r1: h.r * 0.2, decal: true });
+  if (face.open) cap(kit, part, face.rim, onOwlFace(h, face, x * 0.94, 0.34), onOwlFace(h, face, x * 0.78, -0.24), h.r * 0.25, 1, UP, {
+    r1: h.r * 0.2,
+    decal: true,
+  });
   else discHalf(kit, part, face.rim, h, face, x, face.ring, { decal: true });
 }
 
@@ -121,10 +167,35 @@ function owlRim(kit: Kit, h: Head, face: OwlFace, x: number): void {
 function owlFaceMarks(kit: Kit, who: Who, h: Head, face: OwlFace, open: boolean): void {
   const on = (s: number, u: number): Vec => onOwlFace(h, face, s, u);
   // (Each stands off the face at its upper end, so it still lies on the face where the face bulges out between its ends.)
-  if (who.member.coat === "barn") cap(kit, "notch", "coat", onOwlFace(h, face, 0, 0.92, 0.12), on(0, 0.14), h.r * 0.15, 1, UP, { r1: h.r * 0.03, decal: true });
+  if (who.member.coat === "barn")
+    cap(kit, "notch", "coat", onOwlFace(h, face, 0, 0.92, 0.12), on(0, 0.14), h.r * 0.15, 1, UP, {
+      r1: h.r * 0.03,
+      decal: true,
+    });
   // (A round eye's dark ring painted round it on the disc, so it frames the eye however the face curves.)
-  if (open && !face.heart) for (const x of [-1, 1]) decal(kit, `eye.${x < 0 ? "L" : "R"}.ring`, "dark", onOwlFace(h, face, x * face.apart, face.high), onOwlFace(h, face, x * face.apart, face.high), h.r * face.eye * face.lid);
-  if (who.member.coat === "great horned") for (const x of [-1, 1]) cap(kit, `brow.${x < 0 ? "L" : "R"}`, "accent", onOwlFace(h, face, x * 0.03, -0.04, 0.02), onOwlFace(h, face, x * 0.56, 0.56, 0.05), h.r * 0.12, 1, UP, { r1: h.r * 0.07, decal: true });
+  if (open && !face.heart)
+    for (const x of [-1, 1])
+      decal(
+        kit,
+        `eye.${x < 0 ? "L" : "R"}.ring`,
+        "dark",
+        onOwlFace(h, face, x * face.apart, face.high),
+        onOwlFace(h, face, x * face.apart, face.high),
+        h.r * face.eye * face.lid,
+      );
+  if (who.member.coat === "great horned")
+    for (const x of [-1, 1])
+      cap(
+        kit,
+        `brow.${x < 0 ? "L" : "R"}`,
+        "accent",
+        onOwlFace(h, face, x * 0.03, -0.04, 0.02),
+        onOwlFace(h, face, x * 0.56, 0.56, 0.05),
+        h.r * 0.12,
+        1,
+        UP,
+        { r1: h.r * 0.07, decal: true },
+      );
 }
 
 /**
@@ -247,7 +318,10 @@ export function owlFold(kit: Kit, style: WingStyle, body: BirdBody, x: number): 
   const root = at(-0.05, 0.93, 0.5);
   OWL_PRIMARIES.forEach(([up, out, back], i) => {
     // (Hardly melted, so each keeps its own edge and still wears the coat's pattern.)
-    cap(kit, `wingtip.${L}${String(i)}`, tips, root, at(up, out, back), r * 0.22, 0.4, face, { r1: r * 0.14, melt: 0.08 });
+    cap(kit, `wingtip.${L}${String(i)}`, tips, root, at(up, out, back), r * 0.22, 0.4, face, {
+      r1: r * 0.14,
+      melt: 0.08,
+    });
   });
 }
 
@@ -307,7 +381,13 @@ export function owlBib(kit: Kit, h: Head): void {
  * pale, a great horned owl's thick and feathered on big dark talons, a snowy
  * owl's white feather mitts with only the claws' tips showing black.
  */
-interface OwlLeg { readonly thigh: number; readonly shank: number; readonly toe: number; readonly claw: number; readonly skin: Role }
+interface OwlLeg {
+  readonly thigh: number;
+  readonly shank: number;
+  readonly toe: number;
+  readonly claw: number;
+  readonly skin: Role;
+}
 const OWL_LEG: OwlLeg = { thigh: 0.46, shank: 0.2, toe: 0.11, claw: 0.075, skin: "belly" };
 const OWL_LEGS: Readonly<Record<string, OwlLeg>> = {
   barn: { ...OWL_LEG, thigh: 0.42, shank: 0.13, toe: 0.095, claw: 0.06, skin: "horn" },
@@ -344,7 +424,8 @@ const OWL_BELLY_MARKS = [[-0.4, -0.5], [-0.74, 0.3]] as const;
 function owlBars(kit: Kit, body: BirdBody): void {
   const at = owlAt(body, 1);
   // (Each end on the curve of its belly, so both arms of the V lie on it.)
-  const on = (up: number, out: number): Vec => at(up, out, 0.16 - 0.88 * Math.sqrt(Math.max(0, 1 - (out * out) / 1.15)));
+  const on = (up: number, out: number): Vec =>
+    at(up, out, 0.16 - 0.88 * Math.sqrt(Math.max(0, 1 - (out * out) / 1.15)));
   OWL_BELLY_MARKS.forEach(([up, out], i) => {
     for (const x of [-1, 1]) cap(kit, `bar.${String(i)}${x < 0 ? "L" : "R"}`, "dark", on(up, out), on(up + 0.18, out + x * 0.32), body.r * 0.06, 1, UP, { r1: body.r * 0.04, decal: true, melt: 0.7 });
   });

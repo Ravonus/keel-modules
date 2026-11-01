@@ -44,8 +44,22 @@ export interface YearState {
   readonly dormant: boolean;
 }
 
-const SPRING_SHIFT: Readonly<Record<string, number>> = { alpine: 14, maritime: -5, monsoon: -6, desert: -10, highland: 0, temperate: 0 };
-const AUTUMN_SHIFT: Readonly<Record<string, number>> = { alpine: -14, maritime: 10, monsoon: 6, desert: 4, highland: 0, temperate: 0 };
+const SPRING_SHIFT: Readonly<Record<string, number>> = {
+  alpine: 14,
+  maritime: -5,
+  monsoon: -6,
+  desert: -10,
+  highland: 0,
+  temperate: 0,
+};
+const AUTUMN_SHIFT: Readonly<Record<string, number>> = {
+  alpine: -14,
+  maritime: 10,
+  monsoon: 6,
+  desert: 4,
+  highland: 0,
+  temperate: 0,
+};
 
 /** A year's own small shift: no two springs bloom on quite the same day. */
 function yearJitter(year: number, seed: number): number {
@@ -74,10 +88,26 @@ function leafYear(species: Species, spring: number, autumn: number): Omit<YearSt
     // some dead leaves until the new ones push them off.
     const litter = fallen ? spec.dropMax * (1 - 0.65 * ramp(autumn, spec.drop[1], 425)) : lastYear;
     const held = spec.marcescent;
-    return { leaf: held > 0 ? 1 : 0, color: held > 0 ? 1 : 0, drop: held > 0 ? 1 - held : 0, litter, flush: 0, withered: held > 0, dormant: true };
+    return {
+      leaf: held > 0 ? 1 : 0,
+      color: held > 0 ? 1 : 0,
+      drop: held > 0 ? 1 - held : 0,
+      litter,
+      flush: 0,
+      withered: held > 0,
+      dormant: true,
+    };
   }
   const litter = autumn >= spec.drop[0] ? drop : lastYear;
-  return { leaf, color, drop, litter, flush: spring >= spec.flush[0] - 6 ? flush : 0, withered: false, dormant: leaf <= 0 };
+  return {
+    leaf,
+    color,
+    drop,
+    litter,
+    flush: spring >= spec.flush[0] - 6 ? flush : 0,
+    withered: false,
+    dormant: leaf <= 0,
+  };
 }
 
 /** Where the year stands for a species at a place: bud, blossom, leaf, color and fall. */
@@ -93,10 +123,24 @@ export function yearState(input: YearInput): YearState {
   const autumn = t - (AUTUMN_SHIFT[climate] ?? 0) - jitter * 0.5;
   const flower = ornamentYear(species.flower, spring, autumn);
   const fruit = ornamentYear(species.fruit, spring, autumn);
-  let state: YearState = { ...leafYear(species, spring, autumn), bloom: flower.open, petals: flower.fallen, fruit: fruit.open, fruitDrop: fruit.fallen };
+  let state: YearState = {
+    ...leafYear(species, spring, autumn),
+    bloom: flower.open,
+    petals: flower.fallen,
+    fruit: fruit.open,
+    fruitDrop: fruit.fallen,
+  };
   if (spec.dropMax < 1) state = { ...state, leaf: 1, dormant: false };
   if (hemisphere === "equatorial") {
-    state = { ...state, leaf: Math.max(state.leaf, 0.85), color: state.color * 0.35, drop: state.drop * 0.3, litter: state.litter * 0.3, withered: false, dormant: false };
+    state = {
+      ...state,
+      leaf: Math.max(state.leaf, 0.85),
+      color: state.color * 0.35,
+      drop: state.drop * 0.3,
+      litter: state.litter * 0.3,
+      withered: false,
+      dormant: false,
+    };
   }
   return state;
 }

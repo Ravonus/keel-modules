@@ -8,8 +8,38 @@ import type { Action, Plan, SpeciesId, SpeciesSpec } from "../roster.js";
 
 /** What each body plan can do, and how readily, before an animal's temper weights it. */
 const PLAN_ACTIONS: Readonly<Record<Plan, Partial<Record<Action, number>>>> = {
-  quad: { stand: 1, look: 1.2, sniff: 1, graze: 0.5, groom: 0.8, scratch: 0.5, sit: 1, lie: 0.7, sleep: 0.4, stretch: 0.4, shake: 0.3, yawn: 0.3, rear: 0.2, dig: 0.3, roll: 0.12, wander: 1.6, run: 0.25 },
-  primate: { stand: 0.5, sit: 1.4, look: 1, groom: 1, scratch: 0.8, eat: 0.8, sleep: 0.4, yawn: 0.3, wander: 0.9, climb: 1, hang: 0.4 },
+  quad: {
+    stand: 1,
+    look: 1.2,
+    sniff: 1,
+    graze: 0.5,
+    groom: 0.8,
+    scratch: 0.5,
+    sit: 1,
+    lie: 0.7,
+    sleep: 0.4,
+    stretch: 0.4,
+    shake: 0.3,
+    yawn: 0.3,
+    rear: 0.2,
+    dig: 0.3,
+    roll: 0.12,
+    wander: 1.6,
+    run: 0.25,
+  },
+  primate: {
+    stand: 0.5,
+    sit: 1.4,
+    look: 1,
+    groom: 1,
+    scratch: 0.8,
+    eat: 0.8,
+    sleep: 0.4,
+    yawn: 0.3,
+    wander: 0.9,
+    climb: 1,
+    hang: 0.4,
+  },
   bird: { stand: 1, look: 1.2, peck: 1, preen: 0.8, flap: 0.4, sing: 0.6, hop: 1, fly: 0.8, sleep: 0.25 },
   serpent: { bask: 1, coil: 0.8, flick: 0.8, look: 0.6, wander: 1, climb: 0.3 },
   bug: { hover: 1, wander: 1, sit: 0.5 },
@@ -47,11 +77,43 @@ const FLOW: Partial<Record<Action, Partial<Record<Action, number>>>> = {
 };
 
 export const SPAN: Readonly<Record<Action, readonly [number, number]>> = {
-  stand: [2, 5], look: [2, 4.5], sniff: [1.5, 3.5], graze: [4, 10], groom: [3, 7], scratch: [1.5, 3], sit: [4, 10], lie: [6, 14],
-  sleep: [12, 30], stretch: [1.8, 2.6], shake: [0.9, 1.3], yawn: [1.4, 2], rear: [2, 5], dig: [2, 5], roll: [2.5, 4], howl: [3, 5],
-  eat: [3, 8], peck: [1.2, 3], preen: [2, 5], flap: [1, 2], sing: [2, 4.5], display: [5, 9], drum: [1.5, 3.5], bask: [6, 14],
-  coil: [6, 12], flick: [1, 2], hover: [2, 5], wave: [1.5, 3], hang: [6, 16], nuzzle: [2.5, 4], play: [1.6, 2.6],
-  wander: [2, 5], run: [1, 2], hop: [1, 2.5], climb: [3, 6], fly: [2, 4], stalk: [2, 4],
+  stand: [2, 5],
+  look: [2, 4.5],
+  sniff: [1.5, 3.5],
+  graze: [4, 10],
+  groom: [3, 7],
+  scratch: [1.5, 3],
+  sit: [4, 10],
+  lie: [6, 14],
+  sleep: [12, 30],
+  stretch: [1.8, 2.6],
+  shake: [0.9, 1.3],
+  yawn: [1.4, 2],
+  rear: [2, 5],
+  dig: [2, 5],
+  roll: [2.5, 4],
+  howl: [3, 5],
+  eat: [3, 8],
+  peck: [1.2, 3],
+  preen: [2, 5],
+  flap: [1, 2],
+  sing: [2, 4.5],
+  display: [5, 9],
+  drum: [1.5, 3.5],
+  bask: [6, 14],
+  coil: [6, 12],
+  flick: [1, 2],
+  hover: [2, 5],
+  wave: [1.5, 3],
+  hang: [6, 16],
+  nuzzle: [2.5, 4],
+  play: [1.6, 2.6],
+  wander: [2, 5],
+  run: [1, 2],
+  hop: [1, 2.5],
+  climb: [3, 6],
+  fly: [2, 4],
+  stalk: [2, 4],
 };
 
 /** Actions that only make sense on the ground; an animal up a tree comes down first. */
@@ -69,7 +131,8 @@ export function actionsOf(spec: SpeciesSpec): Action[] {
   const out = new Set<Action>(Object.keys(base) as Action[]);
   // A temper of 0 takes an action off the animal's menu: a tortoise does not run, a fox does not graze.
   for (const [action, weight] of Object.entries(spec.temper) as [Action, number][]) if (weight > 0) out.add(action); else out.delete(action);
-  if (!spec.climbs && spec.plan !== "bird") { out.delete("climb"); out.delete("hang"); }
+  if (!spec.climbs && spec.plan !== "bird") { out.delete("climb");
+  out.delete("hang"); }
   if (!spec.flies) out.delete("fly");
   return [...out];
 }
@@ -82,10 +145,43 @@ export interface Mood {
 }
 
 /** Rain sends animals to rest and shelter (a bird sits it out preening, a butterfly folds its wings); snow slows everything and sets the hungry digging. */
-const WET: Partial<Record<Action, number>> = { sit: 1.8, lie: 1.6, sleep: 1.5, preen: 2, shake: 3, groom: 1.4, hang: 1.5, coil: 1.5, play: 0.3, display: 0.3, sing: 0.4, bask: 0.1, hover: 0.25 };
-const SNOWY: Partial<Record<Action, number>> = { lie: 1.8, sleep: 1.8, sit: 1.4, dig: 1.8, shake: 2, play: 0.6, bask: 0.2, display: 0.4, sing: 0.5, graze: 0.8 };
+const WET: Partial<Record<Action, number>> = {
+  sit: 1.8,
+  lie: 1.6,
+  sleep: 1.5,
+  preen: 2,
+  shake: 3,
+  groom: 1.4,
+  hang: 1.5,
+  coil: 1.5,
+  play: 0.3,
+  display: 0.3,
+  sing: 0.4,
+  bask: 0.1,
+  hover: 0.25,
+};
+const SNOWY: Partial<Record<Action, number>> = {
+  lie: 1.8,
+  sleep: 1.8,
+  sit: 1.4,
+  dig: 1.8,
+  shake: 2,
+  play: 0.6,
+  bask: 0.2,
+  display: 0.4,
+  sing: 0.5,
+  graze: 0.8,
+};
 /** At dawn and dusk the birds sing, the wolves howl and the kookaburras laugh; the deer come out to graze. */
-const TWILIGHT: Partial<Record<Action, number>> = { sing: 3, howl: 2.5, graze: 1.4, look: 1.2, drum: 1.5, display: 1.3, sleep: 0.6 };
+const TWILIGHT: Partial<Record<Action, number>> = {
+  sing: 3,
+  howl: 2.5,
+  graze: 1.4,
+  look: 1.2,
+  drum: 1.5,
+  display: 1.3,
+  sleep: 0.6,
+};
 
 function columnWeight(spec: SpeciesSpec, action: Action, mood: Mood): number {
   const base = PLAN_ACTIONS[spec.plan][action] ?? 0.6;

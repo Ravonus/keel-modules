@@ -64,7 +64,10 @@ interface SignalBase {
  */
 function tagMaterial(material: MaterialLike, part: SignalPart): void {
   if (material.transparent || material.userData.voxelDitherSignal === part) return;
-  const base = (material.userData.voxelDitherSignalBase as SignalBase | undefined) ?? { compile: material.onCompile, key: material.customProgramCacheKey };
+  const base = (material.userData.voxelDitherSignalBase as SignalBase | undefined) ?? {
+    compile: material.onCompile,
+    key: material.customProgramCacheKey,
+  };
   material.userData.voxelDitherSignalBase = base;
   material.userData.voxelDitherSignal = part;
   const alpha = SIGNAL_TAG_ALPHA[part].toFixed(2);
@@ -100,7 +103,8 @@ export function layerDetail(roots: ReadonlySet<NodeLike>, split: boolean): void 
   for (const root of roots) {
     root.traverse((node) => {
       if (node.isMesh !== true || node.layers === undefined) return;
-      const materials = node.material === undefined ? [] : Array.isArray(node.material) ? node.material : [node.material];
+      const materials =
+        node.material === undefined ? [] : Array.isArray(node.material) ? node.material : [node.material];
       if (materials.every((material) => material.colorWrite === false)) return;
       node.layers.mask = split ? DETAIL_MASK : 1;
     });

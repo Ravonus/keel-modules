@@ -39,7 +39,16 @@ interface Bud {
   vigor: number;
 }
 
-export function addNode(sim: Sim, parent: number, pos: Vec, dir: Vec, order: number, birth: number, span: number, main: boolean): number {
+export function addNode(
+  sim: Sim,
+  parent: number,
+  pos: Vec,
+  dir: Vec,
+  order: number,
+  birth: number,
+  span: number,
+  main: boolean,
+): number {
   const index = sim.pos.length;
   sim.pos.push(pos);
   sim.dir.push(dir);
@@ -96,7 +105,11 @@ function tropism(sim: Sim, heading: Vec, order: number, y: number): Vec {
   const horizontal = normalize(level, vec(1, 0, 0));
   const droop = species.lateralUp - (order >= 2 ? species.weep * Math.min(order - 1, 2) : 0);
   const flat = flatten ? Math.max(species.flat, 0.6) : species.flat;
-  return vec((horizontal.x - heading.x) * flat, droop + (flatten ? -0.1 : 0) + (horizontal.y - heading.y) * flat, (horizontal.z - heading.z) * flat);
+  return vec(
+    (horizontal.x - heading.x) * flat,
+    droop + (flatten ? -0.1 : 0) + (horizontal.y - heading.y) * flat,
+    (horizontal.z - heading.z) * flat,
+  );
 }
 
 /** Grows `count` internodes out of `bud`, each bending toward light and by tropism. */
@@ -109,7 +122,14 @@ function growShoot(sim: Sim, bud: Bud, count: number, cycle: number): void {
   for (let step = 0; step < count && sim.pos.length < sim.maxNodes; step += 1) {
     const from = sim.pos[node] ?? vec(0, 0, 0);
     const light = order >= 2 ? species.light / (1 + species.weep * 4) : species.light;
-    const pull = add(add(vec(heading.x * species.straight, heading.y * species.straight, heading.z * species.straight), lightDirection(sim.grid, from), light), tropism(sim, heading, order, from.y));
+    const pull = add(
+      add(
+        vec(heading.x * species.straight, heading.y * species.straight, heading.z * species.straight),
+        lightDirection(sim.grid, from),
+        light,
+      ),
+      tropism(sim, heading, order, from.y),
+    );
     heading = normalize(pull, heading);
     const to = add(from, heading, 0.88 + sim.random() * 0.24);
     if (to.y < 0.6 || cellOf(to) < 0) return;
@@ -141,7 +161,8 @@ function gatherLight(sim: Sim, light: number[], budCount: number[]): void {
     let buds = 0;
     for (const index of sim.nodeBuds[node] ?? []) {
       const bud = sim.buds[index];
-      if (bud?.alive === true) { sum += bud.light; buds += 1; }
+      if (bud?.alive === true) { sum += bud.light;
+      buds += 1; }
     }
     for (const child of sim.children[node] ?? []) {
       if (at(sim.deadAt, child) !== Infinity) continue;
@@ -242,7 +263,10 @@ function budShoots(sim: Sim): [Bud, number][] {
   const shoots: [Bud, number][] = [];
   for (const bud of sim.buds) {
     if (!bud.alive) continue;
-    const count = Math.min(bud.terminal && at(sim.order, bud.node) === 0 ? sim.species.maxShoot : sim.species.sideShoot, Math.floor(bud.vigor));
+    const count = Math.min(
+      bud.terminal && at(sim.order, bud.node) === 0 ? sim.species.maxShoot : sim.species.sideShoot,
+      Math.floor(bud.vigor),
+    );
     if (count >= 1) shoots.push([bud, count]);
   }
   return shoots;
@@ -278,7 +302,8 @@ function leaderTop(sim: Sim): number {
   let height = 0;
   for (let node = 0; node < sim.pos.length; node += 1) {
     const y = sim.pos[node]?.y ?? 0;
-    if (at(sim.order, node) === 0 && y > height) { top = node; height = y; }
+    if (at(sim.order, node) === 0 && y > height) { top = node;
+    height = y; }
   }
   return top;
 }
@@ -320,7 +345,13 @@ function dieBack(sim: Sim, cycle: number, share: number): void {
 export function declineCycle(sim: Sim, cycle: number, decline: number): void {
   if (decline > 0.3 && decline <= 0.3 + 1 / (sim.species.cycles * 0.28)) killLeaderTop(sim, cycle);
   dieBack(sim, cycle, 0.03 + decline * decline * 0.3);
-  growCycle(sim, cycle, Math.max(0.3, 1 - decline * 0.9), sim.species.shed + decline * 0.2, declineAllowance(sim, decline));
+  growCycle(
+    sim,
+    cycle,
+    Math.max(0.3, 1 - decline * 0.9),
+    sim.species.shed + decline * 0.2,
+    declineAllowance(sim, decline),
+  );
 }
 
 

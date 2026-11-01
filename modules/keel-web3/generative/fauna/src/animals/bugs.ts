@@ -26,25 +26,55 @@ function bugCentre(who: Who, m: Moment): Vec {
   const t = m.t;
   const phase = size * 977;
   const firefly = who.spec.build.extras.includes("glowtail");
-  const drift: Vec = [Math.sin(t * 0.6 + phase) * 0.35, Math.sin(t * 0.9 + phase * 2) * 0.18, Math.cos(t * 0.5 + phase) * 0.35];
+  const drift: Vec = [
+    Math.sin(t * 0.6 + phase) * 0.35,
+    Math.sin(t * 0.9 + phase * 2) * 0.18,
+    Math.cos(t * 0.5 + phase) * 0.35,
+  ];
   // (Fireflies hang well apart over the grass, never in a clump.)
   // (Each keeps a spot of its own in the air, so a pack is spread through the dusk and never a heap on the grass.)
   const wander = firefly ? add(fireflySpot(ownPhase(who)), scale(drift, 1.4)) : scale(drift, 0.3);
   if (m.mode !== "fly") return m.segment.act === "sit" && !firefly ? [0, size * 0.1, 0] : add([0, 0.35 + m.pose.lift * 0.4, 0], wander);
   const airy = (place: Place): number => (place.on === "ground" ? 0.35 + m.pose.lift * 0.4 : size * 0.1);
-  const flying = mix(airy(m.segment.from), airy(m.segment.to), smooth(clamp((t - m.segment.t0) / Math.max(0.01, m.segment.t1 - m.segment.t0), 0, 1)));
+  const flying = mix(
+    airy(m.segment.from),
+    airy(m.segment.to),
+    smooth(clamp((t - m.segment.t0) / Math.max(0.01, m.segment.t1 - m.segment.t0), 0, 1)),
+  );
   const grounded = m.segment.from.on === "ground" || m.segment.to.on === "ground";
-  return add([0, flying + Math.sin(t * 9 + phase) * size * 0.6 * m.moving, 0], grounded ? scale(wander, 1 - m.moving) : [0, 0, 0]);
+  return add(
+    [0, flying + Math.sin(t * 9 + phase) * size * 0.6 * m.moving, 0],
+    grounded ? scale(wander, 1 - m.moving) : [0, 0, 0],
+  );
 }
 
 /** A butterfly's wing, drawn flat: a dark margin, its colour set inside it, pale spots along the edge. */
-function butterflyWing(kit: Kit, part: string, root: Vec, tip: Vec, r: readonly [number, number], normal: Vec, spots: number): void {
-  const shape = (name: string, role: Role, to: Vec, k: number, flat: number): void => { cap(kit, `${part}.${name}`, role, root, to, r[0] * k, flat, normal, { r1: r[1] * k, melt: 0 }); };
+function butterflyWing(
+  kit: Kit,
+  part: string,
+  root: Vec,
+  tip: Vec,
+  r: readonly [number, number],
+  normal: Vec,
+  spots: number,
+): void {
+  const shape = (name: string, role: Role, to: Vec, k: number, flat: number): void => {
+    cap(kit, `${part}.${name}`, role, root, to, r[0] * k, flat, normal, { r1: r[1] * k, melt: 0 });
+  };
   shape("edge", "alt", tip, 1, 0.08);
   // (Most of a wing is its colour: the margin is a line round it, not a frame.)
   shape("colour", "coat", lerpV(root, tip, 0.93), 0.9, 0.13);
   const across = unit(cross(normal, sub(tip, root)));
-  for (let k = 0; k < spots; k += 1) ball(kit, `${part}.spot`, "accent", madd(tip, across, r[1] * ((k + 0.5) / spots - 0.5) * 1.5), r[1] * 0.12, 0.8, normal);
+  for (let k = 0; k < spots; k += 1)
+    ball(
+      kit,
+      `${part}.spot`,
+      "accent",
+      madd(tip, across, r[1] * ((k + 0.5) / spots - 0.5) * 1.5),
+      r[1] * 0.12,
+      0.8,
+      normal,
+    );
 }
 
 /** A firefly's wings: hard dark cases over its back, parted as it flies. */
@@ -71,7 +101,9 @@ export function poseBug(kit: Kit, who: Who, m: Moment): void {
     // (The lantern is its tail end; lit, it swells past the bug itself, or a grove's pixels would never catch it.)
     cap(kit, "lantern", "glow", madd(C, fw, -size * 0.28), madd(C, fw, -size * 0.5), size * (0.1 + 0.5 * blink), 1, UP, { r1: size * (0.085 + 0.45 * blink), shadow: false });
   }
-  const open = perched ? 1.35 + 0.2 * Math.sin(t * 1.4 + phase) : 0.15 + 1.1 * (0.5 + 0.5 * Math.sin(t * (firefly ? 30 : 19) + phase));
+  const open = perched
+    ? 1.35 + 0.2 * Math.sin(t * 1.4 + phase)
+    : 0.15 + 1.1 * (0.5 + 0.5 * Math.sin(t * (firefly ? 30 : 19) + phase));
   for (const x of [-1, 1]) {
     const dir = unit(add(scale([x, 0, 0], Math.cos(open)), scale(UP, Math.sin(open))));
     const normal = unit(cross(dir, fw), UP);

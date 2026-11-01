@@ -68,10 +68,15 @@ export interface GrowInput {
 
 /** The species' shares in a mix, largest first, unknown ids and non-positive weights dropped, summing to 1. */
 export function mixShares(mix: Readonly<Record<string, number>>): [SpeciesId, number][] {
-  const known = Object.entries(mix).filter(([id, weight]) => Object.hasOwn(SPECIES, id) && weight > 0) as [SpeciesId, number][];
+  const known = Object.entries(mix).filter(([id, weight]) => Object.hasOwn(SPECIES, id) && weight > 0) as [
+    SpeciesId,
+    number,
+  ][];
   const total = known.reduce((sum, [, weight]) => sum + weight, 0);
   if (total <= 0) return [["cherry", 1]];
-  return known.map(([id, weight]) => [id, weight / total] as [SpeciesId, number]).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  return known
+    .map(([id, weight]) => [id, weight / total] as [SpeciesId, number])
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
 }
 
 /** Past this many internodes a leader's ceiling never comes into play, so an unbounded one blends as this. */
@@ -93,7 +98,10 @@ export function blendSpecies(mix: Readonly<Record<string, number>>): Species {
   if (shares.length === 1 || major.palm !== null) return major;
   const mean = (pick: (species: Species) => number): number => blendNumber(shares, pick);
   const round = (pick: (species: Species) => number): number => Math.max(1, Math.round(mean(pick)));
-  const window = (pick: (species: Species) => readonly [number, number]): [number, number] => [mean((species) => pick(species)[0]), mean((species) => pick(species)[1])];
+  const window = (pick: (species: Species) => readonly [number, number]): [number, number] => [
+    mean((species) => pick(species)[0]),
+    mean((species) => pick(species)[1]),
+  ];
   // A clean bole has no middle either: the kind that prunes its low limbs hardest keeps the trunk bare (lift).
   // Shoot lengths go with the branching habit: a whorled kind buds only at a shoot's end, so a pine
   // given a willow's long side shoots would grow bare whips. Across habits they come from the major share.
@@ -101,18 +109,38 @@ export function blendSpecies(mix: Readonly<Record<string, number>>): Species {
   const shoot = (pick: (species: Species) => number): number => (sameHabit ? round(pick) : pick(major));
   return {
     ...major,
-    cycles: round((species) => species.cycles), height: mean((species) => species.height), apical: mean((species) => species.apical), vigor: mean((species) => species.vigor),
-    maxShoot: shoot((species) => species.maxShoot), sideShoot: shoot((species) => species.sideShoot), angle: mean((species) => species.angle),
-    straight: mean((species) => species.straight), light: mean((species) => species.light), up: mean((species) => species.up), lateralUp: mean((species) => species.lateralUp),
-    weep: mean((species) => species.weep), flat: mean((species) => species.flat), crownAt: mean((species) => species.crownAt), lift: Math.max(...shares.map(([id]) => SPECIES[id].lift ?? 0)),
-    spread: mean((species) => species.spread), cone: mean((species) => species.cone ?? 0), ceiling: mean((species) => species.ceiling), shed: mean((species) => species.shed),
-    leafSlots: round((species) => species.leafSlots), leafSpread: mean((species) => species.leafSpread), hang: mean((species) => species.hang),
-    radiusTip: mean((species) => species.radiusTip), pipe: mean((species) => species.pipe),
+    cycles: round((species) => species.cycles),
+    height: mean((species) => species.height),
+    apical: mean((species) => species.apical),
+    vigor: mean((species) => species.vigor),
+    maxShoot: shoot((species) => species.maxShoot),
+    sideShoot: shoot((species) => species.sideShoot),
+    angle: mean((species) => species.angle),
+    straight: mean((species) => species.straight),
+    light: mean((species) => species.light),
+    up: mean((species) => species.up),
+    lateralUp: mean((species) => species.lateralUp),
+    weep: mean((species) => species.weep),
+    flat: mean((species) => species.flat),
+    crownAt: mean((species) => species.crownAt),
+    lift: Math.max(...shares.map(([id]) => SPECIES[id].lift ?? 0)),
+    spread: mean((species) => species.spread),
+    cone: mean((species) => species.cone ?? 0),
+    ceiling: mean((species) => species.ceiling),
+    shed: mean((species) => species.shed),
+    leafSlots: round((species) => species.leafSlots),
+    leafSpread: mean((species) => species.leafSpread),
+    hang: mean((species) => species.hang),
+    radiusTip: mean((species) => species.radiusTip),
+    pipe: mean((species) => species.pipe),
     phenology: {
       ...major.phenology,
-      marcescent: mean((species) => species.phenology.marcescent), dropMax: mean((species) => species.phenology.dropMax),
-      leaf: window((species) => species.phenology.leaf), color: window((species) => species.phenology.color),
-      drop: window((species) => species.phenology.drop), flush: window((species) => species.phenology.flush),
+      marcescent: mean((species) => species.phenology.marcescent),
+      dropMax: mean((species) => species.phenology.dropMax),
+      leaf: window((species) => species.phenology.leaf),
+      color: window((species) => species.phenology.color),
+      drop: window((species) => species.phenology.drop),
+      flush: window((species) => species.phenology.flush),
     },
   };
 }
@@ -142,8 +170,24 @@ const LIVING_AT_PRIME = 0.5;
 
 function newSim(species: Species, seed: number, maxNodes: number): Sim {
   return {
-    species, random: createRandom(seed ^ 0x7ee5), grid: { shadow: new Float32Array(GRID_X * GRID_X * GRID_Y) }, maxNodes,
-    pos: [], dir: [], parent: [], order: [], birth: [], span: [], main: [], deadAt: [], shedAt: [], weak: [], children: [], buds: [], nodeBuds: [], height: 0,
+    species,
+    random: createRandom(seed ^ 0x7ee5),
+    grid: { shadow: new Float32Array(GRID_X * GRID_X * GRID_Y) },
+    maxNodes,
+    pos: [],
+    dir: [],
+    parent: [],
+    order: [],
+    birth: [],
+    span: [],
+    main: [],
+    deadAt: [],
+    shedAt: [],
+    weak: [],
+    children: [],
+    buds: [],
+    nodeBuds: [],
+    height: 0,
   };
 }
 
@@ -156,7 +200,16 @@ function growFrond(sim: Sim, top: number, around: number, length: number, cycle:
   let node = top;
   for (let step = 0; step < segments; step += 1) {
     const heading = normalize(vec(out.x, lift - (step / (segments - 1)) * sag, out.z));
-    node = addNode(sim, node, add(sim.pos[node] ?? vec(0, 0, 0), heading, length / segments), heading, 1, cycle + step * 0.03, 0.2, false);
+    node = addNode(
+      sim,
+      node,
+      add(sim.pos[node] ?? vec(0, 0, 0), heading, length / segments),
+      heading,
+      1,
+      cycle + step * 0.03,
+      0.2,
+      false,
+    );
   }
 }
 
@@ -188,7 +241,13 @@ function simulatePalm(sim: Sim, palm: PalmSpec): void {
     for (let index = 0; index < fronds; index += 1) {
       around += (species.divergence * Math.PI) / 180;
       const first = sim.pos.length;
-      growFrond(sim, top, around, palm.frond * (0.15 + 0.85 * life ** 0.8) * (1 - decline * 0.35), cycle - 1 + index / fronds);
+      growFrond(
+        sim,
+        top,
+        around,
+        palm.frond * (0.15 + 0.85 * life ** 0.8) * (1 - decline * 0.35),
+        cycle - 1 + index / fronds,
+      );
       const dies = cycle + palm.frondLife * (0.8 + random() * 0.4);
       for (let node = first; node < sim.pos.length; node += 1) sim.deadAt[node] = dies;
       sim.shedAt[first] = dies + 0.3 + random() * 0.5;
@@ -227,17 +286,41 @@ interface SlotSource {
   heading(node: number): Vec;
 }
 
-const simSource = (sim: Sim): SlotSource => ({ count: sim.pos.length, palm: sim.species.palm !== null, heading: (node) => sim.dir[node] ?? vec(0, 1, 0) });
+const simSource = (sim: Sim): SlotSource => ({
+  count: sim.pos.length,
+  palm: sim.species.palm !== null,
+  heading: (node) => sim.dir[node] ?? vec(0, 1, 0),
+});
 
-function leafSlots(source: SlotSource, perNode: number, spread: number, hang: number, seed: number, eligible: (node: number) => boolean): LeafSlots {
+function leafSlots(
+  source: SlotSource,
+  perNode: number,
+  spread: number,
+  hang: number,
+  seed: number,
+  eligible: (node: number) => boolean,
+): LeafSlots {
   const random = createRandom(seed);
   const nodes: number[] = [];
-  for (let node = 0; node < source.count; node += 1) if (eligible(node)) for (let index = 0; index < perNode; index += 1) nodes.push(node);
+  for (let node = 0; node < source.count; node += 1)
+    if (eligible(node)) for (let index = 0; index < perNode; index += 1) nodes.push(node);
   const count = nodes.length;
-  const slots = { count, node: Int32Array.from(nodes), dx: new Float32Array(count), dy: new Float32Array(count), dz: new Float32Array(count), rank: new Float32Array(count), size: new Float32Array(count), tone: new Uint8Array(count) };
+  const slots = {
+    count,
+    node: Int32Array.from(nodes),
+    dx: new Float32Array(count),
+    dy: new Float32Array(count),
+    dz: new Float32Array(count),
+    rank: new Float32Array(count),
+    size: new Float32Array(count),
+    tone: new Uint8Array(count),
+  };
   for (let index = 0; index < count; index += 1) {
     const heading = source.heading(at(slots.node, index));
-    if (source.palm && hang > 0) { leaflet(slots, index, heading, spread, hang, random); continue; }
+    if (source.palm && hang > 0) {
+      leaflet(slots, index, heading, spread, hang, random);
+      continue;
+    }
     const theta = random() * Math.PI * 2;
     const lift = random() * 2 - 1;
     const ring = Math.sqrt(1 - lift * lift) * Math.cbrt(random());
@@ -254,10 +337,18 @@ function leafSlots(source: SlotSource, perNode: number, spread: number, hang: nu
 }
 
 /** A palm frond's first internode, where flowers and coconuts hang. */
-const frondBase = (sim: Sim, node: number): boolean => at(sim.order, node) > 0 && at(sim.order, at(sim.parent, node)) === 0;
+const frondBase = (sim: Sim, node: number): boolean =>
+  at(sim.order, node) > 0 && at(sim.order, at(sim.parent, node)) === 0;
 
 /** A palm leaflet: one of a pair of rows down each side of the frond's rachis, drooping at its tip. */
-function leaflet(slots: LeafSlots & { dx: Float32Array; dy: Float32Array; dz: Float32Array }, index: number, heading: Vec, spread: number, hang: number, random: () => number): void {
+function leaflet(
+  slots: LeafSlots & { dx: Float32Array; dy: Float32Array; dz: Float32Array },
+  index: number,
+  heading: Vec,
+  spread: number,
+  hang: number,
+  random: () => number,
+): void {
   const side = normalize(cross(heading, vec(0, 1, 0)), perpendicular(heading));
   const sign = index % 2 === 0 ? 1 : -1;
   const reach = spread * (0.25 + 0.75 * random());
@@ -274,7 +365,9 @@ function ornamentSlots(sim: Sim, spec: OrnamentSpec | null, spread: number, seed
   if (spec === null) return leafSlots(simSource(sim), 0, 0, 0, 0, () => false);
   const palm = sim.species.palm !== null;
   const floor = (spec.above ?? 0) * sim.height;
-  return leafSlots(simSource(sim), spec.perNode, spread, 0, seed, (node) => (palm ? frondBase(sim, node) : at(sim.order, node) > 0 && (sim.pos[node]?.y ?? 0) >= floor));
+  return leafSlots(simSource(sim), spec.perNode, spread, 0, seed, (node) =>
+    palm ? frondBase(sim, node) : at(sim.order, node) > 0 && (sim.pos[node]?.y ?? 0) >= floor,
+  );
 }
 
 function leafEligible(sim: Sim, node: number): boolean {
@@ -292,7 +385,11 @@ export function growTree(input: GrowInput): TreeModel {
   const random = createRandom(seed ^ 0x51ab);
   const rootCount = 5 + Math.floor(random() * 3);
   const model: TreeModel = {
-    species, seed, cycles: species.cycles, matureAt: Math.round(species.cycles * 0.72), count,
+    species,
+    seed,
+    cycles: species.cycles,
+    matureAt: Math.round(species.cycles * 0.72),
+    count,
     parent: Int32Array.from(sim.parent),
     x: Float32Array.from(sim.pos, (p) => p.x * scale),
     y: Float32Array.from(sim.pos, (p) => p.y * scale),
@@ -303,10 +400,15 @@ export function growTree(input: GrowInput): TreeModel {
     deadAt: Float32Array.from(sim.deadAt),
     shedAt: Float32Array.from(sim.shedAt, (value) => (value === Infinity ? 1e9 : value)),
     phase: Float32Array.from(sim.pos, () => random() * Math.PI * 2),
-    leaves: leafSlots(simSource(sim), species.leafSlots, species.leafSpread, species.hang, seed ^ 0x1eaf, (node) => leafEligible(sim, node)),
+    leaves: leafSlots(simSource(sim), species.leafSlots, species.leafSpread, species.hang, seed ^ 0x1eaf, (node) =>
+      leafEligible(sim, node),
+    ),
     blossoms: ornamentSlots(sim, species.flower, species.leafSpread * 0.8, seed ^ 0xb105),
     fruit: ornamentSlots(sim, species.fruit, species.leafSpread * 0.7, seed ^ 0xf2017),
-    roots: Array.from({ length: rootCount }, (_, index) => ({ angle: (index / rootCount) * Math.PI * 2 + random() * 0.6, reach: 0.7 + random() * 0.6 })),
+    roots: Array.from({ length: rootCount }, (_, index) => ({
+      angle: (index / rootCount) * Math.PI * 2 + random() * 0.6,
+      reach: 0.7 + random() * 0.6,
+    })),
   };
   return model;
 }
@@ -347,7 +449,9 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
     const parent = at(model.parent, node);
     if (at(order, node) > 0 && (parent < 0 || at(order, parent) === 0) && at(carried, node) > 0) main.push(node);
   }
-  const lasting = main.filter((node) => Math.min(at(model.deadAt, node), model.cycles) - at(model.birth, node) >= model.cycles * 0.25);
+  const lasting = main.filter(
+    (node) => Math.min(at(model.deadAt, node), model.cycles) - at(model.birth, node) >= model.cycles * 0.25,
+  );
   const limbs = lasting.length >= shares.length ? lasting : main;
   const random = createRandom(seed ^ 0x5ec7);
   // Shuffle first so limbs born together (a whorl) fall to different strains, then walk them in the order
@@ -369,7 +473,10 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
     let behind = -Infinity;
     for (let index = 0; index < shares.length; index += 1) {
       const short = (want[index] ?? 0) * walked - at(have, index);
-      if ((want[index] ?? 0) > 0 && short > behind) { behind = short; pick = index; }
+      if ((want[index] ?? 0) > 0 && short > behind) {
+        behind = short;
+        pick = index;
+      }
     }
     owner.set(limb, pick);
     have[pick] = at(have, pick) + at(carried, limb);
@@ -378,8 +485,12 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
   for (let index = 1; index < shares.length; index += 1) {
     if ((want[index] ?? 0) <= 0 || at(have, index) > 0) continue;
     let small = -1;
-    for (const limb of limbs) if (owner.get(limb) === 0 && (small < 0 || at(carried, limb) < at(carried, small))) small = limb;
-    if (small >= 0) { owner.set(small, index); have[index] = at(carried, small); }
+    for (const limb of limbs)
+      if (owner.get(limb) === 0 && (small < 0 || at(carried, limb) < at(carried, small))) small = limb;
+    if (small >= 0) {
+      owner.set(small, index);
+      have[index] = at(carried, small);
+    }
   }
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);
@@ -389,7 +500,10 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
   // strain can end well short in the grown crown (the third kind gets what is left). Counting the leaves
   // on the tree through the middle of its life, it takes side branches off the strains over their share, the biggest that
   // still fit first, so a quarter share shows as about a quarter of the grown crown.
-  const prime = (node: number): number => [0.35, 0.5, 0.65].filter((t) => at(model.birth, node) <= model.cycles * t && at(model.deadAt, node) > model.cycles * t).length;
+  const prime = (node: number): number =>
+    [0.35, 0.5, 0.65].filter(
+      (t) => at(model.birth, node) <= model.cycles * t && at(model.deadAt, node) > model.cycles * t,
+    ).length;
   const alive = new Float64Array(model.count);
   for (let index = 0; index < model.leaves.count; index += 1) {
     const node = at(model.leaves.node, index);
@@ -411,14 +525,23 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
     return false;
   };
   // The strain furthest short goes first, the main kind included (an oak limb can outgrow the cherry it is on).
-  const needy = shares.map((_, index) => index).sort((a, b) => ((want[b] ?? 0) * total - at(now, b)) - ((want[a] ?? 0) * total - at(now, a)));
+  const needy = shares
+    .map((_, index) => index)
+    .sort((a, b) => (want[b] ?? 0) * total - at(now, b) - ((want[a] ?? 0) * total - at(now, a)));
   for (const index of needy) {
     let short = (want[index] ?? 0) * total - at(now, index);
     if (short <= total * 0.03) continue;
     const side: number[] = [];
     for (let node = 0; node < model.count; node += 1) {
       const parent = at(model.parent, node);
-      if (parent < 0 || at(order, parent) === 0 || at(order, node) <= at(order, parent) || at(strain, node) === index || at(alive, node) <= 0) continue;
+      if (
+        parent < 0 ||
+        at(order, parent) === 0 ||
+        at(order, node) <= at(order, parent) ||
+        at(strain, node) === index ||
+        at(alive, node) <= 0
+      )
+        continue;
       side.push(node);
     }
     side.sort((a, b) => at(alive, b) - at(alive, a));
@@ -452,7 +575,12 @@ export interface KindOrnament {
  * hangs catkins. Places follow the kind's own spec; a renderer opens them on
  * that kind's calendar. Null where the kind has none.
  */
-export function kindOrnaments(model: TreeModel, species: string, kinds: ArrayLike<number>, kind: number): { readonly flower: KindOrnament | null; readonly fruit: KindOrnament | null } {
+export function kindOrnaments(
+  model: TreeModel,
+  species: string,
+  kinds: ArrayLike<number>,
+  kind: number,
+): { readonly flower: KindOrnament | null; readonly fruit: KindOrnament | null } {
   const own = speciesOf(species);
   const top = model.y.reduce((most, y) => Math.max(most, y), 0);
   const source: SlotSource = {
@@ -460,16 +588,34 @@ export function kindOrnaments(model: TreeModel, species: string, kinds: ArrayLik
     palm: false,
     heading: (node) => {
       const parent = at(model.parent, node);
-      return parent < 0 ? vec(0, 1, 0) : normalize(vec(at(model.x, node) - at(model.x, parent), at(model.y, node) - at(model.y, parent), at(model.z, node) - at(model.z, parent)));
+      return parent < 0
+        ? vec(0, 1, 0)
+        : normalize(
+            vec(
+              at(model.x, node) - at(model.x, parent),
+              at(model.y, node) - at(model.y, parent),
+              at(model.z, node) - at(model.z, parent),
+            ),
+          );
     },
   };
   const grow = (spec: OrnamentSpec | null, spread: number, salt: number): KindOrnament | null => {
     if (spec === null) return null;
     const floor = (spec.above ?? 0) * top;
-    const slots = leafSlots(source, spec.perNode, spread, 0, (model.seed ^ salt ^ (kind * 0x9e37)) >>> 0, (node) => at(kinds, node) === kind && at(model.order, node) > 0 && at(model.y, node) >= floor);
+    const slots = leafSlots(
+      source,
+      spec.perNode,
+      spread,
+      0,
+      (model.seed ^ salt ^ (kind * 0x9e37)) >>> 0,
+      (node) => at(kinds, node) === kind && at(model.order, node) > 0 && at(model.y, node) >= floor,
+    );
     return slots.count > 0 ? { spec, slots } : null;
   };
-  return { flower: grow(own.flower, own.leafSpread * 0.8, 0xb105), fruit: grow(own.fruit, own.leafSpread * 0.7, 0xf2017) };
+  return {
+    flower: grow(own.flower, own.leafSpread * 0.8, 0xb105),
+    fruit: grow(own.fruit, own.leafSpread * 0.7, 0xf2017),
+  };
 }
 
 /**

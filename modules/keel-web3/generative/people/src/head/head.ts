@@ -11,11 +11,18 @@ import { AFRO, AFRO_AT, tuckOf } from "./hair.js";
 // ---------------------------------------------------------------- the head
 
 /** A head's room. `at` is the old frame hair and hats hang on, x in shares of the skull's width; `bone` and `mark` take x in head radii, `mark` for what stays put whatever the skull's width. */
-export interface HeadFrame { readonly c: Vec; readonly r: number; readonly at: (x: number, y: number, z: number) => Vec; readonly bone: (x: number, y: number, z: number) => Vec; readonly mark: (x: number, y: number, z: number) => Vec }
+export interface HeadFrame {
+  readonly c: Vec;
+  readonly r: number;
+  readonly at: (x: number, y: number, z: number) => Vec;
+  readonly bone: (x: number, y: number, z: number) => Vec;
+  readonly mark: (x: number, y: number, z: number) => Vec;
+}
 
 export function headFrame(s: Skeleton, r: number, face: Face): HeadFrame {
   const { W, L, D } = face.bone;
-  const on = (x: number, y: number, z: number): Vec => add(s.head, [x * r, (y < 0 ? y * L : y) * r, (z < 0 ? z * D : z) * r]);
+  const on = (x: number, y: number, z: number): Vec =>
+    add(s.head, [x * r, (y < 0 ? y * L : y) * r, (z < 0 ? z * D : z) * r]);
   return { c: s.head, r, at: (x, y, z) => on(x * W * 0.84, y, z), bone: (x, y, z) => on(x * W, y, z), mark: on };
 }
 
@@ -40,9 +47,15 @@ function drawEyes(kit: Kit, p: Person, h: HeadFrame): void {
 const NOSE_ROOT = 1.02;
 
 function drawNose(kit: Kit, p: Person, h: HeadFrame): void {
-  const { nose, noseWide, bone: b } = p.face, melt = meltBy(p), r = h.r, fine = p.build.sex === "female" ? mix(1, 0.8, b.m) : 1;
-  const top = b.pupil + 0.02, y = b.sub + b.tipY, far = Math.min(NOSE_ROOT + nose * 0.62 * mix(1, 0.86, 1 - fine), 1.3);
-  const bulb = mix(0.095, 0.125, b.m), tip = h.mark(b.askew, y, far - bulb);
+  const { nose, noseWide, bone: b } = p.face;
+  const melt = meltBy(p);
+  const r = h.r;
+  const fine = p.build.sex === "female" ? mix(1, 0.8, b.m) : 1;
+  const top = b.pupil + 0.02;
+  const y = b.sub + b.tipY;
+  const far = Math.min(NOSE_ROOT + nose * 0.62 * mix(1, 0.86, 1 - fine), 1.3);
+  const bulb = mix(0.095, 0.125, b.m);
+  const tip = h.mark(b.askew, y, far - bulb);
   put(kit, "bridge", "skin", h.mark(0, top, 0.8), madd(tip, [0, 1, -0.3], r * 0.05), r * mix(0.075, 0.1, b.m) * fine, { r1: r * mix(0.085, 0.125, b.m) * fine, flat: 0.85, up: SIDE, melt: melt(0.07) });
   ball(kit, "tip", "skin", tip, r * bulb, { melt: melt(0.07) });
   for (const x of [-1, 1]) ball(kit, `ala.${String(x)}`, "skin", h.mark(x * (noseWide - mix(0.05, 0.08, b.m)) + b.askew * 0.5, b.sub + 0.05, NOSE_ROOT - 0.04), r * mix(0.06, 0.09, b.m), { flat: 0.8, up: SIDE, melt: melt(0.07) });
@@ -63,18 +76,24 @@ function drawMouth(kit: Kit, p: Person, h: HeadFrame): void {
 function drawFaceHair(kit: Kit, p: Person, h: HeadFrame, rich: boolean): void {
   const { hair, mouthWide: w, bone: b } = p.face;
   if (hair !== "beard" && hair !== "moustache") return;
-  if (rich) { if (hair === "beard") beardVolume(kit, p, h); return; }
+  if (rich) { if (hair === "beard") beardVolume(kit, p, h);
+  return; }
   if (hair === "beard") paint(kit, "beard", "hair", h.bone(0, b.men + 0.2, 0.5), h.bone(0, b.men + 0.3, 0.7), h.r * 0.42);
   paint(kit, "tache", "hair", h.mark(-w * 1.05, b.sub - 0.08, 0.96), h.mark(w * 1.05, b.sub - 0.08, 0.96), h.r * 0.075);
 }
 
 /** A beard is one clean shape first: a shell that stands off the jaw from the ear round the chin and up over the lip, its edge wherever it leaves the skin, and the mouth left clear. */
 function beardVolume(kit: Kit, p: Person, h: HeadFrame): void {
-  const { mouthWide: w, bone: b } = p.face, melt = meltBy(p), r = h.r, y = b.men + 0.17, z = b.pogZ - 0.16;
+  const { mouthWide: w, bone: b } = p.face;
+  const melt = meltBy(p);
+  const r = h.r;
+  const y = b.men + 0.17;
+  const z = b.pogZ - 0.16;
   ball(kit, "beard.chin", "beard", h.bone(0, y, z), r * 0.25, { melt: melt(0.14) });
   put(kit, "beard.lip", "beard", h.mark(-w * 1.02, b.sub - 0.09, 0.9), h.mark(w * 1.02, b.sub - 0.09, 0.9), r * 0.075, { melt: melt(0.06) });
   for (const x of [-1, 1]) {
-    const side = String(x), corner = h.bone(x * (b.gon - 0.14), b.gonY + 0.14, b.gonZ + 0.16);
+    const side = String(x);
+    const corner = h.bone(x * (b.gon - 0.14), b.gonY + 0.14, b.gonZ + 0.16);
     put(kit, `beard.jaw.${side}`, "beard", corner, h.bone(x * 0.12, y, z - 0.02), r * 0.2, { r1: r * 0.23, melt: melt(0.14) });
     put(kit, `beard.burn.${side}`, "beard", h.bone(x * (b.zyg - 0.1), -0.04, 0.02), corner, r * 0.09, { r1: r * 0.17, melt: melt(0.12) });
     put(kit, `beard.soul.${side}`, "beard", h.mark(x * (w + 0.1), b.sub - 0.09, 0.84), h.bone(x * (w + 0.06), b.sto - 0.2, 0.74), r * 0.08, { r1: r * 0.11, melt: melt(0.1) });
@@ -90,14 +109,31 @@ function drawEars(kit: Kit, p: Person, h: HeadFrame): void {
 }
 
 /** How wide each hat's brim runs all round, in head radii. */
-const BRIMS: Partial<Record<Hat, number>> = { fedora: 1.5, sunhat: 2, stetson: 1.9, helmet: 1.5, bucket: 1.42, bowler: 1.34, tophat: 1.36 };
+const BRIMS: Partial<Record<Hat, number>> = {
+  fedora: 1.5,
+  sunhat: 2,
+  stetson: 1.9,
+  helmet: 1.5,
+  bucket: 1.42,
+  bowler: 1.34,
+  tophat: 1.36,
+};
 
 /** How much taller than the skull each hat's crown stands. */
-export const CROWN_RISE: Partial<Record<Hat, number>> = { stetson: 0.24, peaked: 0.24, bowler: 0.12, bucket: 0.07, beret: 0.1, headwrap: 0.2, hardhat: 0.1 };
+export const CROWN_RISE: Partial<Record<Hat, number>> = {
+  stetson: 0.24,
+  peaked: 0.24,
+  bowler: 0.12,
+  bucket: 0.07,
+  beret: 0.1,
+  headwrap: 0.2,
+  hardhat: 0.1,
+};
 
 /** The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over it. A hood and a helmet stand well clear of it. */
 function drawCrown(kit: Kit, hat: Hat, h: HeadFrame, wide: number): void {
-  const clear = hat === "hood" || hat === "helmet" || hat === "hardhat", brim = h.at(0, hat === "hood" ? -0.1 : clear ? 0.58 : 0.5, 0)[1];
+  const clear = hat === "hood" || hat === "helmet" || hat === "hardhat";
+  const brim = h.at(0, hat === "hood" ? -0.1 : clear ? 0.58 : 0.5, 0)[1];
   const tall = CROWN_RISE[hat] ?? 0;
   put(kit, "hat", hat === "hood" ? "top" : "trim", h.at(0, 0.3, -0.12), h.at(0, 0.14 + tall, -0.06), h.r * (clear ? 1.2 : 1.16) * mix(1, wide, 0.75), { flat: clear ? 0.88 : 0.76, up: SIDE, melt: 0.08, hem: brim, shadow: false });
 }
@@ -113,7 +149,8 @@ function drawTrim(kit: Kit, hat: Hat, h: HeadFrame): void {
 function drawHat(kit: Kit, p: Person, h: HeadFrame): void {
   const { hat } = p.outfit;
   if (hat === "none") return;
-  if (hat === "beret") { ball(kit, "hat", "trim", h.at(0.1, 0.72, -0.14), h.r * 1.04, { flat: 0.5, up: UP, melt: 0.08, shadow: false }); return; }
+  if (hat === "beret") { ball(kit, "hat", "trim", h.at(0.1, 0.72, -0.14), h.r * 1.04, { flat: 0.5, up: UP, melt: 0.08, shadow: false });
+  return; }
   if (hat === "tophat") put(kit, "hat.top", "trim", h.at(0, 0.62, -0.1), h.at(0, 1.42, -0.1), h.r * 0.92, { melt: 0.05, shadow: false });
   else if (hat !== "visor") drawCrown(kit, hat, h, p.face.bone.W);
   drawTrim(kit, hat, h);
@@ -204,7 +241,10 @@ export const HATTED: Partial<Record<HairStyle, HairStyle>> = { afro: "crop", cur
 
 /** A head for a renderer with few parts to spare: the same masses as `boneHead`, each stood for by one. */
 function leanHead(kit: Kit, p: Person, h: HeadFrame): void {
-  const b = p.face.bone, r = h.r, melt = meltBy(p), inX = b.gon - 0.13;
+  const b = p.face.bone;
+  const r = h.r;
+  const melt = meltBy(p);
+  const inX = b.gon - 0.13;
   put(kit, "maxilla", "skin", h.bone(0, 0.14, 0.3), h.bone(0, b.sto, 0.56), r * 0.6, { r1: r * 0.44, melt: melt(0.18) });
   put(kit, "floor", "skin", h.bone(0, b.gonY + 0.02, 0.08), h.bone(0, b.men + 0.22, 0.6), r * 0.34, { r1: r * 0.2, flat: 0.62, up: UP, melt: melt(0.1) });
   put(kit, "chin", "skin", h.bone(-Math.max(0.02, b.chin - 0.14), b.men + 0.16, b.pogZ - 0.14), h.bone(Math.max(0.02, b.chin - 0.14), b.men + 0.16, b.pogZ - 0.14), r * 0.14, { melt: melt(0.07) });
@@ -216,7 +256,9 @@ function leanHead(kit: Kit, p: Person, h: HeadFrame): void {
 
 /** A head for a mesh: the face's solid is `loftOf`'s, so only what stands on it is melted in: the chin's seat, and lips that catch the light. */
 function boneHead(kit: Kit, p: Person, h: HeadFrame): void {
-  const { lips, mouthWide: w, bone: b } = p.face, r = h.r, melt = meltBy(p);
+  const { lips, mouthWide: w, bone: b } = p.face;
+  const r = h.r;
+  const melt = meltBy(p);
   ball(kit, "chin", "skin", h.bone(0, b.men + 0.14, b.pogZ - 0.2), r * 0.13, { melt: melt(0.05) });
   put(kit, "lips.up", "skin", h.mark(-w * 0.62, b.sto + 0.05, 0.95), h.mark(w * 0.62, b.sto + 0.05, 0.95), r * 0.05 * mix(0.8, 1, b.m) * lips, { flat: 0.7, up: UP, melt: melt(0.05) });
   put(kit, "lips.low", "skin", h.mark(-w * 0.5, b.sto - 0.07, 0.94), h.mark(w * 0.5, b.sto - 0.07, 0.94), r * 0.065 * mix(0.8, 1, b.m) * lips, { flat: 0.75, up: UP, melt: melt(0.05) });
@@ -224,7 +266,8 @@ function boneHead(kit: Kit, p: Person, h: HeadFrame): void {
 
 /** `rich` for a mesh, which can carry as many parts as it likes; sdf-body has only so many. */
 export function drawHead(kit: Kit, p: Person, s: Skeleton, rich: boolean): void {
-  const { head } = p.build, b = p.face.bone;
+  const { head } = p.build;
+  const b = p.face.bone;
   const h = headFrame(s, head, p.face);
   // (The braincase, its lower end kept up so it never sets the width of the jaw.)
   put(kit, "skull", "skin", h.bone(0, 0.3, -1.12 + 1 / b.D), h.bone(0, 0.3, -0.06), head, { flat: 0.74 * b.W, up: SIDE });

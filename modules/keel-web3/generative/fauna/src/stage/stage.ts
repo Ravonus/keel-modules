@@ -38,7 +38,10 @@ export interface Stage {
   /** The ground's height at a point, when it isn't flat. */
   readonly ground?: ((x: number, z: number) => number) | undefined;
   /** The trunk: a straight run from base to top, or its real spine in `path` when it leans or bends. */
-  readonly trunk?: { readonly base: Vec; readonly top: Vec; readonly r: number; readonly path?: readonly Wood[] | undefined } | null | undefined;
+  readonly trunk?:
+    | { readonly base: Vec; readonly top: Vec; readonly r: number; readonly path?: readonly Wood[] | undefined }
+    | null
+    | undefined;
   readonly perches?: readonly Perch[] | undefined;
   /** Roots on the ground, which raise it where they lie. */
   readonly roots?: readonly Root[] | undefined;
@@ -167,14 +170,19 @@ function headingFor(rand: () => number, stage: Stage): number {
 /** Whether a spot on the ground is round the back of the tree from the viewer (more than a little past the trunk's side). */
 function farSide(stage: Stage, x: number, z: number): boolean {
   if (!stage.view) return false;
-  const v = Math.hypot(stage.view[0], stage.view[2]), d = Math.hypot(x, z);
+  const v = Math.hypot(stage.view[0], stage.view[2]);
+  const d = Math.hypot(x, z);
   return v > 0 && d > 0 && (x * stage.view[0] + z * stage.view[2]) / (v * d) < -0.2;
 }
 
 /** Whether a spot lies between the trunk's clearance and the rim, with room from the others. */
 function spotFree(x: number, z: number, inner: number, outer: number, size: number, taken: readonly Spot[]): boolean {
   const d = Math.hypot(x, z);
-  return d >= inner && d <= outer && taken.every((other) => Math.hypot(other.p[0] - x, other.p[2] - z) >= (other.size + size) * 0.8);
+  return (
+    d >= inner &&
+    d <= outer &&
+    taken.every((other) => Math.hypot(other.p[0] - x, other.p[2] - z) >= (other.size + size) * 0.8)
+  );
 }
 
 /**
@@ -182,7 +190,14 @@ function spotFree(x: number, z: number, inner: number, outer: number, size: numb
  * Spots lean out toward the rim, past the root tangle and the canopy's shade,
  * where an animal stands against open ground and not among the roots.
  */
-export function groundSpot(rand: () => number, stage: Stage, size: number, near?: Vec, reach = 0, taken: readonly Spot[] = []): Place {
+export function groundSpot(
+  rand: () => number,
+  stage: Stage,
+  size: number,
+  near?: Vec,
+  reach = 0,
+  taken: readonly Spot[] = [],
+): Place {
   const inner = trunkClear(stage, size);
   const outer = Math.max(inner + 0.2, stage.radius - size * 0.8);
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -191,7 +206,8 @@ export function groundSpot(rand: () => number, stage: Stage, size: number, near?
     const x = (near?.[0] ?? 0) + Math.cos(a) * r;
     const z = (near?.[2] ?? 0) + Math.sin(a) * r;
     // (The first tries keep off the far side, behind the trunk and its roots from the camera; the last take what there is.)
-    if (spotFree(x, z, inner, outer, size, taken) && (attempt >= 8 || !farSide(stage, x, z))) return { on: "ground", x, z };
+    if (spotFree(x, z, inner, outer, size, taken) && (attempt >= 8 || !farSide(stage, x, z)))
+      return { on: "ground", x, z };
   }
   const a = headingFor(rand, stage);
   const r = mix(inner, outer, 0.5);

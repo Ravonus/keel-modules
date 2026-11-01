@@ -8,13 +8,27 @@ import type { V3 } from "../instances.js";
 // ---------------------------------------------------------------- shapes
 
 /** A slim pointed leaf, stalk at the origin and tip up +Y, as [half-width, height] pairs. */
-export const LEAF_OUTLINE: readonly (readonly [number, number])[] = [[0, 0], [0.09, 0.07], [0.18, 0.26], [0.21, 0.48], [0.17, 0.7], [0.09, 0.9], [0.02, 1.06], [0, 1.16]];
+export const LEAF_OUTLINE: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.09, 0.07],
+  [0.18, 0.26],
+  [0.21, 0.48],
+  [0.17, 0.7],
+  [0.09, 0.9],
+  [0.02, 1.06],
+  [0, 1.16],
+];
 
 /**
  * A leaf blade folded along a pale midrib with darker margins, so even a few
  * pixels read as a leaf and not a dot. Colours are baked as vertex colours.
  */
-export function bladeGeometry(lit: LitLike, outline: readonly (readonly [number, number])[] = LEAF_OUTLINE, fold = 0.1, bend = 0): GeometryLike {
+export function bladeGeometry(
+  lit: LitLike,
+  outline: readonly (readonly [number, number])[] = LEAF_OUTLINE,
+  fold = 0.1,
+  bend = 0,
+): GeometryLike {
   return bladeFrom(lit, outline, fold, bend, CRISP_BLADE);
 }
 
@@ -32,7 +46,13 @@ export function softBladeGeometry(lit: LitLike): GeometryLike {
   return bladeFrom(lit, LEAF_OUTLINE, 0.1, 0, SOFT_BLADE);
 }
 
-function bladeFrom(lit: LitLike, outline: readonly (readonly [number, number])[], fold: number, bend: number, [mid, margin, foot]: BladeTone): GeometryLike {
+function bladeFrom(
+  lit: LitLike,
+  outline: readonly (readonly [number, number])[],
+  fold: number,
+  bend: number,
+  [mid, margin, foot]: BladeTone,
+): GeometryLike {
   const widest = Math.max(...outline.map(([x]) => x));
   const positions: number[] = [];
   const colors: number[] = [];
@@ -46,7 +66,8 @@ function bladeFrom(lit: LitLike, outline: readonly (readonly [number, number])[]
     const [x1, y1] = outline[index + 1] ?? [0, 0];
     for (const side of [-1, 1]) {
       // `bend` arches the blade along its length, its tip dropping away from its face.
-      const a = [0, y0, bend * y0 * y0], d = [0, y1, bend * y1 * y1];
+      const a = [0, y0, bend * y0 * y0];
+      const d = [0, y1, bend * y1 * y1];
       const b = [side * x0, y0, (fold * x0) / widest + bend * y0 * y0];
       const c = [side * x1, y1, (fold * x1) / widest + bend * y1 * y1];
       const quad = side > 0 ? [a, b, c, a, c, d] : [a, c, b, a, d, c];
@@ -76,7 +97,13 @@ export interface TreeShapes {
 }
 
 /** Each head of a spray: centre (x, y, z) and radius, in a unit about one flower head across. */
-const SPRAY_HEADS = [[0, 0.2, 0, 0.56], [0.5, -0.08, 0.12, 0.46], [-0.34, -0.04, 0.4, 0.44], [-0.16, -0.12, -0.46, 0.45], [0.12, -0.42, 0.04, 0.36]];
+const SPRAY_HEADS = [
+  [0, 0.2, 0, 0.56],
+  [0.5, -0.08, 0.12, 0.46],
+  [-0.34, -0.04, 0.4, 0.44],
+  [-0.16, -0.12, -0.46, 0.45],
+  [0.12, -0.42, 0.04, 0.36],
+];
 
 /**
  * A spray of blossom as one shape: a few flower heads bunched round the twig.
@@ -109,20 +136,43 @@ export function sprayGeometry(lit: LitLike): GeometryLike {
   return geometry;
 }
 
-function needleStrip(positions: number[], colors: number[], from: V3, to: V3, across: V3, width: number, tone: (t: number) => V3, bend = 0): void {
+function needleStrip(
+  positions: number[],
+  colors: number[],
+  from: V3,
+  to: V3,
+  across: V3,
+  width: number,
+  tone: (t: number) => V3,
+  bend = 0,
+): void {
   // A needle keeps its width to near the end, then closes to a sharp point.
   const stops = bend > 0 ? [0, 0.45, 0.8, 1] : [0, 0.8, 1];
-  const point = (t: number): [number, number, number] => [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t - bend * t * t, from[2] + (to[2] - from[2]) * t];
+  const point = (t: number): [number, number, number] => [
+    from[0] + (to[0] - from[0]) * t,
+    from[1] + (to[1] - from[1]) * t - bend * t * t,
+    from[2] + (to[2] - from[2]) * t,
+  ];
   const span = (t: number): number => width * (t <= 0.8 ? 1 : 0.06);
   for (let index = 0; index < stops.length - 1; index += 1) {
-    const t0 = stops[index] ?? 0, t1 = stops[index + 1] ?? 1;
-    const p0 = point(t0), p1 = point(t1);
-    const w0 = span(t0), w1 = span(t1);
+    const t0 = stops[index] ?? 0;
+    const t1 = stops[index + 1] ?? 1;
+    const p0 = point(t0);
+    const p1 = point(t1);
+    const w0 = span(t0);
+    const w1 = span(t1);
     const a: V3 = [p0[0] - across[0] * w0, p0[1] - across[1] * w0, p0[2] - across[2] * w0];
     const b: V3 = [p0[0] + across[0] * w0, p0[1] + across[1] * w0, p0[2] + across[2] * w0];
     const c: V3 = [p1[0] + across[0] * w1, p1[1] + across[1] * w1, p1[2] + across[2] * w1];
     const d: V3 = [p1[0] - across[0] * w1, p1[1] - across[1] * w1, p1[2] - across[2] * w1];
-    for (const [q, t] of [[a, t0], [b, t0], [c, t1], [a, t0], [c, t1], [d, t1]] as const) {
+    for (const [q, t] of [
+      [a, t0],
+      [b, t0],
+      [c, t1],
+      [a, t0],
+      [c, t1],
+      [d, t1],
+    ] as const) {
       positions.push(...q);
       colors.push(...tone(t));
     }
@@ -130,7 +180,15 @@ function needleStrip(positions: number[], colors: number[], from: V3, to: V3, ac
 }
 
 /** One needle, round from every side: two thin strips crossed along its length. */
-function needle(positions: number[], colors: number[], from: V3, to: V3, width: number, tone: (t: number) => V3, bend = 0): void {
+function needle(
+  positions: number[],
+  colors: number[],
+  from: V3,
+  to: V3,
+  width: number,
+  tone: (t: number) => V3,
+  bend = 0,
+): void {
   const along = norm3(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
   let across: V3 = norm3(...cross3(along, UP));
   if (isZero(across)) across = [1, 0, 0];
@@ -150,14 +208,19 @@ export type NeedleKind = "pine" | "spruce" | "redwood";
 export function lightSprig(lit: LitLike, kind: string, count: number): GeometryLike {
   const positions: number[] = [];
   const colors: number[] = [];
-  const shade = (t: number): V3 => { const v = 0.8 + 0.34 * t; return [v, v, v]; };
+  const shade = (t: number): V3 => { const v = 0.8 + 0.34 * t;
+  return [v, v, v]; };
   const twig = (): V3 => [0.62, 0.6, 0.58];
-  const pine = kind === "pine", out = pine ? 0.32 : 0.24, rise = pine ? 0.62 : 0.3;
+  const pine = kind === "pine";
+  const out = pine ? 0.32 : 0.24;
+  const rise = pine ? 0.62 : 0.3;
   const width = (pine ? 0.075 : 0.1) * Math.sqrt(10 / count);
   needleStrip(positions, colors, [0, 0, 0], [0, 1, 0], [1, 0, 0], 0.025, twig);
   for (let index = 0; index < count; index += 1) {
-    const t = 0.06 + (index / count) * 0.84, angle = index * 2.39996;
-    const dx = Math.cos(angle), dz = Math.sin(angle);
+    const t = 0.06 + (index / count) * 0.84;
+    const angle = index * 2.39996;
+    const dx = Math.cos(angle);
+    const dz = Math.sin(angle);
     needleStrip(positions, colors, [0, t, 0], [dx * out, t + rise, dz * out], [-dz, 0.1, dx], width, shade);
   }
   const geometry = new lit.Geometry();
@@ -171,7 +234,8 @@ export function lightSprig(lit: LitLike, kind: string, count: number): GeometryL
 export function needleGeometry(lit: LitLike, kind: NeedleKind): GeometryLike {
   const positions: number[] = [];
   const colors: number[] = [];
-  const grey = (low: number, high: number) => (t: number): V3 => { const v = low + (high - low) * t; return [v, v, v]; };
+  const grey = (low: number, high: number) => (t: number): V3 => { const v = low + (high - low) * t;
+  return [v, v, v]; };
   // The shoot itself, a thin brown-dark line the needles grow from.
   const twig = (length: number, tone: V3 = [0.62, 0.6, 0.58]): void => {
     needleStrip(positions, colors, [0, 0, 0], [0, length, 0], [1, 0, 0], 0.02, () => tone);
@@ -231,7 +295,16 @@ export const NEEDLE_KINDS: Readonly<Record<string, NeedleKind>> = { pine: "pine"
 const needleCache = new WeakMap<LitLike, Map<NeedleKind, GeometryLike>>();
 
 /** A palm leaflet: a long narrow strap, slim at its base, tapering to a point. */
-export const PALM_LEAFLET: readonly (readonly [number, number])[] = [[0, 0], [0.012, 0.04], [0.026, 0.18], [0.03, 0.4], [0.027, 0.62], [0.018, 0.82], [0.008, 0.94], [0, 1]];
+export const PALM_LEAFLET: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.012, 0.04],
+  [0.026, 0.18],
+  [0.03, 0.4],
+  [0.027, 0.62],
+  [0.018, 0.82],
+  [0.008, 0.94],
+  [0, 1],
+];
 const palmCache = new WeakMap<LitLike, GeometryLike>();
 
 /** The blade a species grows: needles for the conifers, arched straps for a palm, the broad leaf for everything else. */

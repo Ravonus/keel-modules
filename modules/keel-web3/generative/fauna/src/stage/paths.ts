@@ -102,7 +102,8 @@ function offTrunk(stage: Stage, p: Vec, margin: number): Vec {
 }
 
 /** How far a flier keeps off the bark `g` of the way along its flight: its own size and a little, fading to nothing at the ends. */
-const barkRoom = (size: number, g: number): number => (size * 0.3 + 0.04) * smooth(clamp(Math.min(g, 1 - g) / 0.2, 0, 1));
+const barkRoom = (size: number, g: number): number =>
+  (size * 0.3 + 0.04) * smooth(clamp(Math.min(g, 1 - g) / 0.2, 0, 1));
 
 /**
  * A flight as a bird flies one. A bird climbs or drops at a slant, never
@@ -126,7 +127,11 @@ export function flyPath(a: Anchor, b: Anchor, stage: Stage, size: number, onWood
   const climbed = madd(madd(a.p, out, reach * 0.8), side, reach * 0.45 * loop);
   // Into a branch from a little below it; onto the ground on a shallow glide from above.
   const drop = onWood ? -0.22 : 0.2 + Math.max(-rise, 0) * 0.1;
-  const coming = madd(madd(b.p, into, -Math.max(reach * 0.8, onWood ? 0 : 0.3 + drop * 1.8)), side, -reach * 0.45 * loop);
+  const coming = madd(
+    madd(b.p, into, -Math.max(reach * 0.8, onWood ? 0 : 0.3 + drop * 1.8)),
+    side,
+    -reach * 0.45 * loop,
+  );
   const leave = roundTrunk([climbed[0], a.p[1] + 0.15 + Math.max(rise, 0) * 0.55, climbed[2]], clear);
   const near = roundTrunk([coming[0], b.p[1] + drop, coming[2]], clear);
   const keys = [a.p, a.p, leave, near, b.p, b.p].map((p) => withinReach(stage, p));
@@ -149,7 +154,9 @@ function withinReach(stage: Stage, p: Vec): Vec {
   const crown = crownOf(stage);
   const cap = crown.reach + 2.6;
   const r = Math.hypot(p[0] - crown.c[0], p[2] - crown.c[2]);
-  return r <= cap ? p : [crown.c[0] + ((p[0] - crown.c[0]) * cap) / r, p[1], crown.c[2] + ((p[2] - crown.c[2]) * cap) / r];
+  return r <= cap
+    ? p
+    : [crown.c[0] + ((p[0] - crown.c[0]) * cap) / r, p[1], crown.c[2] + ((p[2] - crown.c[2]) * cap) / r];
 }
 
 /**
@@ -165,7 +172,12 @@ export type Loop =
   | { readonly kind: "flutter"; readonly seed: number; readonly loops: number; readonly ceiling: number; readonly reach: number };
 
 /** How far out and how high the tree's crown reaches, about the trunk's foot: where a bird flies to be clear of it. */
-export function crownOf(stage: Stage): { readonly reach: number; readonly top: number; readonly low: number; readonly c: Vec } {
+export function crownOf(stage: Stage): {
+  readonly reach: number;
+  readonly top: number;
+  readonly low: number;
+  readonly c: Vec;
+} {
   const c: Vec = stage.trunk?.base ?? [0, stage.top, 0];
   let reach = trunkR(stage) + 0.6;
   let top = stage.trunk?.top[1] ?? stage.top + 1.5;
@@ -186,7 +198,13 @@ function smoothWay(keys: readonly Vec[], stage: Stage, size: number, out?: (p: V
   const last = keys[keys.length - 1] ?? first;
   for (let i = 0; i <= legs * 10; i += 1) {
     const leg = Math.min(legs - 1, Math.floor(i / 10));
-    const p = catmull(keys[leg] ?? first, keys[leg + 1] ?? first, keys[leg + 2] ?? last, keys[leg + 3] ?? last, i / 10 - leg);
+    const p = catmull(
+      keys[leg] ?? first,
+      keys[leg + 1] ?? first,
+      keys[leg + 2] ?? last,
+      keys[leg + 3] ?? last,
+      i / 10 - leg,
+    );
     const g = i / (legs * 10);
     const lift = size * 0.3 * Math.min(1, g / 0.08, (1 - g) / 0.08);
     const q = offTrunk(stage, out ? out(p) : p, barkRoom(size, g));
@@ -219,7 +237,8 @@ export function sortiePath(a: Anchor, b: Anchor, stage: Stage, size: number, loo
   const clear = trunkClear(stage, size) * 1.4;
   // (Called home mid-flight, it sets off from where it is in the air.)
   const from = loop.start ?? a.p;
-  const leave = loop.start ?? roundTrunk(add(madd(a.p, outward(a.p), 1.1 + size), [0, fromWood ? -0.3 : 0.7, 0]), clear);
+  const leave =
+    loop.start ?? roundTrunk(add(madd(a.p, outward(a.p), 1.1 + size), [0, fromWood ? -0.3 : 0.7, 0]), clear);
   const near = roundTrunk(add(madd(b.p, outward(b.p), 1.2 + size), [0, onWood ? -0.3 : 0.6, 0]), clear);
   const angleOf = (p: Vec): number => Math.atan2(p[2] - c[2], p[0] - c[0]);
   const radiusOf = (p: Vec): number => Math.hypot(p[0] - c[0], p[2] - c[2]);
@@ -232,7 +251,11 @@ export function sortiePath(a: Anchor, b: Anchor, stage: Stage, size: number, loo
     const angle = t0 + dir * sweep * s;
     const k = smooth(Math.min(1, (sweep * s) / 1.1, (sweep * (1 - s)) / 1.1));
     const end = s < 0.5 ? leave : near;
-    const R = mix(radiusOf(end), Math.min(loop.cap ?? Infinity, loop.R * (1 + loop.wobble * Math.sin(angle * 2 + loop.seed * TAU))), k);
+    const R = mix(
+      radiusOf(end),
+      Math.min(loop.cap ?? Infinity, loop.R * (1 + loop.wobble * Math.sin(angle * 2 + loop.seed * TAU))),
+      k,
+    );
     const h = mix(end[1], loop.h + loop.climb * Math.sin(Math.PI * s) + 0.3 * Math.sin(angle * 3 + loop.seed * 9), k);
     keys.push([c[0] + Math.cos(angle) * R, h, c[2] + Math.sin(angle) * R]);
   }
@@ -268,14 +291,28 @@ export function flutterPath(a: Anchor, b: Anchor, stage: Stage, size: number, lo
   const keys: Vec[] = [a.p, a.p];
   for (let i = 1; i <= n; i += 1) {
     const u = i / (n + 1);
-    const p = keep(madd(add(lerpV(a.p, b.p, u), [0, Math.sin(u * Math.PI) * 0.35 + (rand() - 0.5) * 0.4, 0]), side, (rand() - 0.5) * 1.1));
+    const p = keep(
+      madd(
+        add(lerpV(a.p, b.p, u), [0, Math.sin(u * Math.PI) * 0.35 + (rand() - 0.5) * 0.4, 0]),
+        side,
+        (rand() - 0.5) * 1.1,
+      ),
+    );
     keys.push(p);
     if (i === loop.loops) {
       const r = 0.22 + rand() * 0.22;
       const turn = rand() < 0.5 ? -1 : 1;
       for (const q of [0.25, 0.5, 0.75]) {
         const angle = q * TAU;
-        keys.push(keep(add(madd(madd(p, side, turn * r * (1 - Math.cos(angle))), fw, r * Math.sin(angle)), [0, r * 0.5 * Math.sin(angle), 0])));
+        keys.push(
+          keep(
+            add(madd(madd(p, side, turn * r * (1 - Math.cos(angle))), fw, r * Math.sin(angle)), [
+              0,
+              r * 0.5 * Math.sin(angle),
+              0,
+            ]),
+          ),
+        );
       }
       keys.push(p);
     }
@@ -339,7 +376,10 @@ function outOfTrunk(point: PathPoint, trunk: Stage["trunk"]): PathPoint {
   return { p: [axis.p[0] + side[0] * axis.r, point.p[1], axis.p[2] + side[2] * axis.r], up: side };
 }
 
-export function branchWay(place: Place, stage: Stage): { points: PathPoint[]; foot: { h: number; a: number }; wood: readonly Wood[] } | null {
+export function branchWay(
+  place: Place,
+  stage: Stage,
+): { points: PathPoint[]; foot: { h: number; a: number }; wood: readonly Wood[] } | null {
   if (place.on !== "perch" || !stage.trunk) return null;
   const wood = perchOf(stage, place.i)?.path ?? [];
   const first = wood[0];
@@ -348,7 +388,9 @@ export function branchWay(place: Place, stage: Stage): { points: PathPoint[]; fo
   const a = Math.atan2(next.p[2] - first.p[2], next.p[0] - first.p[0]);
   const foot = { h: trunkShare(stage.trunk, first.p[1]), a };
   const points: PathPoint[] = [trunkPoint(stage, foot.h, a)];
-  wood.slice(1).forEach((w, i) => { points.push(outOfTrunk(onTopOf(w, wood[i] ?? w, wood[i + 2] ?? w, stage.trunk), stage.trunk)); });
+  wood.slice(1).forEach((w, i) => {
+    points.push(outOfTrunk(onTopOf(w, wood[i] ?? w, wood[i + 2] ?? w, stage.trunk), stage.trunk));
+  });
   return { points, foot, wood };
 }
 
@@ -357,7 +399,11 @@ export function branchWay(place: Place, stage: Stage): { points: PathPoint[]; fo
  * run along it, known by its two ends, and filed in a grid of the air so a body
  * asks only about the wood around it. Built once for a frame's stage.
  */
-export interface WoodMap { readonly edges: readonly WoodEdge[]; readonly cells: ReadonlyMap<number, readonly number[]>; readonly thickest: number }
+export interface WoodMap {
+  readonly edges: readonly WoodEdge[];
+  readonly cells: ReadonlyMap<number, readonly number[]>;
+  readonly thickest: number;
+}
 export interface WoodEdge { readonly a: Wood; readonly b: Wood; readonly keys: readonly [string, string] }
 
 const WOOD_CELL = 0.25;
@@ -371,7 +417,11 @@ function cellsBetween(low: Vec, high: Vec, visit: (key: number) => void): void {
   for (let x = cellOf(low[0]); x <= cellOf(high[0]); x += 1) for (let y = cellOf(low[1]); y <= cellOf(high[1]); y += 1) for (let z = cellOf(low[2]); z <= cellOf(high[2]); z += 1) visit(cellKey(x, y, z));
 }
 
-const corner = (a: Vec, b: Vec, pick: (x: number, y: number) => number, by: number): Vec => [pick(a[0], b[0]) + by, pick(a[1], b[1]) + by, pick(a[2], b[2]) + by];
+const corner = (a: Vec, b: Vec, pick: (x: number, y: number) => number, by: number): Vec => [
+  pick(a[0], b[0]) + by,
+  pick(a[1], b[1]) + by,
+  pick(a[2], b[2]) + by,
+];
 
 function fileEdge(cells: Map<number, number[]>, edge: WoodEdge, i: number): void {
   const pad = Math.max(edge.a.r, edge.b.r);
@@ -460,7 +510,12 @@ export function alongPath(path: readonly PathPoint[], u: number): PathAt {
     const span = length(sub(b.p, a.p));
     if (start + span >= want || i === path.length - 1) {
       const k = clamp((want - start) / Math.max(1e-6, span), 0, 1);
-      return { p: lerpV(a.p, b.p, k), fw: unit(sub(b.p, a.p), [0, 0, 1]), up: unit(lerpV(a.up, b.up, k), UP), travelled: want };
+      return {
+        p: lerpV(a.p, b.p, k),
+        fw: unit(sub(b.p, a.p), [0, 0, 1]),
+        up: unit(lerpV(a.up, b.up, k), UP),
+        travelled: want,
+      };
     }
     start += span;
     a = b;

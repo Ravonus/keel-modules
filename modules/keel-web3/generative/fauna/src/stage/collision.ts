@@ -18,7 +18,13 @@ import type { Body } from "../animals/bodies.js";
 /** A circle on the ground, in world x and z. */
 export interface Ring { readonly x: number; readonly z: number; readonly r: number }
 /** What an animal takes up on the ground: rings along its trunk, and how hard it is to move. */
-export interface Footprint { readonly rings: readonly Ring[]; readonly weight: number; readonly team: number; readonly self: number; readonly faces: number }
+export interface Footprint {
+  readonly rings: readonly Ring[];
+  readonly weight: number;
+  readonly team: number;
+  readonly self: number;
+  readonly faces: number;
+}
 
 const SHOVE_PASSES = 4;
 const MOST_RINGS = 6;
@@ -27,15 +33,25 @@ const ROOTED = 1e9;
 /** Animals that have turned to each other (a sniff, a groom, a nose to a nose) may come this much closer, their trunks still apart. */
 const SNUG = 0.5;
 const TOUCH_ACTS: readonly Action[] = ["groom", "nuzzle", "play", "sniff"];
-const greeting = (a: Footprint, b: Footprint): boolean => a.team === b.team && (a.faces === b.self || b.faces === a.self);
+const greeting = (a: Footprint, b: Footprint): boolean =>
+  a.team === b.team && (a.faces === b.self || b.faces === a.self);
 
 /** How far ring `a` lies inside ring `b`, each carried by its animal's shove so far, and the way out of it. */
-function overlapOf(a: Ring, at: readonly [number, number], b: Ring, bt: readonly [number, number], tie: number, room: number): { gap: number; x: number; z: number } {
+function overlapOf(
+  a: Ring,
+  at: readonly [number, number],
+  b: Ring,
+  bt: readonly [number, number],
+  tie: number,
+  room: number,
+): { gap: number; x: number; z: number } {
   const dx = a.x + at[0] - b.x - bt[0];
   const dz = a.z + at[1] - b.z - bt[1];
   const d = Math.hypot(dx, dz);
   // (Dead on top of each other, they part by their places in the cast, never by chance.)
-  return d > 1e-6 ? { gap: (a.r + b.r) * room - d, x: dx / d, z: dz / d } : { gap: (a.r + b.r) * room, x: Math.cos(tie), z: Math.sin(tie) };
+  return d > 1e-6
+    ? { gap: (a.r + b.r) * room - d, x: dx / d, z: dz / d }
+    : { gap: (a.r + b.r) * room, x: Math.cos(tie), z: Math.sin(tie) };
 }
 
 /**
@@ -54,8 +70,10 @@ export function shoveApart(prints: readonly (Footprint | null)[]): (readonly [nu
       const { gap, x, z } = overlapOf(ra, at, rb, bt, i + j * 2.4, room);
       if (gap <= 0) continue;
       const share = b.weight / (a.weight + b.weight);
-      at[0] += x * gap * share; at[1] += z * gap * share;
-      bt[0] -= x * gap * (1 - share); bt[1] -= z * gap * (1 - share);
+      at[0] += x * gap * share;
+      at[1] += z * gap * share;
+      bt[0] -= x * gap * (1 - share);
+      bt[1] -= z * gap * (1 - share);
     }
   };
   for (let pass = 0; pass < SHOVE_PASSES; pass += 1) for (let i = 0; i < prints.length; i += 1) for (let j = i + 1; j < prints.length; j += 1) pushPair(i, j);
@@ -77,7 +95,12 @@ function trunkOfBody(m: Moment, capsules: readonly Capsule[]): { centres: Vec[];
   const [low, high] = [Math.min(...along), Math.max(...along)];
   const span = Math.max(0, high - low - r);
   const gaps = Math.min(MOST_RINGS - 1, Math.ceil(span / r));
-  return { centres: Array.from({ length: gaps + 1 }, (_, i) => madd(from, z, (low + high) / 2 + (gaps === 0 ? 0 : span * (i / gaps - 0.5)))), r };
+  return {
+    centres: Array.from({ length: gaps + 1 }, (_, i) =>
+      madd(from, z, (low + high) / 2 + (gaps === 0 ? 0 : span * (i / gaps - 0.5))),
+    ),
+    r,
+  };
 }
 
 /** An animal's footprint, from the thick parts of its body as posed; none while it is off the ground. */
@@ -85,12 +108,24 @@ export function footprintOf(actor: Actor, m: Moment, capsules: readonly Capsule[
   if (m.mode === "fly" || m.mode === "climb" || m.segment.from.on !== "ground" || m.segment.to.on !== "ground") return null;
   const body = trunkOfBody(m, capsules);
   if (!body) return null;
-  return { rings: body.centres.map((p) => ({ x: p[0], z: p[2], r: body.r })), weight: actor.member.size * actor.member.size, team, self: actor.index, faces: TOUCH_ACTS.includes(m.segment.act) ? m.segment.face : -1 };
+  return {
+    rings: body.centres.map((p) => ({ x: p[0], z: p[2], r: body.r })),
+    weight: actor.member.size * actor.member.size,
+    team,
+    self: actor.index,
+    faces: TOUCH_ACTS.includes(m.segment.act) ? m.segment.face : -1,
+  };
 }
 
 
 /** A body in the tree: its trunk in the air, how hard it is to move, and which way it steps aside. */
-export interface WoodPrint { readonly balls: readonly Vec[]; readonly r: number; readonly weight: number; readonly side: Vec; readonly own?: readonly Wood[] }
+export interface WoodPrint {
+  readonly balls: readonly Vec[];
+  readonly r: number;
+  readonly weight: number;
+  readonly side: Vec;
+  readonly own?: readonly Wood[];
+}
 
 const onWood = (place: Place): boolean => place.on === "perch" || place.on === "trunk";
 
@@ -138,19 +173,29 @@ export interface Clipping { readonly wood: readonly string[]; readonly bodies: r
 function bodyCores(body: Body): { p: Vec; r: number }[] {
   const thick = body.capsules.filter((c) => c.decal !== true && c.carve !== true);
   const most = thick.reduce((high, c) => Math.max(high, c.r), 0);
-  return thick.filter((c) => c.r >= most * 0.6).flatMap((c) => [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: lerpV(c.a, c.b, k), r: c.r })));
+  return thick
+    .filter((c) => c.r >= most * 0.6)
+    .flatMap((c) => [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: lerpV(c.a, c.b, k), r: c.r })));
 }
 
 function inWood(cores: readonly { p: Vec; r: number }[], own: ReadonlySet<string>, map: WoodMap): boolean {
-  return cores.some(({ p, r }) => woodNear(map, p, r * 0.55 + map.thickest).some(({ a, b, keys }) => !own.has(keys[0]) && !own.has(keys[1]) && offWood(p, a, b) + mix(a.r, b.r, 0.5) * 0.7 < r * 0.55));
+  return cores.some(({ p, r }) =>
+    woodNear(map, p, r * 0.55 + map.thickest).some(
+      ({ a, b, keys }) =>
+        !own.has(keys[0]) && !own.has(keys[1]) && offWood(p, a, b) + mix(a.r, b.r, 0.5) * 0.7 < r * 0.55,
+    ),
+  );
 }
 
-const inOther = (a: readonly { p: Vec; r: number }[], b: readonly { p: Vec; r: number }[]): boolean => a.some((x) => b.some((y) => length(sub(x.p, y.p)) < 0.6 * (x.r + y.r)));
+const inOther = (a: readonly { p: Vec; r: number }[], b: readonly { p: Vec; r: number }[]): boolean =>
+  a.some((x) => b.some((y) => length(sub(x.p, y.p)) < 0.6 * (x.r + y.r)));
 
 /** Reads a frame for what really passes through what, knowing each animal's own way over the wood. */
 export function clippingOf(frame: readonly { body: Body; own: readonly Wood[] }[], map: WoodMap): Clipping {
   const cores = frame.map(({ body }) => bodyCores(body));
-  const wood = frame.filter(({ own }, i) => inWood(cores[i] ?? [], new Set(own.map(woodKey)), map)).map(({ body }) => body.id);
+  const wood = frame
+    .filter(({ own }, i) => inWood(cores[i] ?? [], new Set(own.map(woodKey)), map))
+    .map(({ body }) => body.id);
   const bodies: (readonly [string, string])[] = [];
   frame.forEach(({ body }, i) => { for (let j = i + 1; j < frame.length; j += 1) { const other = frame[j]; if (other && inOther(cores[i] ?? [], cores[j] ?? [])) bodies.push([body.id, other.body.id]); } });
   return { wood, bodies };
@@ -191,7 +236,10 @@ function treePrint(stage: Stage): Footprint | null {
 /** A whole posed body moved along the ground. */
 function shoved(m: Moment, capsules: Capsule[], by: Vec): { m: Moment; capsules: Capsule[] } {
   if (by[0] === 0 && by[1] === 0 && by[2] === 0) return { m, capsules };
-  return { m: { ...m, frame: { ...m.frame, o: add(m.frame.o, by) } }, capsules: capsules.map((c) => ({ ...c, a: add(c.a, by), b: add(c.b, by) })) };
+  return {
+    m: { ...m, frame: { ...m.frame, o: add(m.frame.o, by) } },
+    capsules: capsules.map((c) => ({ ...c, a: add(c.a, by), b: add(c.b, by) })),
+  };
 }
 
 /** A shove along the ground, over its rises and dips. */
@@ -199,7 +247,13 @@ function overGround(stage: Stage, { frame: { o } }: Moment, [x, z]: readonly [nu
   return x === 0 && z === 0 ? [0, 0, 0] : [x, groundY(stage, o[0] + x, o[2] + z) - groundY(stage, o[0], o[2]), z];
 }
 
-export interface Posed { readonly id: string; readonly actor: Actor; readonly m: Moment; readonly capsules: Capsule[]; readonly scene: Scene }
+export interface Posed {
+  readonly id: string;
+  readonly actor: Actor;
+  readonly m: Moment;
+  readonly capsules: Capsule[];
+  readonly scene: Scene;
+}
 
 /** Everyone as posed, pushed clear of each other and made into bodies. */
 export function settledBodies(posed: readonly Posed[], prints: readonly (Footprint | null)[]): Body[] {

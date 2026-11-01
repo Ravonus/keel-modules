@@ -35,7 +35,11 @@ export function noise2d(x: number, y: number, seed = 0): number {
   const top = Math.floor(y);
   const fx = smooth(x - left);
   const fy = smooth(y - top);
-  return mix(mix(hash(left, top, seed), hash(left + 1, top, seed), fx), mix(hash(left, top + 1, seed), hash(left + 1, top + 1, seed), fx), fy);
+  return mix(
+    mix(hash(left, top, seed), hash(left + 1, top, seed), fx),
+    mix(hash(left, top + 1, seed), hash(left + 1, top + 1, seed), fx),
+    fy,
+  );
 }
 
 /**
@@ -46,11 +50,20 @@ export function noise2d(x: number, y: number, seed = 0): number {
  * @param options Seed, octave count, persistence, and lacunarity.
  * @returns The amplitude-normalized sum, or 0 when the total amplitude is 0.
  */
-export function fractalNoise2d(x: number, y: number, { seed = 0, octaves = 4, persistence = 0.5, lacunarity = 2 }: FractalNoiseOptions = {}): number {
-  let total = 0; let amplitude = 1; let frequency = 1; let scale = 0;
+export function fractalNoise2d(
+  x: number,
+  y: number,
+  { seed = 0, octaves = 4, persistence = 0.5, lacunarity = 2 }: FractalNoiseOptions = {},
+): number {
+  let total = 0;
+  let amplitude = 1;
+  let frequency = 1;
+  let scale = 0;
   for (let octave = 0; octave < octaves; octave += 1) {
     total += noise2d(x * frequency, y * frequency, seed + octave) * amplitude;
-    scale += amplitude; amplitude *= persistence; frequency *= lacunarity;
+    scale += amplitude;
+    amplitude *= persistence;
+    frequency *= lacunarity;
   }
   return scale === 0 ? 0 : total / scale;
 }

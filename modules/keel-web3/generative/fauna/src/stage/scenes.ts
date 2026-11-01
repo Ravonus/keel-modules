@@ -49,7 +49,8 @@ function twoOf(list: readonly Actor[], rand: () => number): [Actor, Actor] | nul
 }
 
 /** How far ahead of its middle an animal's nose is. */
-const headReach = (actor: Actor): number => actor.member.size * (actor.spec.build.len * 0.5 + actor.spec.build.neck + actor.spec.build.head * 1.5);
+const headReach = (actor: Actor): number =>
+  actor.member.size * (actor.spec.build.len * 0.5 + actor.spec.build.neck + actor.spec.build.head * 1.5);
 
 /** One animal grooms another, who lies (or sits) still for it. */
 function groomScene(troupe: Troupe, scene: Scene): boolean {
@@ -99,7 +100,9 @@ function arriveAfter(actor: Actor, leader: Actor, move: () => void): void {
   move();
   const late = leader.until + 0.15 - actor.until;
   if (late <= 0) return;
-  const moved = actor.segments.splice(first).map((segment) => ({ ...segment, t0: segment.t0 + late, t1: segment.t1 + late }));
+  const moved = actor.segments
+    .splice(first)
+    .map((segment) => ({ ...segment, t0: segment.t0 + late, t1: segment.t1 + late }));
   actor.segments.push({ act: "look", t0: start, t1: start + late, from: at, to: at, yaw: moved[0]?.yaw ?? actor.yaw, face: leader.index, mode: null, pace: 0 }, ...moved);
   actor.until += late;
 }
@@ -312,8 +315,10 @@ function alarmScene(troupe: Troupe, scene: Scene): boolean {
 function flee(actor: Actor, away: number, scene: Scene): void {
   const stage = scene.stage;
   const perches = perchCount(scene) > 0;
-  if (actor.spec.flies && perches && !GROUND_BIRDS.has(actor.member.species)) { travel(actor, randomPerch(actor, scene), "fly", scene); return; }
-  if (actor.spec.climbs && perches && actor.rand() < 0.7) { travel(actor, randomPerch(actor, scene), "climb", scene, 1.4); return; }
+  if (actor.spec.flies && perches && !GROUND_BIRDS.has(actor.member.species)) { travel(actor, randomPerch(actor, scene), "fly", scene);
+  return; }
+  if (actor.spec.climbs && perches && actor.rand() < 0.7) { travel(actor, randomPerch(actor, scene), "climb", scene, 1.4);
+  return; }
   const a = away + (actor.rand() - 0.5) * 1.4;
   const r = stage.radius * between(actor.rand, [0.55, 0.9]);
   travel(actor, onGround(stage, actor.member.size, Math.cos(a) * r, Math.sin(a) * r), can(actor, "run") ? "run" : "hop", scene, 1.15);

@@ -23,15 +23,31 @@ export interface LofiEvent {
   readonly spread: number;
 }
 
-const event = (voice: LofiVoice, notes: readonly number[], length: number, velocity: number, nudge = 0, spread = 0): LofiEvent => ({
-  voice, notes, length, velocity: clamp(velocity, 0.02, 1), nudge, spread,
+const event = (
+  voice: LofiVoice,
+  notes: readonly number[],
+  length: number,
+  velocity: number,
+  nudge = 0,
+  spread = 0,
+): LofiEvent => ({
+  voice,
+  notes,
+  length,
+  velocity: clamp(velocity, 0.02, 1),
+  nudge,
+  spread,
 });
 const human = (rng: () => number, amount: number): number => (rng() - 0.5) * 2 * amount;
 
 /** The chord under a bar of the form, and whether the bar is that chord's last. */
 function chordAt(score: LofiScore, inForm: number): { chord: LofiChord; next: LofiChord; last: boolean } {
   const index = Math.floor(inForm / score.barsPerChord);
-  return { chord: at(score.chords, index), next: at(score.chords, index + 1), last: (inForm + 1) % score.barsPerChord === 0 };
+  return {
+    chord: at(score.chords, index),
+    next: at(score.chords, index + 1),
+    last: (inForm + 1) % score.barsPerChord === 0,
+  };
 }
 
 /** A broken chord in eighths, up and back down. */
@@ -96,7 +112,9 @@ function budEvents(score: LofiScore, bar: number, step: number): LofiEvent[] {
   if (score.layers.bud <= 0.01 || score.budNotes <= 0 || bar % FORM_BARS !== 6 || step !== 8) return [];
   const rng = barRandom(score.seed, bar, "melody");
   const start = score.budFalls ? score.budNotes + 1 : Math.floor(rng() * 2);
-  const notes = Array.from({ length: score.budNotes }, (_, index) => at(score.scale, clamp(score.budFalls ? start - index : start + index, 0, score.scale.length - 1)));
+  const notes = Array.from({ length: score.budNotes }, (_, index) =>
+    at(score.scale, clamp(score.budFalls ? start - index : start + index, 0, score.scale.length - 1)),
+  );
   return [event("bud", notes, 6, 0.5, 0, 60 / score.bpm / 2)];
 }
 
@@ -143,7 +161,9 @@ function drumEvents(score: LofiScore, bar: number, step: number): LofiEvent[] {
   // The last bar of every fourth pass drops the kick for a breath.
   const breakBar = inForm === 7 && Math.floor(bar / FORM_BARS) % 4 === 3;
   const drums: DrumBar = { score, groove: at(GROOVES, score.groove), step, inForm, rng: barRandom(score.seed, bar * STEPS_PER_BAR + step, "drums") };
-  return [kickEvent(drums, breakBar), snareEvent(drums), woodEvent(drums), hatEvent(drums)].filter((item): item is LofiEvent => item !== null);
+  return [kickEvent(drums, breakBar), snareEvent(drums), woodEvent(drums), hatEvent(drums)].filter(
+    (item): item is LofiEvent => item !== null,
+  );
 }
 
 function natureEvents(score: LofiScore, bar: number, step: number): LofiEvent[] {
@@ -151,7 +171,10 @@ function natureEvents(score: LofiScore, bar: number, step: number): LofiEvent[] 
   const events: LofiEvent[] = [];
   if (score.layers.birds > 0.01 && rng() < 0.012 * score.layers.birds) {
     const base = 91 + Math.floor(rng() * 8);
-    const notes = Array.from({ length: 2 + Math.floor(rng() * 3) }, (_, index) => base + (index % 2 === 0 ? 0 : 3 + Math.floor(rng() * 4)));
+    const notes = Array.from(
+      { length: 2 + Math.floor(rng() * 3) },
+      (_, index) => base + (index % 2 === 0 ? 0 : 3 + Math.floor(rng() * 4)),
+    );
     events.push(event("bird", notes, 1, 0.5 + rng() * 0.3, rng() * 0.05, 0.06 + rng() * 0.03));
   }
   if (score.layers.crickets > 0.01 && step % 4 === 0 && rng() < 0.55) {

@@ -4,7 +4,23 @@ import { hashed } from "../roll.js";
 import type { Bottom, Costume, Hat, Person, Top } from "../body/person.js";
 
 /** Each stuff a person can be made of or dressed in, as `fabric` numbers them. */
-export const FABRICS = { skin: 0, cotton: 1, denim: 2, hair: 3, knit: 4, leather: 5, fur: 6, wool: 7, satin: 8, latex: 9, nylon: 10, quilted: 11, tartan: 12, pinstripe: 13, corduroy: 14 } as const;
+export const FABRICS = {
+  skin: 0,
+  cotton: 1,
+  denim: 2,
+  hair: 3,
+  knit: 4,
+  leather: 5,
+  fur: 6,
+  wool: 7,
+  satin: 8,
+  latex: 9,
+  nylon: 10,
+  quilted: 11,
+  tartan: 12,
+  pinstripe: 13,
+  corduroy: 14,
+} as const;
 type Fabric = keyof typeof FABRICS;
 
 /** What each garment may be cut from, a seed choosing. */

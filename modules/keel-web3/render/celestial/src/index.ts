@@ -186,7 +186,16 @@ function readZodiac(r: Reader) {
 export function readPack(bytes: Uint8Array): SkyPack {
   const r = new Reader(bytes);
   if (r.byte() !== 0x4b || r.byte() !== 0x53) throw new Error("celestial: not a sky pack");
-  const pack: SkyPack = { version: r.byte(), elements: {}, giants: {}, moon: [], terms: [], stars: [], zodiac: [], showers: [] };
+  const pack: SkyPack = {
+    version: r.byte(),
+    elements: {},
+    giants: {},
+    moon: [],
+    terms: [],
+    stars: [],
+    zodiac: [],
+    showers: [],
+  };
   while (!r.done) {
     const tag = r.byte();
     const part = r.section(r.varint());
@@ -206,10 +215,22 @@ const equatorial = (longitude: number, latitude: number): Vec3 => {
   const b = latitude * RAD;
   const y = Math.cos(b) * Math.sin(l);
   const z = Math.sin(b);
-  return [Math.cos(b) * Math.cos(l), y * Math.cos(OBLIQUITY) - z * Math.sin(OBLIQUITY), y * Math.sin(OBLIQUITY) + z * Math.cos(OBLIQUITY)];
+  return [
+    Math.cos(b) * Math.cos(l),
+    y * Math.cos(OBLIQUITY) - z * Math.sin(OBLIQUITY),
+    y * Math.sin(OBLIQUITY) + z * Math.cos(OBLIQUITY),
+  ];
 };
-const fromRaDec = (ra: number, dec: number): Vec3 => [Math.cos(dec * RAD) * Math.cos(ra * RAD), Math.cos(dec * RAD) * Math.sin(ra * RAD), Math.sin(dec * RAD)];
-export const angleBetween = (a: Vec3, b: Vec3) => Math.atan2(Math.hypot(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]), a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / RAD;
+const fromRaDec = (ra: number, dec: number): Vec3 => [
+  Math.cos(dec * RAD) * Math.cos(ra * RAD),
+  Math.cos(dec * RAD) * Math.sin(ra * RAD),
+  Math.sin(dec * RAD),
+];
+export const angleBetween = (a: Vec3, b: Vec3) =>
+  Math.atan2(
+    Math.hypot(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]),
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  ) / RAD;
 
 /** Seconds TT runs ahead of UT: Espenak and Meeus's long-term fit, which is what moves an eclipse's hour centuries out. */
 export function deltaT(timestamp: number) {
@@ -221,7 +242,8 @@ export function deltaT(timestamp: number) {
   const u = (y - 1820) / 100;
   return -20 + 32 * u * u - (y < 2150 ? 0.5628 * (2150 - y) : 0);
 }
-export const centuries = (timestamp: number) => (timestamp + deltaT(timestamp) * 1000 - J2000_MS) / DAY_MS / CENTURY_DAYS;
+export const centuries = (timestamp: number) =>
+  (timestamp + deltaT(timestamp) * 1000 - J2000_MS) / DAY_MS / CENTURY_DAYS;
 
 /** A planet's plain Kepler orbit on the J2000 ecliptic: longitude, latitude (degrees) and distance (au). */
 export function keplerPlace(row: readonly number[], giant: readonly number[] | undefined, t: number): Vec3 {
@@ -241,13 +263,23 @@ export function keplerPlace(row: readonly number[], giant: readonly number[] | u
   const i = at(2) * RAD;
   const px = x * Math.cos(w) - y * Math.sin(w);
   const py = x * Math.sin(w) + y * Math.cos(w);
-  const v: Vec3 = [px * Math.cos(o) - py * Math.sin(o) * Math.cos(i), px * Math.sin(o) + py * Math.cos(o) * Math.cos(i), py * Math.sin(i)];
+  const v: Vec3 = [
+    px * Math.cos(o) - py * Math.sin(o) * Math.cos(i),
+    px * Math.sin(o) + py * Math.cos(o) * Math.cos(i),
+    py * Math.sin(i),
+  ];
   const r = Math.hypot(v[0], v[1], v[2]);
   return [Math.atan2(v[1], v[0]) / RAD, Math.asin(v[2] / r) / RAD, r];
 }
 
 /** Adds a body's terms to a place: channels 0 and 1 are degrees of longitude and latitude, 2 is distance. */
-export function applyTerms(place: Vec3, terms: readonly Term[], args: readonly number[], t: number, distanceUnit: number): Vec3 {
+export function applyTerms(
+  place: Vec3,
+  terms: readonly Term[],
+  args: readonly number[],
+  t: number,
+  distanceUnit: number,
+): Vec3 {
   const tau = t / 10;
   const out: Vec3 = [place[0], place[1], place[2]];
   for (const term of terms) {
@@ -260,9 +292,11 @@ export function applyTerms(place: Vec3, terms: readonly Term[], args: readonly n
 }
 
 /** Every argument a planet's corrections may use: the mean longitudes, in element order. */
-export const planetArgs = (elements: Record<string, number[]>, t: number) => ELEMENT_IDS.map((id) => (elements[id][3] + elements[id][9] * t) % 360);
+export const planetArgs = (elements: Record<string, number[]>, t: number) =>
+  ELEMENT_IDS.map((id) => (elements[id][3] + elements[id][9] * t) % 360);
 /** The moon's: its mean longitude, D, M, M' and F. */
-export const moonArgs = (moon: readonly number[], t: number) => [0, 1, 2, 3, 4].map((index) => (moon[index * 2] + moon[index * 2 + 1] * t) % 360);
+export const moonArgs = (moon: readonly number[], t: number) =>
+  [0, 1, 2, 3, 4].map((index) => (moon[index * 2] + moon[index * 2 + 1] * t) % 360);
 
 /** The moon's ecliptic place on the equinox of the day, from a pack's numbers alone. */
 export const moonBase = (moon: readonly number[], t: number): Vec3 => [moon[0] + moon[1] * t, 0, 385000.56];
@@ -271,8 +305,13 @@ export const moonBase = (moon: readonly number[], t: number): Vec3 => [moon[0] +
 export function openSky(bytes: Uint8Array) {
   const pack = readPack(bytes);
   const { elements, giants, moon: moonRow, terms, showers } = pack;
-  const place = (id: string, t: number, args: number[]) => applyTerms(keplerPlace(elements[id], giants[id], t), terms[ELEMENT_IDS.indexOf(id)] ?? [], args, t, DISTANCE_UNIT);
-  const xyz = (p: Vec3): Vec3 => [p[2] * Math.cos(p[1] * RAD) * Math.cos(p[0] * RAD), p[2] * Math.cos(p[1] * RAD) * Math.sin(p[0] * RAD), p[2] * Math.sin(p[1] * RAD)];
+  const place = (id: string, t: number, args: number[]) =>
+    applyTerms(keplerPlace(elements[id], giants[id], t), terms[ELEMENT_IDS.indexOf(id)] ?? [], args, t, DISTANCE_UNIT);
+  const xyz = (p: Vec3): Vec3 => [
+    p[2] * Math.cos(p[1] * RAD) * Math.cos(p[0] * RAD),
+    p[2] * Math.cos(p[1] * RAD) * Math.sin(p[0] * RAD),
+    p[2] * Math.sin(p[1] * RAD),
+  ];
   const moonPlace = (t: number) => {
     const m = applyTerms(moonBase(moonRow, t), terms[ELEMENT_IDS.length] ?? [], moonArgs(moonRow, t), t, MOON_KM);
     return { longitude: wrap(m[0], 360), latitude: m[1], distance: m[2] };
@@ -297,11 +336,19 @@ export function openSky(bytes: Uint8Array) {
       const first = seen(t);
       const v = seen(t - Math.hypot(first[0], first[1], first[2]) * 0.0057755 / CENTURY_DAYS);
       const distance = Math.hypot(v[0], v[1], v[2]);
-      places[id] = { longitude: Math.atan2(v[1], v[0]) / RAD, latitude: Math.asin(v[2] / distance) / RAD, distance: distance * AU_KM };
+      places[id] = {
+        longitude: Math.atan2(v[1], v[0]) / RAD,
+        latitude: Math.asin(v[2] / distance) / RAD,
+        distance: distance * AU_KM,
+      };
     }
     const sunDistance = Math.hypot(earth[0], earth[1], earth[2]);
     // -20.5" of aberration keeps the sun where it is seen, which is what lines up an eclipse.
-    places.sun = { longitude: Math.atan2(-earth[1], -earth[0]) / RAD - 0.0057, latitude: Math.asin(-earth[2] / sunDistance) / RAD, distance: sunDistance * AU_KM };
+    places.sun = {
+      longitude: Math.atan2(-earth[1], -earth[0]) / RAD - 0.0057,
+      latitude: Math.asin(-earth[2] / sunDistance) / RAD,
+      distance: sunDistance * AU_KM,
+    };
     places.moon = { longitude: moon.longitude - PRECESSION * t, latitude: moon.latitude, distance: moon.distance };
     return places;
   }
@@ -334,7 +381,12 @@ export function openSky(bytes: Uint8Array) {
     const apart = angleBetween(moon.direction, sun.direction);
     const moonRadius = Math.asin(MOON_RADIUS / moon.distance) / RAD;
     // The earth's shadow at the moon, with the 2% the air adds to it (Danjon's rule).
-    const umbra = 1.01 * (Math.asin(EARTH_RADII_KM / moon.distance) + Math.asin(EARTH_RADII_KM / sun.distance) - Math.asin(SUN_RADIUS_KM / sun.distance)) / RAD;
+    const umbra =
+      (1.01 *
+        (Math.asin(EARTH_RADII_KM / moon.distance) +
+          Math.asin(EARTH_RADII_KM / sun.distance) -
+          Math.asin(SUN_RADIUS_KM / sun.distance))) /
+      RAD;
     const shadow = angleBetween(moon.direction, [-sun.direction[0], -sun.direction[1], -sun.direction[2]]);
     return {
       timestamp,
@@ -352,7 +404,11 @@ export function openSky(bytes: Uint8Array) {
     const ramc = siderealDegrees(timestamp, lon) * RAD;
     const e = OBLIQUITY;
     const midheaven = wrap(Math.atan2(Math.sin(ramc), Math.cos(ramc) * Math.cos(e)) / RAD, 360);
-    const ascendant = wrap(Math.atan2(Math.cos(ramc), -(Math.sin(ramc) * Math.cos(e) + Math.tan(clamp(lat, -66, 66) * RAD) * Math.sin(e))) / RAD, 360);
+    const ascendant = wrap(
+      Math.atan2(Math.cos(ramc), -(Math.sin(ramc) * Math.cos(e) + Math.tan(clamp(lat, -66, 66) * RAD) * Math.sin(e))) /
+        RAD,
+      360,
+    );
     const aspects: Aspect[] = [];
     for (let i = 0; i < BODY_IDS.length; i += 1) {
       for (let j = i + 1; j < BODY_IDS.length; j += 1) {
@@ -368,7 +424,8 @@ export function openSky(bytes: Uint8Array) {
 
 const BODY_IDS: BodyId[] = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"];
 const ASPECTS: readonly [AspectKind, number, number][] = [["conjunction", 0, 8], ["sextile", 60, 4], ["square", 90, 6], ["trine", 120, 6], ["opposition", 180, 8]];
-const siderealDegrees = (timestamp: number, lon: number) => wrap(280.46061837 + 360.98564736629 * ((timestamp - J2000_MS) / DAY_MS) + lon, 360);
+const siderealDegrees = (timestamp: number, lon: number) =>
+  wrap(280.46061837 + 360.98564736629 * ((timestamp - J2000_MS) / DAY_MS) + lon, 360);
 
 /** The matrix that turns a J2000 equatorial direction into scene space at a place: +y up, -z north, +x east. Rows first. */
 export function horizonMatrix(timestamp: number, lat: number, lon: number): number[] {
@@ -393,7 +450,11 @@ export function horizonMatrix(timestamp: number, lat: number, lon: number): numb
   return [a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]];
 }
 
-export const toScene = (matrix: readonly number[], v: Vec3): Vec3 => [matrix[0] * v[0] + matrix[1] * v[1] + matrix[2] * v[2], matrix[3] * v[0] + matrix[4] * v[1] + matrix[5] * v[2], matrix[6] * v[0] + matrix[7] * v[1] + matrix[8] * v[2]];
+export const toScene = (matrix: readonly number[], v: Vec3): Vec3 => [
+  matrix[0] * v[0] + matrix[1] * v[1] + matrix[2] * v[2],
+  matrix[3] * v[0] + matrix[4] * v[1] + matrix[5] * v[2],
+  matrix[6] * v[0] + matrix[7] * v[1] + matrix[8] * v[2],
+];
 
 /** The moon seen from a place, not the earth's centre: up to a degree off, and what decides who sees an eclipse. */
 export function moonFrom(matrix: readonly number[], moon: Body): Vec3 {
@@ -407,7 +468,8 @@ export function moonFrom(matrix: readonly number[], moon: Body): Vec3 {
 }
 
 /** An ecliptic point (tropical, on the equinox of `timestamp`) as a J2000 direction. */
-export const eclipticPoint = (longitude: number, latitude: number, timestamp: number): Vec3 => equatorial(longitude - PRECESSION * centuries(timestamp), latitude);
+export const eclipticPoint = (longitude: number, latitude: number, timestamp: number): Vec3 =>
+  equatorial(longitude - PRECESSION * centuries(timestamp), latitude);
 
 
 export type Rgb = readonly [number, number, number];
@@ -418,8 +480,16 @@ const SOFT_LIGHT: Rgb = [130, 190, 255];
 const NATAL_LIGHT: Rgb = [255, 226, 170];
 /** Each planet's colour, by eye from the sky, for marks and for a renderer's discs. */
 export const BODY_LIGHT: Record<BodyId, Rgb> = {
-  sun: [255, 214, 130], moon: [214, 222, 255], mercury: [188, 200, 214], venus: [255, 240, 208], mars: [255, 120, 86],
-  jupiter: [255, 216, 168], saturn: [226, 198, 140], uranus: [150, 232, 232], neptune: [120, 150, 255], pluto: [190, 150, 170],
+  sun: [255, 214, 130],
+  moon: [214, 222, 255],
+  mercury: [188, 200, 214],
+  venus: [255, 240, 208],
+  mars: [255, 120, 86],
+  jupiter: [255, 216, 168],
+  saturn: [226, 198, 140],
+  uranus: [150, 232, 232],
+  neptune: [120, 150, 255],
+  pluto: [190, 150, 170],
 };
 
 /** An additive picture of the sphere, RA across and Dec up, the size of a small texture. */
@@ -455,7 +525,8 @@ class Canvas {
   }
   ring(v: Vec3, radius: number, light: Rgb, strength: number) {
     const side = Math.abs(v[2]) < 0.9 ? ([0, 0, 1] as Vec3) : ([1, 0, 0] as Vec3);
-    const norm = (p: Vec3): Vec3 => { const r = Math.hypot(p[0], p[1], p[2]); return [p[0] / r, p[1] / r, p[2] / r]; };
+    const norm = (p: Vec3): Vec3 => { const r = Math.hypot(p[0], p[1], p[2]);
+    return [p[0] / r, p[1] / r, p[2] / r]; };
     const e = norm([v[1] * side[2] - v[2] * side[1], v[2] * side[0] - v[0] * side[2], v[0] * side[1] - v[1] * side[0]]);
     const f: Vec3 = [v[1] * e[2] - v[2] * e[1], v[2] * e[0] - v[0] * e[2], v[0] * e[1] - v[1] * e[0]];
     const size = radius * RAD;
@@ -463,7 +534,12 @@ class Canvas {
       const angle = (step / 16) * 2 * Math.PI;
       const c = Math.cos(angle) * size;
       const s = Math.sin(angle) * size;
-      this.stamp(norm([v[0] + e[0] * c + f[0] * s, v[1] + e[1] * c + f[1] * s, v[2] + e[2] * c + f[2] * s]), 0.6, light, strength);
+      this.stamp(
+        norm([v[0] + e[0] * c + f[0] * s, v[1] + e[1] * c + f[1] * s, v[2] + e[2] * c + f[2] * s]),
+        0.6,
+        light,
+        strength,
+      );
     }
   }
 }
@@ -477,7 +553,16 @@ function arc(canvas: Canvas, a: Body, b: Body, aspect: { kind: AspectKind; orb: 
   const steps = Math.ceil(Math.abs(sweep) / 0.7);
   for (let step = 0; step <= steps; step += 1) {
     const s = step / steps;
-    canvas.stamp(eclipticPoint(a.longitude + sweep * s, a.latitude + (b.latitude - a.latitude) * s + bow * Math.sin(Math.PI * s), when), 0.6, hard ? HARD_LIGHT : SOFT_LIGHT, 0.15 * (1 - aspect.orb / 10) * level);
+    canvas.stamp(
+      eclipticPoint(
+        a.longitude + sweep * s,
+        a.latitude + (b.latitude - a.latitude) * s + bow * Math.sin(Math.PI * s),
+        when,
+      ),
+      0.6,
+      hard ? HARD_LIGHT : SOFT_LIGHT,
+      0.15 * (1 - aspect.orb / 10) * level,
+    );
   }
 }
 
@@ -485,28 +570,68 @@ function arc(canvas: Canvas, a: Body, b: Body, aspect: { kind: AspectKind; orb: 
  * Paints what never moves against the stars into RGBA pixels: the real stars and zodiac, and the tree's own chart,
  * which reads as one more constellation, with the planets of its birth as its stars.
  */
-export function paintChart(sky: { stars: readonly Star[]; zodiac: readonly (readonly (readonly number[])[])[] }, chart: Chart, width: number, height: number, level = 1) {
+export function paintChart(
+  sky: { stars: readonly Star[]; zodiac: readonly (readonly (readonly number[])[])[] },
+  chart: Chart,
+  width: number,
+  height: number,
+  level = 1,
+) {
   const canvas = new Canvas(new Uint8Array(width * height * 4), width, height);
   for (let at = 3; at < canvas.pixels.length; at += 4) canvas.pixels[at] = 255;
   const when = chart.timestamp;
-  for (const star of sky.stars) canvas.stamp(star.direction, star.magnitude < 1.5 ? 1.2 : 0.7, STAR_LIGHT, clamp((4.4 - star.magnitude) / 5, 0.12, 1) * level);
+  for (const star of sky.stars)
+    canvas.stamp(
+      star.direction,
+      star.magnitude < 1.5 ? 1.2 : 0.7,
+      STAR_LIGHT,
+      clamp((4.4 - star.magnitude) / 5, 0.12, 1) * level,
+    );
   const sign = Math.floor(chart.bodies.sun.longitude / 30);
   sky.zodiac.forEach((figure, index) => {
-    for (const line of figure) for (let at = 1; at < line.length; at += 1) canvas.dots(sky.stars[line[at - 1]].direction, sky.stars[line[at]].direction, FIGURE_LIGHT, (index === sign ? 0.2 : 0.1) * level, 0.45);
+    for (const line of figure)
+      for (let at = 1; at < line.length; at += 1)
+        canvas.dots(
+          sky.stars[line[at - 1]].direction,
+          sky.stars[line[at]].direction,
+          FIGURE_LIGHT,
+          (index === sign ? 0.2 : 0.1) * level,
+          0.45,
+        );
   });
-  for (let degree = 0; degree < 360; degree += 3) canvas.stamp(eclipticPoint(degree, 0, when), degree % 30 === 0 ? 0.9 : 0.5, FIGURE_LIGHT, (degree % 30 === 0 ? 0.26 : 0.07) * level);
+  for (let degree = 0; degree < 360; degree += 3)
+    canvas.stamp(
+      eclipticPoint(degree, 0, when),
+      degree % 30 === 0 ? 0.9 : 0.5,
+      FIGURE_LIGHT,
+      (degree % 30 === 0 ? 0.26 : 0.07) * level,
+    );
   for (const aspect of chart.aspects) arc(canvas, chart.bodies[aspect.a], chart.bodies[aspect.b], aspect, when, level);
   for (const id of BODY_IDS) {
     const body = chart.bodies[id];
     canvas.stamp(body.direction, id === "sun" || id === "moon" ? 1.8 : 1.2, BODY_LIGHT[id], 0.7 * level);
     canvas.ring(body.direction, 1.1, BODY_LIGHT[id], 0.16 * level);
   }
-  canvas.dots(eclipticPoint(chart.ascendant, -1.6, when), eclipticPoint(chart.ascendant, 1.6, when), NATAL_LIGHT, 0.32 * level, 0.3);
-  canvas.dots(eclipticPoint(chart.midheaven, -1, when), eclipticPoint(chart.midheaven, 1, when), NATAL_LIGHT, 0.2 * level, 0.3);
+  canvas.dots(
+    eclipticPoint(chart.ascendant, -1.6, when),
+    eclipticPoint(chart.ascendant, 1.6, when),
+    NATAL_LIGHT,
+    0.32 * level,
+    0.3,
+  );
+  canvas.dots(
+    eclipticPoint(chart.midheaven, -1, when),
+    eclipticPoint(chart.midheaven, 1, when),
+    NATAL_LIGHT,
+    0.2 * level,
+    0.3,
+  );
   // Born under an eclipse or a shower: the sky remembers it.
   if (chart.solar > 0) canvas.ring(chart.bodies.sun.direction, 2.6, NATAL_LIGHT, 0.5 * level);
   if (chart.lunar > 0) canvas.ring(chart.bodies.moon.direction, 2.6, BODY_LIGHT.mars, 0.5 * level);
-  if (chart.shower) for (let index = 0; index < 12; index += 1) canvas.ring(chart.shower.radiant, 1.2 + index * 0.7, NATAL_LIGHT, 0.04 * level);
+  if (chart.shower)
+    for (let index = 0; index < 12; index += 1)
+      canvas.ring(chart.shower.radiant, 1.2 + index * 0.7, NATAL_LIGHT, 0.04 * level);
   return canvas.pixels;
 }
 
@@ -515,12 +640,24 @@ export function paintChart(sky: { stars: readonly Star[]; zodiac: readonly (read
  * birth place a planet is crossing now. `target` receives the chart with those on top; a `web` above 0 adds the
  * planets' live aspects at that strength.
  */
-export function paintTransits(base: Uint8Array, target: Uint8Array, width: number, height: number, skyAt: (timestamp: number) => Sky, chart: Chart, now: Sky, level = 1, web = 0) {
+export function paintTransits(
+  base: Uint8Array,
+  target: Uint8Array,
+  width: number,
+  height: number,
+  skyAt: (timestamp: number) => Sky,
+  chart: Chart,
+  now: Sky,
+  level = 1,
+  web = 0,
+) {
   target.set(base);
   const canvas = new Canvas(target, width, height);
   for (const id of BODY_IDS) {
     const body = now.bodies[id];
-    if (body.retrograde) for (let day = -36; day <= 36; day += 4) canvas.stamp(skyAt(now.timestamp + day * DAY_MS).bodies[id].direction, 0.6, BODY_LIGHT[id], 0.26 * level);
+    if (body.retrograde)
+      for (let day = -36; day <= 36; day += 4)
+        canvas.stamp(skyAt(now.timestamp + day * DAY_MS).bodies[id].direction, 0.6, BODY_LIGHT[id], 0.26 * level);
     if (id === "moon") continue;
     for (const birth of BODY_IDS) {
       const gap = Math.abs(near(body.longitude - chart.bodies[birth].longitude));
@@ -535,7 +672,9 @@ export function paintTransits(base: Uint8Array, target: Uint8Array, width: numbe
         const a = now.bodies[ids[i]];
         const b = now.bodies[ids[j]];
         const gap = Math.abs(near(a.longitude - b.longitude));
-        for (const [kind, angle, allowed] of ASPECTS) if (Math.abs(gap - angle) <= allowed) arc(canvas, a, b, { kind, orb: Math.abs(gap - angle) }, now.timestamp, web);
+        for (const [kind, angle, allowed] of ASPECTS)
+          if (Math.abs(gap - angle) <= allowed)
+            arc(canvas, a, b, { kind, orb: Math.abs(gap - angle) }, now.timestamp, web);
       }
     }
   }

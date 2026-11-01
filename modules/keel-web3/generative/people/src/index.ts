@@ -2312,11 +2312,18 @@ function roughen(grid: Grid, at: Vec, kind: "strand" | "curl" | "tuft", size: nu
 
 const inflated = (c: Capsule, by: number): Capsule => ({ ...c, r: c.r + by, ...(c.r1 === undefined ? {} : { r1: c.r1 + by }) });
 
-/** A skirt hangs from the hips and is carried along by the leg on its side, more toward the hem, and none down its middle, so it never splits. */
-function skirtWeights(at: Vec, free: Layer["free"]): readonly [number, number, number] {
-  const thigh = boneIndex(at[0] < 0 ? "thigh.L" : "thigh.R");
-  const down = free ? clamp((free[0] + 0.1 - at[1]) / free[1], 0, 1) : 0;
-  return [PELVIS, thigh, 1 - Math.min(0.92, down * 1.5) * clamp(Math.abs(at[0]) / 0.06, 0, 1)];
+/** How far above the knee cloth starts going with the shin, and how far below it has wholly. */
+const KNEE_ABOVE = 0.04, KNEE_BELOW = 0.12;
+/** How much of the leg's carrying the cloth behind the hips takes: sat on, it stays with them. */
+const SEAT_SHARE = 0.5;
+
+/** A skirt hangs from the hips and is carried along by the leg on its side, more toward the hem, right to its middle, where it stretches between the legs; below `knee` it goes with the shin, so it drops off a bent knee as cloth does. */
+function skirtWeights(at: Vec, free: Layer["free"], knee = -FAR): readonly [number, number, number] {
+  const side = at[0] < 0 ? "L" : "R", thigh = boneIndex(`thigh.${side}`);
+  if (at[1] < knee + KNEE_ABOVE) return [thigh, boneIndex(`shin.${side}`), clamp((at[1] - knee + KNEE_BELOW) / (KNEE_ABOVE + KNEE_BELOW), 0, 1)];
+  const down = free ? clamp((free[0] + 0.1 - at[1]) / Math.min(free[1], free[0] + 0.1 - knee), 0, 1) : 0;
+  const seat = at[2] < 0 ? SEAT_SHARE : 1;
+  return [PELVIS, thigh, 1 - Math.min(0.92, down * 1.5) * seat * clamp(0.25 + Math.abs(at[0]) / 0.08, 0, 1)];
 }
 
 /** Whether something over a layer leaves this point of it out of sight. */
@@ -3386,7 +3393,7 @@ function skirtShell(net: Net, p: Person, roles: readonly string[], long: boolean
   const free: Layer["free"] = [from - 0.1, Math.max(0.1, from - hem)];
   const hang = (at: Vec, row: Row): readonly [number, number, number, number] => {
     if (row.slice(3).some((v) => v > 0)) return [...strongest(row), 0];
-    const [a, b, w] = skirtWeights(at, free);
+    const [a, b, w] = skirtWeights(at, free, s.left.leg.knee[1]);
     return [a, b, w, clamp((free[0] - at[1]) / free[1], 0, 1)];
   };
   shellOf(net, cage, normalsOf(cage), { on: () => true, lift: 0, role: () => (long ? "top" : "bottom"), fabric: long ? topCloth(p) : lowerCloth(p), hang, edge: (at) => at[1] < from - 0.05 }, roles, p.build.size);

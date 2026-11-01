@@ -3217,7 +3217,10 @@ function formOf(p: Person): Form | undefined {
   const { sex, age, bust, shoulder } = p.build;
   if (sex !== "female" || (age !== "adult" && age !== "elder")) return undefined;
   const s = restSkeleton(p), full = Math.sqrt(bust), sag = age === "elder" ? 0.03 : 0.012;
-  return { x: shoulder * 0.5, y: s.chest[1] + 0.012 - sag * bust, z: s.chest[2], deep: 0.05 * bust, wide: 0.06 * full, above: 0.09 * full, below: 0.05 * full };
+  // (Every woman her own: most near the middle, a few well to either side. Hashed, so it moves nothing else about her.)
+  const bell = (salt: number): number => hashed(p.seed, salt) + hashed(p.seed, salt + 1) - 1;
+  const high = bell(701), apart = bell(703), narrow = bell(705);
+  return { x: shoulder * 0.5 * (1 + 0.18 * apart), y: s.chest[1] + 0.012 - sag * bust + 0.04 * high, z: s.chest[2], deep: 0.05 * bust, wide: 0.06 * full * (1 + 0.16 * narrow), above: 0.09 * full * (1 - 0.3 * high), below: 0.05 * full * (1 + 0.3 * high) };
 }
 
 /** How far one side stands out at a point of the chest. */

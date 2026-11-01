@@ -1,16 +1,16 @@
 // Hair: combs, ties and locks laid over the skull, and the ears beside them.
 
-import { FAR, FRONT, SIDE, TAU, UP, add, clamp, cross, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { streamOf } from "./roll.js";
-import type { HairStyle, Person } from "./person.js";
-import { deepOf } from "./palette.js";
-import { restSkeleton } from "./skeleton.js";
+import { FAR, FRONT, SIDE, TAU, UP, add, clamp, cross, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { streamOf } from "../roll.js";
+import type { HairStyle, Person } from "../body/person.js";
+import { deepOf } from "../clothes/palette.js";
+import { restSkeleton } from "../motion/skeleton.js";
 import { HATTED, headFrame } from "./head.js";
 import type { HeadFrame } from "./head.js";
-import { HEAD } from "./bones.js";
-import type { Net } from "./field.js";
-import { FABRICS } from "./fabric.js";
+import { HEAD } from "../body/bones.js";
+import type { Net } from "../body/field.js";
+import { FABRICS } from "../clothes/fabric.js";
 import { marksOf, vecAt } from "./paint.js";
 
 // ---------------------------------------------------------------- hair

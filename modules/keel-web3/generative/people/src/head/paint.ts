@@ -1,17 +1,17 @@
 // The face's paint: marks, spots, stubble and shade baked into the head's vertices.
 
-import { FAR, UP, clamp, mix, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { blend } from "./roll.js";
-import type { Bone, Person } from "./person.js";
-import { deepOf, glowOf } from "./palette.js";
-import { restSkeleton } from "./skeleton.js";
+import { FAR, UP, clamp, mix, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { blend } from "../roll.js";
+import type { Bone, Person } from "../body/person.js";
+import { deepOf, glowOf } from "../clothes/palette.js";
+import { restSkeleton } from "../motion/skeleton.js";
 import { headFrame } from "./head.js";
 import type { HeadFrame } from "./head.js";
-import { HEAD, boneIndex } from "./bones.js";
-import type { Net } from "./field.js";
-import { FABRICS } from "./fabric.js";
-import { WRAPPED } from "./cloth.js";
+import { HEAD, boneIndex } from "../body/bones.js";
+import type { Net } from "../body/field.js";
+import { FABRICS } from "../clothes/fabric.js";
+import { WRAPPED } from "../clothes/cloth.js";
 import { SKULL, SKULL_AT, scalped, styleOf } from "./hair.js";
 
 // ---------------------------------------------------------------- the face's paint

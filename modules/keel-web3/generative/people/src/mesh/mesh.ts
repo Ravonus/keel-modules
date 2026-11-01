@@ -1,23 +1,23 @@
 // The mesh: built once at a cell size, and posed each frame, from an action or from joints set by hand.
 
-import { add, madd, scale, sub } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { Person } from "./person.js";
-import { LONG_TOP } from "./outfit.js";
-import { blended, restSkeleton, skeletonOf } from "./skeleton.js";
-import type { Action, Arm, Leg, Skeleton } from "./skeleton.js";
-import { headFrame } from "./head.js";
-import { bodyOf, phaseOf } from "./pose.js";
-import { HANG_LATE, HEAD, PANEL_LATE, boneOfPart, bonesOf } from "./bones.js";
-import { FACE_PAINT, legsOf, unrolled } from "./field.js";
-import type { Net, PersonMesh } from "./field.js";
-import { bareParts, netOf } from "./wrap.js";
-import { FABRICS } from "./fabric.js";
-import { WRAPPED, creases, dressedBody, hemShadow, layersOf, roofOf } from "./cloth.js";
-import { boundOf, compacted, earsOf, hairLocks } from "./hair.js";
-import type { Seat } from "./hair.js";
-import { browLineOf, faceBake, faceInks } from "./paint.js";
-import { cornersOf, crownOver, gearOn, jacketFront, moustacheOf, poloFront } from "./gear.js";
+import { add, madd, scale, sub } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { Person } from "../body/person.js";
+import { LONG_TOP } from "../clothes/outfit.js";
+import { blended, restSkeleton, skeletonOf } from "../motion/skeleton.js";
+import type { Action, Arm, Leg, Skeleton } from "../motion/skeleton.js";
+import { headFrame } from "../head/head.js";
+import { bodyOf, phaseOf } from "../motion/pose.js";
+import { HANG_LATE, HEAD, PANEL_LATE, boneOfPart, bonesOf } from "../body/bones.js";
+import { FACE_PAINT, legsOf, unrolled } from "../body/field.js";
+import type { Net, PersonMesh } from "../body/field.js";
+import { bareParts, netOf } from "../head/wrap.js";
+import { FABRICS } from "../clothes/fabric.js";
+import { WRAPPED, creases, dressedBody, hemShadow, layersOf, roofOf } from "../clothes/cloth.js";
+import { boundOf, compacted, earsOf, hairLocks } from "../head/hair.js";
+import type { Seat } from "../head/hair.js";
+import { browLineOf, faceBake, faceInks } from "../head/paint.js";
+import { cornersOf, crownOver, gearOn, jacketFront, moustacheOf, poloFront } from "../clothes/gear.js";
 
 /** The mesh of a person, built once, each layer its own closed shell on the same bones: `cell` the body's grid in metres, so a far person can have a coarser one; the head's is finer, for the face. */
 export function meshOf(p: Person, cell = 0.016): PersonMesh {

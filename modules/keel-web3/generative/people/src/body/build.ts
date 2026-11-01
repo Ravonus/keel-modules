@@ -1,8 +1,8 @@
 // The build: age, sex, height and shape, and the gait that build carries itself with.
 
-import { TAU, clamp, mix } from "./vec.js";
-import { bell, weighted } from "./roll.js";
-import type { Weighted } from "./roll.js";
+import { TAU, clamp, mix } from "../vec.js";
+import { bell, weighted } from "../roll.js";
+import type { Weighted } from "../roll.js";
 import type { Age, Build, Gait, Sex, Shape } from "./person.js";
 
 /** The height everybody is drawn at, before `size`. */

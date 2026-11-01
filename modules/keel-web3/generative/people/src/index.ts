@@ -7,22 +7,22 @@
  */
 
 export type { Vec } from "./vec.js";
-export { personOf } from "./person.js";
+export { personOf } from "./body/person.js";
 export type {
   HairStyle, Sex, Genre, FaceHair, Top, Bottom, Weather, Carry, Costume, Shoe, Hat, Gear, Age, Shape, Build, Look,
   Face, Bone, Outfit, Person, Gait,
-} from "./person.js";
-export { faceOf, signaturesOf, faceFor } from "./face.js";
-export type { Trait, Signature } from "./face.js";
-export { ACTIONS, skeletonOf } from "./skeleton.js";
-export type { Action, Skeleton } from "./skeleton.js";
-export type { Capsule } from "./parts.js";
-export { strideOf, posePerson, createHang, velocityAt, jiggleAt, trailAt, faceAt } from "./pose.js";
-export type { PersonBody } from "./pose.js";
-export { BONE_COUNT } from "./bones.js";
-export type { PersonMesh } from "./field.js";
-export { FABRICS } from "./fabric.js";
-export { PERSON_LODS, lodFor, lodsWithin, crowdBudget } from "./lod.js";
-export { tuckOf } from "./hair.js";
-export { meshOf, poseMesh, limpBones } from "./mesh.js";
-export type { Limp } from "./mesh.js";
+} from "./body/person.js";
+export { faceOf, signaturesOf, faceFor } from "./head/face.js";
+export type { Trait, Signature } from "./head/face.js";
+export { ACTIONS, skeletonOf } from "./motion/skeleton.js";
+export type { Action, Skeleton } from "./motion/skeleton.js";
+export type { Capsule } from "./mesh/parts.js";
+export { strideOf, posePerson, createHang, velocityAt, jiggleAt, trailAt, faceAt } from "./motion/pose.js";
+export type { PersonBody } from "./motion/pose.js";
+export { BONE_COUNT } from "./body/bones.js";
+export type { PersonMesh } from "./body/field.js";
+export { FABRICS } from "./clothes/fabric.js";
+export { PERSON_LODS, lodFor, lodsWithin, crowdBudget } from "./mesh/lod.js";
+export { tuckOf } from "./head/hair.js";
+export { meshOf, poseMesh, limpBones } from "./mesh/mesh.js";
+export type { Limp } from "./mesh/mesh.js";

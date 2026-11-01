@@ -1,15 +1,15 @@
 // The field: parts melted into a distance grid, dented, lofted and roughened, and the net pulled off it.
 
-import { FAR, UP, add, clamp, lerpV, mix, scale, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
+import { FAR, UP, add, clamp, lerpV, mix, scale, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
 import type { Bone, Look, Person } from "./person.js";
 import { limbWide } from "./build.js";
-import { restSkeleton } from "./skeleton.js";
-import type { Capsule } from "./parts.js";
-import { headFrame } from "./head.js";
+import { restSkeleton } from "../motion/skeleton.js";
+import type { Capsule } from "../mesh/parts.js";
+import { headFrame } from "../head/head.js";
 import { PELVIS, boneIndex } from "./bones.js";
-import type { Wrap } from "./wrap.js";
-import { styleOf } from "./hair.js";
+import type { Wrap } from "../head/wrap.js";
+import { styleOf } from "../head/hair.js";
 
 /** A row of digits as the capsules it stands for. */
 export const unrolled = (c: Capsule): readonly Capsule[] => {

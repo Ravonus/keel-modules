@@ -1,10 +1,10 @@
 // What a person is: their build, face, hair, clothes and gait, and the one seed that rolls them all.
 
-import { skinTone, streamOf } from "./roll.js";
+import { skinTone, streamOf } from "../roll.js";
 import { buildOf, gaitOf } from "./build.js";
-import { faceFor, faceOf } from "./face.js";
-import { deepOf, hairOn, paletteOf, parted } from "./palette.js";
-import { colourFor, dressedFor, gearColours, gearOf, hatted, inCostume, outfitOf, shirtUnder } from "./outfit.js";
+import { faceFor, faceOf } from "../head/face.js";
+import { deepOf, hairOn, paletteOf, parted } from "../clothes/palette.js";
+import { colourFor, dressedFor, gearColours, gearOf, hatted, inCostume, outfitOf, shirtUnder } from "../clothes/outfit.js";
 
 export type HairStyle = "bald" | "crop" | "side" | "curly" | "afro" | "bob" | "long" | "bun" | "pony" | "mohawk" | "shag" | "bangs" | "wavy" | "braids" | "locs" | "twintails" | "undercut";
 export type Sex = "female" | "male";

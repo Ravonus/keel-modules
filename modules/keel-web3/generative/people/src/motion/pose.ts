@@ -1,14 +1,14 @@
 // A posed person: capsules placed in the world, and how they move, jiggle, trail and blink over time.
 
-import { FRONT, SIDE, TAU, UP, add, mix, scale, sub } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { hashed } from "./roll.js";
-import type { Person } from "./person.js";
+import { FRONT, SIDE, TAU, UP, add, mix, scale, sub } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { hashed } from "../roll.js";
+import type { Person } from "../body/person.js";
 import { MOTIONS, skeletonOf } from "./skeleton.js";
 import type { Action, Skeleton } from "./skeleton.js";
-import { drawArm, drawClothes, drawLeg, drawTorso } from "./parts.js";
-import type { Capsule, Kit } from "./parts.js";
-import { drawHead, headFrame } from "./head.js";
+import { drawArm, drawClothes, drawLeg, drawTorso } from "../mesh/parts.js";
+import type { Capsule, Kit } from "../mesh/parts.js";
+import { drawHead, headFrame } from "../head/head.js";
 
 // ---------------------------------------------------------------- a posed person
 

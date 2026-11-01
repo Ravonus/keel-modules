@@ -1,6 +1,6 @@
 // Levels of detail: a crowd's cells by distance, within a budget that gives way to long frames.
 
-import { clamp } from "./vec.js";
+import { clamp } from "../vec.js";
 
 /** How finely to build a person by how far off they are, finest first: `reach` in metres, `kept` how many to hold built at once, `tris` about what one comes to. */
 export const PERSON_LODS = [

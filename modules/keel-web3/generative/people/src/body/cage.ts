@@ -1,11 +1,11 @@
 // The body's cage: torso stations, limb hoops and foot rings quadded, subdivided and shelled.
 
-import { FRONT, SIDE, UP, add, clamp, cross, dot, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
+import { FRONT, SIDE, UP, add, clamp, cross, dot, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
 import type { Person } from "./person.js";
 import { limbWide } from "./build.js";
-import { HIP_DROP, restSkeleton, spokeOf, torsoStations } from "./skeleton.js";
-import type { Arm, Leg, Station } from "./skeleton.js";
+import { HIP_DROP, restSkeleton, spokeOf, torsoStations } from "../motion/skeleton.js";
+import type { Arm, Leg, Station } from "../motion/skeleton.js";
 import { BONE_COUNT, PELVIS, boneIndex } from "./bones.js";
 import type { Net } from "./field.js";
 

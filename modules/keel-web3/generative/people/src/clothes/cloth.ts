@@ -1,27 +1,27 @@
 // Cloth: fabrics, hems and skirts over the cage, the layers a body is dressed in, and their creases.
 
-import { FAR, FRONT, TAU, UP, clamp, cross, lerpV, madd, mix, scale, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import { hashed } from "./roll.js";
-import type { Bottom, Person, Top } from "./person.js";
+import { FAR, FRONT, TAU, UP, clamp, cross, lerpV, madd, mix, scale, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import { hashed } from "../roll.js";
+import type { Bottom, Person, Top } from "../body/person.js";
 import { LONG_TOP } from "./outfit.js";
-import { REST, restSkeleton, torsoStations } from "./skeleton.js";
-import type { Skeleton, Station } from "./skeleton.js";
-import { SHAFT, gripOf, heldHand, neckBy } from "./parts.js";
-import type { Capsule } from "./parts.js";
-import { headFrame } from "./head.js";
-import type { HeadFrame } from "./head.js";
-import { BONE_COUNT, HEAD, boneOfPart, hangOf } from "./bones.js";
-import { dentsOf, loftOf, skirtWeights } from "./field.js";
-import type { Layer, Net } from "./field.js";
-import type { Wrap } from "./wrap.js";
+import { REST, restSkeleton, torsoStations } from "../motion/skeleton.js";
+import type { Skeleton, Station } from "../motion/skeleton.js";
+import { SHAFT, gripOf, heldHand, neckBy } from "../mesh/parts.js";
+import type { Capsule } from "../mesh/parts.js";
+import { headFrame } from "../head/head.js";
+import type { HeadFrame } from "../head/head.js";
+import { BONE_COUNT, HEAD, boneOfPart, hangOf } from "../body/bones.js";
+import { dentsOf, loftOf, skirtWeights } from "../body/field.js";
+import type { Layer, Net } from "../body/field.js";
+import type { Wrap } from "../head/wrap.js";
 import {
   ARM, FOOT, LEG, TORSO, cageOf, layOf, normalsOf, pointOf, quad, rowOf, shellOf, strongest, subdivided,
-} from "./cage.js";
-import type { Cage, Cut, Row, Shell } from "./cage.js";
+} from "../body/cage.js";
+import type { Cage, Cut, Row, Shell } from "../body/cage.js";
 import { FABRICS, hatCloth, lowerCloth, topCloth } from "./fabric.js";
-import { LEAST_CELL } from "./lod.js";
-import { COMBS, FAR_HAIR, styleOf } from "./hair.js";
+import { LEAST_CELL } from "../mesh/lod.js";
+import { COMBS, FAR_HAIR, styleOf } from "../head/hair.js";
 import { BILLS, fitsHat } from "./gear.js";
 
 /** How far down each top comes, a ring of the torso; a long top goes on past it. */

@@ -1,11 +1,11 @@
 // The head: skull, eyes, nose, mouth, ears, hat and hair as capsules.
 
-import { FRONT, SIDE, UP, add, madd, mix, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { Face, HairStyle, Hat, Person } from "./person.js";
-import type { Skeleton } from "./skeleton.js";
-import { ball, paint, put } from "./parts.js";
-import type { Kit } from "./parts.js";
+import { FRONT, SIDE, UP, add, madd, mix, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { Face, HairStyle, Hat, Person } from "../body/person.js";
+import type { Skeleton } from "../motion/skeleton.js";
+import { ball, paint, put } from "../mesh/parts.js";
+import type { Kit } from "../mesh/parts.js";
 import { AFRO, AFRO_AT, tuckOf } from "./hair.js";
 
 // ---------------------------------------------------------------- the head

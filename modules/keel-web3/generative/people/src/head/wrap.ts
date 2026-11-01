@@ -1,18 +1,18 @@
 // The wrap: the head's net shot from a ball of rows and columns, lids, eyeballs and lips in it.
 
-import { FAR, UP, clamp, cross, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { Person } from "./person.js";
-import type { Capsule } from "./parts.js";
-import { bodyOf } from "./pose.js";
-import { HEAD, boneOfPart } from "./bones.js";
+import { FAR, UP, clamp, cross, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { Person } from "../body/person.js";
+import type { Capsule } from "../mesh/parts.js";
+import { bodyOf } from "../motion/pose.js";
+import { HEAD, boneOfPart } from "../body/bones.js";
 import {
   cellPoint, dented, eachCell, gridOver, inflated, lofted, meltIn, netFaces, normalAt, ownerOf, partDistance, roughen,
   skirtWeights, unrolled, unseen, weightsAt,
-} from "./field.js";
-import type { Grid, Layer, Net } from "./field.js";
-import { NO_EDGE } from "./cage.js";
-import { FABRICS } from "./fabric.js";
+} from "../body/field.js";
+import type { Grid, Layer, Net } from "../body/field.js";
+import { NO_EDGE } from "../body/cage.js";
+import { FABRICS } from "../clothes/fabric.js";
 import { smooth } from "./paint.js";
 
 /** Where a head's fixed mesh goes: its centre and radius in metres, and each landmark it is laid through, in head radii, as they lie on the finished head. */

@@ -1,10 +1,10 @@
 // The face: its features, the bone under them and the look painted on.
 
-import { clamp, mix } from "./vec.js";
-import { DARK_IRIS, IRIS_TONES, bell, pick, streamOf, weighted } from "./roll.js";
-import type { Weighted } from "./roll.js";
-import type { Age, Bone, Build, Face, FaceHair, Look, Sex } from "./person.js";
-import { deepOf } from "./palette.js";
+import { clamp, mix } from "../vec.js";
+import { DARK_IRIS, IRIS_TONES, bell, pick, streamOf, weighted } from "../roll.js";
+import type { Weighted } from "../roll.js";
+import type { Age, Bone, Build, Face, FaceHair, Look, Sex } from "../body/person.js";
+import { deepOf } from "../clothes/palette.js";
 
 const FACE_HAIRS: readonly (readonly [FaceHair, number])[] = [["none", 6], ["stubble", 2], ["moustache", 0.6], ["beard", 1.6]];
 

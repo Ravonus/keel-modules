@@ -1,11 +1,11 @@
 // Bones: the skinning skeleton, cloth that arrives late, which bone each part hangs on, and a pose as bone matrices.
 
-import { FRONT, UP, add, cross, dot, lerpV, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
+import { FRONT, UP, add, cross, dot, lerpV, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
 import type { Person } from "./person.js";
-import { restSkeleton } from "./skeleton.js";
-import type { Skeleton } from "./skeleton.js";
-import { handFrame, swungFrame } from "./parts.js";
+import { restSkeleton } from "../motion/skeleton.js";
+import type { Skeleton } from "../motion/skeleton.js";
+import { handFrame, swungFrame } from "../mesh/parts.js";
 
 // ---------------------------------------------------------------- the skinned mesh
 

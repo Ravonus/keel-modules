@@ -1,14 +1,14 @@
 // The skeleton: each action as a pose and the swing of each limb through its beat, then the joints placed from it,
 // feet planted and limbs kept clear of the trunk and each other.
 
-import { FAR, FRONT, SIDE, TAU, UP, add, clamp, cross, dot, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { Age, Gait, Person } from "./person.js";
-import { TALL, limbWide } from "./build.js";
-import { LONG_TOP } from "./outfit.js";
-import { neckBy } from "./parts.js";
-import { SPOKES } from "./cage.js";
-import { SLEEVE_RINGS, hemOf, topLift } from "./cloth.js";
+import { FAR, FRONT, SIDE, TAU, UP, add, clamp, cross, dot, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { Age, Gait, Person } from "../body/person.js";
+import { TALL, limbWide } from "../body/build.js";
+import { LONG_TOP } from "../clothes/outfit.js";
+import { neckBy } from "../mesh/parts.js";
+import { SPOKES } from "../body/cage.js";
+import { SLEEVE_RINGS, hemOf, topLift } from "../clothes/cloth.js";
 
 // ---------------------------------------------------------------- the skeleton
 

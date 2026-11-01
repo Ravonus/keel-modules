@@ -1,9 +1,9 @@
 // The outfit: a wardrobe by genre, dressed for the weather, hatted, geared and sometimes in costume.
 
-import { mix } from "./vec.js";
-import { blend, hsl, pick, streamOf, weighted } from "./roll.js";
-import type { Weighted } from "./roll.js";
-import type { Bottom, Build, Costume, Gear, Genre, Hat, Outfit, Sex, Shoe, Top, Weather } from "./person.js";
+import { mix } from "../vec.js";
+import { blend, hsl, pick, streamOf, weighted } from "../roll.js";
+import type { Weighted } from "../roll.js";
+import type { Bottom, Build, Costume, Gear, Genre, Hat, Outfit, Sex, Shoe, Top, Weather } from "../body/person.js";
 import { glowOf } from "./palette.js";
 
 interface Wardrobe {

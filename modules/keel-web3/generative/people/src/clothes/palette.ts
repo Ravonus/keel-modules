@@ -1,9 +1,9 @@
 // The palette: skin, hair, eyes and clothes in colours that go together.
 
-import { clamp, mix } from "./vec.js";
-import { HAIR_TONES, LOUD_HAIR, blend, hashed, hsl, pick, weighted } from "./roll.js";
-import type { Weighted } from "./roll.js";
-import type { Age, Genre, HairStyle, Sex } from "./person.js";
+import { clamp, mix } from "../vec.js";
+import { HAIR_TONES, LOUD_HAIR, blend, hashed, hsl, pick, weighted } from "../roll.js";
+import type { Weighted } from "../roll.js";
+import type { Age, Genre, HairStyle, Sex } from "../body/person.js";
 
 const GREY_HAIR: readonly string[] = ["#d8d6d2", "#b9b7b4", "#8f8e8c", "#ecebe6"];
 

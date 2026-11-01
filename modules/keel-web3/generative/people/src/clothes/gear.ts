@@ -1,21 +1,21 @@
 // Gear: glasses, earrings, chains, clips, the fronts of jackets and polos, and the hat's crown and bill.
 
-import { FAR, FRONT, SIDE, TAU, UP, add, clamp, cross, dot, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { Gear, Hat, Person } from "./person.js";
-import { restSkeleton } from "./skeleton.js";
-import { CROWN_RISE } from "./head.js";
-import type { HeadFrame } from "./head.js";
-import { HEAD, boneIndex } from "./bones.js";
-import type { Net } from "./field.js";
-import { headNormals, smoothedFar } from "./wrap.js";
-import { NO_EDGE } from "./cage.js";
+import { FAR, FRONT, SIDE, TAU, UP, add, clamp, cross, dot, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { Gear, Hat, Person } from "../body/person.js";
+import { restSkeleton } from "../motion/skeleton.js";
+import { CROWN_RISE } from "../head/head.js";
+import type { HeadFrame } from "../head/head.js";
+import { HEAD, boneIndex } from "../body/bones.js";
+import type { Net } from "../body/field.js";
+import { headNormals, smoothedFar } from "../head/wrap.js";
+import { NO_EDGE } from "../body/cage.js";
 import { FABRICS, hatCloth, topCloth } from "./fabric.js";
 import { WRAPPED } from "./cloth.js";
-import { FAR_HAIR, bearingOf, boundOf, layLock } from "./hair.js";
-import type { Bound, Seat } from "./hair.js";
-import { evened, marksOf, smooth, surfaceOf, vecAt } from "./paint.js";
-import type { Marks } from "./paint.js";
+import { FAR_HAIR, bearingOf, boundOf, layLock } from "../head/hair.js";
+import type { Bound, Seat } from "../head/hair.js";
+import { evened, marksOf, smooth, surfaceOf, vecAt } from "../head/paint.js";
+import type { Marks } from "../head/paint.js";
 
 /** Whatever lays one piece of what a person wears, in head radii. */
 type LayGear = (line: readonly Vec[], size: readonly [number, number, number], worn: { readonly up?: Vec; readonly role: string; readonly fabric: number; readonly bone?: number; readonly taper?: (s: number) => number }) => void;

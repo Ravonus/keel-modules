@@ -1,12 +1,12 @@
 // Parts: the capsules of limbs, torso and clothes, in the skeleton's frame.
 
-import { FRONT, SIDE, UP, add, cross, dot, lerpV, madd, mix, scale, sub, unit } from "./vec.js";
-import type { Vec } from "./vec.js";
-import type { Person, Top } from "./person.js";
-import { limbWide } from "./build.js";
-import { LONG_TOP } from "./outfit.js";
-import { restSkeleton, skeletonOf } from "./skeleton.js";
-import type { Arm, Leg, Skeleton } from "./skeleton.js";
+import { FRONT, SIDE, UP, add, cross, dot, lerpV, madd, mix, scale, sub, unit } from "../vec.js";
+import type { Vec } from "../vec.js";
+import type { Person, Top } from "../body/person.js";
+import { limbWide } from "../body/build.js";
+import { LONG_TOP } from "../clothes/outfit.js";
+import { restSkeleton, skeletonOf } from "../motion/skeleton.js";
+import type { Arm, Leg, Skeleton } from "../motion/skeleton.js";
 
 // ---------------------------------------------------------------- parts
 

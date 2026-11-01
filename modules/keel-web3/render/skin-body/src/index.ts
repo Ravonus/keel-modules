@@ -117,7 +117,7 @@ export interface SkinOptions {
   readonly hostDepth?: boolean;
 }
 
-const MOST_BONES = 26;
+const MOST_BONES = 30;
 
 const SKIN = /* glsl */ `
 #define ROWS ${String(MOST_BONES * 3)}

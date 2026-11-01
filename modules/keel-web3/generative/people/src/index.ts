@@ -1910,6 +1910,29 @@ function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: number, rich
 // ---------------------------------------------------------------- the skinned mesh
 
 /** Every bone, in the order a pose's matrices come: its joint, the way it runs, and what of a skeleton gives them. */
+/** How much of a forward swing the back of a skirt takes: drawn under the thighs of someone sitting, not left hanging behind them. */
+const BACK_DRAWN = 0.5;
+/** Where a panel hinges, in front of or behind the hips by their width, the front over the top of the thighs: on the surface, so what turns lies on the lap and not under it. */
+const HINGE_OUT = 0.6, HINGE_UP = 0.11;
+/** How far the front of a skirt is shoved ahead of a leg coming forward, of how far the knee has come. */
+const PUSHED = 0.4, PUSHED_MOST = 0.05;
+
+/** A panel of a skirt, from between the hips to level with the knees: the front is pushed by whichever leg leads, the back by whichever trails, so neither leg ever comes through it. */
+function panelOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
+  const { left, right } = s, from = lerpV(left.leg.hip, right.leg.hip, 0.5);
+  const swings = [left, right].map(({ leg }) => sub(leg.knee, leg.hip)), lead = swings.reduce((a, b) => (b[2] * side > a[2] * side ? b : a));
+  const z = lead[2] * side > 0 ? lead[2] : side > 0 ? 0 : Math.max(0, lead[2]) * BACK_DRAWN;
+  const span = Math.hypot(...lead), down = Math.sqrt(Math.max(0, span * span - z * z));
+  const hinge = add(from, [0, side > 0 ? HINGE_UP : 0, side * Math.abs(left.leg.hip[0] - right.leg.hip[0]) * HINGE_OUT + (side > 0 ? Math.min(z * PUSHED, PUSHED_MOST) : 0)]);
+  return [hinge, add(hinge, [0, -down, z])];
+}
+
+/** Below the knees cloth has nothing under it, and falls straight down. */
+function hangOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
+  const [, end] = panelOf(s, side);
+  return [end, add(end, [0, -0.3, 0])];
+}
+
 const BONES: readonly (readonly [string, (s: Skeleton) => readonly [Vec, Vec]])[] = [
   ["pelvis", (s) => [s.pelvis, s.waist]],
   ["spine", (s) => [s.waist, s.chest]],
@@ -1936,6 +1959,11 @@ const BONES: readonly (readonly [string, (s: Skeleton) => readonly [Vec, Vec]])[
   ["toes.R", (s) => [s.right.leg.toe, s.right.leg.end]],
   ["thumb.L", (s) => [s.left.arm.wrist, s.left.arm.thumb]],
   ["thumb.R", (s) => [s.right.arm.wrist, s.right.arm.thumb]],
+  // (Cloth has no bones of its own in a body: these are the legs as a skirt feels them.)
+  ["skirt.front", (s) => panelOf(s, 1)],
+  ["skirt.back", (s) => panelOf(s, -1)],
+  ["hang.front", (s) => hangOf(s, 1)],
+  ["hang.back", (s) => hangOf(s, -1)],
 ];
 
 export const BONE_COUNT = BONES.length;
@@ -2312,18 +2340,14 @@ function roughen(grid: Grid, at: Vec, kind: "strand" | "curl" | "tuft", size: nu
 
 const inflated = (c: Capsule, by: number): Capsule => ({ ...c, r: c.r + by, ...(c.r1 === undefined ? {} : { r1: c.r1 + by }) });
 
-/** How far above the knee cloth starts going with the shin, and how far below it has wholly. */
-const KNEE_ABOVE = 0.04, KNEE_BELOW = 0.12;
-/** How much of the leg's carrying the cloth behind the hips takes: sat on, it stays with them. */
-const SEAT_SHARE = 0.5;
+/** Front to back across a skirt's depth, and how far it takes. */
+const PANEL_DEEP = 0.16;
 
-/** A skirt hangs from the hips and is carried along by the leg on its side, more toward the hem, right to its middle, where it stretches between the legs; below `knee` it goes with the shin, so it drops off a bent knee as cloth does. */
-function skirtWeights(at: Vec, free: Layer["free"], knee = -FAR): readonly [number, number, number] {
-  const side = at[0] < 0 ? "L" : "R", thigh = boneIndex(`thigh.${side}`);
-  if (at[1] < knee + KNEE_ABOVE) return [thigh, boneIndex(`shin.${side}`), clamp((at[1] - knee + KNEE_BELOW) / (KNEE_ABOVE + KNEE_BELOW), 0, 1)];
-  const down = free ? clamp((free[0] + 0.1 - at[1]) / Math.min(free[1], free[0] + 0.1 - knee), 0, 1) : 0;
-  const seat = at[2] < 0 ? SEAT_SHARE : 1;
-  return [PELVIS, thigh, 1 - Math.min(0.92, down * 1.5) * seat * clamp(0.25 + Math.abs(at[0]) / 0.08, 0, 1)];
+/** A skirt goes with its two panels, front and back meeting at the sides, and below `knee` it hangs from them. Its own folds and sway come from `free`. */
+function skirtWeights(at: Vec, knee = -FAR, hinge = FAR): readonly [number, number, number] {
+  if (at[1] > hinge) return [PELVIS, PELVIS, 1];
+  const low = at[1] < knee;
+  return [boneIndex(low ? "hang.front" : "skirt.front"), boneIndex(low ? "hang.back" : "skirt.back"), clamp(0.5 + at[2] / PANEL_DEEP, 0, 1)];
 }
 
 /** Whether something over a layer leaves this point of it out of sight. */
@@ -2570,7 +2594,7 @@ function netOf(net: Net, layer: Layer, decals: readonly Capsule[], weighed: read
     net.normal.push(...normalAt(grid, x, y, z));
     const painted = decals.find((c) => partDistance(c, at[0], at[1], at[2]) < 0);
     net.role.push(Math.max(0, roles.indexOf((painted ?? ownerOf(grid, parts, i))?.role ?? "skin")));
-    const [a, b, w] = ownerOf(grid, parts, i)?.part === "skirt" ? skirtWeights(at, layer.free) : weightsAt(weighed, bones, at);
+    const [a, b, w] = ownerOf(grid, parts, i)?.part === "skirt" ? skirtWeights(at) : weightsAt(weighed, bones, at);
     net.bones.push(a, b);
     net.weight.push(w);
     net.fabric.push(layer.fabric);
@@ -3393,7 +3417,7 @@ function skirtShell(net: Net, p: Person, roles: readonly string[], long: boolean
   const free: Layer["free"] = [from - 0.1, Math.max(0.1, from - hem)];
   const hang = (at: Vec, row: Row): readonly [number, number, number, number] => {
     if (row.slice(3).some((v) => v > 0)) return [...strongest(row), 0];
-    const [a, b, w] = skirtWeights(at, free, s.left.leg.knee[1]);
+    const [a, b, w] = skirtWeights(at, s.left.leg.knee[1], s.left.leg.hip[1] + 0.02);
     return [a, b, w, clamp((free[0] - at[1]) / free[1], 0, 1)];
   };
   shellOf(net, cage, normalsOf(cage), { on: () => true, lift: 0, role: () => (long ? "top" : "bottom"), fabric: long ? topCloth(p) : lowerCloth(p), hang, edge: (at) => at[1] < from - 0.05 }, roles, p.build.size);

@@ -5,7 +5,9 @@
   "description": "Verified readable sources for on-chain KEEL JavaScript modules.",
   "license": "MIT",
   "scripts": {
-    "lint": "eslint --pass-on-unpruned-suppressions \"modules/*/*/*/src/**/*.ts\" \"template/src/**/*.ts\" && node scripts/check-size.mjs",
+    "prepare": "node scripts/install-hooks.mjs",
+    "lint": "eslint --max-warnings 0 \"modules/*/*/*/src/**/*.ts\" \"template/src/**/*.ts\" && node scripts/check-size.mjs",
+    "test": "pnpm lint && pnpm typecheck && pnpm vectors",
     "typecheck": "for config in modules/*/*/*/tsconfig.json template/tsconfig.json; do echo \"== tsc -p $config\"; ./node_modules/.bin/tsc -p \"$config\" || exit 1; done",
     "check:size": "node scripts/check-size.mjs",
     "vectors": "node scripts/run-vectors.mjs",

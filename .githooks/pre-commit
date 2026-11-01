@@ -1,6 +1,7 @@
 #!/bin/sh
-# The bar every commit has to meet: `git config core.hooksPath .githooks` turns this on in a clone.
+# The bar every commit has to meet: `pnpm install` points git here (scripts/install-hooks.mjs), as does
+# `git config core.hooksPath .githooks` by hand.
 set -e
 node scripts/check-size.mjs
 staged=$(git diff --cached --name-only --diff-filter=ACMR -- 'modules/*/*/*/src/*.ts' 'modules/*/*/*/src/**/*.ts' 'template/src/*.ts' 'template/src/**/*.ts')
-[ -z "$staged" ] || ./node_modules/.bin/eslint --pass-on-unpruned-suppressions $staged
+[ -z "$staged" ] || ./node_modules/.bin/eslint --max-warnings 0 $staged

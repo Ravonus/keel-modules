@@ -27,8 +27,18 @@ interface Slot {
   readonly u: Record<string, UniformLike<unknown>>;
 }
 
-function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxParts: number, roles: number, order: number): Slot {
-  const u: Record<string, UniformLike<unknown>> = {
+/** What every slot of a pool is set up with: its part and role budget, its blend, its ink and its draw order. */
+interface Setup {
+  readonly maxParts: number;
+  readonly roles: number;
+  readonly blend: number;
+  readonly ink: Ink;
+  readonly order: number;
+}
+
+/** The uniforms of the parts, the box and the light. */
+function bodyUniforms(lit: LitLike, maxParts: number, roles: number): Record<string, UniformLike<unknown>> {
+  return {
     uA: { value: Array.from({ length: maxParts }, () => new lit.Vector4()) },
     uB: { value: Array.from({ length: maxParts }, () => new lit.Vector4()) },
     uU: { value: Array.from({ length: maxParts }, () => new lit.Vector4(0, 1, 0, 1)) },
@@ -43,19 +53,87 @@ function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, maxPar
     uSky: { value: new lit.Vector3(0.6, 0.6, 0.7) }, uGround: { value: new lit.Vector3(0.2, 0.2, 0.2) },
     uRim: { value: new lit.Vector3(0, 0, 1) }, uRimCol: { value: new lit.Vector3(0, 0, 0) },
     uFront: { value: new lit.Vector3(0, 0, 0) },
-    uGrain: { value: 0 }, uGrainKind: { value: 0 }, uGrainRise: { value: 1 }, uGrainOn: { value: -1 }, uCrown: { value: new lit.Vector4(0, 0, 0, 0) }, uDome: { value: new lit.Vector3(1, 1, 1) }, uDomeGene: { value: new lit.Vector3(1, 0, 0) }, uScale: { value: Array.from({ length: 3 }, () => new lit.Vector4()) }, uScaleSize: { value: new lit.Vector3(1, 1, 1) }, uAft: { value: new lit.Vector3(0, 0, -1) },
-    uOrigin: { value: new lit.Vector3(0, 0, 0) }, uSide: { value: new lit.Vector3(1, 0, 0) }, uUp: { value: new lit.Vector3(0, 1, 0) }, uFwd: { value: new lit.Vector3(0, 0, 1) },
-    uMat: { value: new lit.Vector4(0, 0, 0, 0) }, uLift: { value: 1 }, uNeutral: { value: 0 }, uPattern: { value: new lit.Vector4(0, 1, 0, 0) }, uForm: { value: new lit.Vector3(0, 1, 0) }, uEyeRole: { value: -1 }, uEyeLid: { value: new lit.Vector4(0, 0, 0, 1) }, uEyeLidCol: { value: new lit.Color("#000000") }, uEyeWhite: { value: new lit.Color("#000000") }, uEyeLook: { value: new lit.Vector4(0, 0, 0, 0) }, uEyeSpark: { value: 0.2 }, uPatSeed: { value: new lit.Vector3(0, 0, 0) }, uPatGene: { value: new lit.Vector4(1, 1, 0, 0) }, uPatCol: { value: new lit.Color("#000000") }, uPatTwo: { value: new lit.Color("#000000") }, uTrunk: { value: new lit.Vector3(0, 0, 0) }, uDorsal: { value: 1e6 },
-    uFlowN: { value: 0 }, uFlowA: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowB: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowU: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) }, uFlowFall: { value: new Array<number>(FLOWS).fill(0) },
-    uPelt: { value: new lit.Vector4(0.4, 0, 0, 0) }, uPeltCast: { value: new lit.Vector3(0, 0, 0) }, uPeltLine: { value: new lit.Vector3(0, 0, 0) },
-    uPeltRoot: { value: new lit.Color("#000000") }, uPeltBand: { value: new lit.Color("#000000") }, uPeltTip: { value: new lit.Color("#000000") }, uPeltBack: { value: new lit.Color("#000000") }, uPeltFront: { value: new lit.Color("#000000") },
-    uVane: { value: new lit.Vector4(-1, 0, 0, 0) }, uSkinRole: { value: -1 }, uSkin: { value: new lit.Vector3(1, 0, 0) }, uSkinPale: { value: new lit.Color("#000000") },
   };
-  const material = new lit.CustomMaterial({ uniforms: u, vertexShader: VERTEX, fragmentShader: shader, side: "back", depthTest: true, depthWrite: true });
+}
+
+/** The uniforms of the coat: its grain, frame, material, pattern and eyes. */
+function coatUniforms(lit: LitLike): Record<string, UniformLike<unknown>> {
+  return {
+    uGrain: { value: 0 },
+    uGrainKind: { value: 0 },
+    uGrainRise: { value: 1 },
+    uGrainOn: { value: -1 },
+    uCrown: { value: new lit.Vector4(0, 0, 0, 0) },
+    uDome: { value: new lit.Vector3(1, 1, 1) },
+    uDomeGene: { value: new lit.Vector3(1, 0, 0) },
+    uScale: { value: Array.from({ length: 3 }, () => new lit.Vector4()) },
+    uScaleSize: { value: new lit.Vector3(1, 1, 1) },
+    uAft: { value: new lit.Vector3(0, 0, -1) },
+    uOrigin: { value: new lit.Vector3(0, 0, 0) },
+    uSide: { value: new lit.Vector3(1, 0, 0) },
+    uUp: { value: new lit.Vector3(0, 1, 0) },
+    uFwd: { value: new lit.Vector3(0, 0, 1) },
+    uMat: { value: new lit.Vector4(0, 0, 0, 0) },
+    uLift: { value: 1 },
+    uNeutral: { value: 0 },
+    uPattern: { value: new lit.Vector4(0, 1, 0, 0) },
+    uForm: { value: new lit.Vector3(0, 1, 0) },
+    uEyeRole: { value: -1 },
+    uEyeLid: { value: new lit.Vector4(0, 0, 0, 1) },
+    uEyeLidCol: { value: new lit.Color("#000000") },
+    uEyeWhite: { value: new lit.Color("#000000") },
+    uEyeLook: { value: new lit.Vector4(0, 0, 0, 0) },
+    uEyeSpark: { value: 0.2 },
+    uPatSeed: { value: new lit.Vector3(0, 0, 0) },
+    uPatGene: { value: new lit.Vector4(1, 1, 0, 0) },
+    uPatCol: { value: new lit.Color("#000000") },
+    uPatTwo: { value: new lit.Color("#000000") },
+    uTrunk: { value: new lit.Vector3(0, 0, 0) },
+    uDorsal: { value: 1e6 },
+  };
+}
+
+/** The uniforms of a pelt's hair, a display feather and bare skin. */
+function peltUniforms(lit: LitLike): Record<string, UniformLike<unknown>> {
+  return {
+    uFlowN: { value: 0 },
+    uFlowA: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) },
+    uFlowB: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) },
+    uFlowU: { value: Array.from({ length: FLOWS }, () => new lit.Vector4()) },
+    uFlowFall: { value: new Array<number>(FLOWS).fill(0) },
+    uPelt: { value: new lit.Vector4(0.4, 0, 0, 0) },
+    uPeltCast: { value: new lit.Vector3(0, 0, 0) },
+    uPeltLine: { value: new lit.Vector3(0, 0, 0) },
+    uPeltRoot: { value: new lit.Color("#000000") },
+    uPeltBand: { value: new lit.Color("#000000") },
+    uPeltTip: { value: new lit.Color("#000000") },
+    uPeltBack: { value: new lit.Color("#000000") },
+    uPeltFront: { value: new lit.Color("#000000") },
+    uVane: { value: new lit.Vector4(-1, 0, 0, 0) },
+    uSkinRole: { value: -1 },
+    uSkin: { value: new lit.Vector3(1, 0, 0) },
+    uSkinPale: { value: new lit.Color("#000000") },
+  };
+}
+
+function makeSlot(lit: LitLike, geometry: DisposableLike, shader: string, setup: Setup): Slot {
+  const u: Record<string, UniformLike<unknown>> = {
+    ...bodyUniforms(lit, setup.maxParts, setup.roles),
+    ...coatUniforms(lit),
+    ...peltUniforms(lit),
+  };
+  const material = new lit.CustomMaterial({
+    uniforms: u,
+    vertexShader: VERTEX,
+    fragmentShader: shader,
+    side: "back",
+    depthTest: true,
+    depthWrite: true,
+  });
   const mesh = new lit.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.visible = false;
-  mesh.renderOrder = order;
+  mesh.renderOrder = setup.order;
   return { mesh, material, u };
 }
 
@@ -67,7 +145,11 @@ const add = (a: Vec, b: Vec): Vec => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const times = (a: Vec, s: number): Vec => [a[0] * s, a[1] * s, a[2] * s];
 const dot = (a: Vec, b: Vec): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const cross = (a: Vec, b: Vec): Vec => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
 const unitOr = (v: Vec, fallback: Vec): Vec => {
   const l = Math.hypot(v[0], v[1], v[2]);
   return l > 1e-6 ? [v[0] / l, v[1] / l, v[2] / l] : fallback;
@@ -136,7 +218,10 @@ interface ShaderState {
 
 function roleIndex(state: ShaderState, role: string, limit: number): number {
   let index = state.roles.get(role);
-  if (index === undefined) { index = Math.min(state.roles.size, limit - 1); state.roles.set(role, index); }
+  if (index === undefined) {
+    index = Math.min(state.roles.size, limit - 1);
+    state.roles.set(role, index);
+  }
   return index;
 }
 
@@ -157,10 +242,21 @@ export function tagOf(role: number, crisp: boolean, part: Pick<BodyPart, "melt" 
   // (A carve is never crisp: its melt is how soft its rim is.)
   const melt = crisp && part.carve !== true ? 0 : Math.round(Math.max(0, Math.min(2, part.melt ?? 1)) * 16);
   if (part.carve === true) return role + 16 * Math.max(1, melt) + 2048;
-  return role + 16 * melt + (part.decal === true ? (part.bare === true ? 5120 : part.under === true ? 3072 : 1024) : 0);
+  return role + 16 * melt + decalTag(part);
 }
 
-function writePart(part: BodyPart, a: Vector4Like, b: Vector4Like, u: Vector4Like, tag: number): void {
+/** What a decal adds to its tag: 1024, 2048 more under the pattern, 4096 more for bare skin; nothing for a part. */
+function decalTag(part: Pick<BodyPart, "decal" | "under" | "bare">): number {
+  if (part.decal !== true) return 0;
+  if (part.bare === true) return 5120;
+  return part.under === true ? 3072 : 1024;
+}
+
+/** The three uniform vectors one part is written to. */
+interface PartVectors { readonly a: Vector4Like; readonly b: Vector4Like; readonly u: Vector4Like }
+
+function writePart(part: BodyPart, into: PartVectors, tag: number): void {
+  const { a, b, u } = into;
   const flat = Math.max(0.05, Math.min(1, part.flat ?? 1));
   // (A round part has no thin axis to find. The axis is stored scaled by the flatness.)
   const thin = flat < 0.999 ? thinAxis(part) : UP;
@@ -168,12 +264,24 @@ function writePart(part: BodyPart, a: Vector4Like, b: Vector4Like, u: Vector4Lik
   const bow = bowOf(part);
   a.set(part.a[0], part.a[1], part.a[2], part.r);
   b.set(part.b[0], part.b[1], part.b[2], tag);
-  if (part.row !== undefined) { u.set(...(part.reach ?? part.bow ?? [0, 0, 0]), rowTag(part)); return; }
-  u.set(bow ? bow[0] : thin[0] * f, bow ? bow[1] : thin[1] * f, bow ? bow[2] : thin[2] * f, Math.max(0, part.r1 ?? part.r));
+  if (part.row !== undefined) {
+    u.set(...(part.reach ?? part.bow ?? [0, 0, 0]), rowTag(part));
+    return;
+  }
+  u.set(
+    bow ? bow[0] : thin[0] * f,
+    bow ? bow[1] : thin[1] * f,
+    bow ? bow[2] : thin[2] * f,
+    Math.max(0, part.r1 ?? part.r),
+  );
 }
 
 /** A row's count as the shader takes it, under nought, its fraction saying what kind of row. */
-const rowTag = (part: BodyPart): number => -Math.max(2, part.row ?? 2) - (part.sharp ? 0.5 : part.reach ? 0.25 : 0);
+function rowTag(part: BodyPart): number {
+  const count = -Math.max(2, part.row ?? 2);
+  if (part.sharp) return count - 0.5;
+  return part.reach ? count - 0.25 : count;
+}
 
 /** A part's bow as the shader takes it: its way, 2 plus its size long. */
 function bowOf(part: BodyPart): Vec | null {
@@ -181,7 +289,8 @@ function bowOf(part: BodyPart): Vec | null {
   return part.bow && size > 1e-9 ? times(part.bow, (2 + size) / size) : null;
 }
 
-function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number, roles: number, blend: number, ink: Ink): void {
+function fill(slot: Slot, body: BodyInput, state: ShaderState, setup: Setup): void {
+  const { maxParts, roles, blend, ink } = setup;
   const parts = fitParts(body.capsules, maxParts);
   const count = Math.min(parts.length, maxParts);
   // (The grain stands off the surface: the box leaves it room.)
@@ -194,7 +303,10 @@ function fill(slot: Slot, body: BodyInput, state: ShaderState, maxParts: number,
     const a = A[i];
     const b = B[i];
     const u = U[i];
-    if (part && a && b && u) writePart(part, a, b, u, tagOf(roleIndex(state, part.role, roles), state.crisp.has(part.role) || part.melt === 0, part));
+    if (part && a && b && u) {
+      const crisp = state.crisp.has(part.role) || part.melt === 0;
+      writePart(part, { a, b, u }, tagOf(roleIndex(state, part.role, roles), crisp, part));
+    }
   }
   paint(slot, body, state);
   (slot.u.uInk as UniformLike<number>).value = ink.width;
@@ -217,7 +329,8 @@ const standOff = (body: BodyInput): number => grainReach(grainOf(body)) + (body.
 /** How far a grain stands off the surface: a spine its whole height, a shell's plates and its brim. */
 const grainReach = (grain: Grain): number => grain.size * (grain.kind === "spine" ? 1.1 : 0.4) * (grain.rise ?? 1) + (grain.dome?.[1] ?? 0) * 0.12 + grain.size * (grain.rise ?? 1) * peltLong(grain);
 /** A pelt's longest hair, in grain sizes. */
-const peltLong = (grain: Grain): number => (grain.pelt?.flow ?? []).reduce((most, bone) => Math.max(most, ...bone.long), 0);
+const peltLong = (grain: Grain): number =>
+  (grain.pelt?.flow ?? []).reduce((most, bone) => Math.max(most, ...bone.long), 0);
 
 /**
  * How each grain takes the light when the body names no material of its own: fur soft and fuzzy, feathers and scales
@@ -246,7 +359,10 @@ function crownSlot(slot: Slot, grain: Grain): void {
 /** Where a plated animal's hide wears scales of their own. */
 function scaleSlot(slot: Slot, scales: readonly ScalePatch[]): void {
   const at = slot.u.uScale?.value as Vector4Set[];
-  at.forEach((each, i) => { const patch = scales[i]; each.set(...(patch?.at ?? [0, 0, 0]), patch?.reach ?? 0); });
+  at.forEach((each, i) => {
+    const patch = scales[i];
+    each.set(...(patch?.at ?? [0, 0, 0]), patch?.reach ?? 0);
+  });
   (slot.u.uScaleSize?.value as Vector3Like).set(scales[0]?.size ?? 1, scales[1]?.size ?? 1, scales[2]?.size ?? 1);
 }
 
@@ -261,13 +377,19 @@ function grainSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: numbe
   const fwd = unitOr(body.front ?? [0, 0, 1], [0, 0, 1]);
   const side = unitOr(cross(UP, fwd), [1, 0, 0]);
   const up = cross(fwd, side);
-  const set = (name: string, v: Vec): void => { (slot.u[name]?.value as Vector3Like).set(v[0], v[1], v[2]); };
+  const set = (name: string, v: Vec): void => {
+    (slot.u[name]?.value as Vector3Like).set(v[0], v[1], v[2]);
+  };
   set("uOrigin", body.at ?? [0, 0, 0]);
   set("uSide", side);
   set("uUp", up);
   set("uFwd", fwd);
   set("uAft", unitOr(grain.lie ?? AFT, AFT));
-  const m = { ...(grain.size > 0 ? MATERIALS[grain.kind] : MATERIALS.scale), ...(grain.size > 0 ? {} : { gloss: 0 }), ...body.material };
+  const m = {
+    ...(grain.size > 0 ? MATERIALS[grain.kind] : MATERIALS.scale),
+    ...(grain.size > 0 ? {} : { gloss: 0 }),
+    ...body.material,
+  };
   (slot.u.uMat?.value as Vector4Set).set(m.sheen, m.fuzz, m.gloss, m.iridescence);
   (slot.u.uLift as UniformLike<number>).value = m.lift;
   (slot.u.uNeutral as UniformLike<number>).value = m.neutral;
@@ -280,8 +402,16 @@ function grainSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: numbe
 function vaneSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
   const uniform = slot.u.uVane?.value as Vector4Set;
   const { vane } = body;
-  if (!vane) { uniform.set(-1, 0, 0, 0); return; }
-  uniform.set(roleIndex(state, vane.role, roles), roleIndex(state, vane.heart, roles), roleIndex(state, vane.ring, roles), roleIndex(state, vane.gold, roles));
+  if (!vane) {
+    uniform.set(-1, 0, 0, 0);
+    return;
+  }
+  uniform.set(
+    roleIndex(state, vane.role, roles),
+    roleIndex(state, vane.heart, roles),
+    roleIndex(state, vane.ring, roles),
+    roleIndex(state, vane.gold, roles),
+  );
   paint(slot, body, state);
 }
 
@@ -327,10 +457,15 @@ const PELT: Required<Omit<Pelt, "flow">> = { under: 0.45, thin: 0, crease: 0.2, 
 
 /** What a pelt grows from and the colours along its hair. */
 function peltSlot(slot: Slot, pelt: Pelt | undefined): void {
-  if (!pelt) { (slot.u.uFlowN as UniformLike<number>).value = 0; return; }
+  if (!pelt) {
+    (slot.u.uFlowN as UniformLike<number>).value = 0;
+    return;
+  }
   flowSlot(slot, pelt.flow);
   const { under, thin, crease, tint, root, band, tip, back, front, dorsal, ventral } = { ...PELT, ...pelt };
-  const color = (name: string, hex: string): void => { (slot.u[name]?.value as ColorLike).set(hex); };
+  const color = (name: string, hex: string): void => {
+    (slot.u[name]?.value as ColorLike).set(hex);
+  };
   (slot.u.uPelt?.value as Vector4Set).set(under, thin, crease, tint);
   (slot.u.uPeltCast?.value as Vector3Like).set(dorsal, ventral, 0);
   (slot.u.uPeltLine?.value as Vector3Like).set(band[1], tip[1], 0);
@@ -363,9 +498,17 @@ function eyeSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number)
 /** The pattern over the coat, in its own colour or its role's; none when it has no contrast. */
 function patternSlot(slot: Slot, body: BodyInput, state: ShaderState, roles: number): void {
   const pattern = body.pattern;
-  if (!pattern || pattern.contrast <= 0) { (slot.u.uPattern?.value as Vector4Set).set(0, 1, 0, 0); return; }
+  if (!pattern || pattern.contrast <= 0) {
+    (slot.u.uPattern?.value as Vector4Set).set(0, 1, 0, 0);
+    return;
+  }
   roleIndex(state, pattern.role, roles);
-  (slot.u.uPattern?.value as Vector4Set).set(PATTERN_KINDS[pattern.kind], Math.max(pattern.scale, 1e-4), Math.min(1, pattern.contrast), pattern.run ?? 0);
+  (slot.u.uPattern?.value as Vector4Set).set(
+    PATTERN_KINDS[pattern.kind],
+    Math.max(pattern.scale, 1e-4),
+    Math.min(1, pattern.contrast),
+    pattern.run ?? 0,
+  );
   geneSlot(slot, pattern);
   (slot.u.uPatCol?.value as ColorLike).set(pattern.color ?? body.palette[pattern.role] ?? "#000000");
   (slot.u.uPatTwo?.value as ColorLike).set(pattern.second ?? "#000000");
@@ -400,7 +543,9 @@ function place(slot: Slot, min: Vec, max: Vec): void {
 }
 
 function lightSlot(slot: Slot, light: BodyLight): void {
-  const set = (name: string, v: Vec | undefined): void => { if (v) (slot.u[name]?.value as Vector3Like).set(v[0], v[1], v[2]); };
+  const set = (name: string, v: Vec | undefined): void => {
+    if (v) (slot.u[name]?.value as Vector3Like).set(v[0], v[1], v[2]);
+  };
   set("uSun", light.sun);
   set("uSunCol", light.sunColor);
   set("uFill", light.fill);
@@ -424,7 +569,10 @@ const SHADOW_LEAST = 0.05;
 const SHADOW_POOL = 5;
 
 /** Shadows: each part as a few plain spheres that only the shadow pass sees. */
-function shadowProxy(lit: LitLike, limit: number): { mesh: InstancedLike; matrix: Matrix4Like; geometry: DisposableLike; material: MaterialLike } {
+function shadowProxy(
+  lit: LitLike,
+  limit: number,
+): { mesh: InstancedLike; matrix: Matrix4Like; geometry: DisposableLike; material: MaterialLike } {
   const geometry = lit.sphere(1, 12, 8);
   const material = new lit.FlatMaterial({ colorWrite: false, depthWrite: false });
   const mesh = new lit.Instances(geometry, material, limit);
@@ -454,7 +602,13 @@ function castShadows(proxy: ReturnType<typeof shadowProxy>, bodies: readonly Bod
       for (let s = 0; s < steps && n < limit; s += 1) {
         const k = steps === 1 ? 0 : s / (steps - 1);
         const r = (part.r + ((part.r1 ?? part.r) - part.r) * k) * squash;
-        proxy.matrix.makeScale(r, r, r).setPosition(part.a[0] + (part.b[0] - part.a[0]) * k, part.a[1] + (part.b[1] - part.a[1]) * k, part.a[2] + (part.b[2] - part.a[2]) * k);
+        proxy.matrix
+          .makeScale(r, r, r)
+          .setPosition(
+            part.a[0] + (part.b[0] - part.a[0]) * k,
+            part.a[1] + (part.b[1] - part.a[1]) * k,
+            part.a[2] + (part.b[2] - part.a[2]) * k,
+          );
         proxy.mesh.setMatrixAt(n, proxy.matrix);
         n += 1;
       }
@@ -488,18 +642,29 @@ export function fitParts<T extends { readonly detail?: number }>(parts: readonly
   return kept;
 }
 
-/** A pool of smooth raymarched bodies, drawn from capsule parts each frame. */
-export function createSdfBodies(lit: LitLike, options: SdfBodiesOptions = {}): SdfBodies {
+/** The pool's setup from its options: a part budget of 4 to MOST_PARTS, 16 roles, and the ink's width and margin. */
+function setupOf(options: SdfBodiesOptions): Setup {
   const maxParts = Math.max(4, Math.min(MOST_PARTS, options.maxParts ?? 48));
-  const maxBodies = Math.max(1, options.maxBodies ?? 48);
   const roles = 16;
   const blend = options.blend ?? 0.46;
   const width = Math.max(0, options.ink ?? 0.85);
   const ink: Ink = { width, pad: width > 0 ? Math.max(0, options.inkPad ?? 0.08) : 0 };
+  return { maxParts, roles, blend, ink, order: options.renderOrder ?? 0 };
+}
+
+/** A pool of smooth raymarched bodies, drawn from capsule parts each frame. */
+export function createSdfBodies(lit: LitLike, options: SdfBodiesOptions = {}): SdfBodies {
+  const setup = setupOf(options);
+  const { maxParts, roles } = setup;
+  const maxBodies = Math.max(1, options.maxBodies ?? 48);
   const shader = fragment(maxParts, roles);
   const geometry = lit.box(1, 1, 1);
   const group = new lit.Group();
-  const state: ShaderState = { roles: new Map(), crisp: new Set(options.crisp ?? DEFAULT_CRISP), emissive: new Set(options.emissive ?? DEFAULT_EMISSIVE) };
+  const state: ShaderState = {
+    roles: new Map(),
+    crisp: new Set(options.crisp ?? DEFAULT_CRISP),
+    emissive: new Set(options.emissive ?? DEFAULT_EMISSIVE),
+  };
   const slots: Slot[] = [];
   const proxy = options.shadows === true ? shadowProxy(lit, maxBodies * maxParts * SHADOW_POOL) : null;
   if (proxy) group.add(proxy.mesh);
@@ -507,14 +672,17 @@ export function createSdfBodies(lit: LitLike, options: SdfBodiesOptions = {}): S
     group,
     draw(bodies, light) {
       while (slots.length < Math.min(bodies.length, maxBodies)) {
-        const slot = makeSlot(lit, geometry, shader, maxParts, roles, options.renderOrder ?? 0);
+        const slot = makeSlot(lit, geometry, shader, setup);
         slots.push(slot);
         group.add(slot.mesh);
       }
       slots.forEach((slot, i) => {
         const body = bodies[i];
-        if (!body) { slot.mesh.visible = false; return; }
-        fill(slot, body, state, maxParts, roles, blend, ink);
+        if (!body) {
+          slot.mesh.visible = false;
+          return;
+        }
+        fill(slot, body, state, setup);
         lightSlot(slot, light);
       });
       if (proxy) castShadows(proxy, bodies.slice(0, maxBodies), maxBodies * maxParts * SHADOW_POOL);

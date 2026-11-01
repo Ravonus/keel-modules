@@ -52,20 +52,6 @@
       "count": 1
     }
   },
-  "modules/keel-web3/render/sdf-body/src/bodies.ts": {
-    "@typescript-eslint/max-params": {
-      "count": 3
-    },
-    "max-len": {
-      "count": 17
-    },
-    "max-statements-per-line": {
-      "count": 10
-    },
-    "no-nested-ternary": {
-      "count": 3
-    }
-  },
   "modules/keel-web3/render/skin-body/src/index.ts": {
     "@typescript-eslint/max-params": {
       "count": 1

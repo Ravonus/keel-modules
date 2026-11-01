@@ -3140,9 +3140,10 @@ function coverOf(p: Person): { readonly top: (t: number) => boolean; readonly lo
   };
 }
 
-/** A jacket's open front, a narrowing V of shirt, and a formal one's tie down the middle of it. */
+/** A jacket's open front, a narrowing V of shirt, and a formal one's tie down the middle of it; a coat's belt. */
 function frontOf(p: Person, under: (at: Vec) => string, cell: number): (at: Vec) => string {
   const { top, costume } = p.outfit;
+  if (top === "coat" || top === "raincoat") return bandsAt([restSkeleton(p).pelvis[1] + 0.12], 0.02, "dark", under);
   if ((top !== "jacket" && top !== "blazer") || costume === "firefighter" || cell < WRAPPED) return under;
   const s = restSkeleton(p), from = s.neck[1] - 0.02, to = s.waist[1] + 0.04;
   return (at) => {

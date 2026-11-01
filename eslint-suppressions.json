@@ -588,42 +588,14 @@
       "count": 21
     }
   },
-  "modules/keel-web3/render/celestial/src/index.ts": {
-    "@typescript-eslint/explicit-module-boundary-types": {
-      "count": 8
-    },
+  "modules/keel-web3/render/celestial/src/ephemeris.ts": {
     "@typescript-eslint/max-params": {
-      "count": 5
-    },
-    "@typescript-eslint/no-unsafe-argument": {
-      "count": 4
-    },
-    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    }
+  },
+  "modules/keel-web3/render/celestial/src/paint.ts": {
+    "@typescript-eslint/max-params": {
       "count": 2
-    },
-    "@typescript-eslint/no-unsafe-member-access": {
-      "count": 6
-    },
-    "@typescript-eslint/restrict-plus-operands": {
-      "count": 6
-    },
-    "complexity": {
-      "count": 3
-    },
-    "max-classes-per-file": {
-      "count": 1
-    },
-    "max-depth": {
-      "count": 3
-    },
-    "max-len": {
-      "count": 6
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
-    "max-statements-per-line": {
-      "count": 1
     }
   },
   "modules/keel-web3/render/glow-field/src/index.ts": {

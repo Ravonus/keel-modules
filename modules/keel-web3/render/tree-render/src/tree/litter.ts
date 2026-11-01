@@ -1,8 +1,8 @@
 // What lies under the tree and what falls to it: leaf and fruit litter, snow on the limbs, and the fallers.
 
-import type { InstancedLike, SlotsLike, TreeFrameLike, YearLike } from "./inputs.js";
-import { TAU, at, clamp } from "./math.js";
-import { clearSlot, writeBlade, writeBox, writeSlab, writeVoxel } from "./instances.js";
+import type { InstancedLike, SlotsLike, TreeFrameLike, YearLike } from "../inputs.js";
+import { TAU, at, clamp } from "../math.js";
+import { clearSlot, writeBlade, writeBox, writeSlab, writeVoxel } from "../instances.js";
 import { bearingNode, leafTipLimit, leafyNode, ornamentState } from "./tree.js";
 import type { Faller, OrnamentSet, Tree, TreeMotion } from "./tree.js";
 import { eatenSlot, ornamentColor, stillOrSway } from "./ornaments.js";

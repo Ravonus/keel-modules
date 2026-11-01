@@ -1,9 +1,9 @@
 // Shapes: leaf blades, sprays, sprigs and needles, one geometry per species, cached.
 
-import type { GeometryLike, LitLike } from "./inputs.js";
-import { TAU, clamp, smoothstep } from "./math.js";
-import { UP, cross3, isZero, norm3 } from "./instances.js";
-import type { V3 } from "./instances.js";
+import type { GeometryLike, LitLike } from "../inputs.js";
+import { TAU, clamp, smoothstep } from "../math.js";
+import { UP, cross3, isZero, norm3 } from "../instances.js";
+import type { V3 } from "../instances.js";
 
 // ---------------------------------------------------------------- shapes
 

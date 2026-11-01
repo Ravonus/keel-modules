@@ -44,17 +44,17 @@ export { clearSlot, writeBox, writeSlab, writeVoxel, writeSegment, writeBlade } 
 export {
   LEAF_OUTLINE, bladeGeometry, softBladeGeometry, sprayGeometry, lightSprig, needleGeometry, PALM_LEAFLET,
   speciesBlade, treeShapes,
-} from "./shapes.js";
-export type { TreeShapes, NeedleKind } from "./shapes.js";
-export { barkMaterial, ORNAMENTS, ornamentLook } from "./bark.js";
-export type { OrnamentLook } from "./bark.js";
-export { ROOT_SEGMENTS, NO_ROOT_BREAK, rootBreaks, rootPath, ROOT_SHARDS, rootShards } from "./roots.js";
-export type { RootPoint, RootBreak, RootShard } from "./roots.js";
-export { createTreeRender } from "./tree.js";
-export type { TreeLimits, TreeRenderOptions, TreeMotion, TreeMeshes, TreeRender, TreeFruit } from "./tree.js";
-export { writeShard } from "./wood.js";
-export { crownShade } from "./leaves.js";
-export { forestPlaces, createForest } from "./forest.js";
+} from "./tree/shapes.js";
+export type { TreeShapes, NeedleKind } from "./tree/shapes.js";
+export { barkMaterial, ORNAMENTS, ornamentLook } from "./tree/bark.js";
+export type { OrnamentLook } from "./tree/bark.js";
+export { ROOT_SEGMENTS, NO_ROOT_BREAK, rootBreaks, rootPath, ROOT_SHARDS, rootShards } from "./tree/roots.js";
+export type { RootPoint, RootBreak, RootShard } from "./tree/roots.js";
+export { createTreeRender } from "./tree/tree.js";
+export type { TreeLimits, TreeRenderOptions, TreeMotion, TreeMeshes, TreeRender, TreeFruit } from "./tree/tree.js";
+export { writeShard } from "./tree/wood.js";
+export { crownShade } from "./tree/leaves.js";
+export { forestPlaces, createForest } from "./forest/forest.js";
 export type {
   ForestVariant, ForestPlace, ForestPlacesInput, ForestOptions, ForestUpdate, Forest, RendererLike, ForestLitLike,
-} from "./forest.js";
+} from "./forest/forest.js";

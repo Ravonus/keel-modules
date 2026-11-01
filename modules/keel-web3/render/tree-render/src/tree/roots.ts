@@ -1,8 +1,8 @@
 // Roots: their paths over the ground, over a planter's lip and out through its broken wall, and the shards of
 // the break.
 
-import type { TreeGround } from "./inputs.js";
-import { clamp, hash32, seededRandom, smoothstep } from "./math.js";
+import type { TreeGround } from "../inputs.js";
+import { clamp, hash32, seededRandom, smoothstep } from "../math.js";
 
 // ---------------------------------------------------------------- roots
 

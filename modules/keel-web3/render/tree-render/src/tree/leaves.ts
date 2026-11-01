@@ -2,11 +2,11 @@
 
 import type {
   ColorLike, InstancedLike, SlotsLike, TreeColors, TreeFrameLike, TreeModelLike, TreeSkin, YearLike,
-} from "./inputs.js";
-import { TAU, at, clamp } from "./math.js";
-import { leafFlutter, sway } from "./wind.js";
-import { UP, clearSlot, cross3, isZero, norm3, writeBlade, writeVoxel } from "./instances.js";
-import type { V3 } from "./instances.js";
+} from "../inputs.js";
+import { TAU, at, clamp } from "../math.js";
+import { leafFlutter, sway } from "../wind.js";
+import { UP, clearSlot, cross3, isZero, norm3, writeBlade, writeVoxel } from "../instances.js";
+import type { V3 } from "../instances.js";
 import { leafTipLimit, leafyNode } from "./tree.js";
 import type { Tree, TreeMotion } from "./tree.js";
 import { clumpOf, needleLeaf, strainAt, strainColors, strainDrop, strainSkin, strainYear } from "./wood.js";

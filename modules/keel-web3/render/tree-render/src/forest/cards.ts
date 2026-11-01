@@ -1,7 +1,7 @@
 // Impostor cards: the sprite ladder's far rungs, each tree a baked card row.
 
-import type { InstancedLike, MaterialLike, NodeLike } from "./inputs.js";
-import { TAU } from "./math.js";
+import type { InstancedLike, MaterialLike, NodeLike } from "../inputs.js";
+import { TAU } from "../math.js";
 import type { CardRow, ForestLitLike, ForestOptions, RendererLike, Vector4Like } from "./forest.js";
 
 // ---------------------------------------------------------------- impostor cards (the sprite ladder)

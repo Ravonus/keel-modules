@@ -1,10 +1,10 @@
 // Flowers and fruit: the sets each kind bears, the fruit to eat and the fruit eaten, posed and coloured by ripeness.
 
-import type { ColorLike, GeometryLike, TreeColors, TreeFrameLike, TreeKindOrnaments, YearLike } from "./inputs.js";
-import { TAU, at, clamp, hash32 } from "./math.js";
-import { sway } from "./wind.js";
-import type { Offset } from "./wind.js";
-import { clearSlot, writeBox } from "./instances.js";
+import type { ColorLike, GeometryLike, TreeColors, TreeFrameLike, TreeKindOrnaments, YearLike } from "../inputs.js";
+import { TAU, at, clamp, hash32 } from "../math.js";
+import { sway } from "../wind.js";
+import type { Offset } from "../wind.js";
+import { clearSlot, writeBox } from "../instances.js";
 import { ornamentLook } from "./bark.js";
 import { bearingNode, makeMesh, ornamentState, sprayPlan } from "./tree.js";
 import type { OrnamentSet, Tree, TreeFruit, TreeMotion } from "./tree.js";

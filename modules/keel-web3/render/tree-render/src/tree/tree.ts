@@ -3,12 +3,12 @@
 import type {
   ColorLike, GeometryLike, InstancedLike, LitLike, MaterialLike, NodeLike, OrnamentSpecLike, SlotsLike, TreeBloom,
   TreeColors, TreeFrameLike, TreeGround, TreeKindOrnaments, TreeModelLike, TreeSkin, TreeStrain, YearLike,
-} from "./inputs.js";
-import { treeFeatures } from "./features.js";
-import type { TreeFeature, TreeFeatures } from "./features.js";
-import { at, seededRandom } from "./math.js";
-import type { Offset } from "./wind.js";
-import { clearSlot } from "./instances.js";
+} from "../inputs.js";
+import { treeFeatures } from "../features.js";
+import type { TreeFeature, TreeFeatures } from "../features.js";
+import { at, seededRandom } from "../math.js";
+import type { Offset } from "../wind.js";
+import { clearSlot } from "../instances.js";
 import { NEEDLE_KINDS, speciesBlade, treeShapes } from "./shapes.js";
 import type { TreeShapes } from "./shapes.js";
 import { barkMaterial } from "./bark.js";

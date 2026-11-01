@@ -3,13 +3,13 @@
 import type {
   ColorLike, GeometryLike, InstancedLike, LitLike, MaterialLike, NodeLike, TreeColors, TreeFrameLike, TreeModelLike,
   Vector3Like, YearLike,
-} from "./inputs.js";
-import { TAU, at, clamp, seededRandom } from "./math.js";
-import { norm3, writeBlade, writeBox, writeSegment } from "./instances.js";
-import type { V3 } from "./instances.js";
-import { NEEDLE_KINDS, lightSprig, speciesBlade } from "./shapes.js";
-import { leafyNode } from "./tree.js";
-import { crownShade, sprigPlace } from "./leaves.js";
+} from "../inputs.js";
+import { TAU, at, clamp, seededRandom } from "../math.js";
+import { norm3, writeBlade, writeBox, writeSegment } from "../instances.js";
+import type { V3 } from "../instances.js";
+import { NEEDLE_KINDS, lightSprig, speciesBlade } from "../tree/shapes.js";
+import { leafyNode } from "../tree/tree.js";
+import { crownShade, sprigPlace } from "../tree/leaves.js";
 import { MAX_VARIANTS, bakeCards, createCards } from "./cards.js";
 import type { Cards } from "./cards.js";
 

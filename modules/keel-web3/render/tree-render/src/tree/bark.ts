@@ -1,6 +1,6 @@
 // Bark: the wood's material, mossy up one side, and the looks of each ornament.
 
-import type { LitLike, MaterialLike, OrnamentSpecLike } from "./inputs.js";
+import type { LitLike, MaterialLike, OrnamentSpecLike } from "../inputs.js";
 
 // ---------------------------------------------------------------- bark
 

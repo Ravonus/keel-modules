@@ -1,10 +1,10 @@
 // Wood: the trunk, limbs, roots and shards posed in place and painted by strain, skin and season.
 
-import type { TreeColors, TreeFrameLike, TreeSkin, TreeStrain, YearLike } from "./inputs.js";
-import { at, hash32 } from "./math.js";
-import { sway } from "./wind.js";
-import type { Offset } from "./wind.js";
-import { clearSlot, writeColumns, writeOrigin, writeSegment } from "./instances.js";
+import type { TreeColors, TreeFrameLike, TreeSkin, TreeStrain, YearLike } from "../inputs.js";
+import { at, hash32 } from "../math.js";
+import { sway } from "../wind.js";
+import type { Offset } from "../wind.js";
+import { clearSlot, writeColumns, writeOrigin, writeSegment } from "../instances.js";
 import { NEEDLE_KINDS } from "./shapes.js";
 import { HOLE_TONE, NO_ROOT_BREAK, ROOT_SEGMENTS, ROOT_SHARDS, rootBreaks, rootPath, rootShards } from "./roots.js";
 import type { RootBreak, RootPoint, RootShard } from "./roots.js";

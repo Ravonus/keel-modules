@@ -196,8 +196,11 @@ export function colourFor(rand: () => number, outfit: Outfit): Record<string, st
   }; }
   const job = JOB_COLOURS[outfit.costume]?.(rand) ?? {};
   const loud = hsl(0.2 + rand() * 0.75, 0.62, 0.48);  // (Never near a skin's hue, so a swimsuit never reads as bare.)
-  const swim = outfit.bottom === "swim" || outfit.bottom === "briefs" ? { bottom: loud, top: outfit.top === "tee" ? hsl(rand(), 0.4, 0.6) : loud } : {};
-  const coat = outfit.top === "raincoat" && outfit.costume === "none" ? { top: pick(rand, RAINCOATS) } : {};
+  const swim: Record<string, string> =
+    outfit.bottom === "swim" || outfit.bottom === "briefs"
+      ? { bottom: loud, top: outfit.top === "tee" ? hsl(rand(), 0.4, 0.6) : loud }
+      : {};
+  const coat: Record<string, string> = outfit.top === "raincoat" && outfit.costume === "none" ? { top: pick(rand, RAINCOATS) } : {};
   return { ...swim, ...coat, brolly: hsl(rand(), 0.5, 0.34), ...job };
 }
 

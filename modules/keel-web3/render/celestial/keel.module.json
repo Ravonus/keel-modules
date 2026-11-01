@@ -6,6 +6,5 @@
   "license": "MIT",
   "summary": "The real sky in a few kilobytes: sun, moon and planets from open orbital elements, retrogrades, eclipses, meteor showers, bright stars, zodiac figures and the birth chart of a moment.",
   "category": "render",
-  "owner": { "org": "keel-web3", "group": "graphics" },
-  "inputs": []
+  "owner": { "org": "keel-web3", "group": "graphics" }
 }

@@ -842,7 +842,7 @@ function lightInto(lights: Record<string, Uniform>, light: SkinLight): void {
 
 export function createSkinBodies(lit: SkinLit, options: SkinOptions = {}): SkinBodies {
   const group = new lit.Group();
-  const defines = options.hostDepth === true ? { HOST_DEPTH: 1 } : {};
+  const defines: Readonly<Record<string, number>> = options.hostDepth === true ? { HOST_DEPTH: 1 } : {};
   const uHostDepth: Uniform = { value: new lit.Vector3() };
   const uHostForward: Uniform = { value: new lit.Vector4() };
   const lights: Record<string, Uniform> = Object.fromEntries(

@@ -4,7 +4,8 @@ import { FRONT, SIDE, TAU, UP, add, mix, scale, sub } from "../vec.js";
 import type { Vec } from "../vec.js";
 import { hashed } from "../roll.js";
 import type { Person } from "../body/person.js";
-import { MOTIONS, skeletonOf } from "./skeleton.js";
+import { skeletonOf } from "./skeleton.js";
+import { MOTIONS } from "./motions.js";
 import type { Action, Skeleton } from "./skeleton.js";
 import { drawArm, drawClothes, drawLeg, drawTorso } from "../mesh/parts.js";
 import type { Capsule, Kit } from "../mesh/parts.js";
@@ -56,14 +57,27 @@ export interface PersonBody {
   };
 }
 
+/** How long a style's hair runs, in grains: hanging styles the longest, a full head of curls next, the rest short. */
+function hairLength(hair: Person["hair"]): number {
+  if (hair === "long" || hair === "bob" || hair === "pony") return 1.5;
+  return hair === "afro" || hair === "curly" ? 1.1 : 0.7;
+}
+
 /**
  * Where hair grows and how long, in grains: over the crown from the brow, down the back of the skull and past each ear.
  */
 function hairFlow(p: Person, s: Skeleton): PersonBody["grain"]["pelt"]["flow"] {
   const h = headFrame(s, p.build.head, p.face);
   const { r } = h;
-  const long = p.hair === "long" || p.hair === "bob" || p.hair === "pony" ? 1.5 : p.hair === "afro" || p.hair === "curly" ? 1.1 : 0.7;
-  const bone = (a: Vec, b: Vec, ends: readonly [number, number], up: Vec): PersonBody["grain"]["pelt"]["flow"][number] => ({ a, b, long: ends, up, girth: r * 0.84, fall: 0.15 });
+  const long = hairLength(p.hair);
+  const bone = (a: Vec, b: Vec, ends: readonly [number, number], up: Vec): PersonBody["grain"]["pelt"]["flow"][number] => ({
+    a,
+    b,
+    long: ends,
+    up,
+    girth: r * 0.84,
+    fall: 0.15,
+  });
   return [
     bone(h.at(0, 0.8, 0.8), h.at(0, 0.7, -1), [0.5, long], UP),
     bone(h.at(0, 0.7, -1), h.at(0, -2.6, -1), [long, long], scale(FRONT, -1)),
@@ -72,16 +86,22 @@ function hairFlow(p: Person, s: Skeleton): PersonBody["grain"]["pelt"]["flow"] {
   ];
 }
 
-/** A blink every few seconds, each person on their own beat: the lid down fast and up a little slower. */
+/** How far shut a lid is, `since` seconds into a blink: down in a blink, up a little slower, then open. */
+function shutBy(since: number): number {
+  if (since < 0.07) return since / 0.07;
+  return since < 0.2 ? 1 - (since - 0.07) / 0.13 : 0;
+}
 
+/** A blink every few seconds, each person on their own beat: the lid down fast and up a little slower. */
 function lidAt(p: Person, t: number): number {
   // (Each gap its own length, two to six seconds: nobody blinks like a clock.)
   let since = t + p.seed * 1.37;
   let n = 0;
-  for (let gap = 2 + 4 * hashed(p.seed, n); since > gap && n < 400; gap = 2 + 4 * hashed(p.seed, n)) { since -= gap;
-  n += 1; }
-  const shut = since < 0.07 ? since / 0.07 : since < 0.2 ? 1 - (since - 0.07) / 0.13 : 0;
-  return mix(p.face.lid, 1, shut);
+  for (let gap = 2 + 4 * hashed(p.seed, n); since > gap && n < 400; gap = 2 + 4 * hashed(p.seed, n)) {
+    since -= gap;
+    n += 1;
+  }
+  return mix(p.face.lid, 1, shutBy(since));
 }
 
 /** Where they are looking: mostly ahead, glancing off now and then, a slow wander and never a stare. */
@@ -119,10 +139,18 @@ const turned = (c: Capsule, at: Vec, yaw: number, size: number): Capsule => ({
 
 /** A person in an action at time `t`, seconds, standing at `at` and turned by `yaw`. */
 export const posePerson = (p: Person, action: Action, t: number, at: Vec = [0, 0, 0], yaw = 0): PersonBody =>
-  bodyOf(p, action, t, at, yaw, false);
+  bodyOf(p, action, t, { at, yaw, rich: false });
 
-/** A posed person, with the head a mesh is built from if `rich`, or the one that costs a raymarcher few parts. */
-export function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: number, rich: boolean): PersonBody {
+/** Where a posed body stands and faces, and whether its head is the rich one a mesh is built from. */
+export interface Stance {
+  readonly at: Vec;
+  readonly yaw: number;
+  /** The head a mesh is built from if `rich`, or the one that costs a raymarcher few parts. */
+  readonly rich: boolean;
+}
+
+/** A posed person, stood and turned as its `Stance` says. */
+export function bodyOf(p: Person, action: Action, t: number, { at, yaw, rich }: Stance): PersonBody {
   const phase = phaseOf(p, action, t);
   const s = skeletonOf(p, action, phase);
   const kit: Kit = [];

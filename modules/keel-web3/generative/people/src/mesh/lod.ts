@@ -53,10 +53,16 @@ const FRAME_PAUSE = 250;
  * A crowd's triangle budget following the frame: down quickly while frames run long, back slowly when they don't.
  * Nothing but drawing may hang on it.
  */
+/** How a budget moves on one frame: down a little after a long one, up a hair after a roomy one, else held. */
+function paceOf(frameMs: number): number {
+  if (frameMs > FRAME_LONG) return 0.98;
+  return frameMs < FRAME_ROOMY ? 1.002 : 1;
+}
+
 export function crowdBudget(most: number, floor: number): (frameMs: number) => number {
   let budget = most;
   return (frameMs) => {
-    if (frameMs < FRAME_PAUSE) budget = clamp(budget * (frameMs > FRAME_LONG ? 0.98 : frameMs < FRAME_ROOMY ? 1.002 : 1), floor, most);
+    if (frameMs < FRAME_PAUSE) budget = clamp(budget * paceOf(frameMs), floor, most);
     return budget;
   };
 }

@@ -150,13 +150,17 @@ export function weightsAt(
     if (d < (best.get(bone) ?? FAR)) best.set(bone, d);
   });
   for (const [bone, d] of best) {
-    if (d < near) { second = first;
-    next = near;
-    first = bone;
-    near = d;
-    continue; }
-    if (d < next) { second = bone;
-    next = d; }
+    if (d < near) {
+      second = first;
+      next = near;
+      first = bone;
+      near = d;
+      continue;
+    }
+    if (d < next) {
+      second = bone;
+      next = d;
+    }
   }
   return [first, second, clamp(0.5 + (next - near) / 0.14, 0.5, 1)];
 }
@@ -244,7 +248,11 @@ export function normalAt(grid: Grid, x: number, y: number, z: number): Vec {
 
 /** Each cell of a grid, skipping its rim. */
 export function eachCell(n: Grid["n"], visit: (x: number, y: number, z: number) => void): void {
-  for (let z = 1; z < n[2] - 2; z += 1) for (let y = 1; y < n[1] - 2; y += 1) for (let x = 1; x < n[0] - 2; x += 1) visit(x, y, z);
+  for (let z = 1; z < n[2] - 2; z += 1) {
+    for (let y = 1; y < n[1] - 2; y += 1) {
+      for (let x = 1; x < n[0] - 2; x += 1) visit(x, y, z);
+    }
+  }
 }
 
 /** Quads between the cells round each grid edge that crosses the surface. */
@@ -253,17 +261,18 @@ export function netFaces(grid: Grid, cells: Int32Array): number[] {
   const nx = n[0];
   const nxy = n[0] * n[1];
   const out: number[] = [];
-  const quad = (a: number, b: number, c: number, d: number, flip: boolean): void => {
+  const quad = ([a, b, c, d]: readonly [number, number, number, number], flip: boolean): void => {
     const [v0, v1, v2, v3] = [cells[a] ?? -1, cells[b] ?? -1, cells[c] ?? -1, cells[d] ?? -1];
     if (v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0) return;
-    if (flip) out.push(v0, v1, v2, v0, v2, v3); else out.push(v0, v2, v1, v0, v3, v2);
+    if (flip) out.push(v0, v1, v2, v0, v2, v3);
+    else out.push(v0, v2, v1, v0, v3, v2);
   };
   eachCell(n, (x, y, z) => {
     const i = x + y * nx + z * nxy;
     const here = (field[i] ?? FAR) < 0;
-    if (here !== (field[i + 1] ?? FAR) < 0) quad(i, i - nxy, i - nxy - nx, i - nx, !here);
-    if (here !== (field[i + nx] ?? FAR) < 0) quad(i, i - 1, i - 1 - nxy, i - nxy, !here);
-    if (here !== (field[i + nxy] ?? FAR) < 0) quad(i, i - nx, i - nx - 1, i - 1, !here);
+    if (here !== (field[i + 1] ?? FAR) < 0) quad([i, i - nxy, i - nxy - nx, i - nx], !here);
+    if (here !== (field[i + nx] ?? FAR) < 0) quad([i, i - 1, i - 1 - nxy, i - nxy], !here);
+    if (here !== (field[i + nxy] ?? FAR) < 0) quad([i, i - nx, i - nx - 1, i - 1], !here);
   });
   return out;
 }
@@ -284,6 +293,14 @@ export interface Net {
   readonly cloth: number[];
   readonly soft: number[];
   readonly index: number[];
+}
+
+/** Whose net is being built: the person, the net so far and its roles, at the cell the body's grid is on. */
+export interface Wearer {
+  readonly net: Net;
+  readonly p: Person;
+  readonly roles: readonly string[];
+  readonly cell: number;
 }
 
 /** What owns a surface cell: its own part, or a neighbour's on the far side of the surface. */
@@ -359,8 +376,10 @@ export function dented(grid: Grid, dents: readonly Dent[]): void {
  * A run through knots, `at` rising, that goes no further than they do between them: an outline with no wobble in it.
  */
 function eased(knots: readonly (readonly [number, number])[]): (at: number) => number {
-  const gap = knots.slice(1).map(([x, y], i) => { const [px = 0, py = 0] = knots[i] ?? [];
-  return [x - px, (y - py) / (x - px)] as const; });
+  const gap = knots.slice(1).map(([x, y], i) => {
+    const [px = 0, py = 0] = knots[i] ?? [];
+    return [x - px, (y - py) / (x - px)] as const;
+  });
   const lean = knots.map((_, i) => {
     const a = gap[i - 1]?.[1] ?? gap[i]?.[1] ?? 0;
     const b = gap[i]?.[1] ?? a;
@@ -495,11 +514,12 @@ export function lofted(grid: Grid, loft: Loft): void {
     const Y = min[1] + y * h;
     if (Y < loft.from || Y > loft.to) continue;
     const at = loft.slice(Y);
-    for (let z = 0; z < n[2]; z += 1) meltRow(grid, y, z, (x) => at(min[0] + x * h, min[2] + z * h), k);
+    for (let z = 0; z < n[2]; z += 1) meltRow(grid, [y, z], (x) => at(min[0] + x * h, min[2] + z * h), k);
   }
 }
 
-function meltRow(grid: Grid, y: number, z: number, distance: (x: number) => number, k: number): void {
+/** One row of the grid, along x at `y`, `z`, melted toward a distance. */
+function meltRow(grid: Grid, [y, z]: readonly [number, number], distance: (x: number) => number, k: number): void {
   const { n, field } = grid;
   for (let x = 0; x < n[0]; x += 1) {
     const i = x + y * n[0] + z * n[0] * n[1];
@@ -520,25 +540,25 @@ export function dentsOf(p: Person, eyed = false): readonly Dent[] {
   const size = p.build.size;
   const g = headFrame(restSkeleton(p), p.build.head, p.face);
   const R = p.build.head * size;
-  const dent = (x: number, y: number, z: number, r: Vec, by: number): Dent => ({
+  const dent = ([x, y, z]: Vec, r: Vec, by: number): Dent => ({
     at: scale(g.bone(x, y, z), size),
     r: scale(r, R),
     by: by * R,
   });
-  const pair = (x: number, y: number, z: number, r: Vec, by: number): readonly Dent[] => [
-    dent(-x, y, z, r, by),
-    dent(x, y, z, r, by),
+  const pair = ([x, y, z]: Vec, r: Vec, by: number): readonly Dent[] => [
+    dent([-x, y, z], r, by),
+    dent([x, y, z], r, by),
   ];
   return [
-    ...pair(0.29, b.pupil + 0.22, 0.96, [0.25, 0.12, 0.3], b.ridge),
-    ...pair(0.5, b.cheekY, 0.66, [0.24, 0.17, 0.3], b.cheek),
-    ...pair(0.36, b.pupil, 0.86, [0.21, 0.13, 0.3], (-0.045 - b.orbit) * (eyed ? 0.4 : 1)),
-    ...pair(0.54, -0.44, 0.56, [0.26, 0.2, 0.34], (-b.hollow - b.old * 0.02) * (eyed ? 0.55 : 1)),
-    ...(b.old ? pair(0.63, 0.42, 0.48, [0.2, 0.25, 0.32], -0.05 * b.old) : []),
-    dent(0, b.pupil + 0.02, 0.96, [0.14, 0.1, 0.22], -0.05 * mix(0.5, 1, b.m) * (1 - b.old * 0.5)),
-    dent(0, b.men + 0.27, b.pogZ - 0.05, [0.24, 0.075, 0.25], -0.04 * mix(0.4, 1, b.m)),
-    dent(0, 1.34, -0.1, [0.95, 0.4, 1.05], -(styleOf(p) === "bald" ? 0.13 : 0.05) * b.m),
-    dent(0, b.men + 0.14, b.pogZ, [0.2, 0.11, 0.22], 0.03 * mix(0.3, 1, b.m)),
+    ...pair([0.29, b.pupil + 0.22, 0.96], [0.25, 0.12, 0.3], b.ridge),
+    ...pair([0.5, b.cheekY, 0.66], [0.24, 0.17, 0.3], b.cheek),
+    ...pair([0.36, b.pupil, 0.86], [0.21, 0.13, 0.3], (-0.045 - b.orbit) * (eyed ? 0.4 : 1)),
+    ...pair([0.54, -0.44, 0.56], [0.26, 0.2, 0.34], (-b.hollow - b.old * 0.02) * (eyed ? 0.55 : 1)),
+    ...(b.old ? pair([0.63, 0.42, 0.48], [0.2, 0.25, 0.32], -0.05 * b.old) : []),
+    dent([0, b.pupil + 0.02, 0.96], [0.14, 0.1, 0.22], -0.05 * mix(0.5, 1, b.m) * (1 - b.old * 0.5)),
+    dent([0, b.men + 0.27, b.pogZ - 0.05], [0.24, 0.075, 0.25], -0.04 * mix(0.4, 1, b.m)),
+    dent([0, 1.34, -0.1], [0.95, 0.4, 1.05], -(styleOf(p) === "bald" ? 0.13 : 0.05) * b.m),
+    dent([0, b.men + 0.14, b.pogZ], [0.2, 0.11, 0.22], 0.03 * mix(0.3, 1, b.m)),
   ];
 }
 
@@ -585,8 +605,10 @@ const KNEE_BLEND = 0.08;
 export function skirtWeights(at: Vec, knee = -FAR, hinge = FAR): readonly [number, number, number] {
   if (at[1] > hinge) return [PELVIS, PELVIS, 1];
   const blend = (at[1] - knee + KNEE_BLEND) / (2 * KNEE_BLEND);
-  if (blend > 0 && blend < 1) { const panel = at[2] < 0 ? "back" : "front";
-  return [boneIndex(`skirt.${panel}`), boneIndex(`hang.${panel}`), blend * blend * (3 - 2 * blend)]; }
+  if (blend > 0 && blend < 1) {
+    const panel = at[2] < 0 ? "back" : "front";
+    return [boneIndex(`skirt.${panel}`), boneIndex(`hang.${panel}`), blend * blend * (3 - 2 * blend)];
+  }
   const low = at[1] < knee;
   return [boneIndex(low ? "hang.front" : "skirt.front"), boneIndex(low ? "hang.back" : "skirt.back"), clamp(0.5 + at[2] / PANEL_DEEP, 0, 1)];
 }

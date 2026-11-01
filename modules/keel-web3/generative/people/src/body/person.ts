@@ -244,9 +244,10 @@ export function personOf(seed: number, weather: Weather = "mild", costume?: Cost
   const face = faceFor(seed, rolled, build, skin);
   const chosen = hairOn(seed, build.sex, deepOf(skin), hairRoll);
   const hair = chosen === "bald" && (build.sex === "female" || build.age === "toddler" || build.age === "child" || build.age === "teen") ? "crop" : chosen;
-  const palette = paletteOf(rand, skin, build.age, face.iris, base.genre);
+  const palette = paletteOf(rand, skin, { age: build.age, iris: face.iris, genre: base.genre });
   const day = streamOf(seed, 0x77656174);
-  const outfit = hatted(seed, build, inCostume(day, build, dressedFor(day, build, base, weather), weather, costume));
+  const dressed = dressedFor(day, build, base, weather);
+  const outfit = hatted(seed, build, inCostume(day, build, dressed, { weather, asked: costume }));
   const big = outfit.costume === "fursuit" ? { ...build, head: build.head * 1.16 } : build;
   const worn = { ...palette, ...colourFor(day, outfit), ...gearColours(seed) };
   return { seed, build: big, face, hair: outfit.costume === "fursuit" ? "bald" : hair, outfit, gear: gearOf(seed, build, outfit), palette: { ...worn, shirt: shirtUnder(worn.top ?? "#777777"), bottom: parted(worn.bottom ?? "#333333", worn.top ?? "#777777") }, gait: gaitOf(streamOf(seed, 0x67616974), build) };

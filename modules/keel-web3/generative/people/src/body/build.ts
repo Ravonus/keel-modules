@@ -59,10 +59,16 @@ function shapeOf(rand: () => number, sex: Sex, grown: number): Shape {
   return shape === "curvy" && sex === "male" ? "stocky" : shape;
 }
 
+/** How grown a body is, for its height and build: a child not at all, a teenager most of the way, the rest fully. */
+function grownBy(age: Age): number {
+  if (age === "toddler" || age === "child") return 0;
+  return age === "teen" ? 0.7 : 1;
+}
+
 export function buildOf(rand: () => number): Build {
   const age = weighted(rand, AGES);
   const sex: Sex = rand() < 0.5 ? "female" : "male";
-  const grown = age === "toddler" || age === "child" ? 0 : age === "teen" ? 0.7 : 1;
+  const grown = grownBy(age);
   const stage = STAGES[age];
   const height = bell(rand, stage.tall[0], stage.tall[1]) * (1 + (sex === "male" ? 0.035 : -0.035) * grown) * (1 + mix(-0.06, 0.07, rand()) * grown);
   const size = height / TALL;
@@ -118,6 +124,9 @@ const AGE_GAIT: Readonly<
 };
 
 /** A person's own way of moving, from a stream of its own so it changes nothing of how they look. */
+/** Which leg a lazy walker favours. */
+const lazySide = (rand: () => number): number => (rand() < 0.5 ? -1 : 1);
+
 export function gaitOf(rand: () => number, build: Build): Gait {
   const age = AGE_GAIT[build.age];
   const heavy = clamp(build.girth - 1, 0, 1);
@@ -127,7 +136,7 @@ export function gaitOf(rand: () => number, build: Build): Gait {
   const easy = mix(0.2, 0.62, rand());
   const elbow = mix(0.95, 1.95, rand());
   const odd = mix(-0.2, 0.2, rand());
-  const lazy = rand() < 0.3 ? (rand() < 0.5 ? -1 : 1) : 0;
+  const lazy = rand() < 0.3 ? lazySide(rand) : 0;
   return {
     cadence: mix(0.93, 1.09, rand()) * age.cadence * (build.sex === "female" ? 1.04 : 1),
     stride: mix(0.72, 1.24, rand()) * age.stride * (1 - heavy * 0.25),

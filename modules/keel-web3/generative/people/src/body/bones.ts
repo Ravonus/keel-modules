@@ -6,6 +6,7 @@ import type { Person } from "./person.js";
 import { restSkeleton } from "../motion/skeleton.js";
 import type { Skeleton } from "../motion/skeleton.js";
 import { handFrame, swungFrame } from "../mesh/parts.js";
+import type { Line } from "../mesh/parts.js";
 
 // ---------------------------------------------------------------- the skinned mesh
 
@@ -45,11 +46,17 @@ function ledOf({ left, right }: Skeleton, side: 1 | -1): number {
  * A panel of a skirt, from between the hips to level with the knees: the front is pushed by whichever leg leads, the
  * back by whichever trails, so neither leg ever comes through it.
  */
+/** How far a panel is pushed by the leg that leads it; the back panel is drawn a little after the one that trails. */
+function pushedBy(led: number, side: 1 | -1): number {
+  if (led * side > 0) return led;
+  return side > 0 ? 0 : Math.max(0, led) * BACK_DRAWN;
+}
+
 function panelOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
   const { left, right } = s;
   const from = lerpV(left.leg.hip, right.leg.hip, 0.5);
   const led = ledOf(s, side);
-  const z = (led * side > 0 ? led : side > 0 ? 0 : Math.max(0, led) * BACK_DRAWN) * PANEL_LONG;
+  const z = pushedBy(led, side) * PANEL_LONG;
   const span = Math.hypot(...sub(left.leg.knee, left.leg.hip)) * PANEL_LONG;
   const down = Math.sqrt(Math.max(0, span * span - z * z));
   const hinge = add(from, [
@@ -177,6 +184,30 @@ function halfRolled(swing: readonly [Vec, Vec, Vec], hand: readonly [Vec, Vec, V
 }
 
 
+type Frame = readonly [Vec, Vec, Vec];
+
+/** A bone's frame at rest: a hand's or a forearm's set by its knuckles, any other's by its own line. */
+function restFrame(i: number, rest: Skeleton, [ra, rb]: Line): Frame {
+  const hand = HAND_BONES.get(i);
+  if (hand) return handFrame(ra, rb, rest[hand].arm.knuckles);
+  const arm = FOREARMS.get(i);
+  if (arm) return handFrame(ra, rb, rest[arm].arm.knuckles);
+  return boneFrame(ra, rb);
+}
+
+/**
+ * A bone's frame as posed, from its rest frame `r` and its line then and now: a forearm half rolled with its hand, a
+ * hand set by its knuckles, the rest of an arm swung, and anything else turned about its own line.
+ */
+function posedFrame(i: number, now: Skeleton, r: Frame, [[ra, rb], [na, nb]]: readonly [Line, Line]): Frame {
+  const arm = FOREARMS.get(i);
+  if (arm) return halfRolled(swungFrame(r, [ra, rb], [na, nb]), handFrame(na, nb, now[arm].arm.knuckles));
+  const hand = HAND_BONES.get(i);
+  if (hand) return handFrame(na, nb, now[hand].arm.knuckles);
+  if (ARM_BONES.has(i)) return swungFrame(r, [ra, rb], [na, nb]);
+  return boneFrame(na, nb, i === HEAD ? now.turn : now.spin * (TURNS[i] ?? 0));
+}
+
 export function bonesOf(p: Person, now: Skeleton, late?: Late): Float32Array {
   const rest = restSkeleton(p);
   const k = p.build.size;
@@ -184,20 +215,8 @@ export function bonesOf(p: Person, now: Skeleton, late?: Late): Float32Array {
   BONES.forEach(([, joints], i) => {
     const [ra, rb] = joints(rest);
     const [na, nb] = joints(clothTime(i, now, late));
-    const hand = HAND_BONES.get(i);
-    const arm = FOREARMS.get(i);
-    const r = hand
-      ? handFrame(ra, rb, rest[hand].arm.knuckles)
-      : arm
-        ? handFrame(ra, rb, rest[arm].arm.knuckles)
-        : boneFrame(ra, rb);
-    const m = arm
-      ? halfRolled(swungFrame(r, ra, rb, na, nb), handFrame(na, nb, now[arm].arm.knuckles))
-      : hand
-        ? handFrame(na, nb, now[hand].arm.knuckles)
-        : ARM_BONES.has(i)
-          ? swungFrame(r, ra, rb, na, nb)
-          : boneFrame(na, nb, i === HEAD ? now.turn : now.spin * (TURNS[i] ?? 0));
+    const r = restFrame(i, rest, [ra, rb]);
+    const m = posedFrame(i, now, r, [[ra, rb], [na, nb]]);
     for (let row = 0; row < 3; row += 1) {
       const line: Vec = [0, 1, 2].map((c) =>
         r.reduce((sum, axis, j) => sum + (m[j]?.[row] ?? 0) * (axis[c] ?? 0), 0),

@@ -12,12 +12,16 @@ import { HEAD, boneIndex } from "../body/bones.js";
 import type { Net } from "../body/field.js";
 import { FABRICS } from "../clothes/fabric.js";
 import { WRAPPED } from "../clothes/cloth.js";
-import { SKULL, SKULL_AT, scalped, styleOf } from "./hair.js";
+import { styleOf } from "./hair.js";
+import { SKULL, SKULL_AT } from "./hair.data.js";
+import { scalped } from "./lock.js";
 
 // ---------------------------------------------------------------- the face's paint
 
-export const smooth = (a: number, b: number, v: number): number => { const t = clamp((v - a) / (b - a), 0, 1);
-return t * t * (3 - 2 * t); };
+export const smooth = (a: number, b: number, v: number): number => {
+  const t = clamp((v - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+};
 
 /** A face's landmarks as built, in head radii from the head's centre: all that places a feature, a shadow or a line. */
 export interface Marks {
@@ -103,7 +107,8 @@ function spotted(spots: readonly Spot[], x: number, y: number, deep: number): nu
     const d = a * a + b * b;
     if (d > 6) continue;
     const by = mix(fair, rich, deep) * Math.exp(-d);
-    if (by > 0) lift *= 1 + by; else dark *= 1 + by;
+    if (by > 0) lift *= 1 + by;
+    else dark *= 1 + by;
   }
   return Math.min(lift, 1.7) * dark;
 }
@@ -120,48 +125,13 @@ function planed(deep: number, [nx, ny, nz]: Vec, y: number, grown: number): numb
 const beardLine = (k: Marks, ax: number): number => mix(k.sn - 0.04, -0.1, smooth(0.3, 0.66, ax));
 
 /** How clear of a mouth a point is, 0 on it: `wide` how far round the lips the clearing goes. */
-function clearOfMouth(k: Marks, w: number, ax: number, y: number, wide: number): number {
+function clearOfMouth(k: Marks, w: number, [ax, y]: readonly [number, number], wide: number): number {
   return (
     1 -
     (1 - smooth(w * (0.72 + wide), w * (0.92 + wide), ax)) *
       smooth(k.sto - 0.12 - wide, k.sto - 0.08 - wide, y) *
       (1 - smooth(k.sto + 0.03 + wide * 0.5, k.sto + 0.06 + wide * 0.5, y))
   );
-}
-
-/**
- * A day's growth is a shadow on the skin and no colour of its own: a colour stops dead at a vertex, and on pale skin
- * that shows as facets.
- */
-function stubbleAt(p: Person, k: Marks, x: number, y: number, deep: number): number {
-  if (p.face.hair !== "stubble") return 1;
-  const ax = Math.abs(x);
-  const grain = (Math.sin(x * 211 + y * 97) + 1) * 0.15;
-  return (
-    1 -
-    mix(0.12, 0.2, deep) *
-      smooth(0, 0.09, beardLine(k, ax) - y) *
-      clearOfMouth(k, p.face.mouthWide, ax, y, 0) *
-      (0.7 + grain)
-  );
-}
-
-/**
- * The neck under the jaw, and what lies behind the face: the head's own shadow, which a head and a neck cannot give
- * each other being separate shells.
- */
-function underJaw(p: Person, k: Marks, x: number, y: number, deep: number): number {
-  const shut = mix(0.56, 0.5, deep);
-  const fade = 0.42 * mix(0.55, 1, p.face.bone.m);
-  return mix(shut, 1, smooth(0, fade, jawAt(k, x) - y)) * mix(1, 1.3, deep);
-}
-
-/** Hair throws a little shadow on the skin below its line, and that is what seats it on the head. */
-function underHair(q: Vec, b: Bone): number {
-  const e: Vec = [q[0] / (b.W * 0.84) / SKULL[0], (q[1] - SKULL_AT[1]) / SKULL[1], (q[2] - SKULL_AT[2]) / SKULL[2]];
-  const u = unit(e, UP);
-  const near = (by: number): number => (scalped(unit([u[0], u[1] + by, u[2]], UP)) ? 1 : 0);
-  return 1 - 0.1 * (near(0.02) + near(0.07) + near(0.12));
 }
 
 /**
@@ -178,15 +148,56 @@ interface Bake {
   readonly toHead: (at: Vec) => Vec;
 }
 
+/**
+ * A day's growth is a shadow on the skin and no colour of its own: a colour stops dead at a vertex, and on pale skin
+ * that shows as facets.
+ */
+function stubbleAt({ p, k, deep }: Bake, x: number, y: number): number {
+  if (p.face.hair !== "stubble") return 1;
+  const ax = Math.abs(x);
+  const grain = (Math.sin(x * 211 + y * 97) + 1) * 0.15;
+  return (
+    1 -
+    mix(0.12, 0.2, deep) *
+      smooth(0, 0.09, beardLine(k, ax) - y) *
+      clearOfMouth(k, p.face.mouthWide, [ax, y], 0) *
+      (0.7 + grain)
+  );
+}
+
+/**
+ * The neck under the jaw, and what lies behind the face: the head's own shadow, which a head and a neck cannot give
+ * each other being separate shells.
+ */
+function underJaw({ p, k, deep }: Bake, x: number, y: number): number {
+  const shut = mix(0.56, 0.5, deep);
+  const fade = 0.42 * mix(0.55, 1, p.face.bone.m);
+  return mix(shut, 1, smooth(0, fade, jawAt(k, x) - y)) * mix(1, 1.3, deep);
+}
+
+/** Hair throws a little shadow on the skin below its line, and that is what seats it on the head. */
+function underHair(q: Vec, b: Bone): number {
+  const e: Vec = [q[0] / (b.W * 0.84) / SKULL[0], (q[1] - SKULL_AT[1]) / SKULL[1], (q[2] - SKULL_AT[2]) / SKULL[2]];
+  const u = unit(e, UP);
+  const near = (by: number): number => (scalped(unit([u[0], u[1] + by, u[2]], UP)) ? 1 : 0);
+  return 1 - 0.1 * (near(0.02) + near(0.07) + near(0.12));
+}
+
 export const vecAt = (list: readonly number[], v: number): Vec => [
   list[v * 3] ?? 0,
   list[v * 3 + 1] ?? 0,
   list[v * 3 + 2] ?? 0,
 ];
 
+/** One vertex as it is lit: which, and the shade it had before the face's bake. */
+interface Lit {
+  readonly v: number;
+  readonly was: number;
+}
+
 /** One vertex of the face proper. */
-function bakeFace(net: Net, bake: Bake, v: number, q: Vec, was: number): number {
-  const { p, k, deep } = bake;
+function bakeFace(net: Net, bake: Bake, { v, was }: Lit, q: Vec): number {
+  const { p, deep } = bake;
   const [x, y] = q;
   // (A fold of the melted skull is no crease of a face: most of what `creases` found there goes, or a cheek bruises.)
   const open = mix(1, was, 0.15);
@@ -194,20 +205,20 @@ function bakeFace(net: Net, bake: Bake, v: number, q: Vec, was: number): number 
   return (
     open *
     marked *
-    stubbleAt(p, k, x, y, deep) *
+    stubbleAt(bake, x, y) *
     spotted(bake.spots, Math.abs(x), y, deep) *
     planed(deep, vecAt(net.normal, v), y, p.face.bone.m)
   );
 }
 
 /** A vertex of the skin of the head or the neck. */
-function bakeVertex(net: Net, bake: Bake, v: number, bone: number, was: number): number {
+function bakeVertex(net: Net, bake: Bake, { v, was }: Lit, bone: number): number {
   const q = bake.toHead(vecAt(net.position, v));
   const [x, y, z] = q;
   if (y > 1.4 || y < -2.4 || Math.abs(x) > 1.4) return was;
-  if (bone !== HEAD) return was * underJaw(bake.p, bake.k, x, y, bake.deep);
+  if (bone !== HEAD) return was * underJaw(bake, x, y);
   const back = was * mix(1, 1.2, bake.deep);
-  return z < -0.4 ? back : mix(back, bakeFace(net, bake, v, q, was), smooth(-0.4, 0.1, z));
+  return z < -0.4 ? back : mix(back, bakeFace(net, bake, { v, was }, q), smooth(-0.4, 0.1, z));
 }
 
 const FACE_BONES: ReadonlySet<number> = new Set([HEAD, boneIndex("neck"), boneIndex("chest")]);
@@ -217,14 +228,14 @@ const FACE_BONES: ReadonlySet<number> = new Set([HEAD, boneIndex("neck"), boneIn
  * overhangs, a lift on each that stands proud. Over a deep skin a multiply barely shows, so there it works hardest; and
  * hair on the face goes on here too. `skip` is the vertices at the end that have their shade already.
  */
-export function faceBake(
-  net: Net,
-  shade: Float32Array,
-  p: Person,
-  roles: readonly string[],
-  cell: number,
-  skip: number,
-): void {
+/** What a bake is of: the body's roles and grid, and how many vertices at the end have their shade already. */
+export interface Baked {
+  readonly roles: readonly string[];
+  readonly cell: number;
+  readonly skip: number;
+}
+
+export function faceBake(net: Net, shade: Float32Array, p: Person, { roles, cell, skip }: Baked): void {
   if (p.outfit.costume === "fursuit") return;
   const size = p.build.size;
   const h = headFrame(restSkeleton(p), p.build.head, p.face);
@@ -248,7 +259,7 @@ export function faceBake(
   for (let v = 0; v < shade.length - skip; v += 1) {
     const bone = net.bones[v * 2] ?? 0;
     if (net.fabric[v] === FABRICS.skin && net.role[v] === skin && FACE_BONES.has(bone))
-      shade[v] = bakeVertex(net, bake, v, bone, bone === HEAD && cell < WRAPPED ? 1 : (shade[v] ?? 1));
+      shade[v] = bakeVertex(net, bake, { v, was: bone === HEAD && cell < WRAPPED ? 1 : (shade[v] ?? 1) }, bone);
   }
 }
 
@@ -283,8 +294,10 @@ export function faceInks(p: Person): {
 export function surfaceOf(net: Net, h: HeadFrame, size: number, step: number): (x: number, y: number) => number {
   const bins = new Map<number, number>();
   const key = (x: number, y: number): number => Math.round(x / step) * 4096 + Math.round(y / step);
-  const toHead = (v: number): Vec => { const [x, y, z] = vecAt(net.position, v);
-  return [(x / size - h.c[0]) / h.r, (y / size - h.c[1]) / h.r, (z / size - h.c[2]) / h.r]; };
+  const toHead = (v: number): Vec => {
+    const [x, y, z] = vecAt(net.position, v);
+    return [(x / size - h.c[0]) / h.r, (y / size - h.c[1]) / h.r, (z / size - h.c[2]) / h.r];
+  };
   for (let v = 0; v < net.fabric.length; v += 1) {
     if (net.fabric[v] !== FABRICS.skin || net.bones[v * 2] !== HEAD) continue;
     const [x, y, z] = toHead(v);

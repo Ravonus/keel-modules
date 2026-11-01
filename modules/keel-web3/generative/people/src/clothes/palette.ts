@@ -35,7 +35,10 @@ function clothesColours(rand: () => number): Record<string, string> {
 const SHADES: Readonly<Record<Genre, (rand: () => number) => Readonly<Record<string, string>>>> = {
   casual: () => ({}),
   street: (rand) => ({ top: hsl(rand(), 0.14, mix(0.2, 0.5, rand())), bottom: hsl(0.1, 0.1, mix(0.22, 0.42, rand())), trim: hsl(rand(), 0.8, 0.55), sole: "#e8e6e0" }),
-  formal: (rand) => { const suit = hsl(mix(0.58, 0.68, rand()), 0.22, mix(0.12, 0.26, rand())); return { top: suit, bottom: suit, trim: "#ece8e0", shoe: "#1c1614", sole: "#141010" }; },
+  formal: (rand) => {
+    const suit = hsl(mix(0.58, 0.68, rand()), 0.22, mix(0.12, 0.26, rand()));
+    return { top: suit, bottom: suit, trim: "#ece8e0", shoe: "#1c1614", sole: "#141010" };
+  },
   sport: (rand) => ({ top: hsl(rand(), 0.72, 0.5), bottom: hsl(0.62, 0.2, 0.16), trim: "#f0f0ee", shoe: "#e8e6e2", sole: "#ffffff" }),
   goth: (rand) => ({ top: "#1a1720", bottom: "#141216", trim: hsl(mix(0.95, 1, rand()) % 1, 0.6, 0.3), shoe: "#121014", sole: "#0c0a0e" }),
   work: (rand) => ({ top: hsl(mix(0.09, 0.26, rand()), 0.3, mix(0.26, 0.42, rand())), bottom: hsl(mix(0.58, 0.62, rand()), 0.3, mix(0.2, 0.3, rand())), trim: "#d8782a", shoe: "#5a3c24", sole: "#241810" }),
@@ -109,9 +112,14 @@ function faceColours(skin: string, hair: string, wash: string): Record<string, s
   };
 }
 
-export function paletteOf(
-  rand: () => number, skin: string, age: Age, iris: string, genre: Genre,
-): Record<string, string> {
+/** What a palette is drawn for: how old they are, the colour of their eyes, and the genre they dress in. */
+interface Wearing {
+  readonly age: Age;
+  readonly iris: string;
+  readonly genre: Genre;
+}
+
+export function paletteOf(rand: () => number, skin: string, { age, iris, genre }: Wearing): Record<string, string> {
   const dyed = rand() < 0.04;
   const roll = rand();
   const natural = dyed ? LOUD_HAIR[Math.floor(roll * LOUD_HAIR.length)] ?? "#3a6ad8" : hairTone(roll, deepOf(skin));

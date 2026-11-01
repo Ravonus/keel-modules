@@ -22,8 +22,10 @@ export const bell = (rand: () => number, a: number, b: number): number => mix(a,
 
 export function weighted<T>(rand: () => number, list: readonly (readonly [T, number])[]): T {
   let left = rand() * list.reduce((sum, [, w]) => sum + w, 0);
-  const hit = list.find(([, w]) => { left -= w;
-  return left <= 0; });
+  const hit = list.find(([, w]) => {
+    left -= w;
+    return left <= 0;
+  });
   const [first] = list;
   if (!first) throw new Error("nothing to pick from");
   return (hit ?? first)[0];
@@ -63,5 +65,7 @@ export function blend(a: string, b: string, k: number): string {
   return `#${part(0)}${part(1)}${part(2)}`;
 }
 
-export const hashed = (a: number, b: number): number => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
-return v - Math.floor(v); };
+export const hashed = (a: number, b: number): number => {
+  const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+};

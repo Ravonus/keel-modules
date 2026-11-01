@@ -53,9 +53,11 @@ export function hatted(seed: number, build: Build, outfit: Outfit): Outfit {
 }
 
 /** One of `list`, or the first if `chance` misses. */
-const someOf = <T>(r: () => number, chance: number, list: readonly T[]): T => { const hit = r();
-const pick = r();
-return list[hit < chance ? 1 + Math.floor(pick * (list.length - 1)) : 0] as T; };
+const someOf = <T>(r: () => number, chance: number, list: readonly T[]): T => {
+  const hit = r();
+  const pick = r();
+  return list[hit < chance ? 1 + Math.floor(pick * (list.length - 1)) : 0] as T;
+};
 
 /** How likely each is to wear each. */
 const GEAR_ODDS = {
@@ -64,13 +66,19 @@ const GEAR_ODDS = {
   man: { ears: 0.14, neck: 0.12, hair: 0.05 },
 } as const;
 
+/** Whose odds of gear apply: a child's, a woman's or a man's. */
+function wearerOf(child: boolean, sex: Sex): keyof typeof GEAR_ODDS {
+  if (child) return "child";
+  return sex === "female" ? "woman" : "man";
+}
+
 /** What a person has on them. A child has clips, a bow and maybe glasses, and nothing pierced; a teen's ears may be. */
 export function gearOf(seed: number, build: Build, outfit: Outfit): Gear {
   const r = streamOf(seed, 0x67656172);
   const child = childish(build);
   const grown = !child && build.age !== "teen";
   const bare = outfit.hat === "none";
-  const odds = GEAR_ODDS[child ? "child" : build.sex === "female" ? "woman" : "man"];
+  const odds = GEAR_ODDS[wearerOf(child, build.sex)];
   return {
     glasses: someOf<Gear["glasses"]>(r, build.age === "elder" ? 0.5 : 0.2, child ? ["none", "clear", "round"] : ["none", "clear", "round", "cat", "sun"]),
     ears: someOf<Gear["ears"]>(r, odds.ears, grown ? ["none", "stud", "hoop", "drop"] : ["none", "stud", "hoop"]),
@@ -103,13 +111,21 @@ const FOR_WEATHER: Readonly<Record<Exclude<Weather, "mild" | "beach">, { readonl
   hot: { tops: [["tee", 4], ["tank", 4], ["dress", 2], ["polo", 1]], shoes: [["sandal", 3], ["sneaker", 2]], hats: [["none", 5], ["sunhat", 2], ["cap", 2]], carry: 0 },
 };
 
+/** What is worn on top at the beach: a child a tee, a man nothing, a woman one of three cuts by her roll. */
+function beachTop(grown: boolean, female: boolean, cut: number): Top {
+  if (!grown) return "tee";
+  if (!female) return "bare";
+  if (cut < 0.34) return "swimsuit";
+  return cut < 0.67 ? "bikini" : "string";
+}
+
 /** What a person wears at the beach: nothing here is cut for a child but a tee and swim shorts. */
 function beachOf(rand: () => number, build: Build, base: Outfit): Outfit {
   const grown = build.age === "adult" || build.age === "elder";
   const female = build.sex === "female";
-  const cut = rand();
-  const top: Top = !grown ? "tee" : !female ? "bare" : cut < 0.34 ? "swimsuit" : cut < 0.67 ? "bikini" : "string";
-  return { ...base, top, bottom: top === "string" || top === "swimsuit" ? "briefs" : "swim", shoe: "sandal", hat: rand() < 0.3 ? "sunhat" : "none", stripes: 0, fit: 0.1 };
+  const top = beachTop(grown, female, rand());
+  const bottom = top === "string" || top === "swimsuit" ? "briefs" : "swim";
+  return { ...base, top, bottom, shoe: "sandal", hat: rand() < 0.3 ? "sunhat" : "none", stripes: 0, fit: 0.1 };
 }
 
 const legsFor = (rand: () => number, bottom: Bottom, weather: Weather): Bottom => {
@@ -141,8 +157,14 @@ const COSTUMES: Readonly<Record<Exclude<Costume, "none">, Pick<Outfit, "top" | "
 const COSTUME_SHARE: Weighted<Exclude<Costume, "none">> = [["suit", 4], ["police", 1], ["firefighter", 1], ["cowboy", 1], ["fursuit", 0.6], ["latex", 0.3]];
 const FUR = ["#c87a3a", "#8a8a92", "#3a3a44", "#e8e0d4", "#4a78c8", "#a848a0", "#3aa888"] as const;
 
+/** The day a costume is worn on: its weather, and the costume asked for, if one was. */
+interface Day {
+  readonly weather: Weather;
+  readonly asked?: Costume | undefined;
+}
+
 /** A job or getup for those of age: asked for, or now and then on a mild day. */
-export function inCostume(rand: () => number, build: Build, outfit: Outfit, weather: Weather, asked?: Costume): Outfit {
+export function inCostume(rand: () => number, build: Build, outfit: Outfit, { weather, asked }: Day): Outfit {
   if (build.age !== "adult" && build.age !== "elder" && build.age !== "teen") return outfit;
   const costume = asked ?? (weather === "mild" && rand() < 0.08 ? weighted(rand, COSTUME_SHARE) : "none");
   if (costume === "none" || (costume === "latex" && build.age === "teen")) return outfit;
@@ -160,8 +182,9 @@ const JOB_COLOURS: Partial<Record<Costume, (rand: () => number) => Record<string
 
 /** Colours only the day's clothes want: a bright raincoat, a loud swimsuit, an umbrella, a pelt. */
 export function colourFor(rand: () => number, outfit: Outfit): Record<string, string> {
-  if (outfit.costume === "fursuit") { const fur = pick(rand, FUR);
-  return {
+  if (outfit.costume === "fursuit") {
+    const fur = pick(rand, FUR);
+    return {
     skin: fur,
     belly: blend(fur, "#f4ece0", 0.66),
     bottom: fur,

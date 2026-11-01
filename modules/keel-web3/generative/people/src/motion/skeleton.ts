@@ -60,7 +60,10 @@ interface Body {
 /** One moment of a body: everything a motion has to say. */
 interface Pose { readonly left: Swing; readonly right: Swing; readonly body: Body }
 
-/** A way of moving: how many beats a second, how many heights a second it carries a body, and the pose at any point of a beat. Adding one is adding a line to `MOTIONS`. */
+/**
+ * A way of moving: how many beats a second, how many heights a second it carries a body, and the pose at any point of a
+ * beat. Adding one is adding a line to `MOTIONS`.
+ */
 interface Motion { readonly beat: number; readonly pace?: number; /** Personal: taken at a person's own cadence, out of step with everyone else. */ readonly own?: boolean; readonly at: (p: Person, phase: number) => Pose }
 
 const pitched = (a: number): Vec => [0, -Math.cos(a), Math.sin(a)];
@@ -68,7 +71,10 @@ const pitched = (a: number): Vec => [0, -Math.cos(a), Math.sin(a)];
 const STILL: Swing = { thigh: 0.02, knee: 0.04, upper: 0.03, fore: 0.16, out: 0.05, curl: 0.32, flex: 0.1 };
 
 /** One side's swing: `phase` runs a full stride, the other side half a stride behind. */
-/** A jump's body, at `u` of the way through it: how deep the crouch, how high off the ground, how far the arms have swung up. */
+/**
+ * A jump's body, at `u` of the way through it: how deep the crouch, how high off the ground, how far the arms have
+ * swung up.
+ */
 function jumpAt(u: number): { readonly crouch: number; readonly high: number; readonly arms: number } {
   const ease = (v: number): number => { const k = clamp(v, 0, 1); return k * k * (3 - 2 * k); };
   const air = (u - 0.3) / 0.46;
@@ -92,7 +98,11 @@ const bump = (phase: number, at: number, wide: number): number => {
 /** How far an arm swings: most people favour one. */
 const armSwing = (g: Gait, side: number): number => g.swing * (side === g.lazy ? g.lazyBy : 1);
 
-/** Walking, one side at `phase`: the leg forward at the heel's strike, a knee that gives as it takes the weight, and that bends most just after the thigh has passed under the hip. The arms hang and swing a little further back than forward. */
+/**
+ * Walking, one side at `phase`: the leg forward at the heel's strike, a knee that gives as it takes the weight, and
+ * that bends most just after the thigh has passed under the hip. The arms hang and swing a little further back than
+ * forward.
+ */
 function walkSwing(g: Gait, phase: number, side: number): Swing {
   const s = Math.sin(phase), arm = armSwing(g, side);
   return { thigh: 0.05 + 0.38 * g.stride * s, knee: 0.05 + 0.76 * g.kick * bump(phase, 0.5, 0.75) + 0.2 * bump(phase, 2.1, 0.35), upper: -0.06 + g.carry * 0.3 - 0.4 * arm * s, fore: 0.26 + 0.16 * arm * (1 - s), out: 0.03 + g.flare * 0.4, pitch: 0.34 * bump(phase, 1.6, 0.4) - 0.5 * bump(phase, -1.35, 0.45), turned: g.turned, curl: g.walking[sideIndex(side)], flex: 0.14 };
@@ -107,13 +117,19 @@ function powerSwing(g: Gait, phase: number, side: number): Swing {
 /** How far a knee shuts: past this the calf is through the thigh. */
 const FOLD = 2.2;
 
-/** Running at `effort`, one side at `phase`: pushed off behind at -π/2, the heel folds up under the hip, the knee drives through high, and the foot comes down bent-kneed under the body. */
+/**
+ * Running at `effort`, one side at `phase`: pushed off behind at -π/2, the heel folds up under the hip, the knee drives
+ * through high, and the foot comes down bent-kneed under the body.
+ */
 function runSwing(g: Gait, phase: number, side: number, effort: number): Swing {
   const s = Math.sin(phase);
   return { thigh: 0.26 + (0.4 + 0.32 * effort) * g.stride * s, knee: Math.min(FOLD, 0.22 + (0.9 + 1.1 * effort) * g.kick * bump(phase, -0.32, 0.85) + 0.42 * bump(phase, 1.5, 0.55) + 0.4 * bump(phase, 2.7, 0.55)), upper: -0.16 + g.carry - (0.3 + 0.34 * effort) * armSwing(g, side) * s, fore: g.pump[sideIndex(side)], out: 0.06 + g.flare, across: g.across, turned: g.turned * 0.6, curl: g.running[sideIndex(side)], flex: 0.03 };
 }
 
-/** The weight going from foot to foot, and with it the pelvis, the spine and the shoulders: women's hips travel further than men's, whose shoulders turn more. */
+/**
+ * The weight going from foot to foot, and with it the pelvis, the spine and the shoulders: women's hips travel further
+ * than men's, whose shoulders turn more.
+ */
 function strideBody(p: Person, phase: number, hips: number, sway: number, lean: number): Body {
   const grown = GROWN_GAIT.includes(p.build.age), female = p.build.sex === "female" && grown, g = p.gait, c = Math.cos(phase);
   return { hips, lean, twist: 0.05 * (p.build.sex === "male" && grown ? 1.3 : 0.8) * g.twist * Math.sin(phase), shift: c * sway * (female ? 0.024 : 0.014) * g.sway, drop: c * Math.min(1, sway) * (female ? 0.016 : 0.01) * g.sway, wide: (female ? 0.46 : 0.6) * g.wide };
@@ -251,7 +267,10 @@ function handed(arm: Omit<Arm, "tip" | "nail" | "knuckles" | "thumb" | "hand">, 
   return tipped({ ...arm, hand: madd(arm.wrist, add(scale(along, Math.cos(arm.flex)), scale(palm, Math.sin(arm.flex))), PALM) }, side, curl);
 }
 
-/** A hand's fingers, bent `curl` from its line in toward its palm, which turns to face the body wherever the arm goes: thumb up on a forearm held out, as a forearm really rolls. */
+/**
+ * A hand's fingers, bent `curl` from its line in toward its palm, which turns to face the body wherever the arm goes:
+ * thumb up on a forearm held out, as a forearm really rolls.
+ */
 function tipped(arm: Omit<Arm, "tip" | "nail" | "knuckles" | "thumb">, side: number, curl: number): Arm {
   const along = unit(sub(arm.hand, arm.wrist)), palm = unit(sub(arm.faces, scale(along, dot(arm.faces, along))), scale(UP, -1));
   const bent = (a: number): Vec => add(scale(along, Math.cos(a)), scale(palm, Math.sin(a)));
@@ -311,7 +330,10 @@ function skeletonFrom(p: Person, pose: Pose, loose: boolean): Skeleton {
 /** A person's bones in an action: `phase` is how far along its beat, radians. */
 export const skeletonOf = (p: Person, action: Action, phase: number): Skeleton => skeletonFrom(p, MOTIONS[action].at(p, phase), action === "rest");
 
-/** Two sets of bones `k` of the way from one to the other, however the two got there: what makes any motion fade into any other. */
+/**
+ * Two sets of bones `k` of the way from one to the other, however the two got there: what makes any motion fade into
+ * any other.
+ */
 export function blended<T>(a: T, b: T, k: number): T {
   if (typeof a === "number" && typeof b === "number") return mix(a, b, k) as T;
   if (Array.isArray(a) && Array.isArray(b)) return a.map((v: unknown, i) => blended(v, b[i] as unknown, k)) as T;
@@ -324,7 +346,9 @@ interface Solid { readonly arm: number; readonly thigh: number; readonly at: (y:
 
 const solids = new WeakMap<Person, Solid>();
 
-/** A person's solid shape, standing: the same stations their surface is lofted through, and what they have on over it. */
+/**
+ * A person's solid shape, standing: the same stations their surface is lofted through, and what they have on over it.
+ */
 function solidOf(p: Person): Solid {
   const known = solids.get(p);
   if (known) return known;

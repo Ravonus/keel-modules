@@ -17,7 +17,10 @@ interface Stage {
   readonly narrow: number;
 }
 
-/** Heads hardly vary, in a whole body's terms: `heads` is how many of them tall a person stands, so nobody short gets a huge one, nor anybody tall a tiny one. */
+/**
+ * Heads hardly vary, in a whole body's terms: `heads` is how many of them tall a person stands, so nobody short gets a
+ * huge one, nor anybody tall a tiny one.
+ */
 const STAGES: Readonly<Record<Age, Stage>> = {
   toddler: { tall: [0.8, 0.98], heads: [5.3, 5.6], legs: [0.36, 0.39], narrow: 0.84 },
   child: { tall: [1.05, 1.4], heads: [6.2, 6.8], legs: [0.42, 0.45], narrow: 0.84 },

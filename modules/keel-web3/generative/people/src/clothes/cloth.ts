@@ -48,7 +48,10 @@ const BULK_ROUND = 40, BULK_HIGH = 14;
 /** Whether a part of a body is one a hanging garment falls over. */
 const hungOver = (tag: number): boolean => inRange(tag, TORSO, TORSO + 4) || inRange(tag, LEG, FOOT - 1);
 
-/** The widest a body gets, all round it, between two heights: what anything hung from the waist has to clear, however fat it is. */
+/**
+ * The widest a body gets, all round it, between two heights: what anything hung from the waist has to clear, however
+ * fat it is.
+ */
 function bulkOf(body: Cage, top: number, hem: number, middle: number): Bulk {
   const reach = new Float32Array(BULK_ROUND * BULK_HIGH);
   const binOf = (a: number, y: number): number => Math.floor((((a / TAU) % 1) + 1) % 1 * BULK_ROUND) % BULK_ROUND + clamp(Math.floor(((top - y) / Math.max(0.01, top - hem)) * BULK_HIGH), 0, BULK_HIGH - 1) * BULK_ROUND;
@@ -65,7 +68,10 @@ function bulkOf(body: Cage, top: number, hem: number, middle: number): Bulk {
   };
 }
 
-/** A skirt, or what falls below a long top: grown out of the finished surface itself, so it is one piece, folding deeper toward the hem. */
+/**
+ * A skirt, or what falls below a long top: grown out of the finished surface itself, so it is one piece, folding deeper
+ * toward the hem.
+ */
 function skirtCage(p: Person, loop: readonly Row[], hem: number, clear: number, bulk: Bulk): Cage {
   const flare = (LONG_TOP[p.outfit.top] === undefined ? 1.1 : 1.04) + p.outfit.fit * 0.16;
   const cage: Cage = { rows: [], quads: [], tags: [] };
@@ -129,8 +135,14 @@ const lowerLift = (bottom: Bottom, fit: number): number => (bottom === "leggings
 /** A fursuit is the whole body, shagged, paler down the front. */
 const PELT: Shell = { on: () => true, lift: 0.006, shag: 0.022, role: (at) => (at[2] > 0.02 && Math.abs(at[0]) < 0.1 && at[1] > 0.86 && at[1] < 1.42 ? "belly" : "skin"), fabric: FABRICS.fur };
 
-/** Everything of the body that is seen or worn: skin where nothing covers it, and each garment cut from the same surface. */
-/** A grown woman's bust: where each side sits, and how it falls off, longer above than below and to the side, as weight settles it low. */
+/**
+ * Everything of the body that is seen or worn: skin where nothing covers it, and each garment cut from the same
+ * surface.
+ */
+/**
+ * A grown woman's bust: where each side sits, and how it falls off, longer above than below and to the side, as weight
+ * settles it low.
+ */
 interface Form { readonly x: number; readonly y: number; readonly z: number; readonly deep: number; readonly wide: number; readonly above: number; readonly below: number }
 
 function formOf(p: Person): Form | undefined {
@@ -150,14 +162,20 @@ const sideAt = (f: Form, x: number, y: number): number => {
 };
 const formAt = (f: Form, at: Vec): number => (at[2] < f.z ? 0 : sideAt(f, Math.abs(at[0]), at[1]));
 
-/** The body with the form on it: on the finished surface, where there are vertices enough for two sides and the hollow between. */
+/**
+ * The body with the form on it: on the finished surface, where there are vertices enough for two sides and the hollow
+ * between.
+ */
 function shaped(body: Cage, form: Form | undefined): Cage {
   if (!form) return body;
   const torso = new Set(body.quads.flatMap((q, f) => (inRange(body.tags[f] ?? 0, TORSO + 4, TORSO + 10) ? [...q] : [])));
   return { ...body, rows: body.rows.map((row, i) => (torso.has(i) ? row.map((v, c) => (c === 2 ? v + formAt(form, pointOf(row)) : v)) : row)) };
 }
 
-/** Where a grown body is soft: its bust, a belly in proportion to its fat, its seat. Nothing on a child or a teenager moves this way. */
+/**
+ * Where a grown body is soft: its bust, a belly in proportion to its fat, its seat. Nothing on a child or a teenager
+ * moves this way.
+ */
 function softOf(p: Person, form: Form | undefined): (at: Vec) => number {
   const { age, girth, rear, belly } = p.build;
   if (age !== "adult" && age !== "elder") return () => 0;
@@ -190,15 +208,18 @@ export function dressedBody(net: Net, p: Person, roles: readonly string[], cell:
   const soft = softOf(p, form);
   const lay = layOf(p), long = LONG_TOP[top] !== undefined, joined = cover.bare || long ? s.pelvis[1] : -FAR;
   if (p.outfit.costume === "fursuit") { shellOf(net, body, normals, PELT, roles, size); return; }
-  // (What is in a tube is never seen: it is simply not built above the hem, so a belly or a pair of trousers cannot come through it.)
+  // (What is in a tube is never seen: it is simply not built above the hem, so a belly or a pair of trousers cannot
+  // come through it.)
   const clear = clearOf(p);
   const cut = cutOf(p);
   const worn = wornOver(cover, cut, sandal);
-  // (Round the shoulders the cloth stretches off the skin as an arm moves, so the skin stays, sunk, and no gap there opens on nothing.)
+  // (Round the shoulders the cloth stretches off the skin as an arm moves, so the skin stays, sunk, and no gap there
+  // opens on nothing.)
   const hidden = (t: number): boolean => !inRange(t, TORSO + 7, TORSO + 11) && !inRange(t, ARM, ARM + 2) && worn.some((on) => on(t) && on(t - 1) && on(t + 1));
   // (Skin that stays under a garment goes in under it, so the two can never meet, however either is bent.)
   const seen = new Set(body.quads.flatMap((q, f) => (worn.some((on) => on(body.tags[f] ?? 0)) ? [] : [...q])));
-  // (And it takes the colour of what is over it, so if a bent joint ever brings it through, it does not read as a hole.)
+  // (And it takes the colour of what is over it, so if a bent joint ever brings it through, it does not read as a
+  // hole.)
   const garmentOver = (t: number): string | undefined => (!cut.top && cover.top(t) ? "top" : !cover.bare && !cut.lower && cover.lower(t) ? "bottom" : undefined);
   const under = new Map<number, string | undefined>(body.quads.flatMap((q, f) => q.map((v): [number, string | undefined] => [v, garmentOver(body.tags[f] ?? 0)])));
   const groundY = s.left.leg.ankle[1] - 0.07;
@@ -242,7 +263,10 @@ function stripedTop(p: Person, s: Skeleton): (at: Vec) => string {
   return bandsAt(Array.from({ length: stripes }, (_, i) => mix(s.waist[1], s.chest[1], (i + 0.5) / stripes)), 0.022, "trim", plain);
 }
 
-/** A cut across the rings: how far inside what is left of a garment a point is, in metres, under nought outside it. The renderer draws the line itself, sharper than any quad. */
+/**
+ * A cut across the rings: how far inside what is left of a garment a point is, in metres, under nought outside it. The
+ * renderer draws the line itself, sharper than any quad.
+ */
 function cutOf(p: Person): { readonly top?: Cut; readonly lower?: Cut } {
   const s = restSkeleton(p), { shoulder, bust } = p.build;
   const form = formOf(p);
@@ -265,7 +289,10 @@ function cutOf(p: Person): { readonly top?: Cut; readonly lower?: Cut } {
 }
 
 /** The hanging tube of whatever a person has on that has one. */
-/** An umbrella, built up and open over its holder, then taken back into the hand's resting place so it rides on that bone. */
+/**
+ * An umbrella, built up and open over its holder, then taken back into the hand's resting place so it rides on that
+ * bone.
+ */
 function umbrellaCage(p: Person): Cage {
   const hand = heldHand(p), back = hand.toRest, axis = SHAFT;
   const cage: Cage = { rows: [], quads: [], tags: [] };
@@ -326,7 +353,9 @@ function skirtShell(net: Net, p: Person, roles: readonly string[], long: boolean
   shellOf(net, cage, normalsOf(cage), { on: () => true, lift: 0, role: () => (long ? "top" : "bottom"), fabric: long ? topCloth(p) : lowerCloth(p), hang, edge: (at) => at[1] < from - 0.05 }, roles, p.build.size);
 }
 
-/** The layers a person is built of, inside out, each its own shell: body, head and neck, what they have on, their hair. */
+/**
+ * The layers a person is built of, inside out, each its own shell: body, head and neck, what they have on, their hair.
+ */
 /** How high hair may go: to a hat's hem. */
 export const roofOf = (dressed: readonly Capsule[], size: number): number => (dressed.find((c) => c.part === "hat")?.hem ?? FAR) - 0.006 * size;
 
@@ -336,7 +365,10 @@ const meshHair = (massive: boolean, far: boolean) => (c: Capsule): boolean => fa
 /** Further off than this a head is what it melts to: a fixed mesh would have nothing to show there. */
 export const WRAPPED = 0.05;
 
-/** The neck as the body builds it, a little inside it so it closes over the head's edge: where its middle lies from the head's, and its half width and depth, in head radii. */
+/**
+ * The neck as the body builds it, a little inside it so it closes over the head's edge: where its middle lies from the
+ * head's, and its half width and depth, in head radii.
+ */
 function neckFor(p: Person, h: HeadFrame): readonly [number, number, number] {
   const s = restSkeleton(p), R = h.r * 0.5 * neckBy(p), z = lerpV(s.neck, s.head, 0.72)[2] - h.r * 0.1 * p.face.bone.m;
   return [(z - h.c[2]) / h.r, (R * 0.86 * 0.94) / h.r, (R * 0.96 * 0.94) / h.r];
@@ -370,7 +402,8 @@ export function layersOf(
   const roof = roofOf(dressed, k);
   // (Near to, a style is its locks: what they grow from is only the shell under them, and a beard.)
   const massive = COMBS[styleOf(p)]?.shell === true, hair = on("hair").filter(meshHair(massive, cell >= FAR_HAIR));
-  // (The scalp stops where hair is thick over it, so it never shows through a parting; hair stops at a hat's hem, so it never shows through the crown.)
+  // (The scalp stops where hair is thick over it, so it never shows through a parting; hair stops at a hat's hem, so it
+  // never shows through the crown.)
   const layers: Layer[] = [
     { parts: bare.filter((c) => head(c) && c.part !== "neck"), fine: 0.5, fabric: bareStuff, lift: 0, under: hair, tuck: -0.008 * k, relax: 2, loft: loftOf(p), rigid: true, ...pelt, ...headLayerOf(p, cell) },
     { parts: bare.filter((c) => /^(palm|fingers|thumb)/.test(c.part)), fine: 0.35, fabric: bareStuff, lift: 0 },
@@ -382,7 +415,10 @@ export function layersOf(
   return layers.filter((l) => l.parts.length > 0);
 }
 
-/** How open each vertex lies: a surface turning in on itself round a vertex shuts it off from the sky, and that spreads a little either side of the fold. */
+/**
+ * How open each vertex lies: a surface turning in on itself round a vertex shuts it off from the sky, and that spreads
+ * a little either side of the fold.
+ */
 export function creases(net: Net): Float32Array {
   const n = net.position.length / 3, shut = new Float32Array(n), links = new Float32Array(n);
   const towards = (a: number, b: number): void => {
@@ -404,7 +440,9 @@ export function creases(net: Net): Float32Array {
   return shut.map((c) => 1 - 0.5 * clamp((c - 0.01) / 0.1, 0, 1));
 }
 
-/** A shirt hangs over what is under it, and the shadow it throws there is what parts the two, whatever their colours. */
+/**
+ * A shirt hangs over what is under it, and the shadow it throws there is what parts the two, whatever their colours.
+ */
 export function hemShadow(net: Net, shade: Float32Array, roles: readonly string[], size: number): Float32Array {
   const top = roles.indexOf("top"), lower = [roles.indexOf("bottom"), roles.indexOf("dark")];
   const hem = net.role.reduce((low, role, v) => (role === top ? Math.min(low, net.position[v * 3 + 1] ?? FAR) : low), FAR);

@@ -130,7 +130,10 @@ export function cellPoint(grid: Grid, x: number, y: number, z: number): Vec | nu
   return [min[0] + (x + sum[0] / hits) * h, min[1] + (y + sum[1] / hits) * h, min[2] + (z + sum[2] / hits) * h];
 }
 
-/** A vertex's two bones and the first's share: the nearest part's, and the nearest of any other bone's, blended across a joint. */
+/**
+ * A vertex's two bones and the first's share: the nearest part's, and the nearest of any other bone's, blended across a
+ * joint.
+ */
 export function weightsAt(
   parts: readonly Capsule[],
   bones: readonly number[],
@@ -158,7 +161,10 @@ export function weightsAt(
   return [first, second, clamp(0.5 + (next - near) / 0.14, 0.5, 1)];
 }
 
-/** How thick a leg is at the hip, knee, ankle and toe to what hangs over it, a little more than it really is, for the cloth to clear it. */
+/**
+ * How thick a leg is at the hip, knee, ankle and toe to what hangs over it, a little more than it really is, for the
+ * cloth to clear it.
+ */
 const LEG_THICK = [0.1, 0.07, 0.055, 0.05] as const;
 
 export function legsOf(p: Person): PersonMesh["legs"] {
@@ -186,9 +192,15 @@ export interface PersonMesh {
   readonly fabric: Uint8Array;
   /** How free of the body it hangs, 0 to 1. */
   readonly loose: Float32Array;
-  /** Four a vertex, how cloth lies on it: where it is round its limb (x, z off the limb's line), how far along it, and how far from the garment's edge in metres. */
+  /**
+   * Four a vertex, how cloth lies on it: where it is round its limb (x, z off the limb's line), how far along it, and
+   * how far from the garment's edge in metres.
+   */
   readonly cloth: Float32Array;
-  /** How open each vertex lies to the light, 0 down in a crease to 1 in the open, and a little over 1 where a face is lit from within it: nothing clamps it. */
+  /**
+   * How open each vertex lies to the light, 0 down in a crease to 1 in the open, and a little over 1 where a face is
+   * lit from within it: nothing clamps it.
+   */
   readonly shade: Float32Array;
   /** How much soft flesh rides on it, 0 to 1: what `jiggleAt` moves. */
   readonly soft: Float32Array;
@@ -311,7 +323,10 @@ export interface Layer {
   readonly free?: readonly [from: number, span: number];
 }
 
-/** A hollow or a rise pressed into a finished surface, a little way round `at`: what is melted in can only add, and bone needs both. */
+/**
+ * A hollow or a rise pressed into a finished surface, a little way round `at`: what is melted in can only add, and bone
+ * needs both.
+ */
 interface Dent { readonly at: Vec; readonly r: Vec; readonly by: number }
 
 /** Each dent let into the field, over only the cells it can reach. */
@@ -340,7 +355,9 @@ export function dented(grid: Grid, dents: readonly Dent[]): void {
   }
 }
 
-/** A run through knots, `at` rising, that goes no further than they do between them: an outline with no wobble in it. */
+/**
+ * A run through knots, `at` rising, that goes no further than they do between them: an outline with no wobble in it.
+ */
 function eased(knots: readonly (readonly [number, number])[]): (at: number) => number {
   const gap = knots.slice(1).map(([x, y], i) => { const [px = 0, py = 0] = knots[i] ?? [];
   return [x - px, (y - py) / (x - px)] as const; });
@@ -368,7 +385,9 @@ function eased(knots: readonly (readonly [number, number])[]): (at: number) => n
   };
 }
 
-/** One slice of a face, level, in head radii: how wide, where it is widest, how far forward of that and how far back. */
+/**
+ * One slice of a face, level, in head radii: how wide, where it is widest, how far forward of that and how far back.
+ */
 interface Slice { readonly x: number; readonly at: number; readonly front: number; readonly back: number }
 
 /** How wide a face runs at each height, chin to crown. */
@@ -388,7 +407,10 @@ function widthOf(b: Bone): (y: number) => number {
   ]);
 }
 
-/** How far forward a face lies at each height, down its middle before a nose: brow, the dip at the eyes, the fullness of the mouth, the fold over the chin. */
+/**
+ * How far forward a face lies at each height, down its middle before a nose: brow, the dip at the eyes, the fullness of
+ * the mouth, the fold over the chin.
+ */
 function depthOf(b: Bone): (y: number) => number {
   const under = b.men + 0.16;
   const muzzle = mix(0.95, 1, b.m);
@@ -406,7 +428,10 @@ function depthOf(b: Bone): (y: number) => number {
   ]);
 }
 
-/** A face's slices: below its corners the jaw draws forward to the chin, and at the chin all of it rounds off to nothing. */
+/**
+ * A face's slices: below its corners the jaw draws forward to the chin, and at the chin all of it rounds off to
+ * nothing.
+ */
 function slicesOf(b: Bone): (y: number) => Slice {
   const wide = widthOf(b);
   const deep = depthOf(b);
@@ -485,7 +510,10 @@ function meltRow(grid: Grid, y: number, z: number, distance: (x: number) => numb
   }
 }
 
-/** The bone a face shows, as dents on the rest head: brow, cheekbone, sockets, the hollows under them, the root of the nose, the fold over the chin and the chin itself. */
+/**
+ * The bone a face shows, as dents on the rest head: brow, cheekbone, sockets, the hollows under them, the root of the
+ * nose, the fold over the chin and the chin itself.
+ */
 export function dentsOf(p: Person, eyed = false): readonly Dent[] {
   if (p.outfit.costume === "fursuit") return [];
   const b = p.face.bone;
@@ -550,7 +578,10 @@ const PANEL_DEEP = 0.16;
 /** How far either side of a panel's end cloth goes over from lying to hanging. */
 const KNEE_BLEND = 0.08;
 
-/** A skirt goes with its two panels, front and back meeting at the sides, and below `knee` it hangs from them. Its own folds and sway come from `free`. */
+/**
+ * A skirt goes with its two panels, front and back meeting at the sides, and below `knee` it hangs from them. Its own
+ * folds and sway come from `free`.
+ */
 export function skirtWeights(at: Vec, knee = -FAR, hinge = FAR): readonly [number, number, number] {
   if (at[1] > hinge) return [PELVIS, PELVIS, 1];
   const blend = (at[1] - knee + KNEE_BLEND) / (2 * KNEE_BLEND);

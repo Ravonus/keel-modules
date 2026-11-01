@@ -68,7 +68,9 @@ export interface Body {
   readonly glow: number;
   /** Colours that light themselves (a neon skin's markings). */
   readonly lit?: readonly Role[];
-  /** The coat's grain, for sdf-body: fur in locks, feathers in rows, a snake's scales; none on a bug's or crab's shell. */
+  /**
+   * The coat's grain, for sdf-body: fur in locks, feathers in rows, a snake's scales; none on a bug's or crab's shell.
+   */
   readonly grain?: {
     readonly kind: "fur" | "feather" | "scale" | "spine" | "plate";
     readonly size: number;
@@ -113,7 +115,10 @@ export interface Body {
     readonly flush?: number;
     readonly depth?: number;
   };
-  /** A pattern grown over its coat, its own (seeded) and in one of its colours: a tabby's stripes, an owl's bars, mottling on a plain coat. */
+  /**
+   * A pattern grown over its coat, its own (seeded) and in one of its colours: a tabby's stripes, an owl's bars,
+   * mottling on a plain coat.
+   */
   readonly pattern?: {
     readonly kind:
       | "dapple"
@@ -182,9 +187,13 @@ const GRAINS: Readonly<Record<Plan, "fur" | "feather" | "scale" | null>> = { qua
 // (An owl's plumage is soft and fine: its rows lie close, not in ridges; a cat's coat is short and sleek.)
 const COARSE: Partial<Record<SpeciesId, readonly ["fur" | "feather" | "scale" | "spine" | "plate", number]>> = { hedgehog: ["spine", 0.115], tortoise: ["plate", 0.12], owl: ["feather", 0.005], cat: ["fur", 0.022], sloth: ["fur", 0.075], macaque: ["fur", 0.05], monkey: ["fur", 0.03] };
 // (A sloth's long coat falls away from the top of its back in shaggy locks that break its outline.)
-// (A snow macaque's coat is a pelt grown from its skeleton, on its coat role alone: its face, hands and seat stay bare.)
+// (A snow macaque's coat is a pelt grown from its skeleton, on its coat role alone: its face, hands and seat stay
+// bare.)
 const SHAGS: Partial<Record<SpeciesId, { readonly lie?: Vec; readonly rise?: number; readonly on?: Role }>> = { sloth: { lie: [0, -1, -0.15], rise: 4.4 }, macaque: { on: "coat" }, monkey: { on: "coat" } };
-/** A hedgehog's spines: set about the middle of its dome, they lie back along it from its forehead to its rump and a little down its flanks, and grow on its mantle alone. */
+/**
+ * A hedgehog's spines: set about the middle of its dome, they lie back along it from its forehead to its rump and a
+ * little down its flanks, and grow on its mantle alone.
+ */
 function quillGrain(who: Who, m: Moment): { crown: Vec; lie: Vec; rise: number; on: Role } {
   const body = quadSpine(who, m.pose, m);
   const back = unit(sub(body.P, body.S), [0, 0, -1]);
@@ -206,7 +215,10 @@ function shellScales(who: Who, capsules: readonly Capsule[]): { at: Vec; reach: 
   }
   return scales;
 }
-/** A tortoise's plates: laid over its dome wherever the dome lies and however far it has pitched, as high and as toothed as this animal's shell grew. */
+/**
+ * A tortoise's plates: laid over its dome wherever the dome lies and however far it has pitched, as high and as toothed
+ * as this animal's shell grew.
+ */
 function plateGrain(
   who: Who,
   m: Moment,
@@ -265,7 +277,10 @@ function grainOf(who: Who, m: Moment, capsules: readonly Capsule[]): Pick<Body, 
 }
 
 type CoatPattern = NonNullable<Body["pattern"]>;
-/** A pattern: its kind, its colour, its feature size in the animal's sizes, how strongly it shows, a colour of its own in place of its role's, and for scutes how whole their rays run. */
+/**
+ * A pattern: its kind, its colour, its feature size in the animal's sizes, how strongly it shows, a colour of its own
+ * in place of its role's, and for scutes how whole their rays run.
+ */
 type PatternSpec = readonly [CoatPattern["kind"], Role, number, number, (string | undefined)?, number?];
 /**
  * Patterns by species, then by coat where a coat has its own (a tabby's
@@ -284,7 +299,8 @@ const COAT_PATTERNS: Readonly<Record<string, PatternSpec>> = {
   sparrow: ["streaks", "dark", 0.09, 0.55],
   snowy: ["chevrons", "dark", 0.1, 1, "#3a2c22"],
   banded: ["dapple", "alt", 0.3, 0.1],
-  // (One algorithm on a tortoise's plates: a leopard's pigment stops and starts in blotches, a star's never rests and runs out in rays.)
+  // (One algorithm on a tortoise's plates: a leopard's pigment stops and starts in blotches, a star's never rests and
+  // runs out in rays.)
   leopard: ["scutes", "dark", 0.021, 1, undefined, 0.15],
   star: ["scutes", "accent", 0.016, 1, undefined, 1],
   barn: ["chevrons", "dark", 0.085, 0.7],
@@ -323,7 +339,10 @@ function patternOf(who: Who): PatternSpec | null {
   return who.member.morph === "normal" || spec[0] === "scutes" ? spec : null;
 }
 
-/** How far each pupil's kind of eye has its lid down, and how it slants: a hunter's narrowed and rising to the corner, a grazer's wide and level. */
+/**
+ * How far each pupil's kind of eye has its lid down, and how it slants: a hunter's narrowed and rising to the corner, a
+ * grazer's wide and level.
+ */
 const LIDS: Readonly<Record<EyeStyle["pupil"], readonly [number, number]>> = { slit: [0.34, 0.32], round: [0.3, 0.18], bar: [0.24, 0.04], dark: [0.2, 0.08], bead: [0, 0] };
 
 /** How far down a lid of skin comes to shut an eye: past its middle, the line of its lashes low on the lens. */
@@ -345,7 +364,10 @@ function eyesOf(who: Who, asleep: boolean): Pick<Body, "eye" | "palette"> {
   return { eye: { role: "eye", lid: style.skinLid && asleep ? SHUT_LID : own, slant: slant * mix(0.7, 1.3, gene()), color, pupil: pupil === "bead" ? "dark" : pupil, ring: style.rim, ...(style.skinLid ? { spark: style.spark ?? 0.2 } : {}) }, palette: { ...palette, eye: iris } };
 }
 
-/** Bare skin's own light, for the animals whose skin shows: a macaque's face and seat, matte, the red of the blood under it. */
+/**
+ * Bare skin's own light, for the animals whose skin shows: a macaque's face and seat, matte, the red of the blood under
+ * it.
+ */
 function skinOfBody(who: Who): Pick<Body, "skin"> {
   // (A guineafowl's head is bare skin, so its pearl spots stop at the neck.)
   if (who.member.species === "guineafowl") return { skin: { role: "accent", chroma: 0.9, depth: 0.9 } };
@@ -425,7 +447,10 @@ function trunkOf(who: Who, kind: CoatPattern["kind"], q: Pose): Pick<CoatPattern
   return { trunk, dorsal, ...(kind === "patches" ? { second: who.member.palette.dark } : kind === "grizzle" ? { second: who.member.palette.belly } : {}) };
 }
 
-/** How strongly a pattern shows: as its kind has it, but a snowy owl hen is barred far more heavily than the cock, who is nearly white. */
+/**
+ * How strongly a pattern shows: as its kind has it, but a snowy owl hen is barred far more heavily than the cock, who
+ * is nearly white.
+ */
 function contrastOf(who: Who, spec: PatternSpec): number {
   // (A morph's shell keeps its marks, but quieter: the morph's own colour is what shows.)
   if (spec[0] === "scutes" && who.member.morph !== "normal") return spec[3] * 0.62;

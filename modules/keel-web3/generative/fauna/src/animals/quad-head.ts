@@ -82,7 +82,10 @@ export interface Head {
 /** Heads a touch big for the body, as a toy's are: the face is what makes an animal read at a glance. */
 export const CHARM = 1.18;
 
-/** A skull's outline and its muzzle's, joined: the muzzle's stations run from the stop (0) to the nose (1), its length the animal's own snout. */
+/**
+ * A skull's outline and its muzzle's, joined: the muzzle's stations run from the stop (0) to the nose (1), its length
+ * the animal's own snout.
+ */
 function headStations(b: Build, snout: number, hr: number): { stations: Station[]; stop: number; tip: number } | null {
   if (!b.skull) return null;
   const skull = [...b.skull];
@@ -222,7 +225,8 @@ function earOf(
   else if (kind === "round" || kind === "fluffy" || kind === "rimmed") roundEar(kit, part, kind, h, x, size);
   else if (kind === "long") {
     // (Splayed in a V, so the pair reads from behind as well as from the side.)
-    // (Broad and standing up off the head, so they clear the hunched back and still read when the head is a few pixels.)
+    // (Broad and standing up off the head, so they clear the hunched back and still read when the head is a few
+    // pixels.)
     const root = at3(h, -0.12, x * 0.36, 0.72);
     const dir = unit(add(add(scale(h.u, 1.15 - back * 0.7), scale(h.d, -(0.08 + back))), scale(h.s, x * 0.3)));
     cap(kit, part, "coat", root, madd(root, dir, h.r * 2.2 * size), h.r * 0.42, 0.75, h.d, {
@@ -252,11 +256,15 @@ function earOf(
   }
 }
 
-/** A round ear set out on top of the head, so even a mouse's clears its outline; a koala's with a pale fringe of fur, a raccoon's white round its edge with the dark inside it. */
+/**
+ * A round ear set out on top of the head, so even a mouse's clears its outline; a koala's with a pale fringe of fur, a
+ * raccoon's white round its edge with the dark inside it.
+ */
 function roundEar(kit: Kit, part: string, kind: Ears, h: Head, x: number, size: number): void {
   const fluffy = kind === "fluffy";
   const rimmed = kind === "rimmed";
-  // (A raccoon's sits wide on the skull's corner, thick and turned well outward, so its white rim shows from every side.)
+  // (A raccoon's sits wide on the skull's corner, thick and turned well outward, so its white rim shows from every
+  // side.)
   const at = rimmed ? at3(h, -0.16, x * 0.7, 0.84) : fluffy ? at3(h, -0.1, x * 0.8, 0.85) : at3(h, -0.2, x * 0.6, 0.98);
   const er = h.r * 0.32 * size;
   cap(
@@ -275,7 +283,10 @@ function roundEar(kit: Kit, part: string, kind: Ears, h: Head, x: number, size: 
   if (rimmed) decal(kit, `${part}.in`, "alt", at, at, er * 0.86);
 }
 
-/** A leathery cup set low on the side of the head and turned out and forward, its pale rim round the dark of its hollow (a hedgehog's, just under its spines). */
+/**
+ * A leathery cup set low on the side of the head and turned out and forward, its pale rim round the dark of its hollow
+ * (a hedgehog's, just under its spines).
+ */
 function cupEar(kit: Kit, part: string, h: Head, x: number, size: number): void {
   const at = at3(h, -0.2, x * 0.86, 0.62);
   const er = h.r * 0.32 * size;
@@ -367,7 +378,10 @@ export function eyeAt(kit: Kit, part: string, h: Head, at: Vec, n: Vec, r0: numb
   ball(kit, `${part}.shine`, "shine", madd(madd(madd(c, n, r * lens.out), up, r * lens.high), across, -r * lens.aside), r * (style.spark ?? (style.set ? 0.12 : 0.24)));
 }
 
-/** A lens: how far it sinks into the head, how flat it is, and where its spark sits on it (out along it, up it, and aside). */
+/**
+ * A lens: how far it sinks into the head, how flat it is, and where its spark sits on it (out along it, up it, and
+ * aside).
+ */
 const LENS = { sink: 0.15, flat: 0.8, out: 0.82, high: 0.36, aside: 0.2 };
 const LOW_LENS = { sink: 0.2, flat: 0.55, out: 0.47, high: 0.3, aside: 0.16 };
 
@@ -451,7 +465,10 @@ function noseOf(kit: Kit, b: Build, h: Head, tip: Vec, tipR: number): void {
   } else ball(kit, "nose", "nose", madd(tip, h.d, b.snoutTip < 0.5 ? tipR * 0.8 : 0), Math.max(tipR * 0.6, h.r * 0.12));
 }
 
-/** A tuft of pale fur back from the cheek and out past the jaw to a soft point, which makes a broad head of a narrow muzzle from the front and breaks its outline from the side. */
+/**
+ * A tuft of pale fur back from the cheek and out past the jaw to a soft point, which makes a broad head of a narrow
+ * muzzle from the front and breaks its outline from the side.
+ */
 function jowlOf(kit: Kit, h: Head, x: number): void {
   cap(kit, `jowl.${x < 0 ? "L" : "R"}`, "belly", at3(h, 0.4, x * 0.56, -0.36), at3(h, -0.38, x * 0.98, -0.56), h.r * 0.42, 1, UP, { r1: h.r * 0.17, melt: 1 });
 }
@@ -496,7 +513,8 @@ function catFace(kit: Kit, actor: Who, h: Head, q: Pose, asleep: boolean): void 
   const along = (k: number): Vec => madd(h.c, h.d, k * h.r);
   // (A point on the face: along the head, then out and up from its axis, in head radii.)
   const on: FaceAt = (d, s, u) => add(along(d), add(scale(h.s, s * h.r), scale(h.u, u * h.r)));
-  // (The skull lies across the head, so it is round from the side and broad from the front; this is a point on its skin.)
+  // (The skull lies across the head, so it is round from the side and broad from the front; this is a point on its
+  // skin.)
   const skin: Skin = (s, u) =>
     on(Math.sqrt(Math.max(0.88 ** 2 - Math.max(Math.abs(s) - 0.1, 0) ** 2 - u ** 2, 0.02)), s, u);
   cap(kit, "head.0", "coat", on(0, -0.1, 0), on(0, 0.1, 0), h.r * 0.88);
@@ -539,9 +557,13 @@ function coatFace(kit: Kit, actor: Who, h: Head, on: FaceAt, skin: Skin): readon
   return x < 0 ? ["dark", "alt"] : ["alt", "dark"];
 }
 
-/** A tabby's face: the dark M on the brow, two peaks over a dip between the eyes, and a line back from each eye's outer corner. */
+/**
+ * A tabby's face: the dark M on the brow, two peaks over a dip between the eyes, and a line back from each eye's outer
+ * corner.
+ */
 function tabbyFace(kit: Kit, h: Head, on: FaceAt, skin: Skin): void {
-  // (Each a thin blade, flat across its own line and deep into the head, so it meets the curve of the crown from end to end.)
+  // (Each a thin blade, flat across its own line and deep into the head, so it meets the curve of the crown from end to
+  // end.)
   const line = (a: Vec, b: Vec, wide: number): void => {
     const n = unit(sub(lerpV(a, b, 0.5), h.c), h.d);
     cap(kit, "brow", "alt", a, b, h.r * 0.2, wide / 0.2, unit(cross(sub(b, a), n), h.s), { decal: true });
@@ -553,12 +575,19 @@ function tabbyFace(kit: Kit, h: Head, on: FaceAt, skin: Skin): void {
   }
 }
 
-/** A calico's patch on one side of its face, from the ear down round the eye: the eye framed in it, the nose and the blaze left white. */
+/**
+ * A calico's patch on one side of its face, from the ear down round the eye: the eye framed in it, the nose and the
+ * blaze left white.
+ */
 function calicoPatch(kit: Kit, h: Head, skin: Skin, x: number, role: Role, gene: () => number): void {
   decal(kit, "face", role, skin(x * mix(0.6, 0.8, gene()), mix(0.5, 0.72, gene())), skin(x * mix(0.44, 0.64, gene()), mix(-0.02, 0.2, gene())), h.r * mix(0.34, 0.56, gene()));
 }
 
-/** A cat's eye, painted flat into the skull: a dark almond tilted up to its outer corner, heavier along its upper lid, the iris in it, the slit tall and narrow down its middle, the one catch of light on the same side of both; shut, a dark line. */
+/**
+ * A cat's eye, painted flat into the skull: a dark almond tilted up to its outer corner, heavier along its upper lid,
+ * the iris in it, the slit tall and narrow down its middle, the one catch of light on the same side of both; shut, a
+ * dark line.
+ */
 function catEye(kit: Kit, h: Head, at: Vec, x: number, open: boolean): void {
   const part = `eye.${x < 0 ? "L" : "R"}`;
   const n = unit(add(h.d, add(scale(h.s, x * 0.8), scale(h.u, 0.2))));
@@ -573,7 +602,10 @@ function catEye(kit: Kit, h: Head, at: Vec, x: number, open: boolean): void {
   eyeAt(kit, part, h, at, n, h.r * 0.2, true);
 }
 
-/** A cat's ear: a broad low triangle, a little rounded at its tip, on the corner of its head, held up however the head tilts, its pink inside turned forward so both show. */
+/**
+ * A cat's ear: a broad low triangle, a little rounded at its tip, on the corner of its head, held up however the head
+ * tilts, its pink inside turned forward so both show.
+ */
 function catEar(kit: Kit, h: Head, on: FaceAt, x: number, back: number, role: Role): void {
   const part = `ear.${x < 0 ? "L" : "R"}`;
   const root = on(-0.1, x * 0.6, 0.55);
@@ -629,7 +661,10 @@ export function facePatch(
   cap(kit, part, role, at, madd(at, along, reach), r, flat, cross(n, along), { decal: true, r1, melt });
 }
 
-/** A raccoon's mask round one eye: an oval from just short of the bridge, where it barely meets its pair, back and down past the eye, narrowing toward the jaw's corner. */
+/**
+ * A raccoon's mask round one eye: an oval from just short of the bridge, where it barely meets its pair, back and down
+ * past the eye, narrowing toward the jaw's corner.
+ */
 function banditMask(kit: Kit, h: Head, eye: FacePoint, band: number): void {
   const [d, s, u] = eye;
   const x = Math.sign(s) || 1;
@@ -637,7 +672,10 @@ function banditMask(kit: Kit, h: Head, eye: FacePoint, band: number): void {
   facePatch(kit, "mask", "dark", h, onFace(h, eye), run, h.r * 0.5, band * 2.6, band * 1, 0.52, 1.1);
 }
 
-/** A pale brow over one eye's mask, found from the eye too: nearly level along the mask's top, out from over the eye, thin and fading at its outer end. */
+/**
+ * A pale brow over one eye's mask, found from the eye too: nearly level along the mask's top, out from over the eye,
+ * thin and fading at its outer end.
+ */
 function browMark(kit: Kit, h: Head, eye: FacePoint, band: number): void {
   const [d, s, u] = eye;
   const x = Math.sign(s) || 1;

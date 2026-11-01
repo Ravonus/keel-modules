@@ -157,7 +157,10 @@ function crabLegs(kit: Kit, C: Vec, x: number, r: number, legLen: number, who: W
   }
 }
 
-/** A claw: an arm folded in front of the face, a swollen palm, a fixed finger and a moving one that open and close on each other. (A fiddler's one claw is huge, and it is the one it waves.) */
+/**
+ * A claw: an arm folded in front of the face, a swollen palm, a fixed finger and a moving one that open and close on
+ * each other. (A fiddler's one claw is huge, and it is the one it waves.)
+ */
 function crabClaw(kit: Kit, C: Vec, x: number, r: number, big: number, wave: number, open: number): void {
   const root = add(C, [x * r * 1.0, 0, r * 0.55]);
   const palm = add(C, [x * r * 0.86, r * 0.1 + wave * r * 1.5, r * 1.3]);

@@ -6,7 +6,10 @@ import type { TreeFrame } from "./frame.js";
 
 // ---------------------------------------------------------------- bending
 
-/** Weight resting on a node of the tree (an animal on a branch), pulling it down. A negative weight lifts it, as a limb springs back past rest. */
+/**
+ * Weight resting on a node of the tree (an animal on a branch), pulling it down. A negative weight lifts it, as a limb
+ * springs back past rest.
+ */
 export interface Load {
   readonly node: number;
   readonly weight: number;
@@ -18,7 +21,10 @@ export interface Load {
  * under a songbird; a thick limb hardly moves under a monkey; the trunk never.
  */
 export const WOOD_SAG = 6e-6;
-/** The most any one piece turns, in radians, and the most a load sinks, in world units and as a share of the limb's reach. */
+/**
+ * The most any one piece turns, in radians, and the most a load sinks, in world units and as a share of the limb's
+ * reach.
+ */
 const MOST_TURN = 0.3;
 /** The girth of a twig, which gives freely; thicker wood gives less again by the square of its girth. */
 const TWIG = 0.02;
@@ -41,7 +47,10 @@ function limbOf(model: TreeModel, node: number): number[] {
   return chain.reverse();
 }
 
-/** How far each node of the limb sinks: every piece turns by the load's moment over its own stiffness, and carries all beyond it down. */
+/**
+ * How far each node of the limb sinks: every piece turns by the load's moment over its own stiffness, and carries all
+ * beyond it down.
+ */
 function limbDrops(frame: TreeFrame, chain: readonly number[], load: Load, sag: number): number[] {
   const lx = at(frame.x, load.node);
   const lz = at(frame.z, load.node);

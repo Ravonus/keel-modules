@@ -41,7 +41,10 @@ export type Kit = Capsule[];
 
 export const put = (kit: Kit, part: string, role: string, a: Vec, b: Vec, r: number, finish: Finish = {}): void => { kit.push({ part, role, a, b, r, flat: 1, up: UP, ...finish }); };
 export const ball = (kit: Kit, part: string, role: string, p: Vec, r: number, finish: Finish = {}): void => { put(kit, part, role, p, p, r, finish); };
-/** A level band round whatever passes through it, a thin sheet that finds the surface wherever it lies: a stripe, a belt. */
+/**
+ * A level band round whatever passes through it, a thin sheet that finds the surface wherever it lies: a stripe, a
+ * belt.
+ */
 const band = (kit: Kit, part: string, role: string, at: Vec, wide: number, thick: number): void => { put(kit, part, role, at, at, wide, { decal: true, flat: thick / wide, up: UP, melt: 0.2 }); };
 export const paint = (kit: Kit, part: string, role: string, a: Vec, b: Vec, r: number): void => { put(kit, part, role, a, b, r, { decal: true }); };
 
@@ -125,7 +128,10 @@ function swung(d: Vec, from: Vec, to: Vec): Vec {
   return add(add(scale(d, c), cross(axis, d)), scale(axis, dot(axis, d) / (1 + c)));
 }
 
-/** A rest frame as an arm's bone carries it to a pose: swung, never wrung round its own length, so a shoulder is not twisted shut. */
+/**
+ * A rest frame as an arm's bone carries it to a pose: swung, never wrung round its own length, so a shoulder is not
+ * twisted shut.
+ */
 export function swungFrame(
   frame: readonly [Vec, Vec, Vec],
   ra: Vec,
@@ -146,7 +152,10 @@ export function handFrame(a: Vec, b: Vec, knuckles: Vec): readonly [Vec, Vec, Ve
   return [x, along, cross(x, along)];
 }
 
-/** The right hand's way from holding pose to rest and back: anything carried is made where it is held, and ridden home to the bone. */
+/**
+ * The right hand's way from holding pose to rest and back: anything carried is made where it is held, and ridden home
+ * to the bone.
+ */
 export function heldHand(p: Person): {
   readonly toRest: (at: Vec) => Vec;
   readonly toHeld: (at: Vec) => Vec;
@@ -282,7 +291,10 @@ function drawStripes(kit: Kit, p: Person, s: Skeleton, ribs: Vec): void {
   for (let i = 0; i < stripes; i += 1) band(kit, `stripe.${String(i)}`, "trim", lerpV(s.waist, ribs, (i + 0.5) / stripes), p.build.shoulder * 1.4, 0.013);
 }
 
-/** A hood that is down: its opening a thick roll of cloth round the neck, crossing at the throat, and the bag of it lying flat on the back; two cords down the front. Only the bag where parts are few. */
+/**
+ * A hood that is down: its opening a thick roll of cloth round the neck, crossing at the throat, and the bag of it
+ * lying flat on the back; two cords down the front. Only the bag where parts are few.
+ */
 function drawHood(kit: Kit, p: Person, s: Skeleton, rich: boolean): void {
   const { head } = p.build;
   const r = head * 0.62;

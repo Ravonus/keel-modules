@@ -153,7 +153,10 @@ function headTurn(who: Who, m: Moment): { readonly yaw: number; readonly roll: n
   return { yaw: -1.3 * Math.tanh(k * k * k), roll: q.headRoll, tuck: 0 };
 }
 
-/** How far a bird's shoulders turn after its head, on feet that stay put: an owl's only, so a long look is the whole bird's. */
+/**
+ * How far a bird's shoulders turn after its head, on feet that stay put: an owl's only, so a long look is the whole
+ * bird's.
+ */
 function bodyTurn(who: Who, m: Moment): number {
   return who.member.species === "owl" && m.mode !== "fly" ? headTurn(who, m).yaw * 0.2 : 0;
 }
@@ -187,7 +190,9 @@ function owlSkullAt(who: Who, body: BirdBody, q: Pose, yaw: number, tuck: number
   return madd(madd(top, hd, hr * 0.4 * (1 - upright * 0.85)), UP, hr * upright * 0.15);
 }
 
-/** How long a bird's neck is, in its body's radii: at its least still a real neck, the length of the skull it carries. */
+/**
+ * How long a bird's neck is, in its body's radii: at its least still a real neck, the length of the skull it carries.
+ */
 const neckLength = (who: Who, b: Build, body: BirdBody): number =>
   Math.max(b.neck * who.member.size * 1.15, body.r * 0.95);
 const longNeck = (who: Who, b: Build, body: BirdBody): boolean => neckLength(who, b, body) > body.r * 1.6;
@@ -279,7 +284,10 @@ function billRoot(who: Who, h: Head): { root: Vec; br: number } {
   };
 }
 
-/** How a bill grows, in shares of its length: how far its top line arches, how far its tip droops below its root, and how far along the lower half reaches. */
+/**
+ * How a bill grows, in shares of its length: how far its top line arches, how far its tip droops below its root, and
+ * how far along the lower half reaches.
+ */
 interface Bill { readonly arch: number; readonly hook: number; readonly low: number }
 const BILL: Bill = { arch: 0.08, hook: 0.04, low: 0.88 };
 const BILLS: Partial<Readonly<Record<string, Bill>>> = {
@@ -294,7 +302,10 @@ const BILLS: Partial<Readonly<Record<string, Bill>>> = {
   peacock: { arch: 0.1, hook: 0.08, low: 0.84 },
 };
 
-/** The bill, two sheaths of horn meeting along a gape: the upper arched and drawn down to its point, the lower slimmer and shorter under it, dropping as the mouth opens. No two birds' are quite the same. */
+/**
+ * The bill, two sheaths of horn meeting along a gape: the upper arched and drawn down to its point, the lower slimmer
+ * and shorter under it, dropping as the mouth opens. No two birds' are quite the same.
+ */
 function birdBeak(kit: Kit, who: Who, h: Head, beak: number, mouth: number): void {
   const { root, br } = billRoot(who, h);
   const gene = createRandom(markOf(who) ^ 0x51ed270b);
@@ -459,7 +470,8 @@ function foldedWing(
   }
   const L = x < 0 ? "L" : "R";
   const side: Vec = [x, 0, 0];
-  // (A blade, not a plate: narrow at the shoulder, broadest over the flank, drawn to a point past the rump, laid close along the body.)
+  // (A blade, not a plate: narrow at the shoulder, broadest over the flank, drawn to a point past the rump, laid close
+  // along the body.)
   cap(
     kit,
     `wing.${L}`,
@@ -489,7 +501,8 @@ function trainFeathers(kit: Kit, who: Who, body: BirdBody, m: Moment, above: (ti
   const b = who.spec.build;
   const size = who.member.size;
   const fan = m.pose.fan;
-  // (Spread, tiers of separate long feathers, the shorter set before the longer and showing between them; closed, a tapering train.)
+  // (Spread, tiers of separate long feathers, the shorter set before the longer and showing between them; closed, a
+  // tapering train.)
   const count = fan > 0.3 ? TRAIN_SPREAD : 6;
   for (let i = 0; i < count; i += 1) {
     const a = (i / (count - 1) - 0.5) * 2.6;
@@ -507,7 +520,8 @@ function trainFeathers(kit: Kit, who: Who, body: BirdBody, m: Moment, above: (ti
       ),
       body.r * 0.42,
     );
-    // (Each feather a thin shaft at its root and broad toward its end; its shaft, barbs and eye are the renderer's to paint.)
+    // (Each feather a thin shaft at its root and broad toward its end; its shaft, barbs and eye are the renderer's to
+    // paint.)
     cap(
       kit,
       `train.${String(i)}`,
@@ -572,7 +586,10 @@ function birdMarks(kit: Kit, who: Who, body: BirdBody): void {
   if (id === "kookaburra") decal(kit, "mantle", "alt", madd(body.T, over, body.r * 0.75), madd(body.K, over, body.r * 0.6), body.r * 0.62);
 }
 
-/** The body: a drawn one follows its kind's back and keel, the breast a patch of colour on its front-and-under side (whichever way it is tipped), not a lump. */
+/**
+ * The body: a drawn one follows its kind's back and keel, the breast a patch of colour on its front-and-under side
+ * (whichever way it is tipped), not a lump.
+ */
 function birdTorso(kit: Kit, b: Build, body: BirdBody): void {
   const under: Vec = [0, -Math.cos(body.pitch), Math.sin(body.pitch)];
   if (!b.torso) {
@@ -607,7 +624,10 @@ const BIRD_TOES = [-0.52, 0, 0.52, Math.PI] as const;
 const footDetail = (kit: Kit): "claws" | "toes" | "foot" => { const room = 48 - kit.out.length - 4;
 return room >= 16 ? "claws" : room >= 8 ? "toes" : "foot"; };
 
-/** A foot's toes down from the ankle, each drawn out to its own curved claw; with fewer parts to spend, plain toes, or one foot. */
+/**
+ * A foot's toes down from the ankle, each drawn out to its own curved claw; with fewer parts to spend, plain toes, or
+ * one foot.
+ */
 function birdFoot(kit: Kit, part: string, sole: Vec, r: number, detail: ReturnType<typeof footDetail>): void {
   if (detail === "foot") { cone(
     kit,
@@ -654,7 +674,10 @@ function birdLeg(
   birdFoot(kit, part, sole, r, detail);
 }
 
-/** A bird's legs: tucked in or trailed behind in the air, on the ground walking or standing (an owl's feathered, on talons). */
+/**
+ * A bird's legs: tucked in or trailed behind in the air, on the ground walking or standing (an owl's feathered, on
+ * talons).
+ */
 function birdLegs(kit: Kit, who: Who, body: BirdBody, m: Moment): void {
   const b = birdBuild(who);
   const size = who.member.size;

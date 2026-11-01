@@ -40,7 +40,8 @@ export { searchRoute } from "./stage/director.js";
 export type { Capsule } from "./stage/moments.js";
 export { MORPHS } from "./animals/coats.js";
 export type { Morph } from "./animals/coats.js";
-export { fits, shownSize, regionWeight, castFor } from "./casting.js";
+export { fits, shownSize, castFor } from "./casting.js";
+export { regionWeight } from "./local-casts.js";
 export type {
   CastMember, Traits, CastGroup, PlaneKind, SkyKind, SkyTraffic, SkyPlan, SkyNow, Cast, CastInput, PoseOptions,
 } from "./casting.js";

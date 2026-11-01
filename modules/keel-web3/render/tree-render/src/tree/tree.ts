@@ -43,11 +43,17 @@ export interface TreeRenderOptions {
   readonly skin?: TreeSkin | null;
   readonly limits?: TreeLimits;
   readonly seed?: number;
-  /** Strains of a hybrid or chimera, by number; strain 0 is the tree's own colours and skin, so `strains[0]` is not read. */
+  /**
+   * Strains of a hybrid or chimera, by number; strain 0 is the tree's own colours and skin, so `strains[0]` is not
+   * read.
+   */
   readonly strains?: readonly TreeStrain[];
   /** Each internode's strain (tree-growth's `sectors`); its leaves, flowers, fruit and bark take that strain's look. */
   readonly strainOf?: ArrayLike<number>;
-  /** A mixed bloom: each blossom opens in one of these colours, by share (codominant flower colour). Left out, blossoms take the strain's spring colours. */
+  /**
+   * A mixed bloom: each blossom opens in one of these colours, by share (codominant flower colour). Left out, blossoms
+   * take the strain's spring colours.
+   */
   readonly blooms?: readonly TreeBloom[];
   /** Minor kinds' own flowers and fruit: cherry limbs on an oak blossom though the oak only hangs catkins. */
   readonly kinds?: readonly TreeKindOrnaments[];
@@ -106,7 +112,9 @@ export interface TreeRender {
   readonly fallers: readonly Readonly<Pick<Faller, "x" | "y" | "z" | "size" | "color" | "landed" | "kind">>[];
   /** The ripe fruit as of the last update, hanging on the tree or lying under it, for animals to eat. */
   fruit(): TreeFruit[];
-  /** Take a fruit (by its `TreeFruit.key`) off the tree or the ground until next year's crop. False when there was none. */
+  /**
+   * Take a fruit (by its `TreeFruit.key`) off the tree or the ground until next year's crop. False when there was none.
+   */
   eat(key: string): boolean;
   /** Repaint on the next update (after a material swap, say). */
   repaint(): void;
@@ -144,7 +152,10 @@ export interface OrnamentSet {
   readonly grow: number;
 }
 
-/** How a blossom set draws as sprays: a big crown keeps every other slot at twice the size (fewer, readable sprays); a small one keeps all. */
+/**
+ * How a blossom set draws as sprays: a big crown keeps every other slot at twice the size (fewer, readable sprays); a
+ * small one keeps all.
+ */
 export function sprayPlan(tree: Pick<Tree, "features" | "smooth">, spec: OrnamentSpecLike, slots: SlotsLike, own: boolean): { spray: boolean; thin: number; grow: number } {
   const spray = tree.features.sprays && tree.smooth && own && spec.kind === "blossom";
   if (!spray) return { spray, thin: 1, grow: 1 };
@@ -188,7 +199,10 @@ export interface Tree {
   readonly limits: Required<TreeLimits>;
   readonly leafStride: number;
   readonly hidden: Map<string, { readonly rank: number; readonly kind: Faller["kind"]; readonly index: number }>;
-  /** The same slots by kind, for the per-slot test in every pose pass (a number lookup, not a string built per slot per frame). */
+  /**
+   * The same slots by kind, for the per-slot test in every pose pass (a number lookup, not a string built per slot per
+   * frame).
+   */
   readonly hiddenSlots: Readonly<Record<Faller["kind"], Set<number>>>;
   /** Fruit animals have eaten this year, by set ("fruit", or "kind<n>" for a minor kind's) and slot. */
   readonly eaten: Map<string, Set<number>>;

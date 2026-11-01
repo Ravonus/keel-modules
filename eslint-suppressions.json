@@ -18,30 +18,14 @@
       "count": 2
     }
   },
-  "modules/keel-web3/audio/lofi-grove/src/index.ts": {
-    "max-len": {
-      "count": 1
-    }
-  },
   "modules/keel-web3/audio/lofi-grove/src/score.ts": {
-    "max-len": {
-      "count": 1
-    },
     "max-statements-per-line": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/audio/lofi-grove/src/songbook.ts": {
-    "max-len": {
       "count": 1
     }
   },
   "modules/keel-web3/generative/fauna/src/animals/birds.ts": {
     "@typescript-eslint/max-params": {
       "count": 8
-    },
-    "max-len": {
-      "count": 10
     },
     "max-statements": {
       "count": 1
@@ -57,9 +41,6 @@
     "@typescript-eslint/max-params": {
       "count": 1
     },
-    "max-len": {
-      "count": 10
-    },
     "no-nested-ternary": {
       "count": 6
     }
@@ -67,9 +48,6 @@
   "modules/keel-web3/generative/fauna/src/animals/bugs.ts": {
     "@typescript-eslint/max-params": {
       "count": 5
-    },
-    "max-len": {
-      "count": 1
     },
     "max-statements": {
       "count": 1
@@ -79,9 +57,6 @@
     }
   },
   "modules/keel-web3/generative/fauna/src/animals/coats.ts": {
-    "max-len": {
-      "count": 7
-    },
     "max-statements-per-line": {
       "count": 5
     }
@@ -102,7 +77,7 @@
       "count": 6
     },
     "max-len": {
-      "count": 6
+      "count": 1
     },
     "no-nested-ternary": {
       "count": 1
@@ -113,7 +88,7 @@
       "count": 11
     },
     "max-len": {
-      "count": 63
+      "count": 37
     },
     "max-statements-per-line": {
       "count": 8
@@ -127,7 +102,7 @@
       "count": 21
     },
     "max-len": {
-      "count": 17
+      "count": 2
     },
     "max-statements": {
       "count": 1
@@ -143,9 +118,6 @@
     "@typescript-eslint/max-params": {
       "count": 2
     },
-    "max-len": {
-      "count": 4
-    },
     "max-statements": {
       "count": 1
     },
@@ -156,9 +128,6 @@
   "modules/keel-web3/generative/fauna/src/animals/quad.ts": {
     "@typescript-eslint/max-params": {
       "count": 10
-    },
-    "max-len": {
-      "count": 8
     },
     "max-statements": {
       "count": 2
@@ -174,9 +143,6 @@
     "@typescript-eslint/max-params": {
       "count": 1
     },
-    "max-len": {
-      "count": 2
-    },
     "max-statements-per-line": {
       "count": 1
     }
@@ -186,7 +152,7 @@
       "count": 1
     },
     "max-len": {
-      "count": 6
+      "count": 1
     },
     "max-statements-per-line": {
       "count": 1
@@ -202,7 +168,7 @@
   },
   "modules/keel-web3/generative/fauna/src/roster.ts": {
     "max-len": {
-      "count": 12
+      "count": 3
     }
   },
   "modules/keel-web3/generative/fauna/src/stage/collision.ts": {
@@ -210,7 +176,7 @@
       "count": 1
     },
     "max-len": {
-      "count": 6
+      "count": 3
     },
     "max-statements-per-line": {
       "count": 1
@@ -221,7 +187,7 @@
       "count": 7
     },
     "max-len": {
-      "count": 19
+      "count": 14
     },
     "max-statements-per-line": {
       "count": 8
@@ -235,7 +201,7 @@
       "count": 1
     },
     "max-len": {
-      "count": 8
+      "count": 5
     },
     "max-statements-per-line": {
       "count": 1
@@ -243,7 +209,7 @@
   },
   "modules/keel-web3/generative/fauna/src/stage/idle.ts": {
     "max-len": {
-      "count": 2
+      "count": 1
     },
     "max-statements-per-line": {
       "count": 2
@@ -255,9 +221,6 @@
   "modules/keel-web3/generative/fauna/src/stage/moments.ts": {
     "@typescript-eslint/max-params": {
       "count": 3
-    },
-    "max-len": {
-      "count": 4
     },
     "max-statements-per-line": {
       "count": 1
@@ -271,7 +234,7 @@
       "count": 6
     },
     "max-len": {
-      "count": 7
+      "count": 2
     },
     "max-statements": {
       "count": 1
@@ -285,7 +248,7 @@
       "count": 2
     },
     "max-len": {
-      "count": 3
+      "count": 1
     },
     "max-statements-per-line": {
       "count": 4
@@ -305,9 +268,6 @@
   "modules/keel-web3/generative/fauna/src/stage/stage.ts": {
     "@typescript-eslint/max-params": {
       "count": 2
-    },
-    "max-len": {
-      "count": 5
     }
   },
   "modules/keel-web3/generative/fauna/src/stage/tracks.ts": {
@@ -322,9 +282,6 @@
     },
     "max-depth": {
       "count": 3
-    },
-    "max-len": {
-      "count": 1
     },
     "max-lines-per-function": {
       "count": 1
@@ -348,17 +305,11 @@
     }
   },
   "modules/keel-web3/generative/people/src/body/bones.ts": {
-    "max-len": {
-      "count": 5
-    },
     "no-nested-ternary": {
       "count": 4
     }
   },
   "modules/keel-web3/generative/people/src/body/build.ts": {
-    "max-len": {
-      "count": 1
-    },
     "no-nested-ternary": {
       "count": 2
     }
@@ -385,15 +336,10 @@
       "count": 4
     },
     "max-len": {
-      "count": 12
+      "count": 1
     },
     "max-statements-per-line": {
       "count": 5
-    }
-  },
-  "modules/keel-web3/generative/people/src/body/person.ts": {
-    "max-len": {
-      "count": 4
     }
   },
   "modules/keel-web3/generative/people/src/clothes/cloth.ts": {
@@ -401,7 +347,7 @@
       "count": 2
     },
     "max-len": {
-      "count": 52
+      "count": 36
     },
     "max-statements": {
       "count": 1
@@ -421,7 +367,7 @@
       "count": 9
     },
     "max-len": {
-      "count": 76
+      "count": 61
     },
     "max-statements": {
       "count": 1
@@ -448,16 +394,13 @@
     "@typescript-eslint/max-params": {
       "count": 1
     },
-    "max-len": {
-      "count": 5
-    },
     "max-statements-per-line": {
       "count": 1
     }
   },
   "modules/keel-web3/generative/people/src/head/face.ts": {
     "max-len": {
-      "count": 26
+      "count": 18
     },
     "no-nested-ternary": {
       "count": 2
@@ -471,7 +414,7 @@
       "count": 14
     },
     "max-len": {
-      "count": 116
+      "count": 99
     },
     "max-statements-per-line": {
       "count": 20
@@ -484,9 +427,6 @@
     }
   },
   "modules/keel-web3/generative/people/src/head/head.ts": {
-    "max-len": {
-      "count": 7
-    },
     "max-statements-per-line": {
       "count": 3
     },
@@ -498,9 +438,6 @@
     "@typescript-eslint/max-params": {
       "count": 6
     },
-    "max-len": {
-      "count": 7
-    },
     "max-statements-per-line": {
       "count": 3
     }
@@ -510,7 +447,7 @@
       "count": 4
     },
     "max-len": {
-      "count": 47
+      "count": 36
     },
     "max-statements-per-line": {
       "count": 15
@@ -524,7 +461,7 @@
   },
   "modules/keel-web3/generative/people/src/mesh/lod.ts": {
     "max-len": {
-      "count": 6
+      "count": 1
     },
     "no-nested-ternary": {
       "count": 1
@@ -532,7 +469,7 @@
   },
   "modules/keel-web3/generative/people/src/mesh/mesh.ts": {
     "max-len": {
-      "count": 12
+      "count": 11
     },
     "one-var": {
       "count": 8
@@ -543,7 +480,7 @@
       "count": 8
     },
     "max-len": {
-      "count": 8
+      "count": 4
     },
     "max-statements-per-line": {
       "count": 5
@@ -555,9 +492,6 @@
   "modules/keel-web3/generative/people/src/motion/pose.ts": {
     "@typescript-eslint/max-params": {
       "count": 2
-    },
-    "max-len": {
-      "count": 3
     },
     "max-statements-per-line": {
       "count": 1
@@ -571,7 +505,7 @@
       "count": 5
     },
     "max-len": {
-      "count": 78
+      "count": 70
     },
     "max-statements-per-line": {
       "count": 7
@@ -597,9 +531,6 @@
     "@typescript-eslint/max-params": {
       "count": 2
     },
-    "max-len": {
-      "count": 3
-    },
     "max-statements-per-line": {
       "count": 1
     }
@@ -609,7 +540,7 @@
       "count": 4
     },
     "max-len": {
-      "count": 4
+      "count": 2
     },
     "max-statements": {
       "count": 1
@@ -632,7 +563,7 @@
       "count": 1
     },
     "max-len": {
-      "count": 4
+      "count": 2
     },
     "max-lines-per-function": {
       "count": 1
@@ -654,7 +585,7 @@
   },
   "modules/keel-web3/generative/tree-growth/src/species.ts": {
     "max-len": {
-      "count": 23
+      "count": 21
     }
   },
   "modules/keel-web3/render/celestial/src/index.ts": {
@@ -686,17 +617,12 @@
       "count": 3
     },
     "max-len": {
-      "count": 10
+      "count": 6
     },
     "max-lines-per-function": {
       "count": 1
     },
     "max-statements-per-line": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/render/device-profile/src/index.ts": {
-    "max-len": {
       "count": 1
     }
   },
@@ -714,9 +640,6 @@
     "@typescript-eslint/max-params": {
       "count": 1
     },
-    "max-len": {
-      "count": 2
-    },
     "max-statements-per-line": {
       "count": 1
     }
@@ -726,7 +649,7 @@
       "count": 3
     },
     "max-len": {
-      "count": 24
+      "count": 17
     },
     "max-statements-per-line": {
       "count": 10
@@ -735,17 +658,12 @@
       "count": 3
     }
   },
-  "modules/keel-web3/render/sdf-body/src/body.ts": {
-    "max-len": {
-      "count": 8
-    }
-  },
   "modules/keel-web3/render/skin-body/src/index.ts": {
     "@typescript-eslint/max-params": {
       "count": 1
     },
     "max-len": {
-      "count": 15
+      "count": 13
     },
     "max-statements-per-line": {
       "count": 5
@@ -779,7 +697,7 @@
       "count": 3
     },
     "max-len": {
-      "count": 47
+      "count": 44
     },
     "max-statements": {
       "count": 3
@@ -794,28 +712,15 @@
       "count": 12
     }
   },
-  "modules/keel-web3/render/tree-render/src/inputs.ts": {
-    "max-len": {
-      "count": 2
-    }
-  },
   "modules/keel-web3/render/tree-render/src/instances.ts": {
     "@typescript-eslint/max-params": {
       "count": 6
-    },
-    "max-len": {
-      "count": 3
     },
     "max-statements": {
       "count": 1
     },
     "max-statements-per-line": {
       "count": 3
-    }
-  },
-  "modules/keel-web3/render/tree-render/src/tree/bark.ts": {
-    "max-len": {
-      "count": 1
     }
   },
   "modules/keel-web3/render/tree-render/src/tree/leaves.ts": {
@@ -826,7 +731,7 @@
       "count": 1
     },
     "max-len": {
-      "count": 7
+      "count": 2
     },
     "max-statements-per-line": {
       "count": 4
@@ -857,7 +762,7 @@
       "count": 1
     },
     "max-len": {
-      "count": 6
+      "count": 5
     },
     "max-statements-per-line": {
       "count": 1
@@ -877,7 +782,7 @@
       "count": 3
     },
     "max-len": {
-      "count": 26
+      "count": 23
     },
     "max-statements": {
       "count": 1
@@ -889,9 +794,6 @@
   "modules/keel-web3/render/tree-render/src/tree/shapes.ts": {
     "@typescript-eslint/max-params": {
       "count": 3
-    },
-    "max-len": {
-      "count": 2
     },
     "max-statements": {
       "count": 1
@@ -906,9 +808,6 @@
     },
     "complexity": {
       "count": 3
-    },
-    "max-len": {
-      "count": 5
     },
     "no-nested-ternary": {
       "count": 1
@@ -937,14 +836,11 @@
   "modules/keel-web3/render/tree-render/src/wind.ts": {
     "@typescript-eslint/max-params": {
       "count": 2
-    },
-    "max-len": {
-      "count": 1
     }
   },
   "modules/keel-web3/render/voxel-dither/src/light.ts": {
     "max-len": {
-      "count": 2
+      "count": 1
     },
     "max-statements-per-line": {
       "count": 1
@@ -955,7 +851,7 @@
       "count": 3
     },
     "max-len": {
-      "count": 2
+      "count": 1
     },
     "max-statements": {
       "count": 1
@@ -972,28 +868,12 @@
       "count": 1
     }
   },
-  "modules/keel-web3/render/voxel-dither/src/settings.ts": {
-    "max-len": {
-      "count": 1
-    }
-  },
   "modules/keel-web3/render/voxel-dither/src/signals.ts": {
-    "max-len": {
-      "count": 1
-    },
     "no-nested-ternary": {
       "count": 1
     }
   },
-  "modules/keel-web3/render/world-light/src/index.ts": {
-    "max-len": {
-      "count": 1
-    }
-  },
   "modules/keel-web3/render/world-theme/src/index.ts": {
-    "max-len": {
-      "count": 7
-    },
     "no-nested-ternary": {
       "count": 4
     }

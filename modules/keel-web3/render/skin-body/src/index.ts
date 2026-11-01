@@ -16,11 +16,17 @@ export interface SkinMesh {
   /** Two bones a vertex, and the first's weight. */
   readonly bones: Uint8Array;
   readonly weight: Float32Array;
-  /** What each vertex is: 0 skin, 1 cotton, 2 denim, 3 hair, 4 knit, 5 leather, 6 fur, 7 wool, 8 satin, 9 latex, 10 nylon, 11 quilted nylon, 12 tartan, 13 pinstripe, 14 corduroy. */
+  /**
+   * What each vertex is: 0 skin, 1 cotton, 2 denim, 3 hair, 4 knit, 5 leather, 6 fur, 7 wool, 8 satin, 9 latex, 10
+   * nylon, 11 quilted nylon, 12 tartan, 13 pinstripe, 14 corduroy.
+   */
   readonly fabric: Uint8Array;
   /** How free of the body it hangs, 0 to 1. */
   readonly loose: Float32Array;
-  /** Four a vertex: where it lies round its limb (two numbers, off the limb's line), how far along the limb in metres, and how far from its garment's edge, under nought where a cut has taken it away. */
+  /**
+   * Four a vertex: where it lies round its limb (two numbers, off the limb's line), how far along the limb in metres,
+   * and how far from its garment's edge, under nought where a cut has taken it away.
+   */
   readonly cloth: Float32Array;
   /** How open each vertex lies to the light, 0 to 1. */
   readonly shade: Float32Array;

@@ -35,7 +35,10 @@ export interface Capsule {
   readonly melt?: number;
   /** How far, and which way, its middle stands off the straight line from a to b: a curved part, in place of `flat`. */
   readonly bow?: Vec;
-  /** A row of this many beads, each `r` round, from `a` to `b`, the way of `bow` at its middle: a foot's nails as one part. */
+  /**
+   * A row of this many beads, each `r` round, from `a` to `b`, the way of `bow` at its middle: a foot's nails as one
+   * part.
+   */
   readonly row?: number;
   /** On a row: each bead drawn out this far and this way into a digit (a hand's fingers as one part). */
   readonly reach?: Vec;
@@ -50,7 +53,10 @@ export interface Capsule {
   readonly under?: boolean;
   /** A hollow cut into the body, painted in its role (an owl's dished face): no surface of its own. */
   readonly carve?: boolean;
-  /** False when it casts no shadow: a small part standing off the body, whose shadow would fall as a speck apart from the rest. */
+  /**
+   * False when it casts no shadow: a small part standing off the body, whose shadow would fall as a speck apart from
+   * the rest.
+   */
   readonly shadow?: boolean;
 }
 
@@ -302,7 +308,10 @@ export function movingFrame(
   };
 }
 
-/** A point on a way, brought out of any wood it cuts: a straight stretch between two bends runs through the bend's inside, and through a fork's other limb. */
+/**
+ * A point on a way, brought out of any wood it cuts: a straight stretch between two bends runs through the bend's
+ * inside, and through a fork's other limb.
+ */
 function outOfWood(p: Vec, stage: Stage): Vec {
   const map = woodMapOf(stage);
   let out: Vec = [0, 0, 0];
@@ -356,7 +365,9 @@ function hopLift(actor: Actor, segment: Segment, mode: MoveMode, travelled: numb
   return size * 0.22 * Math.abs(Math.sin((Math.PI * travelled) / (size * 0.8)));
 }
 
-/** Which way an animal sits on a branch: a bird across it, gripping it, facing the side it came in on; others along it. */
+/**
+ * Which way an animal sits on a branch: a bird across it, gripping it, facing the side it came in on; others along it.
+ */
 function perchYaw(actor: Actor, along: Vec, came: number): number {
   const yaw = Math.atan2(along[0], along[2]);
   if (actor.spec.plan !== "bird") return yaw;

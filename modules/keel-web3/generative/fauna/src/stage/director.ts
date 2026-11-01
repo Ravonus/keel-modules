@@ -68,7 +68,10 @@ export interface Actor {
   back: Anchor | null;
   /** Its troupe, itself included, to keep out of each other's way. */
   mates: readonly Actor[];
-  /** Which share of the tree's limbs is its troupe's, of how many, so troupes keep to their own without watching each other. */
+  /**
+   * Which share of the tree's limbs is its troupe's, of how many, so troupes keep to their own without watching each
+   * other.
+   */
   limbs: readonly [number, number];
   /** The whole herd's meals, so no fruit is eaten twice. */
   readonly pantry: Pantry;
@@ -334,7 +337,10 @@ function limbLength(stage: Stage, i: number): number {
   return path.slice(1).reduce((sum, wood, k) => sum + length(sub(wood.p, path[k]?.p ?? wood.p)), 0);
 }
 
-/** Whether a body fits on a perch: wood that will bear it, out from the trunk, clear of other limbs, and long enough for a snake to lie on. */
+/**
+ * Whether a body fits on a perch: wood that will bear it, out from the trunk, clear of other limbs, and long enough for
+ * a snake to lie on.
+ */
 export function perchFits(actor: Actor, stage: Stage, i: number): boolean {
   const size = actor.member.size;
   const r = bodyRadius(actor);
@@ -357,7 +363,10 @@ export function randomPerch(actor: Actor, scene: Scene): Place {
   return groundSpot(actor.rand, stage, actor.member.size, undefined, 0, takenBy(actor, scene));
 }
 
-/** The branch spot nearest `i` in the list that has room for the animal, and keeps `apart` from `beside` when given, or `i` when none does. */
+/**
+ * The branch spot nearest `i` in the list that has room for the animal, and keeps `apart` from `beside` when given, or
+ * `i` when none does.
+ */
 export function roomyPerch(stage: Stage, i: number, size: number, beside?: number, apart = 0): number {
   const count = stage.perches?.length ?? 0;
   const near = beside === undefined ? null : perchOf(stage, beside)?.p ?? null;
@@ -524,7 +533,10 @@ function prepare(actor: Actor, act: Action, scene: Scene): Action {
   return act;
 }
 
-/** Whether an eater can get at a fruit: off a branch that takes its weight and has room for it, or off the ground, and not already someone's. */
+/**
+ * Whether an eater can get at a fruit: off a branch that takes its weight and has room for it, or off the ground, and
+ * not already someone's.
+ */
 function canReach(actor: Actor, item: Food, scene: Scene, up: boolean): boolean {
   const reach = FRUIT_EATERS[actor.member.species];
   const size = actor.member.size;
@@ -570,7 +582,10 @@ function mouthReach(actor: Actor, act: Action): number {
   return reach * actor.member.size;
 }
 
-/** Up to the branch a fruit hangs from, or over to where it lies, coming up from its own side to stop with its mouth over it. */
+/**
+ * Up to the branch a fruit hangs from, or over to where it lies, coming up from its own side to stop with its mouth
+ * over it.
+ */
 function goToFood(actor: Actor, item: Food, act: Action, scene: Scene): void {
   if (item.perch !== undefined) {
     if (actor.place.on !== "perch" || actor.place.i !== item.perch) {

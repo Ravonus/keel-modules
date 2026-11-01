@@ -19,7 +19,10 @@ import type { Seat } from "../head/hair.js";
 import { browLineOf, faceBake, faceInks } from "../head/paint.js";
 import { cornersOf, crownOver, gearOn, jacketFront, moustacheOf, poloFront } from "../clothes/gear.js";
 
-/** The mesh of a person, built once, each layer its own closed shell on the same bones: `cell` the body's grid in metres, so a far person can have a coarser one; the head's is finer, for the face. */
+/**
+ * The mesh of a person, built once, each layer its own closed shell on the same bones: `cell` the body's grid in
+ * metres, so a far person can have a coarser one; the head's is finer, for the face.
+ */
 export function meshOf(p: Person, cell = 0.016): PersonMesh {
   const body = bodyOf(p, "rest", 0, [0, 0, 0], 0, true);
   const decals = body.capsules.filter((c) => c.decal === true && !FACE_PAINT.test(c.part));

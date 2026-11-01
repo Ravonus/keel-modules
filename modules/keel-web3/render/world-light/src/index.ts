@@ -5,7 +5,8 @@
  * and the weather. MIT.
  *
  *   const place = locateTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
- *   const light = worldLight({ timestamp: Date.now(), lat: place.lat, lon: place.lon, season: "autumn", climate: "maritime", weather: "clear" });
+ *  const light = worldLight({ timestamp: Date.now(), lat: place.lat, lon: place.lon, season: "autumn", climate:
+ * "maritime", weather: "clear" });
  *   light.sun.direction   -> [x, y, z], +y up, -z north
  *   light.sky.horizon     -> "#f4a259"
  *   light.rays            -> { source: "sun", strength, color, decay, density }

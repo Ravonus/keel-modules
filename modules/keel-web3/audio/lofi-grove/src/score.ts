@@ -228,7 +228,9 @@ export const NO_LAYERS: LofiLayers = {
   crickets: 0,
 };
 
-/** Places pitch classes as a close voicing starting at each rotation, and keeps the one nearest the previous voicing. */
+/**
+ * Places pitch classes as a close voicing starting at each rotation, and keeps the one nearest the previous voicing.
+ */
 function voiceLead(pitchClasses: readonly number[], previous: readonly number[]): number[] {
   const centre = previous.length > 0 ? previous.reduce((sum, note) => sum + note, 0) / previous.length : 62;
   let best: number[] = [];

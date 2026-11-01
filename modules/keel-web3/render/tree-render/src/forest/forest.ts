@@ -212,7 +212,10 @@ interface Shape {
   users: number;
 }
 
-/** What a tree is cut down to at one level: real wood down to `wood`, up to `leaves` real leaves (`fill` blades each when they are few), and, for `clumps`, the crown's own masses as lumps under them. */
+/**
+ * What a tree is cut down to at one level: real wood down to `wood`, up to `leaves` real leaves (`fill` blades each
+ * when they are few), and, for `clumps`, the crown's own masses as lumps under them.
+ */
 interface RungSpec {
   readonly wood: number;
   readonly sides: number;
@@ -286,7 +289,10 @@ const combine = (cols: Cols, w: V3): V3 => [
 const read3 = (array: Float32Array, index: number): V3 => [at(array, index), at(array, index + 1), at(array, index + 2)];
 const length2 = (v: V3): number => Math.max(v[0] * v[0] + v[1] * v[1] + v[2] * v[2], 1e-12);
 
-/** Appends a template shape moved by a column-major matrix whose columns are square to each other (so normals scale by 1/|column|²). */
+/**
+ * Appends a template shape moved by a column-major matrix whose columns are square to each other (so normals scale by
+ * 1/|column|²).
+ */
 function appendShape(bake: Bake, template: ReturnType<typeof templateOf>, m: Float32Array, rgb: V3, extra: { leaf: [number, number]; stalk: V3; wind: number; taper?: number }): void {
   const [a, b, c] = columnsOf(m);
   const ia = 1 / length2(a), ib = 1 / length2(b), ic = 1 / length2(c);
@@ -365,7 +371,10 @@ function bakeLeaves(lit: LitLike, bake: Bake, variant: ForestVariant, maxLeaves:
   }
 }
 
-/** The crown's real masses: its leaves gathered by where they grow, each gathering a lump in its own place, size, tone and shade. */
+/**
+ * The crown's real masses: its leaves gathered by where they grow, each gathering a lump in its own place, size, tone
+ * and shade.
+ */
 function bakeClumps(lit: LitLike, bake: Bake, variant: ForestVariant, cells: number): void {
   const { model, frame } = variant;
   const slots = model.leaves;

@@ -68,7 +68,10 @@ function serpentSpine(who: Who, m: Moment): Vec[] {
   return points;
 }
 
-/** A snake's girth along it, 0 at the neck, 1 at the tip: slim at the neck, fullest a third of the way down, to a fine tip. */
+/**
+ * A snake's girth along it, 0 at the neck, 1 at the tip: slim at the neck, fullest a third of the way down, to a fine
+ * tip.
+ */
 const snakeGirth = (k: number): number =>
   k < 0.3 ? 0.78 + (k / 0.3) * 0.22 : 1 - Math.pow((k - 0.3) / 0.7, 1.6) * 0.85;
 
@@ -93,7 +96,10 @@ export function poseSerpent(kit: Kit, who: Who, m: Moment): void {
   if (b.leg > 0) lizardLegs(kit, who, points, m);
 }
 
-/** How a snake is marked, by coat: long lines down it or saddles across it. A plain one is its colour, and a banded one its rings. */
+/**
+ * How a snake is marked, by coat: long lines down it or saddles across it. A plain one is its colour, and a banded one
+ * its rings.
+ */
 const SNAKE_LINES: Readonly<Record<string, readonly (readonly [number, number])[]>> = {
   garter: [[0, 0.94], [-0.8, 0.5], [0.8, 0.5]],
   "red-bellied": [[-0.86, -0.2], [0.86, -0.2]],

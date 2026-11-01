@@ -28,7 +28,10 @@ export interface TreeModelLike {
   readonly blossoms: SlotsLike;
   readonly fruit: SlotsLike;
   readonly roots: readonly { readonly angle: number; readonly reach: number }[];
-  /** Each internode's parent (-1 for the root) and branch order (0 for the trunk): palms need them to lay out their fronds. */
+  /**
+   * Each internode's parent (-1 for the root) and branch order (0 for the trunk): palms need them to lay out their
+   * fronds.
+   */
   readonly parent?: ArrayLike<number>;
   readonly order?: ArrayLike<number>;
   readonly species: {
@@ -126,7 +129,10 @@ export interface TreeSkin {
 export interface TreeStrain {
   readonly colors?: TreeColors;
   readonly skin?: TreeSkin | null;
-  /** False when the strain's own kind would not flower or fruit like the tree (an oak limb on a cherry stays green in blossom time). */
+  /**
+   * False when the strain's own kind would not flower or fruit like the tree (an oak limb on a cherry stays green in
+   * blossom time).
+   */
   readonly bears?: boolean;
   /** Bark colours for the strain's wood, darkest first (a skin's own bark); left out, the strain's `colors.trunk`. */
   readonly bark?: readonly string[];

@@ -49,7 +49,10 @@ export function marksOf(p: Person): Marks {
 /** How low the jaw's edge comes at `x`: at the corner out at the side, at the chin in the middle. */
 const jawAt = (k: Marks, x: number): number => mix(k.men, k.jaw, clamp(x * x / (k.gon * k.gon), 0, 1));
 
-/** One round of paint on a face, on both sides of it: where, how wide and tall, and what it does on fair skin and on deep. */
+/**
+ * One round of paint on a face, on both sides of it: where, how wide and tall, and what it does on fair skin and on
+ * deep.
+ */
 type Spot = readonly [x: number, y: number, rx: number, ry: number, fair: number, deep: number];
 
 /** Where a face is lifted or shut down. No spot is finer than the mesh's own cell, which could only land as flecks. */
@@ -126,7 +129,10 @@ function clearOfMouth(k: Marks, w: number, ax: number, y: number, wide: number):
   );
 }
 
-/** A day's growth is a shadow on the skin and no colour of its own: a colour stops dead at a vertex, and on pale skin that shows as facets. */
+/**
+ * A day's growth is a shadow on the skin and no colour of its own: a colour stops dead at a vertex, and on pale skin
+ * that shows as facets.
+ */
 function stubbleAt(p: Person, k: Marks, x: number, y: number, deep: number): number {
   if (p.face.hair !== "stubble") return 1;
   const ax = Math.abs(x);
@@ -140,7 +146,10 @@ function stubbleAt(p: Person, k: Marks, x: number, y: number, deep: number): num
   );
 }
 
-/** The neck under the jaw, and what lies behind the face: the head's own shadow, which a head and a neck cannot give each other being separate shells. */
+/**
+ * The neck under the jaw, and what lies behind the face: the head's own shadow, which a head and a neck cannot give
+ * each other being separate shells.
+ */
 function underJaw(p: Person, k: Marks, x: number, y: number, deep: number): number {
   const shut = mix(0.56, 0.5, deep);
   const fade = 0.42 * mix(0.55, 1, p.face.bone.m);
@@ -155,7 +164,10 @@ function underHair(q: Vec, b: Bone): number {
   return 1 - 0.1 * (near(0.02) + near(0.07) + near(0.12));
 }
 
-/** All one person's bake needs, worked out once. `rise` lifts the very deepest skins, which `deep` has stopped telling apart, or a face goes to black. */
+/**
+ * All one person's bake needs, worked out once. `rise` lifts the very deepest skins, which `deep` has stopped telling
+ * apart, or a face goes to black.
+ */
 interface Bake {
   readonly p: Person;
   readonly k: Marks;
@@ -200,7 +212,11 @@ function bakeVertex(net: Net, bake: Bake, v: number, bone: number, was: number):
 
 const FACE_BONES: ReadonlySet<number> = new Set([HEAD, boneIndex("neck"), boneIndex("chest")]);
 
-/** A face's light, baked into `shade`, where the renderer multiplies it: planes, a shadow under each thing that overhangs, a lift on each that stands proud. Over a deep skin a multiply barely shows, so there it works hardest; and hair on the face goes on here too. `skip` is the vertices at the end that have their shade already. */
+/**
+ * A face's light, baked into `shade`, where the renderer multiplies it: planes, a shadow under each thing that
+ * overhangs, a lift on each that stands proud. Over a deep skin a multiply barely shows, so there it works hardest; and
+ * hair on the face goes on here too. `skip` is the vertices at the end that have their shade already.
+ */
 export function faceBake(
   net: Net,
   shade: Float32Array,
@@ -236,10 +252,16 @@ export function faceBake(
   }
 }
 
-/** An iris as it is painted: well under its own colour, for a small face has room for one thing in an eye and that is its dark. */
+/**
+ * An iris as it is painted: well under its own colour, for a small face has room for one thing in an eye and that is
+ * its dark.
+ */
 const inkedIris = (iris: string): string => blend(iris, "#0c0806", 0.42);
 
-/** What the renderer paints a face with, over the bake: the shader dims a white under its lid, so it is given as white as it can be; and a line along the lashes that holds on any skin. */
+/**
+ * What the renderer paints a face with, over the bake: the shader dims a white under its lid, so it is given as white
+ * as it can be; and a line along the lashes that holds on any skin.
+ */
 export function faceInks(p: Person): {
   readonly brow: string;
   readonly lash: string;

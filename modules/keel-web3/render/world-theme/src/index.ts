@@ -96,7 +96,10 @@ export type Sculpt = "skull" | "urn" | "stump" | "shell" | "head";
 export type Pattern =
   | "turf" | "ingot" | "hammered" | "brushed" | "coins" | "nugget" | "facet" | "marble" | "speckle" | "strata"
   | "magma" | "frost" | "mirror" | "circuit" | "grid" | "checker" | "tile" | "scan" | "flake" | "stars";
-/** How the surface moves: a light sweep, twinkles, pulses, scrolling, hue shimmer, swirling, flicker, flow, slow breathing, rainbow. */
+/**
+ * How the surface moves: a light sweep, twinkles, pulses, scrolling, hue shimmer, swirling, flicker, flow, slow
+ * breathing, rainbow.
+ */
 export type Effect = "none" | "sweep" | "sparkle" | "pulse" | "scroll" | "shimmer" | "swirl" | "flicker" | "flow" | "breathe" | "rainbow";
 /** Things set on the planter. */
 export type Decor =
@@ -288,7 +291,10 @@ export interface PlanterLook {
 
 /** Plain outlines, equally likely. */
 export const PLAIN_SHAPES: readonly Shape[] = ["square", "rounded", "octagon", "round", "hex", "tiered", "blob", "scallop", "diamond"];
-/** Sculpts by draw weight out of 1000 (130 in all, so about one planter in eight): urns and stumps are the commonest, a skull the rarest. */
+/**
+ * Sculpts by draw weight out of 1000 (130 in all, so about one planter in eight): urns and stumps are the commonest, a
+ * skull the rarest.
+ */
 export const SCULPT_WEIGHTS: Readonly<Record<Sculpt, number>> = { urn: 34, stump: 30, shell: 26, head: 22, skull: 18 };
 export const SHAPE_IDS: readonly Shape[] = [...PLAIN_SHAPES, ...(Object.keys(SCULPT_WEIGHTS) as Sculpt[])];
 
@@ -316,7 +322,10 @@ function rolledShape(roll: number, plain: Shape): Shape {
   return plain;
 }
 
-/** The planter's shape and size; `forced` is a shape id, anything else lets the seed roll. Every draw is taken either way, so forcing the shape never moves the size. */
+/**
+ * The planter's shape and size; `forced` is a shape id, anything else lets the seed roll. Every draw is taken either
+ * way, so forcing the shape never moves the size.
+ */
 export function resolveForm(forced: string | undefined, random: () => number): PlanterForm {
   const { size, word } = planterSize(random);
   const roll = Math.floor(random() * 1000);
@@ -420,7 +429,10 @@ export type MoonStyle = "disc" | "ringed" | "big" | "neon";
 interface WorldPalette {
   /** Sky top and horizon by day, horizon and top by night. */
   readonly sky: readonly [string, string, string, string];
-  /** Skyline low, mid and high, then its accent (window lights, neon, crystal glow). On a shore: sand, shallows, deep water, surf. */
+  /**
+   * Skyline low, mid and high, then its accent (window lights, neon, crystal glow). On a shore: sand, shallows, deep
+   * water, surf.
+   */
   readonly skyline: readonly [string, string, string, string];
   readonly cloud: readonly [string, string];
   /** Sun gradient top to bottom. */
@@ -664,7 +676,8 @@ function resolveTree(id: TreeSkinId, random: () => number, pinned?: number): Tre
 
 /**
  * One skin's look on its own, for a tree that carries it on only some limbs (a chimera). An unknown id is natural.
- * `palette` pins one of the skin's palettes (0 is its signature: ember burns orange, crystal is ice blue); left out, the seed picks.
+ * `palette` pins one of the skin's palettes (0 is its signature: ember burns orange, crystal is ice blue); left out,
+ * the seed picks.
  */
 export function treeLook(id: string, seed: number, palette?: number): TreeLook {
   return resolveTree(Object.hasOwn(TREE_SKINS, id) ? (id as TreeSkinId) : "natural", createRandom(seed ^ 0x5c1d), palette);
@@ -848,13 +861,19 @@ export interface ThemeInput {
   readonly world?: string;
   /** A tree skin id, or "seed" to roll one: most trees are natural, the finest are the rarest. */
   readonly tree?: string;
-  /** "clean", "full", a part to tear ("planter", "tree", "world"), or "seed" to roll each part: most are clean, a full glitch is the rarest. */
+  /**
+   * "clean", "full", a part to tear ("planter", "tree", "world"), or "seed" to roll each part: most are clean, a full
+   * glitch is the rarest.
+   */
   readonly glitch?: string;
   /** Each part's signal kind (any of `GLITCH_KINDS`), overriding `glitch`: nothing is rolled. */
   readonly signals?: SignalInput;
   /** How strongly given `signals` apply, 0 to 1 (default 1). */
   readonly signalStrength?: number;
-  /** Pin the planter's palette to this one of its recipe's (0 is the material's signature look: lava is basalt and fire); left out, the seed picks. */
+  /**
+   * Pin the planter's palette to this one of its recipe's (0 is the material's signature look: lava is basalt and
+   * fire); left out, the seed picks.
+   */
   readonly planterPalette?: number;
   readonly seed: number;
 }

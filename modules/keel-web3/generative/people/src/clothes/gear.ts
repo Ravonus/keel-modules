@@ -28,7 +28,10 @@ const bead = (s: number): number => Math.sqrt(Math.max(0.02, 1 - (2 * s - 1) ** 
 /** A closed line round a middle, however it is bent. */
 const ringOf = (count: number, at: (c: number, s: number) => Vec): readonly Vec[] => Array.from({ length: count + 1 }, (_, i) => at(Math.cos((i / count) * TAU), Math.sin((i / count) * TAU)));
 
-/** What each kind of frame is: how wide its lens is against the eye, how tall against its width, how square, how thick its rim, and whether it is wire. */
+/**
+ * What each kind of frame is: how wide its lens is against the eye, how tall against its width, how square, how thick
+ * its rim, and whether it is wire.
+ */
 const FRAMES: Readonly<Record<Exclude<Gear["glasses"], "none">, { readonly wide: number; readonly tall: number; readonly square: number; readonly rim: readonly [number, number]; readonly wire: boolean; readonly flick: number }>> = {
   clear: { wide: 1.75, tall: 0.74, square: 0.62, rim: [0.024, 0.018], wire: false, flick: 0 },
   round: { wide: 1.6, tall: 1, square: 1, rim: [0.014, 0.012], wire: true, flick: 0 },
@@ -42,7 +45,10 @@ const FRAME_WRAP = 0.1;
 /** A pair of glasses, as one rigid thing. A lens is a flat shape; `x` says which side. */
 interface Frame { readonly rx: number; readonly ry: number; readonly front: number; readonly centre: (x: number) => Vec; readonly rim: (x: number, c: number, s: number) => Vec; readonly facing: (x: number) => Vec }
 
-/** Where a pair of glasses sits: lenses square on each eye, as close as the brow, the cheek and the lashes allow, and the bridge down on the nose. */
+/**
+ * Where a pair of glasses sits: lenses square on each eye, as close as the brow, the cheek and the lashes allow, and
+ * the bridge down on the nose.
+ */
 function frameOn(kind: Exclude<Gear["glasses"], "none">, p: Person, k: Marks, surface: (x: number, y: number) => number): Frame {
   const f = FRAMES[kind], rx = Math.min(p.face.eye * f.wide, k.eyeX - 0.06), ry = rx * f.tall, y = k.pupil - 0.01;
   const clear = [-1, 1].flatMap((x) => [-0.8, 0, 0.8].flatMap((c) => [-0.8, 0, 0.8].map((v) => surface(x * k.eyeX + rx * c, y + ry * v) + (x * k.eyeX * c > 0 ? FRAME_WRAP * rx * Math.abs(c) : 0))));
@@ -54,7 +60,10 @@ function frameOn(kind: Exclude<Gear["glasses"], "none">, p: Person, k: Marks, su
   return { rx, ry, front, centre: (x) => [x * k.eyeX, y, front], rim, facing: (x) => unit([x * FRAME_WRAP, 0, 1], FRONT) };
 }
 
-/** An arm of a pair of glasses: straight back from its hinge, clear of the skin, over the top of the ear and hooked down behind it. */
+/**
+ * An arm of a pair of glasses: straight back from its hinge, clear of the skin, over the top of the ear and hooked down
+ * behind it.
+ */
 function templeArm(seat: Seat, hinge: Vec, side: number): readonly Vec[] {
   const top = seat.tops[side], end: Vec = top ? add(top, [0, 0.03, 0]) : [hinge[0], hinge[1], -0.2];
   const wide = (q: Vec): Vec => { const d = unit(q, SIDE), need = seat.skin.far(d) + 0.02, far = Math.hypot(...q); return far < need ? scale(d, need) : q; };
@@ -63,7 +72,10 @@ function templeArm(seat: Seat, hinge: Vec, side: number): readonly Vec[] {
   return [hinge, ...along, ...hook];
 }
 
-/** Glasses: a flat lens in a rim on each eye, a bridge between them, a hinge at each outer corner and an arm back to each ear. */
+/**
+ * Glasses: a flat lens in a rim on each eye, a bridge between them, a hinge at each outer corner and an arm back to
+ * each ear.
+ */
 function layGlasses(lay: LayGear, pane: LayPane, p: Person, k: Marks, seat: Seat, surface: (x: number, y: number) => number): void {
   const kind = p.gear.glasses;
   if (kind === "none") return;
@@ -120,7 +132,10 @@ function layClips(lay: LayGear, outer: Bound, side: number, places: readonly num
   for (const at of places) lay([0.42, 0.36, 0.3].map((fore, i) => outer.on(overHead(side * (at + i * 0.03), fore), 0.012)), [0.045, 0.016, 4], CLIP);
 }
 
-/** What is in the hair, a clip or a row of them, a bow, a band, and headphones over all of it: all of it lying on what is there. */
+/**
+ * What is in the hair, a clip or a row of them, a bow, a band, and headphones over all of it: all of it lying on what
+ * is there.
+ */
 function layHair(lay: LayGear, p: Person, outer: Bound): void {
   const kind = p.gear.hair, side = p.seed % 2 === 0 ? -1 : 1;
   if (p.hair !== "bald") {
@@ -147,7 +162,10 @@ function paneOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, outline
   return (count + 1) * 2;
 }
 
-/** The front of what a body has on: how far forward it lies at any `x`, `y`, and the vertex there, from which a thing laid on it takes its bones. */
+/**
+ * The front of what a body has on: how far forward it lies at any `x`, `y`, and the vertex there, from which a thing
+ * laid on it takes its bones.
+ */
 interface Front { readonly z: (x: number, y: number) => number; readonly near: (x: number, y: number) => number }
 
 /** The boundary of a person's front, over the vertices `keep` takes, as a head has its own. */
@@ -168,7 +186,10 @@ function frontBound(net: Net, keep: (v: number) => boolean, step: number): Front
   return { near: (x, y) => at(owner, x, y, -1), z: (x, y) => at(depth, x, y, 0) };
 }
 
-/** A sheet laid on a person's front: `at` says where each corner of a grid goes, and each vertex rides the bones of what is under it. */
+/**
+ * A sheet laid on a person's front: `at` says where each corner of a grid goes, and each vertex rides the bones of what
+ * is under it.
+ */
 function drape(net: Net, front: Front, rows: number, cols: number, at: (t: number, u: number) => readonly [number, number], lift: number, role: number, fabric: number): number {
   const from = net.position.length / 3, point = (r: number, c: number): Vec => { const [x, y] = at(r / rows, c / cols); return [x, y, front.z(x, y) + lift]; };
   for (let r = 0; r <= rows; r += 1) for (let c = 0; c <= cols; c += 1) {
@@ -179,7 +200,10 @@ function drape(net: Net, front: Front, rows: number, cols: number, at: (t: numbe
   return (rows + 1) * (cols + 1);
 }
 
-/** A jacket's open front, near to: a shirt in the V of it, lapels turned back along each edge, a formal one's tie, and the buttons below. */
+/**
+ * A jacket's open front, near to: a shirt in the V of it, lapels turned back along each edge, a formal one's tie, and
+ * the buttons below.
+ */
 export function jacketFront(net: Net, p: Person, roles: readonly string[], cell: number): readonly number[] {
   const { top, costume } = p.outfit;
   if ((top !== "jacket" && top !== "blazer") || costume === "firefighter" || cell >= WRAPPED) return [];
@@ -206,7 +230,10 @@ function necklineOf(net: Net, c: Vec, size: number, keep: (v: number) => boolean
   return rim;
 }
 
-/** A polo's collar, near to: one strip from the neckline round the back of the neck and down to two points at the front, and the short placket under them. */
+/**
+ * A polo's collar, near to: one strip from the neckline round the back of the neck and down to two points at the front,
+ * and the short placket under them.
+ */
 export function poloFront(net: Net, p: Person, roles: readonly string[], cell: number): readonly number[] {
   if (p.outfit.top !== "polo" || cell >= WRAPPED) return [];
   const size = p.build.size, s = restSkeleton(p), cloth = topCloth(p), mid = s.chest[2] * size, topRole = roles.indexOf("top"), hi = s.chest[1] * size;
@@ -235,13 +262,18 @@ const FITTED_HATS: ReadonlySet<Hat> = new Set<Hat>(["cap", "beanie", "pompom", "
 /** Whether a person's hat is near enough to be built over their head. */
 export const fitsHat = (p: Person, cell: number): boolean => cell < WRAPPED && FITTED_HATS.has(p.outfit.hat) && p.outfit.costume !== "fursuit";
 
-/** How far out a boundary reaches anywhere near a direction: what a crown has to clear, for it cannot follow every lock. */
+/**
+ * How far out a boundary reaches anywhere near a direction: what a crown has to clear, for it cannot follow every lock.
+ */
 function highestNear(bound: Bound, dir: Vec): number {
   const reach = [[0, 0], [0.14, 0], [-0.14, 0], [0, 0.14], [0, -0.14], [0.24, 0], [-0.24, 0], [0, 0.24]] as const;
   return Math.max(...reach.map(([a, b]) => bound.far(unit(add(dir, [a, b, a - b]), UP))));
 }
 
-/** Where a crown's hem lies at each bearing: level round the head and only a little lower behind, as a hat sits. A helmet and a tied scarf come down the neck. */
+/**
+ * Where a crown's hem lies at each bearing: level round the head and only a little lower behind, as a hat sits. A
+ * helmet and a tied scarf come down the neck.
+ */
 const crownHem = (hat: Hat, az: number): number => mix(0.5, hat === "helmet" || hat === "bandana" ? 0.24 : 0.42, (1 - Math.cos(az)) / 2);
 
 const BERET_SLUMP = unit([0.72, 0.66, -0.2], UP);
@@ -251,7 +283,10 @@ export const BILLS: Partial<Record<Hat, number>> = {
   cap: 0.74, peaked: 0.56, flatcap: 0.44, hardhat: 0.46, visor: 0.7,
 };
 
-/** A bill: one thin curved sheet out of the crown's hem across the brow, its sides falling away and its edge rounded. Returns how many vertices it took. */
+/**
+ * A bill: one thin curved sheet out of the crown's hem across the brow, its sides falling away and its edge rounded.
+ * Returns how many vertices it took.
+ */
 function billOn(net: Net, role: number, fabric: number, to: (q: Vec) => Vec, hat: Hat, hemAt: (az: number) => Vec): number {
   const reach = BILLS[hat] ?? 0, rows = 7, side = 16, cols = (side + 1) * 2, wide = 1.1, from = net.position.length / 3;
   if (reach <= 0) return 0;
@@ -280,7 +315,10 @@ function tuckedHair(net: Net, roles: readonly string[], h: HeadFrame, size: numb
   }
 }
 
-/** How far out a crown lies along `d`, from what it must clear: under hair the skull has no skin to read, so its reach is held to a head's. */
+/**
+ * How far out a crown lies along `d`, from what it must clear: under hair the skull has no skin to read, so its reach
+ * is held to a head's.
+ */
 function crownFar(skin: number, hair: number, d: Vec, hat: Hat): number {
   const ridge = hat === "hardhat" ? 0.035 * smooth(0.3, 0.12, Math.abs(d[0])) * smooth(0.4, 0.7, d[1]) : 0;
   // (A beret slumps to one side.)
@@ -288,7 +326,10 @@ function crownFar(skin: number, hair: number, d: Vec, hat: Hat): number {
   return Math.max(skin + 0.05 * smooth(0.5, 1, d[1]), Math.min(hair + 0.05, CROWN_REACH)) + (CROWN_RISE[hat] ?? 0) * smooth(0.3, 1, d[1]) + ridge + slump;
 }
 
-/** A crown, built over the head and the hair really under it: the hem level round the brow and lower behind, the top only as much taller as the hat is. */
+/**
+ * A crown, built over the head and the hair really under it: the hem level round the brow and lower behind, the top
+ * only as much taller as the hat is.
+ */
 export function crownOver(net: Net, p: Person, roles: readonly string[], cell: number, h: HeadFrame, seat: Seat): readonly number[] {
   if (!fitsHat(p, cell)) return [];
   const size = p.build.size, hat = p.outfit.hat, trim = roles.indexOf("trim"), under = boundOf(net, h, size, (v) => net.role[v] !== trim);
@@ -330,7 +371,10 @@ export function gearOn(net: Net, p: Person, roles: readonly string[], cell: numb
   return Array.from({ length: count }, () => 1);
 }
 
-/** Where a mouth's corners go at rest: a short line up from each end of the shader's, each person's own, a little higher on one side. */
+/**
+ * Where a mouth's corners go at rest: a short line up from each end of the shader's, each person's own, a little higher
+ * on one side.
+ */
 export function cornersOf(
   net: Net,
   p: Person,

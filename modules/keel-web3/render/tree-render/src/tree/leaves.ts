@@ -42,7 +42,10 @@ function drift(tree: Tree, pass: LeafPass, x: number, y: number, z: number): voi
 /** How far downwind a point is, so a gust reaches it in turn. */
 const downwind = (pass: LeafPass, x: number, z: number): number => x * Math.cos(pass.dir) + z * Math.sin(pass.dir);
 
-/** A blade grows from its twig: the stalk sits on the twig and the blade points out along its slot, so no leaf hangs in the air. */
+/**
+ * A blade grows from its twig: the stalk sits on the twig and the blade points out along its slot, so no leaf hangs in
+ * the air.
+ */
 function poseBlade(
   tree: Tree,
   frame: TreeFrameLike,
@@ -110,7 +113,10 @@ export interface FrondLayout {
   readonly pieces: Float32Array;
 }
 
-/** Each frond internode's place along its frond (counted from the crown), its frond's first internode, and each frond's length in internodes. */
+/**
+ * Each frond internode's place along its frond (counted from the crown), its frond's first internode, and each frond's
+ * length in internodes.
+ */
 function frondDepths(
   model: TreeModelLike,
   parent: ArrayLike<number>,
@@ -160,7 +166,10 @@ export function frondLayout(model: TreeModelLike): FrondLayout | null {
   return layout;
 }
 
-/** One leaflet off its rachis: angled toward the frond's tip, dropping into a V, the outer ones drooping most, all of them shivering in the wind. */
+/**
+ * One leaflet off its rachis: angled toward the frond's tip, dropping into a V, the outer ones drooping most, all of
+ * them shivering in the wind.
+ */
 function poseLeaflet(
   tree: Tree,
   fronds: FrondLayout,
@@ -461,7 +470,10 @@ function seasonLeafColor(
   return a;
 }
 
-/** A hybrid's minor kind under the tree's skin keeps a share of its own leaf colour (`clumps`), so an oak limb on an ember cherry still reads as its own section. */
+/**
+ * A hybrid's minor kind under the tree's skin keeps a share of its own leaf colour (`clumps`), so an oak limb on an
+ * ember cherry still reads as its own section.
+ */
 function skinnedLeafColor(
   tree: Tree,
   skin: TreeSkin,
@@ -479,7 +491,10 @@ function skinnedLeafColor(
   return skinLeafColor(tree, skin, frame, index).lerp(tree.c, 0.45);
 }
 
-/** A leaf's season colour: by its own tone and rank, or (`clumps`) its clump's, with the odd leaf catching the light in the palest tone; a clump turns in autumn together. */
+/**
+ * A leaf's season colour: by its own tone and rank, or (`clumps`) its clump's, with the odd leaf catching the light in
+ * the palest tone; a clump turns in autumn together.
+ */
 function leafSeasonColor(tree: Tree, year: YearLike, index: number, colors: TreeColors): ColorLike {
   const slots = tree.model.leaves;
   const rank = at(slots.rank, index);

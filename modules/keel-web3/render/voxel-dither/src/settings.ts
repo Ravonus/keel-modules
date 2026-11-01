@@ -45,7 +45,10 @@ export interface DitherSettings {
    * can keep a pink blossom without turning a pale sky pink.
    */
   readonly accent: readonly string[];
-  /** 0 to 3: the sky and far band's saturation, and how much their hue outweighs lightness when it picks a palette entry, so a fixed palette finds its blue instead of greys. */
+  /**
+   * 0 to 3: the sky and far band's saturation, and how much their hue outweighs lightness when it picks a palette
+   * entry, so a fixed palette finds its blue instead of greys.
+   */
   readonly skySaturation: number;
   /** How much of the screen's spread is used, 0 (posterized) to 1. */
   readonly amount: number;

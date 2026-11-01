@@ -30,7 +30,10 @@ const SHOVE_PASSES = 4;
 const MOST_RINGS = 6;
 const ROOTED = 1e9;
 
-/** Animals that have turned to each other (a sniff, a groom, a nose to a nose) may come this much closer, their trunks still apart. */
+/**
+ * Animals that have turned to each other (a sniff, a groom, a nose to a nose) may come this much closer, their trunks
+ * still apart.
+ */
 const SNUG = 0.5;
 const TOUCH_ACTS: readonly Action[] = ["groom", "nuzzle", "play", "sniff"];
 const greeting = (a: Footprint, b: Footprint): boolean =>
@@ -80,7 +83,10 @@ export function shoveApart(prints: readonly (Footprint | null)[]): (readonly [nu
   return shove;
 }
 
-/** Where a body is thickest, as points along its trunk a ring apart: close enough that another body can't lie across the gap, and through the middle too, for two bodies head to tail would have their ends push equally both ways. */
+/**
+ * Where a body is thickest, as points along its trunk a ring apart: close enough that another body can't lie across the
+ * gap, and through the middle too, for two bodies head to tail would have their ends push equally both ways.
+ */
 function trunkOfBody(m: Moment, capsules: readonly Capsule[]): { centres: Vec[]; r: number } | null {
   const thick = capsules.filter((c) => c.decal !== true && c.carve !== true);
   const most = thick.reduce((high, c) => Math.max(high, c.r), 0);
@@ -148,7 +154,10 @@ function woodPrintOf(actor: Actor, m: Moment, capsules: readonly Capsule[], stag
   return { balls, r: body.r * 0.8, weight, side: m.frame.x, own: ownWood(m.segment, stage) };
 }
 
-/** How far a body leans to go round the deepest limb in its way that isn't one it is on. A function of where it is now, so it swings round the wood and back. */
+/**
+ * How far a body leans to go round the deepest limb in its way that isn't one it is on. A function of where it is now,
+ * so it swings round the wood and back.
+ */
 export function clearOfLimbs(print: WoodPrint, map: WoodMap): Vec {
   const own = new Set((print.own ?? []).map(woodKey));
   const keep = print.r * 0.85;

@@ -30,7 +30,8 @@ export type Tail = "bushy" | "curl" | "thin" | "puff" | "ring" | "banded" | "thi
  * Extra parts and markings. Markings are paint only (sdf-body decals): a pale
  * `bib` down the throat and chest, a white `rump`, a pale `muzzle`, a dark
  * `saddle` down the back, dark `socks` on the lower legs, pale `mitts` on the paws, a `mask` across the
- * eyes, pale `brows` over it; a `ruff` of fur round the neck, `jowls` on the cheeks, a `hump` over the shoulders; a `button` nose, `fingers` marked on the forepaws.
+ * eyes, pale `brows` over it; a `ruff` of fur round the neck, `jowls` on the cheeks, a `hump` over the shoulders; a
+ * `button` nose, `fingers` marked on the forepaws.
  */
 type Extra = "bignose" | "antlers" | "mask" | "quills" | "shell" | "pouch" | "crest" | "stripes" | "longneck" | "train" | "crown" | "glowtail" | "claws" | "cheeks" | "spots"
   | "bib" | "rump" | "muzzle" | "saddle" | "socks" | "mitts" | "ruff" | "hump" | "brows" | "jowls" | "button" | "fingers" | "wet" | "toes";
@@ -80,17 +81,29 @@ export interface Build {
   readonly tailRise: number;
   /** The neck's thickness against the usual (a cat's slim). */
   readonly neckGirth: number;
-  /** A foreleg's two upper bones, each as a share of its reach: over a half bends it at the elbow, a half stands it straight. */
+  /**
+   * A foreleg's two upper bones, each as a share of its reach: over a half bends it at the elbow, a half stands it
+   * straight.
+   */
   readonly foreBone: number;
-  /** A tail's own line, a step for each segment: how much it climbs over its kind's, how far it swings aside, its share of the length (a cat's soft S, off to one side). */
+  /**
+   * A tail's own line, a step for each segment: how much it climbs over its kind's, how far it swings aside, its share
+   * of the length (a cat's soft S, off to one side).
+   */
   readonly tailLine?: readonly (readonly [rise: number, sway: number, share: number])[];
-  /** Where its neck leaves the body, off its shoulders in body radii (up, forward): a tortoise's from under the shell's rim. */
+  /**
+   * Where its neck leaves the body, off its shoulders in body radii (up, forward): a tortoise's from under the shell's
+   * rim.
+   */
   readonly neckRoot?: readonly [number, number];
   /** The neck's thickness at the head, in body radii. */
   readonly neckEnd?: number;
   /** A leg made to its own plan and not its foot's (see `LegMake`). */
   readonly legMake?: LegMake;
-  /** Nose to the ground, how many body radii the shoulders sink, the elbows bending and the neck reaching out low (a cat's sniff, where a dog just drops its head). */
+  /**
+   * Nose to the ground, how many body radii the shoulders sink, the elbows bending and the neck reaching out low (a
+   * cat's sniff, where a dog just drops its head).
+   */
   readonly stoop?: number;
   /** How far out its legs stand, as a share of its body's radius (a hedgehog's in under its skirt). */
   readonly stance?: number;
@@ -98,7 +111,10 @@ export interface Build {
   readonly curlIn?: number;
   /** How far up a blunt snout turns at its end, in head radii. */
   readonly snoutUp?: number;
-  /** The furthest its head goes below level, in radians, however low its nose is held (a hedgehog's, all neck hidden under its mantle). */
+  /**
+   * The furthest its head goes below level, in radians, however low its nose is held (a hedgehog's, all neck hidden
+   * under its mantle).
+   */
   readonly dip?: number;
   /**
    * Four legs: the torso's outline from hip (0) to shoulder (1), in body
@@ -107,7 +123,10 @@ export interface Build {
    * root (0) to its breast (1).
    */
   readonly torso?: readonly Station[];
-  /** The skull's outline in head radii from its middle, back to the stop where the brow drops to the muzzle; without one, the head is round. */
+  /**
+   * The skull's outline in head radii from its middle, back to the stop where the brow drops to the muzzle; without
+   * one, the head is round.
+   */
   readonly skull?: readonly Station[];
   /** The muzzle's outline from the stop (0) to the nose (1), in head radii across. */
   readonly muzzle?: readonly Station[];
@@ -232,7 +251,8 @@ const OUTLINE = {
     skull: [[-0.6, 0.6, 0.6, 0.72], [-0.05, 0.8, 0.65, 0.88], [0.35, 0.6, 0.55, 0.62]],
     muzzle: [[1, 0.28, 0.3, 0.24]],
   },
-  // (A raccoon is pear-shaped: its back arches over deep wide loins and falls to low narrow shoulders. Its head is a round one: the face marks sit true on it.)
+  // (A raccoon is pear-shaped: its back arches over deep wide loins and falls to low narrow shoulders. Its head is a
+  // round one: the face marks sit true on it.)
   procyonid: {
     torso: [[-0.12, 1, 1.04, 1.1], [0.4, 1.2, 1.08, 1.08], [1.05, 0.78, 0.84, 0.72]],
   },
@@ -317,7 +337,8 @@ export const SPECIES = {
     temper: { sniff: 2.2, play: 2, sit: 1.8, sleep: 1.4, look: 1.6, wander: 1.8, run: 1, dig: 0.8, shake: 0.6, graze: 0 }, friends: ["cat", "deer"] }),
   bear: define({ label: "Bear", plan: "quad", size: 0.9, rarity: "rare", weight: 8, regions: ["rockies", "alps", "tokyo"], speed: 0.8, winter: false, groups: [6, 0, 3, 0],
     build: { len: 1.3, leg: 0.58, body: 0.36, neck: 0.42, rise: -0.05, head: 0.25, snout: 0.15, ears: "round", tail: "none", tailLen: 0.1, hip: 0.92, extras: ["hump", "muzzle"], foot: "plant", sit: "rump", legR: 1.5, chest: 1.15, earLen: 1.5, snoutTip: 0.8,
-      // A round rump, a deep belly, the back rising to the hump over the shoulders; a broad skull dished down to a short, blunt muzzle.
+      // A round rump, a deep belly, the back rising to the hump over the shoulders; a broad skull dished down to a
+      // short, blunt muzzle.
       torso: [[-0.05, 0.8, 0.62, 0.78], [0.3, 0.78, 0.72, 0.85], [0.68, 0.92, 0.72, 0.88], [0.95, 1.05, 0.68, 0.82], [1.1, 0.75, 0.7, 0.7]],
       skull: [[-0.55, 0.6, 0.6, 0.68], [-0.08, 0.85, 0.72, 0.95], [0.35, 0.62, 0.62, 0.7]],
       muzzle: [[0.5, 0.44, 0.5, 0.46], [1, 0.34, 0.38, 0.34]] },

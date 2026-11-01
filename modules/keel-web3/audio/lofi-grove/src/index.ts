@@ -7,7 +7,8 @@
  * young tree the kit and bass, a mature one its melody, and an old one slows
  * and thins until a dead snag is a record left turning. MIT.
  *
- *   const score = lofiScore({ seed: "0x6f6e…", species: "cherry", season: "spring", life: 0.4, night: 0, weather: "rain" });
+ *  const score = lofiScore({ seed: "0x6f6e…", species: "cherry", season: "spring", life: 0.4, night: 0, weather: "rain"
+ * });
  *   const band = createLofi(Tone);   // Tone is injected, never imported
  *   band.start(score);               // inside keel-audio's onStart
  *   band.setScore(lofiScore(next));  // mix now, structure at the next bar

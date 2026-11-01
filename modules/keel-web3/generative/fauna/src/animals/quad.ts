@@ -315,7 +315,10 @@ function pawWork(plan: FootPlan, body: QuadBody, leg: LegId, q: Pose, t: number,
  * slimmest, down to a paw, a hoof or a flat foot. A hind leg zigzags (the
  * knee forward, the hock back); a foreleg's elbow sits behind.
  */
-/** Each foot's radius as a share of the leg's, and the leg's thickness down its two upper bones (root, knee, knee, joint). */
+/**
+ * Each foot's radius as a share of the leg's, and the leg's thickness down its two upper bones (root, knee, knee,
+ * joint).
+ */
 const SOLE: Readonly<Record<Foot, number>> = { paw: 0.6, hoof: 0.78, plant: 0.55 };
 const LEG_TAPER = { fore: [1.45, 0.95, 0.9, 0.68], hind: [1.95, 1.1, 1.0, 0.62] } as const;
 
@@ -390,7 +393,10 @@ function columnLeg(
   cap(kit, `${name}.lower`, "coat", mid, end, legR * r2, flat, [0, 0, 1], { r1: legR * r3, melt: 0.5 });
 }
 
-/** A leg's lowest bone: its share of the leg and how it leans at rest; and the two upper bones, as shares of what is left. */
+/**
+ * A leg's lowest bone: its share of the leg and how it leans at rest; and the two upper bones, as shares of what is
+ * left.
+ */
 function lowOf(b: Build, fore: boolean): { share: number; lean: number; upper: number; lower: number } {
   const low = LOWER[b.foot];
   if (b.legMake) {
@@ -407,7 +413,10 @@ const taperOf = (b: Build, fore: boolean): readonly [number, number, number, num
 
 const softRole = (b: Build): Role => (b.extras.includes("mitts") ? "belly" : b.extras.includes("socks") ? "dark" : "coat");
 
-/** The foot of a soft leg: a low oval paw the leg flows into with no neck above it, its pale fur running up into the leg. */
+/**
+ * The foot of a soft leg: a low oval paw the leg flows into with no neck above it, its pale fur running up into the
+ * leg.
+ */
 function softPaw(kit: Kit, b: Build, name: string, sole: Vec, legR: number, fore: boolean): void {
   if (b.extras.includes("toes")) {
     toedPaw(kit, name, sole, legR, fore);
@@ -424,7 +433,8 @@ function softPaw(kit: Kit, b: Build, name: string, sole: Vec, legR: number, fore
     UP,
     { melt: 0.9 },
   );
-  // (A raccoon's forepaw is a hand: two lines over its front part three fingers, each a blade deep enough to follow the paw's curve.)
+  // (A raccoon's forepaw is a hand: two lines over its front part three fingers, each a blade deep enough to follow the
+  // paw's curve.)
   if (fore && b.extras.includes("fingers"))
     for (const x of [-1, 1])
       cap(
@@ -440,7 +450,10 @@ function softPaw(kit: Kit, b: Build, name: string, sole: Vec, legR: number, fore
       );
 }
 
-/** An elephant's foot on a tortoise: the column's end spread round and flat on the ground, a row of stout blunt nails of pale horn along its toe edge, turned out a little. */
+/**
+ * An elephant's foot on a tortoise: the column's end spread round and flat on the ground, a row of stout blunt nails of
+ * pale horn along its toe edge, turned out a little.
+ */
 function stumpFoot(kit: Kit, name: string, sole: Vec, legR: number, fore: boolean, x: number): void {
   cap(kit, `${name}.paw`, "coat", sole, sole, legR * 1.06, 0.68, UP, { melt: 0.3 });
   const span = legR * (fore ? 0.92 : 0.74);
@@ -448,7 +461,10 @@ function stumpFoot(kit: Kit, name: string, sole: Vec, legR: number, fore: boolea
   cap(kit, `${name}.nails`, "horn", add(toe, [-span, 0, -x * legR * 0.2]), add(toe, [span, 0, x * legR * 0.2]), legR * 0.215, 1, UP, { row: fore ? 5 : 4, bow: [0, 0, legR * 0.36], shadow: false });
 }
 
-/** A low flat paw of bare skin with its toes as nubs of their own, a hedgehog's: three to a forepaw and two to a hind one, all a body's parts can spare. */
+/**
+ * A low flat paw of bare skin with its toes as nubs of their own, a hedgehog's: three to a forepaw and two to a hind
+ * one, all a body's parts can spare.
+ */
 function toedPaw(kit: Kit, name: string, sole: Vec, legR: number, fore: boolean): void {
   for (const x of fore ? [-1, 0, 1] : [-0.6, 0.6]) {
     const nub = add(sole, [x * legR * 0.85, -legR * 0.3, legR * (1.7 - Math.abs(x) * 0.25)]);
@@ -457,7 +473,10 @@ function toedPaw(kit: Kit, name: string, sole: Vec, legR: number, fore: boolean)
   cap(kit, `${name}.paw`, "accent", madd(sole, [0, 0, 1], -legR * 0.2), madd(sole, [0, 0, 1], legR * 0.5), legR * 1.18, 0.5, UP, { melt: 0.25 });
 }
 
-/** A kind's paw, in leg radii: its toes, how long and stout a claw is and how far it curls under, how wide the toes fan; `sheathed` claws stay in until they are wanted. */
+/**
+ * A kind's paw, in leg radii: its toes, how long and stout a claw is and how far it curls under, how wide the toes fan;
+ * `sheathed` claws stay in until they are wanted.
+ */
 interface Paw {
   readonly toes: number;
   readonly long: number;
@@ -480,7 +499,10 @@ const PAWS: Partial<Readonly<Record<string, Paw>>> = {
 };
 /** The acts a sheathed claw comes out for. */
 const CLAW_ACTS: readonly Action[] = ["scratch", "stalk", "climb", "rear", "play", "hang"];
-/** How far out its claws are: all the way on most animals; on a sheathed one only through the acts that want them, sliding out and back in at either end. */
+/**
+ * How far out its claws are: all the way on most animals; on a sheathed one only through the acts that want them,
+ * sliding out and back in at either end.
+ */
 function clawsOut(paw: Paw, m: Moment): number {
   if (!paw.sheathed) return 1;
   if (!CLAW_ACTS.includes(m.segment.act)) return 0;

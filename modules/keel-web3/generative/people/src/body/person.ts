@@ -55,7 +55,10 @@ export interface Build {
   /** The waist against the average one, and how far the stomach stands out. */
   readonly waist: number;
   readonly belly: number;
-  /** How much meat is on the limbs, the size of the bust (a man's chest), the seat, and the feet's length, each 1 average. */
+  /**
+   * How much meat is on the limbs, the size of the bust (a man's chest), the seat, and the feet's length, each 1
+   * average.
+   */
   readonly limb: number;
   readonly bust: number;
   readonly rear: number;
@@ -112,7 +115,9 @@ export interface Face {
   readonly look: Look;
 }
 
-/** What a face is built on, in head radii: `y` up from the head's centre, `z` forward of it, `x` out from the middle. */
+/**
+ * What a face is built on, in head radii: `y` up from the head's centre, `z` forward of it, `x` out from the middle.
+ */
 export interface Bone {
   /** How grown it is, 0 a child's to 1 an adult's: every difference by sex goes by this. */
   readonly m: number;
@@ -190,7 +195,9 @@ export interface Person {
   readonly gait: Gait;
 }
 
-/** How a person moves, theirs as their face is. Two strangers never run alike, and few people run alike on both sides. */
+/**
+ * How a person moves, theirs as their face is. Two strangers never run alike, and few people run alike on both sides.
+ */
 export interface Gait {
   /** Steps as against the common pace. */
   readonly cadence: number;
@@ -214,7 +221,9 @@ export interface Gait {
   readonly sway: number;
   readonly twist: number;
   readonly turned: number;
-  /** How far the forearms come in across the body, how far apart the feet go, and where in a stride they happen to be. */
+  /**
+   * How far the forearms come in across the body, how far apart the feet go, and where in a stride they happen to be.
+   */
   readonly across: number;
   readonly wide: number;
   readonly offset: number;

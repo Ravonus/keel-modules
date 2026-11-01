@@ -127,7 +127,10 @@ export const SPECIES_MOTIFS: Readonly<Record<string, readonly MotifNote[]>> = {
   mango: [[0, 2, 3], [3, 4, 3], [6, 6, 2], [8, 5, 4], [14, 3, 2], [16, 4, 3], [19, 2, 3], [22, 1, 2], [24, 0, 8]],
 };
 
-/** Keys comping per bar: [16th step, length in 16ths, velocity]. The last comp, `ARPEGGIO`, breaks the chord into eighths. */
+/**
+ * Keys comping per bar: [16th step, length in 16ths, velocity]. The last comp, `ARPEGGIO`, breaks the chord into
+ * eighths.
+ */
 export const COMPS: readonly (readonly (readonly [number, number, number])[])[] = [
   [[0, 14, 0.7]],
   [[0, 6, 0.7], [10, 6, 0.5]],

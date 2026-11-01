@@ -227,7 +227,8 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
     evergreen: false, palm: null, radiusTip: 0.03, pipe: 2.05,
     phenology: { ...DECIDUOUS, leaf: [122, 150], color: [252, 282], drop: [262, 296] },
   },
-  // Apple: a low, spreading crown on fruiting spurs, pink-white blossom after the leaves break, red apples bowing the limbs.
+  // Apple: a low, spreading crown on fruiting spurs, pink-white blossom after the leaves break, red apples bowing the
+  // limbs.
   apple: {
     id: "apple", cycles: 26, height: 7, apical: 0.44, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 52, divergence: 137.5, whorl: 0,
     straight: 0.9, light: 0.4, up: 0.38, lateralUp: 0.06, weep: 0.06, flat: 0.22, spread: 0.6, crownAt: 0.3, ceiling: Infinity, shed: 0.2,
@@ -275,7 +276,8 @@ export const SPECIES: Readonly<Record<SpeciesId, Species>> = {
     evergreen: true, palm: null, radiusTip: 0.023, pipe: 2.6,
     phenology: BROADLEAF_EVERGREEN,
   },
-  // Fig: low and sprawling under few, huge leaves; no flowers to see (they bloom inside the fruit), figs in late summer.
+  // Fig: low and sprawling under few, huge leaves; no flowers to see (they bloom inside the fruit), figs in late
+  // summer.
   fig: {
     id: "fig", cycles: 24, height: 6.4, apical: 0.36, vigor: 2.1, maxShoot: 3, sideShoot: 3, angle: 54, divergence: 137.5, whorl: 0,
     straight: 0.85, light: 0.36, up: 0.4, lateralUp: 0.2, weep: 0, flat: 0.3, spread: 0.7, crownAt: 0.2, ceiling: 14, shed: 0.18,

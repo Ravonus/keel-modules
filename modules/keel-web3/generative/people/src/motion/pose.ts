@@ -56,7 +56,9 @@ export interface PersonBody {
   };
 }
 
-/** Where hair grows and how long, in grains: over the crown from the brow, down the back of the skull and past each ear. */
+/**
+ * Where hair grows and how long, in grains: over the crown from the brow, down the back of the skull and past each ear.
+ */
 function hairFlow(p: Person, s: Skeleton): PersonBody["grain"]["pelt"]["flow"] {
   const h = headFrame(s, p.build.head, p.face);
   const { r } = h;
@@ -175,7 +177,10 @@ export function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: numbe
 }
 
 
-/** How a person's loose cloth follows them: a damped spring in the body's frame, thrown by every change of speed, dragged back by the air as they go. */
+/**
+ * How a person's loose cloth follows them: a damped spring in the body's frame, thrown by every change of speed,
+ * dragged back by the air as they go.
+ */
 export function createHang(stiff = 34, damp = 5): { step(dt: number, velocity: Vec): Vec } {
   let at: Vec = [0, 0, 0];
   let speed: Vec = [0, 0, 0];
@@ -207,7 +212,10 @@ export function velocityAt(p: Person, action: Action, t: number): Vec {
   ]);
 }
 
-/** How far soft flesh has been left behind at `t`: on a stiffer spring than cloth, it is thrown up and down by each step and settles after it. In the body's frame, metres. */
+/**
+ * How far soft flesh has been left behind at `t`: on a stiffer spring than cloth, it is thrown up and down by each step
+ * and settles after it. In the body's frame, metres.
+ */
 export function jiggleAt(p: Person, action: Action, t: number): Vec {
   const spring = createHang(150, 7);
   let at: Vec = [0, 0, 0];

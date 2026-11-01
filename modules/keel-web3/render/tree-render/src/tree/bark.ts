@@ -65,7 +65,10 @@ const BARK_BEGIN = /* glsl */ `#include <begin_vertex>
   vBarkWorld = barkWorld.xyz;
   vBarkUp = abs(barkAxis.y);`;
 
-/** A standard material whose instances carry living bark. `ground` is the world y where moss gathers; `bareWall` keeps moss off roots below it (on a planter wall). */
+/**
+ * A standard material whose instances carry living bark. `ground` is the world y where moss gathers; `bareWall` keeps
+ * moss off roots below it (on a planter wall).
+ */
 export function barkMaterial(lit: LitLike, ground = 0, uprightMoss = false, bareWall = false): MaterialLike {
   const material = new lit.LitMaterial({ color: "#ffffff", roughness: 0.92, metalness: 0 });
   material.userData.voxelDitherKeep = true;

@@ -109,7 +109,8 @@ function span(lo: number[], hi: number[], axis: number, part: BodyPart): void {
   const a = part.a[axis] ?? 0;
   const b = part.b[axis] ?? 0;
   const r1 = part.r1 ?? part.r;
-  // (A digit reaches past its row and a bowed part stands off its line: the box holds both, or a wing's tip is cut straight.)
+  // (A digit reaches past its row and a bowed part stands off its line: the box holds both, or a wing's tip is cut
+  // straight.)
   const out = (part.reach?.[axis] ?? 0) + (part.bow?.[axis] ?? 0);
   lo[axis] = Math.min(lo[axis] ?? Infinity, a - part.r + Math.min(out, 0), b - r1 + Math.min(out, 0));
   hi[axis] = Math.max(hi[axis] ?? -Infinity, a + part.r + Math.max(out, 0), b + r1 + Math.max(out, 0));
@@ -148,7 +149,10 @@ function paint(slot: Slot, body: BodyInput, state: ShaderState): void {
   }
 }
 
-/** The tag a part carries to the shader: its role, its melt in 16ths (0 crisp), 1024 for a decal and 2048 more for one under the pattern, or 4096 more for one that is bare skin, 2048 alone for a carve. */
+/**
+ * The tag a part carries to the shader: its role, its melt in 16ths (0 crisp), 1024 for a decal and 2048 more for one
+ * under the pattern, or 4096 more for one that is bare skin, 2048 alone for a carve.
+ */
 export function tagOf(role: number, crisp: boolean, part: Pick<BodyPart, "melt" | "decal" | "under" | "carve" | "bare">): number {
   // (A carve is never crisp: its melt is how soft its rim is.)
   const melt = crisp && part.carve !== true ? 0 : Math.round(Math.max(0, Math.min(2, part.melt ?? 1)) * 16);
@@ -215,7 +219,10 @@ const grainReach = (grain: Grain): number => grain.size * (grain.kind === "spine
 /** A pelt's longest hair, in grain sizes. */
 const peltLong = (grain: Grain): number => (grain.pelt?.flow ?? []).reduce((most, bone) => Math.max(most, ...bone.long), 0);
 
-/** How each grain takes the light when the body names no material of its own: fur soft and fuzzy, feathers and scales glossy. */
+/**
+ * How each grain takes the light when the body names no material of its own: fur soft and fuzzy, feathers and scales
+ * glossy.
+ */
 const MATERIALS: Readonly<Record<Grain["kind"], Required<Material>>> = {
   fur: { sheen: 0.6, fuzz: 0.45, gloss: 0, iridescence: 0, lift: 1, neutral: 0 },
   feather: { sheen: 0.15, fuzz: 0.1, gloss: 0.35, iridescence: 0, lift: 1, neutral: 0 },
@@ -406,7 +413,10 @@ function lightSlot(slot: Slot, light: BodyLight): void {
   (slot.u.uSat as UniformLike<number>).value = light.saturation ?? 1;
 }
 
-/** How far apart a part's shadow spheres sit, in its radii; the most a part takes; and the smallest part that casts, against the body's largest. */
+/**
+ * How far apart a part's shadow spheres sit, in its radii; the most a part takes; and the smallest part that casts,
+ * against the body's largest.
+ */
 const SHADOW_STEP = 1.25;
 const SHADOW_MOST = 12;
 const SHADOW_LEAST = 0.05;
@@ -424,7 +434,9 @@ function shadowProxy(lit: LitLike, limit: number): { mesh: InstancedLike; matrix
   return { mesh, matrix: new lit.Matrix4(), geometry, material };
 }
 
-/** The spheres a part casts its shadow with: enough to run its length without gaps, each its own width along a taper. */
+/**
+ * The spheres a part casts its shadow with: enough to run its length without gaps, each its own width along a taper.
+ */
 function castsAlong(part: BodyPart): number {
   const length = Math.hypot(part.b[0] - part.a[0], part.b[1] - part.a[1], part.b[2] - part.a[2]);
   return Math.min(Math.ceil(length / (Math.max(meanRadius(part), 1e-5) * SHADOW_STEP)) + 1, SHADOW_MOST);
@@ -452,14 +464,20 @@ function castShadows(proxy: ReturnType<typeof shadowProxy>, bodies: readonly Bod
   proxy.mesh.instanceMatrix.needsUpdate = true;
 }
 
-/** The most parts a body can have, and the uniform vectors the shader spends on all else (measured from a linked program). */
+/**
+ * The most parts a body can have, and the uniform vectors the shader spends on all else (measured from a linked
+ * program).
+ */
 export const MOST_PARTS = 64;
 export const OTHER_UNIFORMS = 154;
 
 /** The parts a device's fragment uniform vectors can hold: each costs three. */
 export const partsFor = (uniforms: number): number => Math.min(MOST_PARTS, Math.floor((uniforms - OTHER_UNIFORMS) / 3));
 
-/** A body's parts cut to `most`, dropping whole `detail` groups from the highest down, so a left paw never keeps claws a right one lost. */
+/**
+ * A body's parts cut to `most`, dropping whole `detail` groups from the highest down, so a left paw never keeps claws a
+ * right one lost.
+ */
 export function fitParts<T extends { readonly detail?: number }>(parts: readonly T[], most: number): readonly T[] {
   let kept = parts;
   while (kept.length > most) {

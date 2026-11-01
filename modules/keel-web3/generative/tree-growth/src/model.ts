@@ -443,7 +443,8 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
     const parent = at(model.parent, node);
     if (parent >= 0) carried[parent] = at(carried, parent) + at(carried, node);
   }
-  // Main limbs that live a good while (a quarter of the life): a limb shaded out young would carry its strain as bare sticks.
+  // Main limbs that live a good while (a quarter of the life): a limb shaded out young would carry its strain as bare
+  // sticks.
   const main: number[] = [];
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);
@@ -498,7 +499,8 @@ export function sectors(model: TreeModel, shares: readonly number[], seed = mode
   }
   // Whole limbs come in big lumps, and old low limbs that carried leaves for years may hold few now, so a
   // strain can end well short in the grown crown (the third kind gets what is left). Counting the leaves
-  // on the tree through the middle of its life, it takes side branches off the strains over their share, the biggest that
+  // on the tree through the middle of its life, it takes side branches off the strains over their share, the biggest
+  // that
   // still fit first, so a quarter share shows as about a quarter of the grown crown.
   const prime = (node: number): number =>
     [0.35, 0.5, 0.65].filter(

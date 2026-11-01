@@ -307,7 +307,9 @@ export const PALM_LEAFLET: readonly (readonly [number, number])[] = [
 ];
 const palmCache = new WeakMap<LitLike, GeometryLike>();
 
-/** The blade a species grows: needles for the conifers, arched straps for a palm, the broad leaf for everything else. */
+/**
+ * The blade a species grows: needles for the conifers, arched straps for a palm, the broad leaf for everything else.
+ */
 export function speciesBlade(lit: LitLike, speciesId: string): GeometryLike {
   if (speciesId === "palm") {
     let strap = palmCache.get(lit);
@@ -325,7 +327,9 @@ export function speciesBlade(lit: LitLike, speciesId: string): GeometryLike {
 
 const shapeCache = new WeakMap<LitLike, TreeShapes>();
 
-/** The shared shapes, made once per keel/lit namespace: round wood, low-poly leaf lumps, blades, buds and a unit box. */
+/**
+ * The shared shapes, made once per keel/lit namespace: round wood, low-poly leaf lumps, blades, buds and a unit box.
+ */
 export function treeShapes(lit: LitLike): TreeShapes {
   let shapes = shapeCache.get(lit);
   if (!shapes) {

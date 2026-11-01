@@ -144,7 +144,10 @@ export interface Mood {
   readonly twilight?: boolean | undefined;
 }
 
-/** Rain sends animals to rest and shelter (a bird sits it out preening, a butterfly folds its wings); snow slows everything and sets the hungry digging. */
+/**
+ * Rain sends animals to rest and shelter (a bird sits it out preening, a butterfly folds its wings); snow slows
+ * everything and sets the hungry digging.
+ */
 const WET: Partial<Record<Action, number>> = {
   sit: 1.8,
   lie: 1.6,

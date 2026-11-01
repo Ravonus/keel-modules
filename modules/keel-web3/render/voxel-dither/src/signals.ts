@@ -15,7 +15,10 @@ export type SignalPart = 1 | 2 | 3;
 export const SIGNAL_FILTERS = ["none", "snow", "film", "mosaic", "cga", "negative", "glow", "vhs", "bleed", "wave", "nightvision", "sparkle", "thermal", "neon", "rainbow", "slitscan", "pixelsort", "datamosh", "holo"] as const;
 export type SignalFilter = (typeof SIGNAL_FILTERS)[number];
 
-/** A part's own scanlines, colour fringe and glitch, each 0 to 1, and an optional filter at `amount` (0 to 1, default 1). */
+/**
+ * A part's own scanlines, colour fringe and glitch, each 0 to 1, and an optional filter at `amount` (0 to 1, default
+ * 1).
+ */
 export interface SignalSpec {
   readonly scanlines?: number;
   readonly chroma?: number;

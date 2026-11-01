@@ -37,7 +37,8 @@ function primateSpine(who: Who, m: Moment): PrimateBody {
   let tdir = dirOf(0, Math.PI / 2 - lean);
   if (q.hang > 0) {
     const sloth = b.extras.includes("claws");
-    // (A sloth hangs by its long arms from the branch above, its body down below them, head up: hanging, not lying on its back.)
+    // (A sloth hangs by its long arms from the branch above, its body down below them, head up: hanging, not lying on
+    // its back.)
     const hangHips: Vec = sloth ? [0, -arm * 0.85 - b.len * size * 0.95, -b.len * size * 0.15] : [0, -arm * 0.95 - b.len * size, 0];
     hips = lerpV(hips, hangHips, q.hang);
     tdir = unit(lerpV(tdir, sloth ? [0, 1, 0.18] : [0, 1, 0.05], q.hang));
@@ -59,30 +60,44 @@ function primateStance(who: Who, m: Moment, climbing: boolean, walking: boolean)
 /** The two that go on all fours and sit down to use their hands, a snow monkey and a long-tailed one. */
 export const macaqueKind = (who: Who): boolean => who.member.species === "macaque" || who.member.species === "monkey" || who.member.species === "loris";
 
-/** An arm's length against the leg: a snow monkey's a little the shorter, a long-tailed one's nearly as long, a sloth's over twice as long. */
+/**
+ * An arm's length against the leg: a snow monkey's a little the shorter, a long-tailed one's nearly as long, a sloth's
+ * over twice as long.
+ */
 function armShare(who: Who): number {
   if (macaqueKind(who)) return who.member.species === "macaque" ? 0.86 : 0.97;
   return who.spec.build.extras.includes("claws") ? 2.2 : 1.15;
 }
 
-/** How high its hips ride and how far its body leans from upright: climbing, on all fours (a little higher at rest than walking) or sitting up. */
+/**
+ * How high its hips ride and how far its body leans from upright: climbing, on all fours (a little higher at rest than
+ * walking) or sitting up.
+ */
 function primateCarriage(climbing: boolean, fours: boolean, moving: boolean, leg: number, r: number): { hipY: number; lean: number } {
   if (climbing) return { hipY: r * 1.4, lean: 1.45 };
   if (fours) return { hipY: leg * 0.8, lean: moving ? 1.15 : 1.0 };
   return { hipY: leg * 0.85, lean: 0.2 };
 }
 
-/** Standing about on all fours: a monkey (not a sloth or a loris, which only climb and hang) doing nothing with its hands. */
+/**
+ * Standing about on all fours: a monkey (not a sloth or a loris, which only climb and hang) doing nothing with its
+ * hands.
+ */
 const onFours = (who: Who, q: Pose): boolean => (who.spec.build.tail !== "none" || who.member.species === "loris") && q.sit < 0.3 && q.hang <= 0 && q.reach < 0.3 && q.hand < 0.3 && q.scratch <= 0;
 
-/** A hand down on what it walks on: a sloth's reaching wide and far ahead, on arms too long to do otherwise, hooked round the trunk when it climbs. */
+/**
+ * A hand down on what it walks on: a sloth's reaching wide and far ahead, on arms too long to do otherwise, hooked
+ * round the trunk when it climbs.
+ */
 function handDown(who: Who, body: PrimateBody, x: number, step: { z: number; y: number }): Vec {
   const { chest, w, arm, r } = body;
   if (!who.spec.build.extras.includes("claws")) return [x * w, step.y, chest[2] + arm * 0.25 + step.z];
   return body.climbing ? [x * w * 1.35, step.y + r * 0.1, chest[2] + arm * 0.62 + step.z] : [x * w * 1.8, step.y + r * 0.7, chest[2] + arm * 0.46 + step.z];
 }
 
-/** A sloth's hands at rest: raised in front of its chest and hooked, as if round a branch it has only just let go of. */
+/**
+ * A sloth's hands at rest: raised in front of its chest and hooked, as if round a branch it has only just let go of.
+ */
 const slothRest = (body: PrimateBody, x: number): Vec => add(body.chest, [x * body.w * (x < 0 ? 1.7 : 1.45), body.r * (x < 0 ? -0.55 : -1.3), body.arm * (x < 0 ? 0.56 : 0.5)]);
 
 /** Its hand as it sits: out by its foot, or a macaque's on its raised knee. */
@@ -91,7 +106,10 @@ function sitHand(who: Who, body: PrimateBody, x: number): Vec {
   return macaqueKind(who) ? [x * w * 1.02, r * 1.42, arm * 0.78] : [x * w * 1.3, r * 0.4, arm * 0.45];
 }
 
-/** A macaque grooming: one arm held out across its knee, away from its side, the other hand picking through the hair of it. */
+/**
+ * A macaque grooming: one arm held out across its knee, away from its side, the other hand picking through the hair of
+ * it.
+ */
 function groomHand(body: PrimateBody, x: number, t: number): Vec {
   const { w, r, arm } = body;
   if (x > 0) return [w * 1.56, r * 1.8, arm * 0.86];
@@ -216,15 +234,22 @@ function slothTorso(kit: Kit, body: PrimateBody): void {
   const { tdir, r } = body;
   const back = spineBack(tdir);
   loft(kit, "torso", "coat", SLOTH_BODY, (k) => slothSpine(body, k), back, [1, 0, 0], r, 1);
-  // (Algae in the hair over the back and shoulders, soft at its edge and mottled over by the coat's pattern; the belly's shade is painted by the melt alone, so it has no edge.)
+  // (Algae in the hair over the back and shoulders, soft at its edge and mottled over by the coat's pattern; the
+  // belly's shade is painted by the melt alone, so it has no edge.)
   cap(kit, "moss", "belly", madd(slothSpine(body, 0.3), back, r * 0.3), madd(slothSpine(body, 1.1), back, r * 0.3), r * 1.05, 1, UP, { decal: true, under: true, melt: 2 });
   cone(kit, "under", "alt", madd(slothSpine(body, -0.1), back, -r * 0.76), madd(slothSpine(body, 0.85), back, -r * 0.56), r * 0.5, r * 0.4);
 }
 
-/** A claw's two parts, as the arc from root to tip (in radians turned): horn, then a dark tip, thinning from `thick` to `end` of its root. */
+/**
+ * A claw's two parts, as the arc from root to tip (in radians turned): horn, then a dark tip, thinning from `thick` to
+ * `end` of its root.
+ */
 const CLAW: readonly (readonly [from: number, to: number, role: Role, thick: number, end: number])[] = [[0, 1.45, "horn", 1, 0.62], [1.45, 2.05, "dark", 0.62, 0.1]];
 
-/** One part of a claw, along the arc from `root` of radius `bend` out along `along` and round toward `curl`, from turn `from` to turn `to`. */
+/**
+ * One part of a claw, along the arc from `root` of radius `bend` out along `along` and round toward `curl`, from turn
+ * `from` to turn `to`.
+ */
 function sickle(kit: Kit, part: string, role: Role, root: Vec, along: Vec, curl: Vec, bend: number, from: number, to: number, r: number, r1: number): void {
   const on = (a: number): Vec => madd(madd(root, along, Math.sin(a) * bend), curl, (1 - Math.cos(a)) * bend);
   const a = on(from);
@@ -317,7 +342,10 @@ function slothFace(kit: Kit, h: Head, m: Moment): void {
   spots.forEach((spot, i) => { eyeOf(kit, `eye.${i === 0 ? "L" : "R"}`, h, onFace(h, spot), eyeR, m.segment.act !== "sleep"); });
 }
 
-/** Where a sloth's head sits: out ahead of its shoulders on a thin neck, so head and muzzle clear the outline from the side, the throat dark under them. */
+/**
+ * Where a sloth's head sits: out ahead of its shoulders on a thin neck, so head and muzzle clear the outline from the
+ * side, the throat dark under them.
+ */
 const slothPoll = (body: PrimateBody): Vec => madd(madd(body.chest, body.tdir, body.r * 1.3), spineBack(body.tdir), -body.r * (body.climbing ? 0.2 : 1.05));
 
 function slothHead(kit: Kit, who: Who, body: PrimateBody, m: Moment): Vec {
@@ -335,13 +363,17 @@ function slothHead(kit: Kit, who: Who, body: PrimateBody, m: Moment): Vec {
   const h: Head = { c, d: hd, ...axes, r: hr, ...eyeOfSpecies(who) };
   slothFace(kit, h, m);
   cap(kit, "head", "coat", c, c, hr, 1, UP, { melt: 0.45 });
-  // (Out of sight just under the face: the fur lies short round a crisp part, so the mask stays smooth and the crown shaggy.)
+  // (Out of sight just under the face: the fur lies short round a crisp part, so the mask stays smooth and the crown
+  // shaggy.)
   cap(kit, "plate", "accent", at3(h, 0.38, 0, 0), at3(h, 0.38, 0, 0), hr * 0.6, 1, UP, { melt: 0, shadow: false });
   cone(kit, "neck", "alt", madd(madd(chest, tdir, r * 0.5), fore, r * 0.4), madd(c, tdir, -hr * 0.55), r * 0.54, r * 0.5, 0.7);
   return c;
 }
 
-/** Where a sloth's coat falls from: a whorl on the crown of its head, so it runs back off the skull and down its flanks and arms. */
+/**
+ * Where a sloth's coat falls from: a whorl on the crown of its head, so it runs back off the skull and down its flanks
+ * and arms.
+ */
 export function slothCrown(who: Who, m: Moment): Vec {
   const body = primateSpine(who, m);
   const up = who.spec.build.head * who.member.size * CHARM;
@@ -374,13 +406,19 @@ function settled(who: Who, m: Moment): number {
   return clamp(Math.max(q.sit, q.reach, q.hand, q.scratch) / 0.3, 0, 1) * (1 - clamp(m.moving * 5, 0, 1));
 }
 
-/** From all fours, its back near level and its rump a little the higher, down onto its haunches with its back bowed over. */
+/**
+ * From all fours, its back near level and its rump a little the higher, down onto its haunches with its back bowed
+ * over.
+ */
 const macaqueCarriage = (down: number, leg: number, r: number): { hipY: number; lean: number } => ({ hipY: mix(leg * 0.8, r * 0.92, down), lean: mix(1.46, 0.5, down) });
 
 /** Along a macaque's spine, bowed out over the shoulders. */
 const macaqueSpine = (body: PrimateBody, k: number): Vec => madd(lerpV(body.hips, body.chest, k), spineBack(body.tdir), bump(k * 0.86) * body.r * 0.3);
 
-/** Where its head sits: carried out ahead of its shoulders in line with its back on all fours, down on its chest when it sits. */
+/**
+ * Where its head sits: carried out ahead of its shoulders in line with its back on all fours, down on its chest when it
+ * sits.
+ */
 const macaquePoll = (body: PrimateBody, hr: number): Vec => madd(madd(body.chest, body.tdir, body.r * 1.25 + hr * 0.75), spineBack(body.tdir), -body.r * mix(-0.7, 0.42, clamp(body.tdir[1], 0, 1)));
 
 /** The radius of its head. */
@@ -412,7 +450,10 @@ function macaqueTail(kit: Kit, who: Who, body: PrimateBody): void {
   cap(kit, "tail", "coat", root, [tip[0], Math.max(tip[1], r * 0.2), tip[2]], r * 0.27, 1, UP, { r1: r * 0.23, melt: 0.5 });
 }
 
-/** A bare hand or foot: a short palm or sole along `along`, four long spread fingers or toes off its end and a thumb or big toe set back along its side, standing away. */
+/**
+ * A bare hand or foot: a short palm or sole along `along`, four long spread fingers or toes off its end and a thumb or
+ * big toe set back along its side, standing away.
+ */
 function macaquePaw(kit: Kit, part: string, at: Vec, along: Vec, flat: Vec, r: number, long: number, x: number, skin: Role = "alt"): void {
   const tip = madd(at, along, long * 0.62);
   const across = cross(flat, along);
@@ -422,7 +463,10 @@ function macaquePaw(kit: Kit, part: string, at: Vec, along: Vec, flat: Vec, r: n
   cap(kit, `${part}.thumb`, skin, heel, madd(madd(heel, along, r * 1.1), across, -x * r * 1.3), r * 0.22, 1, UP, { r1: r * 0.15, melt: 0.2, shadow: false });
 }
 
-/** An arm or a leg, slimmer than its hair makes it, its elbow or heel showing: from `root` to `target`, bending toward `pole`, down to a bare paw. */
+/**
+ * An arm or a leg, slimmer than its hair makes it, its elbow or heel showing: from `root` to `target`, bending toward
+ * `pole`, down to a bare paw.
+ */
 function macaqueLimb(kit: Kit, part: string, root: Vec, target: Vec, length: number, r: number, pole: Vec, long: number, x: number): void {
   const sole = r * 0.3;
   const { mid, end } = solveTwoBone(root, [target[0], target[1] + sole * clamp(1 - target[1] / (sole * 2), 0, 1), target[2]], length / 2, length / 2, pole);
@@ -435,7 +479,10 @@ function macaqueLimb(kit: Kit, part: string, root: Vec, target: Vec, length: num
   macaquePaw(kit, part, end, along, unit(lerpV(UP, [0, 0, 1], up)), r * 0.42, r * long, x);
 }
 
-/** The skin's raised parts: a brow standing out in an arch over each eye, and a short box of a muzzle, its flat front low on the face, lip over chin. */
+/**
+ * The skin's raised parts: a brow standing out in an arch over each eye, and a short box of a muzzle, its flat front
+ * low on the face, lip over chin.
+ */
 function macaqueSkin(kit: Kit, h: Head, gap: number): void {
   const { r } = h;
   for (const x of [-1, 1]) cap(kit, "brow", "accent", at3(h, 0.9, x * 0.03, 0.24), at3(h, 0.74, x * 0.5, 0.12), r * 0.1, 1, UP, { bow: add(scale(h.u, r * 0.1), scale(h.d, r * 0.03)), melt: 0.4 });
@@ -460,7 +507,9 @@ function macaqueEye(kit: Kit, h: Head, x: number, open: boolean): void {
   else cap(kit, part, "eye", madd(madd(h.c, n, h.r * 0.9), h.s, -h.r * 0.03), madd(madd(h.c, n, h.r * 0.9), h.s, h.r * 0.03), h.r * 0.1, 0.8, n);
 }
 
-/** Its face: close-set eyes hooded under the brow, slit nostrils close together on a flat nose, a thin straight mouth. */
+/**
+ * Its face: close-set eyes hooded under the brow, slit nostrils close together on a flat nose, a thin straight mouth.
+ */
 function macaqueFace(kit: Kit, h: Head, m: Moment): void {
   const { r } = h;
   const open = m.pose.mouth;
@@ -503,7 +552,10 @@ function macaqueHead(kit: Kit, who: Who, body: PrimateBody, m: Moment): Vec {
 /** One bone of its pelt, from `a` to `b` in the world. */
 const peltBone = (a: Vec, b: Vec, long: readonly [number, number], up: Vec, girth: number, fall = 0): PeltSpec["flow"][number] => ({ a, b, long, up, girth, fall });
 
-/** A limb's two bones, off the parts it is drawn from, its hair `shoulder` long at the top down to `cuff` at the wrist or ankle, longest on its outside. */
+/**
+ * A limb's two bones, off the parts it is drawn from, its hair `shoulder` long at the top down to `cuff` at the wrist
+ * or ankle, longest on its outside.
+ */
 function limbFlow(capsules: readonly Capsule[], part: string, out: Vec, [shoulder, elbow, cuff]: readonly [number, number, number]): PeltSpec["flow"] {
   const upper = capsules.find((c) => c.part === `${part}.upper`);
   const lower = capsules.find((c) => c.part === `${part}.lower`);
@@ -511,14 +563,23 @@ function limbFlow(capsules: readonly Capsule[], part: string, out: Vec, [shoulde
   return [peltBone(upper.a, upper.b, [shoulder, elbow], out, upper.r * 0.8, 0.12), peltBone(lower.a, lower.b, [elbow, cuff], out, lower.r * 0.8, 0.08)];
 }
 
-/** How long a coat's hair runs, in grains, end to end of each bone: over the crown, down the nape, the spine, each arm and leg (shoulder, elbow, cuff) and the tail. */
+/**
+ * How long a coat's hair runs, in grains, end to end of each bone: over the crown, down the nape, the spine, each arm
+ * and leg (shoulder, elbow, cuff) and the tail.
+ */
 interface HairLengths { readonly crown: readonly [number, number]; readonly nape: readonly [number, number]; readonly spine: readonly [number, number]; readonly arm: readonly [number, number, number]; readonly leg: readonly [number, number, number]; readonly tail: readonly [number, number] }
-/** A snow monkey's winter coat: long over the mantle, the shoulders, the back and the cheeks, short on its forearms and shins and round its face. */
+/**
+ * A snow monkey's winter coat: long over the mantle, the shoulders, the back and the cheeks, short on its forearms and
+ * shins and round its face.
+ */
 const WINTER_HAIR: HairLengths = { crown: [0.34, 1.05], nape: [1.1, 1.5], spine: [1.6, 1.25], arm: [1.2, 0.66, 0.34], leg: [1.25, 0.72, 0.4], tail: [0.7, 0.55] };
 /** A long-tailed monkey's, short and close all over, for the bones and muscle under it to show. */
 const SLEEK_HAIR: HairLengths = { crown: [0.3, 0.9], nape: [0.9, 1], spine: [1, 0.85], arm: [0.8, 0.55, 0.3], leg: [0.85, 0.55, 0.3], tail: [0.6, 0.4] };
 
-/** Its coat, off its skeleton: back from the bare face over the crown, down the nape and the spine to the rump, and down each limb. */
+/**
+ * Its coat, off its skeleton: back from the bare face over the crown, down the nape and the spine to the rump, and down
+ * each limb.
+ */
 function macaqueFlow(who: Who, m: Moment, capsules: readonly Capsule[], hair: HairLengths): PeltSpec["flow"] {
   const body = primateSpine(who, m);
   const h = macaqueHeadOf(who, body, m);
@@ -584,7 +645,10 @@ function poseMacaque(kit: Kit, who: Who, m: Moment): void {
  */
 const MONKEY_BODY: readonly Station[] = [[-0.16, 0.74, 0.74, 0.74], [0.1, 0.98, 0.9, 0.86], [0.46, 0.8, 0.56, 0.64], [0.82, 1.04, 1.12, 0.86], [1.12, 0.74, 0.6, 0.7]];
 
-/** A long lean arm or leg from `root` to `target`, bending toward `pole`: the muscle high on each bone and the joint standing out between, down to a bare hand or foot. */
+/**
+ * A long lean arm or leg from `root` to `target`, bending toward `pole`: the muscle high on each bone and the joint
+ * standing out between, down to a bare hand or foot.
+ */
 function monkeyLimb(kit: Kit, part: string, root: Vec, target: Vec, length: number, r: number, pole: Vec, x: number): void {
   const sole = r * 0.5;
   const { mid, end } = solveTwoBone(root, [target[0], target[1] + sole * clamp(1 - target[1] / (sole * 2), 0, 1), target[2]], length / 2, length / 2, pole);
@@ -614,7 +678,9 @@ function monkeyHead(kit: Kit, who: Who, body: PrimateBody, m: Moment): Vec {
   return c;
 }
 
-/** How its tail is carried: the line of each of its parts along it, out and down in a long arc and up again at the end. */
+/**
+ * How its tail is carried: the line of each of its parts along it, out and down in a long arc and up again at the end.
+ */
 function monkeyTailLine(k: number, q: Pose, t: number, lift: number): number {
   const held = 0.5 - 1.5 * Math.sin(Math.PI * Math.min(k * 1.2, 1)) + lift * k * k * 2.4;
   const sway = 0.05 * Math.sin(t * 1.1 - k * 4);
@@ -657,7 +723,10 @@ export function monkeyPelt(who: Who, m: Moment, capsules: readonly Capsule[]): P
 /** A loris along its spine: long and low, a little deeper at the chest, with no tail to taper into. */
 const LORIS_BODY: readonly Station[] = [[-0.2, 0.74, 0.72, 0.74], [0.15, 1, 0.94, 0.98], [0.55, 0.9, 0.8, 0.84], [0.95, 0.98, 0.9, 0.92], [1.25, 0.6, 0.55, 0.6]];
 
-/** Its face: a round skull, a short pale muzzle, a dark ring round each huge eye, the pale stripe between them running up its brow, small ears set low in the fur. */
+/**
+ * Its face: a round skull, a short pale muzzle, a dark ring round each huge eye, the pale stripe between them running
+ * up its brow, small ears set low in the fur.
+ */
 function lorisFace(kit: Kit, h: Head, m: Moment): void {
   const { r } = h;
   cap(kit, "head", "coat", at3(h, -0.08, 0, 0.03), at3(h, -0.08, 0, 0.03), r, 0.95, h.u, { melt: 0.45 });

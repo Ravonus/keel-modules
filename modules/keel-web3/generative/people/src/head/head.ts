@@ -10,7 +10,10 @@ import { AFRO, AFRO_AT, tuckOf } from "./hair.js";
 
 // ---------------------------------------------------------------- the head
 
-/** A head's room. `at` is the old frame hair and hats hang on, x in shares of the skull's width; `bone` and `mark` take x in head radii, `mark` for what stays put whatever the skull's width. */
+/**
+ * A head's room. `at` is the old frame hair and hats hang on, x in shares of the skull's width; `bone` and `mark` take
+ * x in head radii, `mark` for what stays put whatever the skull's width.
+ */
 export interface HeadFrame {
   readonly c: Vec;
   readonly r: number;
@@ -62,7 +65,10 @@ function drawNose(kit: Kit, p: Person, h: HeadFrame): void {
   if (b.hump > 0.02) ball(kit, "hump", "skin", h.mark(0, (top + y) * 0.52, (0.86 + far) * 0.5 + b.hump - 0.03), r * 0.08, { flat: 0.75, up: SIDE, melt: melt(0.05) });
 }
 
-/** A line and no more, the lower lip only hinted under it: thin sheets through the face, so they find it wherever it lies and never stand off it as a beak. */
+/**
+ * A line and no more, the lower lip only hinted under it: thin sheets through the face, so they find it wherever it
+ * lies and never stand off it as a beak.
+ */
 function drawMouth(kit: Kit, p: Person, h: HeadFrame): void {
   const { mouthWide: w, lips, bone } = p.face;
   const y = bone.sto;
@@ -72,7 +78,10 @@ function drawMouth(kit: Kit, p: Person, h: HeadFrame): void {
   put(kit, "lip.top", "lip", h.mark(-w * 0.5, y + 0.05, 0.92), h.mark(w * 0.5, y + 0.05, 0.92), h.r * lips * 0.05, { flat: 0.55, up: UP, melt: 0.18 });
 }
 
-/** A renderer that paints a part on gets a beard as paint. On a mesh it is painted on the vertices, by `faceBake`, and stands proud of the jaw. */
+/**
+ * A renderer that paints a part on gets a beard as paint. On a mesh it is painted on the vertices, by `faceBake`, and
+ * stands proud of the jaw.
+ */
 function drawFaceHair(kit: Kit, p: Person, h: HeadFrame, rich: boolean): void {
   const { hair, mouthWide: w, bone: b } = p.face;
   if (hair !== "beard" && hair !== "moustache") return;
@@ -82,7 +91,10 @@ function drawFaceHair(kit: Kit, p: Person, h: HeadFrame, rich: boolean): void {
   paint(kit, "tache", "hair", h.mark(-w * 1.05, b.sub - 0.08, 0.96), h.mark(w * 1.05, b.sub - 0.08, 0.96), h.r * 0.075);
 }
 
-/** A beard is one clean shape first: a shell that stands off the jaw from the ear round the chin and up over the lip, its edge wherever it leaves the skin, and the mouth left clear. */
+/**
+ * A beard is one clean shape first: a shell that stands off the jaw from the ear round the chin and up over the lip,
+ * its edge wherever it leaves the skin, and the mouth left clear.
+ */
 function beardVolume(kit: Kit, p: Person, h: HeadFrame): void {
   const { mouthWide: w, bone: b } = p.face;
   const melt = meltBy(p);
@@ -130,7 +142,10 @@ export const CROWN_RISE: Partial<Record<Hat, number>> = {
   hardhat: 0.1,
 };
 
-/** The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over it. A hood and a helmet stand well clear of it. */
+/**
+ * The crown is the skull's own shape a little bigger, cut off level across the forehead: it sits on the head, not over
+ * it. A hood and a helmet stand well clear of it.
+ */
 function drawCrown(kit: Kit, hat: Hat, h: HeadFrame, wide: number): void {
   const clear = hat === "hood" || hat === "helmet" || hat === "hardhat";
   const brim = h.at(0, hat === "hood" ? -0.1 : clear ? 0.58 : 0.5, 0)[1];
@@ -166,7 +181,9 @@ function drawFur(kit: Kit, h: HeadFrame): void {
   for (const x of [-1, 1]) put(kit, `ear.${String(x)}`, "skin", h.at(x * 0.6, 0.9, -0.1), h.at(x * 0.86, 1.86, -0.12), h.r * 0.44, { r1: h.r * 0.06, flat: 0.5, up: FRONT, melt: 0.5 });
 }
 
-/** The hair's shell: up over the crown and down the back of the skull, its line clear of the brow and the ears' fronts. */
+/**
+ * The hair's shell: up over the crown and down the back of the skull, its line clear of the brow and the ears' fronts.
+ */
 const hairCap = (kit: Kit, h: HeadFrame, k: number): void => { put(kit, "hair", "hair", h.at(0, 0.56, -0.26), h.at(0, 0.24, -0.42), h.r * 0.98 * k, { melt: 0.1, shadow: false }); };
 
 /** The hair, on a head: each style a few parts, the same on every side of them. */
@@ -254,7 +271,10 @@ function leanHead(kit: Kit, p: Person, h: HeadFrame): void {
   }
 }
 
-/** A head for a mesh: the face's solid is `loftOf`'s, so only what stands on it is melted in: the chin's seat, and lips that catch the light. */
+/**
+ * A head for a mesh: the face's solid is `loftOf`'s, so only what stands on it is melted in: the chin's seat, and lips
+ * that catch the light.
+ */
 function boneHead(kit: Kit, p: Person, h: HeadFrame): void {
   const { lips, mouthWide: w, bone: b } = p.face;
   const r = h.r;

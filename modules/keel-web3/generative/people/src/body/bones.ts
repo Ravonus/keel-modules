@@ -10,26 +10,41 @@ import { handFrame, swungFrame } from "../mesh/parts.js";
 // ---------------------------------------------------------------- the skinned mesh
 
 /** Every bone, in the order a pose's matrices come: its joint, the way it runs, and what of a skeleton gives them. */
-/** How much of a forward swing the back of a skirt takes: drawn under the thighs of someone sitting, not left hanging behind them. */
+/**
+ * How much of a forward swing the back of a skirt takes: drawn under the thighs of someone sitting, not left hanging
+ * behind them.
+ */
 const BACK_DRAWN = 0.5;
-/** How much of the thigh's length a panel is: what lies on a lap from a hinge ahead of the hips reaches the knee and no further. */
+/**
+ * How much of the thigh's length a panel is: what lies on a lap from a hinge ahead of the hips reaches the knee and no
+ * further.
+ */
 const PANEL_LONG = 0.72;
 /** How softly the lead goes from one knee to the other, metres. */
 const PASSING = 0.03;
-/** Where a panel hinges, in front of or behind the hips by their width, the front over the top of the thighs: on the surface, so what turns lies on the lap and not under it. */
+/**
+ * Where a panel hinges, in front of or behind the hips by their width, the front over the top of the thighs: on the
+ * surface, so what turns lies on the lap and not under it.
+ */
 const HINGE_OUT = 0.6;
 const HINGE_UP = 0.11;
 /** How far the front of a skirt is shoved ahead of a leg coming forward, of how far the knee has come. */
 const PUSHED = 0.4;
 const PUSHED_MOST = 0.05;
 
-/** How far the leg leading a panel has come. The further of the two knees, without the corner where they pass each other: cloth has no way to reverse in an instant. */
+/**
+ * How far the leg leading a panel has come. The further of the two knees, without the corner where they pass each
+ * other: cloth has no way to reverse in an instant.
+ */
 function ledOf({ left, right }: Skeleton, side: 1 | -1): number {
   const [a, b] = [left, right].map(({ leg }) => sub(leg.knee, leg.hip)[2]) as [number, number];
   return (a + b) / 2 + side * (Math.hypot((a - b) / 2, PASSING) - PASSING);
 }
 
-/** A panel of a skirt, from between the hips to level with the knees: the front is pushed by whichever leg leads, the back by whichever trails, so neither leg ever comes through it. */
+/**
+ * A panel of a skirt, from between the hips to level with the knees: the front is pushed by whichever leg leads, the
+ * back by whichever trails, so neither leg ever comes through it.
+ */
 function panelOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
   const { left, right } = s;
   const from = lerpV(left.leg.hip, right.leg.hip, 0.5);

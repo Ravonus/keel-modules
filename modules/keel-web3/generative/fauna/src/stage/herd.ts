@@ -34,9 +34,14 @@ export interface Herd {
   readonly cast: Cast;
   /** Every resident animal posed at `t` seconds, on this frame's stage. */
   at(t: number, stage: Stage): Body[];
-  /** What the last `at` left passing through what, for testing a scene: it reads each animal's own route, so a branch it walks never counts. */
+  /**
+   * What the last `at` left passing through what, for testing a scene: it reads each animal's own route, so a branch it
+   * walks never counts.
+   */
   clipping(): Clipping;
-  /** What is passing over at `t`: birds, bats, craft, lights; `now` says what the sky is like, so what comes fits it. */
+  /**
+   * What is passing over at `t`: birds, bats, craft, lights; `now` says what the sky is like, so what comes fits it.
+   */
   sky(t: number, now?: SkyNow): Body[];
   /**
    * Send animals somewhere from `t`: one by its body `id`, or everyone. They
@@ -54,7 +59,10 @@ export interface Order {
   readonly to: { readonly on: "ground"; readonly x: number; readonly z: number } | { readonly on: "perch"; readonly i: number };
 }
 
-/** Whether an animal starts the scene up in the tree: the hangers, koalas and owls mostly do, other climbers and fliers now and then. */
+/**
+ * Whether an animal starts the scene up in the tree: the hangers, koalas and owls mostly do, other climbers and fliers
+ * now and then.
+ */
 function startsUp(member: CastMember, stage: Stage, rand: () => number): boolean {
   const kind = speciesOf(member.species);
   if (!(kind.climbs || kind.flies) || kind.plan === "bug" || GROUND_BIRDS.has(member.species) || (stage.perches?.length ?? 0) === 0) return false;

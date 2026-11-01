@@ -6,7 +6,9 @@ import type { LitLike, MaterialLike, TextureLike } from "./lit.js";
 
 // ---------------------------------------------------------------- rays
 
-/** God rays as a scene describes them: toward which light (a world direction), its colour, and how the shafts fall off. */
+/**
+ * God rays as a scene describes them: toward which light (a world direction), its colour, and how the shafts fall off.
+ */
 export interface RaySpec {
   readonly direction: readonly [number, number, number];
   readonly color: string;

@@ -53,7 +53,9 @@ export function classOf(s: DeviceSignals): DeviceClass {
   return "desktop";
 }
 
-/** How much it can draw: a software GPU or little memory is low whatever it is, a handheld mid at most, the rest high. */
+/**
+ * How much it can draw: a software GPU or little memory is low whatever it is, a handheld mid at most, the rest high.
+ */
 export function tierOf(s: DeviceSignals, cls: DeviceClass): DeviceTier {
   const software = /SwiftShader|llvmpipe|Software/iu.test(s.gpu ?? "");
   if (software || (s.memory ?? 8) <= 2 || (s.cores ?? 8) <= 2) return "low";

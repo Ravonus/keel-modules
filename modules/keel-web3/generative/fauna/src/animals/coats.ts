@@ -58,9 +58,15 @@ export interface EyeStyle {
   readonly size: number;
   readonly rim: boolean;
   readonly almond: number;
-  /** Set low in the face, a flat dome with its spark on it: past the edge of the head it hides, and no fleck of it shows on the rim. */
+  /**
+   * Set low in the face, a flat dome with its spark on it: past the edge of the head it hides, and no fleck of it shows
+   * on the rim.
+   */
   readonly set?: boolean;
-  /** Its upper lid's share of the eye, where its pupil's usual one will not do, and its spark's size, a share of the eye (a tortoise's heavy lid and clear catchlight). */
+  /**
+   * Its upper lid's share of the eye, where its pupil's usual one will not do, and its spark's size, a share of the eye
+   * (a tortoise's heavy lid and clear catchlight).
+   */
   readonly lid?: number;
   readonly spark?: number;
   /** Its lid is bare skin, not the coat (a macaque's). */
@@ -80,7 +86,10 @@ const EYES: Partial<Record<SpeciesId, EyeStyle>> = {
   songbird: roundEye("dark", 1.1), crow: roundEye("dark"), kookaburra: roundEye("dark", 0.75), woodpecker: roundEye("dark"), peacock: roundEye("dark"), guineafowl: roundEye("dark"),
   owl: roundEye("round", 1, false), parrot: roundEye("round", 1, false), gull: roundEye("round", 0.9, false), crane: roundEye("round", 0.9, false),
 };
-/** Eyes by coat where a coat has its own: a barn owl's are black, a great horned owl's lemon yellow (orange would make it an eagle-owl). */
+/**
+ * Eyes by coat where a coat has its own: a barn owl's are black, a great horned owl's lemon yellow (orange would make
+ * it an eagle-owl).
+ */
 const COAT_EYES: Readonly<Record<string, { readonly style: EyeStyle; readonly iris: string }>> = {
   barn: { style: roundEye("dark", 1, false), iris: "#1a120c" }, "great horned": { style: roundEye("round", 1, false), iris: "#f2d21b" },
   snowy: { style: roundEye("round", 1, false), iris: "#f2d030" },
@@ -88,7 +97,10 @@ const COAT_EYES: Readonly<Record<string, { readonly style: EyeStyle; readonly ir
 };
 export const eyeOfSpecies = (who: Who): Pick<Head, "eye"> => ({ eye: COAT_EYES[who.member.coat]?.style ?? EYES[who.member.species] ?? EYE });
 
-/** A cat's eyes and nose go by its coat: gold on black and orange, green on silver, a red cat's brick nose, a black cat's dark one. */
+/**
+ * A cat's eyes and nose go by its coat: gold on black and orange, green on silver, a red cat's brick nose, a black
+ * cat's dark one.
+ */
 const CAT_FACES: Readonly<Record<string, { readonly iris: string; readonly nose: string }>> = {
   tabby: { iris: "#d8bc68", nose: "#c07c68" }, black: { iris: "#dcb44c", nose: "#2c2424" },
   grey: { iris: "#a0b078", nose: "#c88c94" }, calico: { iris: "#b8a03c", nose: "#e49c9c" },
@@ -160,7 +172,10 @@ function charcoal(hex: string, floor: number): string {
   return y >= floor ? hex : mixColor(hex, CHARCOAL, (floor - y) / Math.max(0.01, luma(CHARCOAL) - y));
 }
 
-/** Eye and nose: by coat where a coat has its own; a nose is its animal's dark, a cat's pink unless its coat says otherwise. */
+/**
+ * Eye and nose: by coat where a coat has its own; a nose is its animal's dark, a cat's pink unless its coat says
+ * otherwise.
+ */
 function faceColors(id: SpeciesId, coatName: string, accent: string, dark: string): Pick<Palette, "eye" | "nose"> {
   const own = id === "cat" ? CAT_FACES[coatName] : undefined;
   return { eye: COAT_EYES[coatName]?.iris ?? own?.iris ?? IRIS[id] ?? "#3a2a1e", nose: id === "cat" ? own?.nose ?? accent : dark };
@@ -202,7 +217,12 @@ function blackLift(id: SpeciesId, coatName: string): number {
 
 /** Beak colours; the rest of a bird's look is its coat. */
 const BEAKS: Partial<Record<SpeciesId, string>> = { macaque: "#5e4c3e", monkey: "#5a4a40", tortoise: "#cfc29c", sloth: "#a8a08c", songbird: "#3a2a1a", crow: "#1e1e24", owl: "#e8dcc4", parrot: "#2a2a2a", gull: "#f0c030", peacock: "#8a8a80", crane: "#c8c0a0", woodpecker: "#2a2a2a", kookaburra: "#2a2622", guineafowl: "#d8c8a0" };
-/** Beaks by coat where a coat has its own: a barn owl's warm ivory, a great horned owl's dark grey, a snowy owl's black. */
+/**
+ * Beaks by coat where a coat has its own: a barn owl's warm ivory, a great horned owl's dark grey, a snowy owl's black.
+ */
 const COAT_BEAKS: Readonly<Record<string, string>> = { barn: "#e0cdbc", "great horned": "#3c3a3a", snowy: "#1c1c20" };
-/** A sixth colour where a coat needs one, painted as its shell (no bird has one): a great horned owl's buff breast, between its white bib and its rufous face. */
+/**
+ * A sixth colour where a coat needs one, painted as its shell (no bird has one): a great horned owl's buff breast,
+ * between its white bib and its rufous face.
+ */
 const COAT_SHELLS: Readonly<Record<string, string>> = { "great horned": "#d4c6aa", leopard: "#bfb9a2", star: "#241c0e", snow: "#a2868c", vervet: "#1e1e1c" };

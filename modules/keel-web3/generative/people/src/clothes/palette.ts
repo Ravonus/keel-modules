@@ -49,10 +49,16 @@ export const glowOf = (hex: string): number => [[1, 0.2126], [3, 0.7152], [5, 0.
   return sum + k * (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 }, 0);
 
-/** How deep a skin is, 0 from a mid brown up to 1: a multiply hardly shows on it, so whatever draws a feature must work harder. */
+/**
+ * How deep a skin is, 0 from a mid brown up to 1: a multiply hardly shows on it, so whatever draws a feature must work
+ * harder.
+ */
 export const deepOf = (skin: string): number => clamp((0.2 - glowOf(skin)) / 0.16, 0, 1);
 
-/** Hair the same light as the skin reads as a bald head, so on fair skin it goes darker. On dark skin dark hair is left be: a rim of light parts it from the face. */
+/**
+ * Hair the same light as the skin reads as a bald head, so on fair skin it goes darker. On dark skin dark hair is left
+ * be: a rim of light parts it from the face.
+ */
 function apart(hair: string, skin: string): string {
   const light = (hex: string): number => [1, 3, 5].reduce((n, i) => n + parseInt(hex.slice(i, i + 2), 16), 0) / 765;
   if (Math.abs(light(hair) - light(skin)) > 0.28 || light(skin) <= 0.3) return hair;
@@ -66,7 +72,9 @@ export function parted(bottom: string, top: string): string {
   return blend(bottom, light(top) > 0.3 ? "#14141c" : "#a8a49c", 0.5);
 }
 
-/** A tone of hair from one roll: the darker it is, the likelier on darker skin, and any of them can be had by anyone. */
+/**
+ * A tone of hair from one roll: the darker it is, the likelier on darker skin, and any of them can be had by anyone.
+ */
 function hairTone(roll: number, deep: number): string {
   const low = HAIR_TONES.slice(0, 5);
   const high = HAIR_TONES.slice(5);
@@ -75,7 +83,10 @@ function hairTone(roll: number, deep: number): string {
   return list[Math.floor(at * list.length)] ?? "#14100e";
 }
 
-/** A brow goes with its hair, as far as it can and still be a brow: never so near the skin that light takes it off the face, nor so far from it that it is a bar. */
+/**
+ * A brow goes with its hair, as far as it can and still be a brow: never so near the skin that light takes it off the
+ * face, nor so far from it that it is a bar.
+ */
 function browOn(skin: string, hair: string): string {
   const brow = blend(hair, "#2a1a16", 0.3);
   const own = glowOf(brow);
@@ -111,7 +122,10 @@ export function paletteOf(
 const COILED: readonly HairStyle[] = ["curly", "afro", "locs", "braids"];
 const FINE: readonly HairStyle[] = ["long", "side", "wavy"];
 
-/** Hair as a sex wears it, on this skin: the same roll for everyone, so a seed keeps its style, and only fine straight hair may turn to coils, likelier the darker the skin. Every style stays open to all. */
+/**
+ * Hair as a sex wears it, on this skin: the same roll for everyone, so a seed keeps its style, and only fine straight
+ * hair may turn to coils, likelier the darker the skin. Every style stays open to all.
+ */
 export function hairOn(seed: number, sex: Sex, deep: number, roll: number): HairStyle {
   const chosen = weighted(() => roll, HAIRS[sex]);
   if (!FINE.includes(chosen) || hashed(seed, 907) >= deep * 0.7) return chosen;

@@ -311,7 +311,10 @@ function alarmScene(troupe: Troupe, scene: Scene): boolean {
   return true;
 }
 
-/** Get away from a fright: a bird into the branches, a climber up the tree (most often), anyone else off across the ground away from it. */
+/**
+ * Get away from a fright: a bird into the branches, a climber up the tree (most often), anyone else off across the
+ * ground away from it.
+ */
 function flee(actor: Actor, away: number, scene: Scene): void {
   const stage = scene.stage;
   const perches = perchCount(scene) > 0;
@@ -428,7 +431,10 @@ const SCENES: readonly (readonly [SceneFn, number])[] = [
   [sentryScene, 3], [alarmScene, 0.8], [stalkScene, 2.5], [mobScene, 4], [perchScene, 2], [flockScene, 2.5],
 ];
 
-/** How the sky and the hour weigh the scenes: they huddle in snow and rain and at night, sing at dawn and dusk, and keep play for fair days. */
+/**
+ * How the sky and the hour weigh the scenes: they huddle in snow and rain and at night, sing at dawn and dusk, and keep
+ * play for fair days.
+ */
 function sceneWeight(fn: SceneFn, weight: number, stage: Stage): number {
   const mood = moodOf(stage);
   const wet = mood.weather !== undefined;

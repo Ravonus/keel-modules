@@ -9,7 +9,10 @@ import { deepOf } from "../clothes/palette.js";
 const FACE_HAIRS: readonly (readonly [FaceHair, number])[] = [["none", 6], ["stubble", 2], ["moustache", 0.6], ["beard", 1.6]];
 
 
-/** How grown a face is, and how young: everything that differs by sex goes by the first, so a boy's and a girl's are one. */
+/**
+ * How grown a face is, and how young: everything that differs by sex goes by the first, so a boy's and a girl's are
+ * one.
+ */
 const MATURITY: Readonly<Record<Age, number>> = { toddler: 0, child: 0, teen: 0.5, adult: 1, elder: 1 };
 const YOUTH: Readonly<Record<Age, number>> = { toddler: 1, child: 0.72, teen: 0.2, adult: 0, elder: 0 };
 
@@ -19,7 +22,10 @@ const CHILD_EYE: Partial<Record<Age, number>> = { toddler: 0.145, child: 0.14 };
 
 const faceHairOf = (rand: () => number, age: Age, sex: Sex): FaceHair => (sex === "male" && (age === "adult" || age === "elder") ? weighted(rand, FACE_HAIRS) : "none");
 
-/** Each number in its place, for a seed's hair and clothes come on after these in the same stream: what is new about a face has a stream of its own, in `faceFor`. */
+/**
+ * Each number in its place, for a seed's hair and clothes come on after these in the same stream: what is new about a
+ * face has a stream of its own, in `faceFor`.
+ */
 export function faceOf(rand: () => number, age: Age, sex: Sex): Omit<Face, "bone" | "look"> {
   const m = MATURITY[age], soft = sex === "female" ? m : 0, old = age === "elder" ? 1 : 0, grown = m === 1 ? 1 : 0, roll = (): number => rand() * 2 - 1, eyeRoll = rand();
   return {
@@ -57,7 +63,10 @@ const SKULL_STAGES: Readonly<Record<Age, SkullStage>> = {
   elder: { zyg: 0.76, gon: [0.61, 0.53], gonY: [-0.7, -0.58], gonZ: -0.01, chin: [0.3, 0.25], men: [-1.03, -0.95], rise: [1.36, 1.34], pupil: [0.13, 0.14], sub: [-0.4, -0.35], sto: [-0.62, -0.55] },
 };
 
-/** What a face's outline leans to, on the age's skull: shares of a head's radius from the temple down, how much longer it runs, how square it is across. */
+/**
+ * What a face's outline leans to, on the age's skull: shares of a head's radius from the temple down, how much longer
+ * it runs, how square it is across.
+ */
 interface Outline { readonly tem: number; readonly zyg: number; readonly mid: number; readonly gon: number; readonly gonY: number; readonly chin: number; readonly long: number; readonly plane: number }
 
 const OUTLINES = {
@@ -72,14 +81,20 @@ const OUTLINES = {
 
 type OutlineName = keyof typeof OUTLINES;
 
-/** Which outlines go with what: anyone can have any of them but a child, whose face is not yet any of the hard ones, and is the same for a boy and a girl. */
+/**
+ * Which outlines go with what: anyone can have any of them but a child, whose face is not yet any of the hard ones, and
+ * is the same for a boy and a girl.
+ */
 const OUTLINE_SHARES: Readonly<Record<Sex | "young", Weighted<OutlineName>>> = {
   male: [["oval", 2], ["round", 1.4], ["square", 3], ["heart", 0.6], ["diamond", 1.6], ["oblong", 2], ["pear", 1.2]],
   female: [["oval", 3], ["round", 2], ["square", 0.8], ["heart", 2.6], ["diamond", 1.6], ["oblong", 1], ["pear", 0.6]],
   young: [["oval", 2], ["round", 3], ["heart", 1.4], ["pear", 0.6]],
 };
 
-/** What can stand out in a face, and what it does: at most two to a person, none of them against another, and none on anyone younger than `from`. */
+/**
+ * What can stand out in a face, and what it does: at most two to a person, none of them against another, and none on
+ * anyone younger than `from`.
+ */
 export type Trait = "tip" | "lift" | "hump" | "alar" | "chinZ" | "chinW" | "full" | "hollow" | "mouth" | "eye" | "orbit" | "brow" | "ridge" | "len" | "wid" | "ears" | "lid";
 export interface Signature { readonly kind: string; readonly from: number; readonly does: Readonly<Partial<Record<Trait, number>>> }
 
@@ -121,7 +136,9 @@ function faceForm(r: () => number, youth: number): readonly [round: number, squa
   return [round / all, square / all, sharp / all];
 }
 
-/** Three soft leanings, handed down and never named: each moves a little of the face, and any value is open to anyone. */
+/**
+ * Three soft leanings, handed down and never named: each moves a little of the face, and any value is open to anyone.
+ */
 function kinOf(r: () => number, deep: number): readonly [number, number, number] {
   return [clamp(bell(r, -1, 1) + 0.5 * (deep - 0.5), -1, 1), bell(r, -1, 1), bell(r, -1, 1)];
 }
@@ -186,7 +203,10 @@ function madeUp(how: number, lip: number, lid: number, deep: number): Pick<Look,
   };
 }
 
-/** Paint, and how much: most grown women, a little or a lot, and now and then a man with a line round his eyes. Only grown people; never a child or a teen. */
+/**
+ * Paint, and how much: most grown women, a little or a lot, and now and then a man with a line round his eyes. Only
+ * grown people; never a child or a teen.
+ */
 function paintOf(r: () => number, build: Build, deep: number): Pick<Look, "lip" | "shadow" | "blush" | "liner"> {
   const roll = r(), how = r(), lip = r(), lid = r(), old = build.age === "elder";
   if (build.age !== "adult" && !old) return { liner: 0 };
@@ -206,7 +226,10 @@ function marksOn(r: () => number, bone: Bone, young: boolean, deep: number): Pic
   };
 }
 
-/** A face finished: all that is new about it comes from one stream of its own, after the skin is known, so a seed's hair and clothes stay as they were. */
+/**
+ * A face finished: all that is new about it comes from one stream of its own, after the skin is known, so a seed's hair
+ * and clothes stay as they were.
+ */
 export function faceFor(seed: number, rolled: Omit<Face, "bone" | "look">, build: Build, skin: string): Face {
   const r = streamOf(seed, 0x66616365), deep = deepOf(skin), m = MATURITY[build.age], latents = latentsOf(r, build.age, deep), { kin, by } = latents;
   const bone = boneOf(r, rolled, build, latents);

@@ -43,7 +43,10 @@ export function writeBox(
   writeOrigin(array, index, x, y, z);
 }
 
-/** A slab `width` wide and `depth` thick lying on the top of a limb from its middle along (dx, dy, dz), which it follows however it slopes. */
+/**
+ * A slab `width` wide and `depth` thick lying on the top of a limb from its middle along (dx, dy, dz), which it follows
+ * however it slopes.
+ */
 export function writeSlab(
   array: Float32Array,
   index: number,
@@ -104,7 +107,10 @@ export function writeVoxel(
   writeBox(array, index, x, y, z, size, size * flat, size, yaw);
 }
 
-/** One wood piece from a to b, `radius` thick, overlapping its joints. Rotation is the shortest arc from up, so bark never swims. */
+/**
+ * One wood piece from a to b, `radius` thick, overlapping its joints. Rotation is the shortest arc from up, so bark
+ * never swims.
+ */
 export function writeSegment(
   array: Float32Array,
   index: number,
@@ -160,7 +166,10 @@ export const cross3 = (a: V3, b: V3): [number, number, number] => [
 ];
 export const isZero = (v: V3): boolean => v[0] === 0 && v[1] === 0 && v[2] === 0;
 
-/** One leaf blade at its stalk, pointing along (nx, ny, nz), drooped, twisted and nodded by `motion`; `long` draws it that much longer than wide. */
+/**
+ * One leaf blade at its stalk, pointing along (nx, ny, nz), drooped, twisted and nodded by `motion`; `long` draws it
+ * that much longer than wide.
+ */
 export function writeBlade(
   array: Float32Array,
   index: number,

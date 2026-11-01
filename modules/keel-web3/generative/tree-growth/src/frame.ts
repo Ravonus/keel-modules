@@ -33,7 +33,10 @@ export interface TreeFrame {
   /** How many internodes are visible. */
   readonly visible: number;
   readonly height: number;
-  /** How much bigger than life a grand tree has grown by now (the mean of taller and wider); 1 for a natural tree. Renderers grow leaf clumps with it. */
+  /**
+   * How much bigger than life a grand tree has grown by now (the mean of taller and wider); 1 for a natural tree.
+   * Renderers grow leaf clumps with it.
+   */
   readonly scale: number;
 }
 
@@ -81,7 +84,10 @@ interface Grandeur { readonly up: number; readonly out: number; readonly girth: 
 
 const naturalSizes = new WeakMap<TreeModel, Float32Array>();
 
-/** How tall and how wide the natural tree's wood has grown by `cycle`, from its grown positions; measured once per whole cycle and blended between. */
+/**
+ * How tall and how wide the natural tree's wood has grown by `cycle`, from its grown positions; measured once per whole
+ * cycle and blended between.
+ */
 function naturalSize(model: TreeModel, cycle: number): [number, number] {
   let sizes = naturalSizes.get(model);
   if (sizes === undefined) {

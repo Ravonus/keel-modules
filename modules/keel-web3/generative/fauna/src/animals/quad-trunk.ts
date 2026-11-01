@@ -25,7 +25,8 @@ const TAILS: Readonly<
   thin: { rise: 0.1, curl: 0.25, girth: 0.16, n: 4, profile: [1, 0.85, 0.7, 0.55, 0.4] },
   puff: { rise: 0.6, curl: 0, girth: 0.45, n: 1, profile: [1, 1] },
   ring: { rise: 0.35, curl: 0.05, girth: 0.45, n: 4, profile: [0.75, 1, 0.95, 0.85, 0.55] },
-  // (A raccoon's: full and blunt, carried low; its bands are painted along its length, more of them than it has segments.)
+  // (A raccoon's: full and blunt, carried low; its bands are painted along its length, more of them than it has
+  // segments.)
   banded: { rise: 0.05, curl: -0.12, girth: 0.62, n: 3, profile: [0.72, 1.04, 1.06, 0.64], root: 1.7 },
   thick: { rise: -0.55, curl: 0.1, girth: 0.6, n: 3, profile: [1, 0.7, 0.45, 0.22] },
   fan: { rise: 0, curl: 0, girth: 0.4, n: 1, profile: [1, 1] },
@@ -70,7 +71,10 @@ function tailLay(b: Build, body: QuadBody, q: Pose, t: number): (i: number) => V
 /** Where a banded tail's dark rings lie, as shares of its length; the last is its tip. */
 const TAIL_BANDS = [0.36, 0.51, 0.66, 0.81, 0.98] as const;
 
-/** A banded tail's dark rings, each a flat disc a touch wider than the tail where it lies, so it paints an even band right round it; the last is its whole tip. */
+/**
+ * A banded tail's dark rings, each a flat disc a touch wider than the tail where it lies, so it paints an even band
+ * right round it; the last is its whole tip.
+ */
 function tailBands(
   kit: Kit,
   path: readonly Vec[],
@@ -185,7 +189,8 @@ function coatMarks(kit: Kit, actor: Who, b: Build, body: QuadBody): void {
   if (extras.includes("saddle")) decal(kit, "saddle", "alt", add(P, [0, hu * 0.95, 0]), add(S, [0, ch * 0.95, -ch * 0.2]), r * 0.62);
   if (extras.includes("rump")) spot("rump", "belly", add(P, [0, hu * 0.25, -hu * 0.95]), hu * 0.72);
   if (extras.includes("stripes") && !extras.includes("mask")) {
-    // A skunk's pale pair down the back where its second colour is the lighter, a mongoose's dark bands across it where it is the darker.
+    // A skunk's pale pair down the back where its second colour is the lighter, a mongoose's dark bands across it where
+    // it is the darker.
     const tone = (hex: string): number => {
       const [cr, cg, cb] = hexRgb(hex);
       return cr * 0.3 + cg * 0.59 + cb * 0.11;
@@ -260,7 +265,10 @@ function quillsOf(kit: Kit, body: QuadBody): void {
   loft(kit, "quills", "alt", MANTLE, (k) => mantleLine(body, k), UP, [1, 0, 0], body.r, 0.2);
 }
 
-/** A hedgehog's skull drawn out into a broad blunt wedge down to the muzzle, which a round head alone never is, and the soft dark mask round its eyes and on down the bridge of its nose. */
+/**
+ * A hedgehog's skull drawn out into a broad blunt wedge down to the muzzle, which a round head alone never is, and the
+ * soft dark mask round its eyes and on down the bridge of its nose.
+ */
 function wedgeFace(kit: Kit, b: Build, h: Head): void {
   cone(kit, "wedge", "coat", at3(h, 0.1, 0, -0.08), at3(h, 0.95, 0, -0.14), h.r * 0.77, h.r * 0.44);
   const bridge = at3(h, 1.18, 0, 0.2);

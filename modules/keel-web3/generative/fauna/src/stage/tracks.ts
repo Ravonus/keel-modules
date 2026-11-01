@@ -93,7 +93,10 @@ export interface Tracks {
   step(bodies: readonly Body[], t: number): void;
   /** Lifts prints off one ground at once (the snow they were in has melted). */
   clear(tread: Tread): void;
-  /** Paints the prints into a square rgba map of `extent` either side of the origin, its rows running from +z, as a plane's uvs do. */
+  /**
+   * Paints the prints into a square rgba map of `extent` either side of the origin, its rows running from +z, as a
+   * plane's uvs do.
+   */
   paint(
     pixels: Uint8Array,
     side: number,

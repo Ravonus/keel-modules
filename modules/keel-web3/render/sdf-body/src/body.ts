@@ -31,13 +31,22 @@ export interface BodyPart {
   readonly carve?: boolean;
   readonly shadow?: boolean;
   readonly bow?: Vec;
-  /** A row of this many beads, each `r` round, from `a` to `b` (and out along `bow`, if it has one, at its middle): a foot's nails as one part. */
+  /**
+   * A row of this many beads, each `r` round, from `a` to `b` (and out along `bow`, if it has one, at its middle): a
+   * foot's nails as one part.
+   */
   readonly row?: number;
-  /** On a row: each bead drawn out this far and this way into a digit, thinning as it goes: a hand's fingers as one part. */
+  /**
+   * On a row: each bead drawn out this far and this way into a digit, thinning as it goes: a hand's fingers as one
+   * part.
+   */
   readonly reach?: Vec;
   /** On a row with `reach`: each digit thins right down to a point: claws. */
   readonly sharp?: boolean;
-  /** A finishing part the body can go without, in groups: where a renderer has too few parts, the highest group goes first, whole (see `fitParts`). */
+  /**
+   * A finishing part the body can go without, in groups: where a renderer has too few parts, the highest group goes
+   * first, whole (see `fitParts`).
+   */
   readonly detail?: number;
   /**
    * On a decal: bare skin, not paint. A pelt thins out toward it, its locks shorter and fewer until
@@ -53,7 +62,10 @@ export interface BodyInput {
   readonly palette: Readonly<Record<string, string>>;
   /** 0 lit as usual; 1 glows from its own colour. */
   readonly glow?: number;
-  /** How much of it is there, 0 to 1: under 1 it dissolves through an ordered dither, a pixel at a time, never see-through. */
+  /**
+   * How much of it is there, 0 to 1: under 1 it dissolves through an ordered dither, a pixel at a time, never
+   * see-through.
+   */
   readonly fade?: number;
   /** Roles that light themselves on this body only (an owl's eyes at night). */
   readonly lit?: readonly string[];
@@ -104,7 +116,10 @@ export interface Skin {
   readonly chroma: number;
   readonly pale?: string;
   readonly flush?: number;
-  /** How much of the light it gives back, as a share of a painted surface's: under 1 the depth of living skin, which light goes into. */
+  /**
+   * How much of the light it gives back, as a share of a painted surface's: under 1 the depth of living skin, which
+   * light goes into.
+   */
   readonly depth?: number;
 }
 
@@ -157,7 +172,10 @@ export interface Material {
   readonly iridescence?: number;
   /** How far a near-black coat's own sheen lifts it off black so its shape shows: 1 by default, 0 true black. */
   readonly lift?: number;
-  /** How far a near-black coat's colour is drawn to neutral, 0 by default: a black cat's, free of the sky's blue in its shadows. */
+  /**
+   * How far a near-black coat's colour is drawn to neutral, 0 by default: a black cat's, free of the sky's blue in its
+   * shadows.
+   */
   readonly neutral?: number;
 }
 
@@ -200,9 +218,15 @@ export interface Pattern {
   readonly color?: string;
   /** `patches`: the second colour (hex), its blotches lying among the first's; `grizzle`: the pale of the belly. */
   readonly second?: string;
-  /** `mackerel`, `patches`, `grizzle`: where the trunk ends in the body's frame, as (below, behind, ahead of): the legs start below it, the tail behind it, the neck ahead of it. */
+  /**
+   * `mackerel`, `patches`, `grizzle`: where the trunk ends in the body's frame, as (below, behind, ahead of): the legs
+   * start below it, the tail behind it, the neck ahead of it.
+   */
   readonly trunk?: Vec;
-  /** `mackerel`, `grizzle`: the height on the body's frame above which its midline is painted, the dark line down a spine. */
+  /**
+   * `mackerel`, `grizzle`: the height on the body's frame above which its midline is painted, the dark line down a
+   * spine.
+   */
   readonly dorsal?: number;
   /**
    * `scutes`: how long the pigment cells along a plate's growing edge keep

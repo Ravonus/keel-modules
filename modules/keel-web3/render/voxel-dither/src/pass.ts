@@ -21,7 +21,9 @@ export interface VoxelDither {
   readonly grid: PixelGrid;
   /** Replaces the look; returns the normalized settings. Call `shade` again if `shading` or `bands` changed. */
   setSettings(input?: unknown): DitherSettings;
-  /** Moves the near/mid and mid/far boundaries (view distances) without re-resolving the look; cheap enough per frame. */
+  /**
+   * Moves the near/mid and mid/far boundaries (view distances) without re-resolving the look; cheap enough per frame.
+   */
   setDepthBands(near: number, far: number): void;
   /** Sizes the grid for a frame of this many CSS pixels. The renderer's canvas must already be that size. */
   setSize(cssWidth: number, cssHeight: number, devicePixelRatio: number): PixelGrid;

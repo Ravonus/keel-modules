@@ -65,7 +65,10 @@ export function rootBreaks(roots: readonly { readonly angle: number; readonly re
   return picks.map((pick) => ({ heave, burst: pick.burst ? pick.depth : 0, hang }));
 }
 
-/** On the turf: weave, rising and sinking. Near the trunk and the lip a root stays proud of the soil, so it meets both. An old root heaves higher arches. */
+/**
+ * On the turf: weave, rising and sinking. Near the trunk and the lip a root stays proud of the soil, so it meets both.
+ * An old root heaves higher arches.
+ */
 function rootOnTop(ground: TreeGround, step: RootStep, lip: number, first: boolean): number {
   if (first) return ground.y + step.trunk * 0.9;
   const { s, reach, radius, phase, heave } = step;
@@ -75,7 +78,10 @@ function rootOnTop(ground: TreeGround, step: RootStep, lip: number, first: boole
   return ground.y + radius * (0.15 + arch * Math.max(weave, proud * 0.6)) - radius * (1.3 + 0.4 * heave) * (1 - proud) * Math.max(0, -weave);
 }
 
-/** Past the lip: roll over the bevel, then creep down the wall (or a carved surface) until it tucks under. An old root levers up over the rim it cracks. */
+/**
+ * Past the lip: roll over the bevel, then creep down the wall (or a carved surface) until it tucks under. An old root
+ * levers up over the rim it cracks.
+ */
 function rootOverLip(ground: TreeGround, step: RootStep, lip: number): { r: number; y: number; gone: boolean } {
   const wall = ground.wall ?? { depth: 1, flare: 0 };
   const over = step.reach - lip;
@@ -158,7 +164,8 @@ export function rootPath(root: { readonly angle: number; readonly reach: number 
   for (let index = 0; index <= ROOT_SEGMENTS; index += 1) {
     const s = (length * index) / ROOT_SEGMENTS;
     const share = s / length;
-    // Thick most of the way, tapering hard only toward the tip, like a real root. One that breaks a wall stays thick to its end.
+    // Thick most of the way, tapering hard only toward the tip, like a real root. One that breaks a wall stays thick to
+    // its end.
     const radius = burst
       ? trunk * 0.42 * (1 - 0.5 * share) * (1 - share ** 5) + 0.035
       : trunk * 0.5 * (1 - 0.55 * share) * (1 - share ** 3) + 0.03 * share ** 3;

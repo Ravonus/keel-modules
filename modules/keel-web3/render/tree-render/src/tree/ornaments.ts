@@ -217,7 +217,10 @@ function bloomColors(tree: Tree, index: number, colors: TreeColors, node: number
   return tree.blooms[tree.blooms.length - 1]?.colors ?? colors.spring;
 }
 
-/** How ripe a fruit is, 0 (green) to 1: each sets green and colours at its own pace. A fruit with no green look is ripe as it opens. */
+/**
+ * How ripe a fruit is, 0 (green) to 1: each sets green and colours at its own pace. A fruit with no green look is ripe
+ * as it opens.
+ */
 const ripeness = (set: OrnamentSet, index: number, year: YearLike): number =>
   set.look.green === undefined ? 1 : clamp(year.fruit * 1.8 - 0.7 - at(set.slots.rank, index) * 0.3, 0, 1);
 

@@ -46,7 +46,10 @@ export interface Sitting<F> {
 }
 export interface PortraitStudio { shoot<F>(sitting: Sitting<F>): Uint8Array }
 
-/** How much taller the frame is than the top of the head to the head's centre, and where in it that centre sits: closer when small. */
+/**
+ * How much taller the frame is than the top of the head to the head's centre, and where in it that centre sits: closer
+ * when small.
+ */
 const FILL = 2.8;
 const SMALL_FILL = 2.2;
 const CENTRE = 0.42;
@@ -82,7 +85,10 @@ export function meshTop(position: Float32Array): number {
   return top;
 }
 
-/** Where a head of these heights goes in a frame of `size`: the height the frame looks at, how tall it is, how far back the lens stands. */
+/**
+ * Where a head of these heights goes in a frame of `size`: the height the frame looks at, how tall it is, how far back
+ * the lens stands.
+ */
 export function portraitShot(
   top: number,
   head: number,

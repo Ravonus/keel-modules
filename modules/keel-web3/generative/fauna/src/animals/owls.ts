@@ -166,7 +166,8 @@ function owlRim(kit: Kit, h: Head, face: OwlFace, x: number): void {
  */
 function owlFaceMarks(kit: Kit, who: Who, h: Head, face: OwlFace, open: boolean): void {
   const on = (s: number, u: number): Vec => onOwlFace(h, face, s, u);
-  // (Each stands off the face at its upper end, so it still lies on the face where the face bulges out between its ends.)
+  // (Each stands off the face at its upper end, so it still lies on the face where the face bulges out between its
+  // ends.)
   if (who.member.coat === "barn")
     cap(kit, "notch", "coat", onOwlFace(h, face, 0, 0.92, 0.12), on(0, 0.14), h.r * 0.15, 1, UP, {
       r1: h.r * 0.03,
@@ -314,7 +315,8 @@ export function owlFold(kit: Kit, style: WingStyle, body: BirdBody, x: number): 
   const point = at(-1.1, 0.3, 0.78);
   const face = owlTurned(body, unit([x * 0.8, 0, -0.6]));
   cap(kit, `wing.${L}`, panel, wrist, point, r * 0.72, 0.94, face, { r1: r * 0.27, melt: 0.1 });
-  // (Fanned from under the wing's middle, each tip a step lower and further back along its edge, the longest last at its point.)
+  // (Fanned from under the wing's middle, each tip a step lower and further back along its edge, the longest last at
+  // its point.)
   const root = at(-0.05, 0.93, 0.5);
   OWL_PRIMARIES.forEach(([up, out, back], i) => {
     // (Hardly melted, so each keeps its own edge and still wears the coat's pattern.)
@@ -333,7 +335,10 @@ export function wingSpots(kit: Kit, role: Role, L: string, root: Vec, tip: Vec, 
   }
 }
 
-/** An owl's tail, sitting: a short broad wedge fused into its rump and fanning a little, the crossed tips of its wings lying over its root. */
+/**
+ * An owl's tail, sitting: a short broad wedge fused into its rump and fanning a little, the crossed tips of its wings
+ * lying over its root.
+ */
 export function owlTail(kit: Kit, who: Who, body: BirdBody): void {
   const at = owlAt(body, 1);
   // (Its face turned back, so it hangs on down the line of the back.)
@@ -341,7 +346,9 @@ export function owlTail(kit: Kit, who: Who, body: BirdBody): void {
   cap(kit, "tail.1", wingStyle(who).fold[1], at(-0.74, 0, 0.78), at(-1.12, 0, 0.92), body.r * 0.46, 0.32, fan, { r1: body.r * 0.52, melt: 0.4 });
 }
 
-/** An owl's pale underside, breast and feathered legs: a great horned owl's buff (its white kept for its bib), barred. */
+/**
+ * An owl's pale underside, breast and feathered legs: a great horned owl's buff (its white kept for its bib), barred.
+ */
 const owlUnder = (coat: string): Role => (coat === "great horned" ? "shell" : "belly");
 
 /**
@@ -417,7 +424,10 @@ export function owlFoot(kit: Kit, who: Who, body: BirdBody, x: number, foot: Vec
   }
 }
 
-/** Where a snowy owl's two bold chevrons lie on its belly, each tip how far `up` and `out` as `owlAt` takes them: big enough to last at a sprite's size, and breaking the shade that gathers low on its front. */
+/**
+ * Where a snowy owl's two bold chevrons lie on its belly, each tip how far `up` and `out` as `owlAt` takes them: big
+ * enough to last at a sprite's size, and breaking the shade that gathers low on its front.
+ */
 const OWL_BELLY_MARKS = [[-0.4, -0.5], [-0.74, 0.3]] as const;
 
 /** A snowy owl's chevrons, each a V cupped down the lie (its pattern's own, finer ones leave a front nearly bare). */

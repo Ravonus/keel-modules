@@ -89,7 +89,10 @@ const ANGLE_UNIT = 1e-4;
 const DISTANCE_UNIT = 1e-6;
 const MOON_KM = 1e-3;
 
-/** One correction: `amount(tau^power * (sin * sin(angle) + cos * cos(angle)))`, its angle a sum of whole multiples of the arguments. */
+/**
+ * One correction: `amount(tau^power * (sin * sin(angle) + cos * cos(angle)))`, its angle a sum of whole multiples of
+ * the arguments.
+ */
 export interface Term {
   channel: number;
   power: number;
@@ -232,7 +235,9 @@ export const angleBetween = (a: Vec3, b: Vec3) =>
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
   ) / RAD;
 
-/** Seconds TT runs ahead of UT: Espenak and Meeus's long-term fit, which is what moves an eclipse's hour centuries out. */
+/**
+ * Seconds TT runs ahead of UT: Espenak and Meeus's long-term fit, which is what moves an eclipse's hour centuries out.
+ */
 export function deltaT(timestamp: number) {
   const days = (timestamp - J2000_MS) / DAY_MS;
   const y = 2000 + (days - 14) / 365.24217;
@@ -427,7 +432,9 @@ const ASPECTS: readonly [AspectKind, number, number][] = [["conjunction", 0, 8],
 const siderealDegrees = (timestamp: number, lon: number) =>
   wrap(280.46061837 + 360.98564736629 * ((timestamp - J2000_MS) / DAY_MS) + lon, 360);
 
-/** The matrix that turns a J2000 equatorial direction into scene space at a place: +y up, -z north, +x east. Rows first. */
+/**
+ * The matrix that turns a J2000 equatorial direction into scene space at a place: +y up, -z north, +x east. Rows first.
+ */
 export function horizonMatrix(timestamp: number, lat: number, lon: number): number[] {
   const sidereal = siderealDegrees(timestamp, lon) * RAD;
   const slide = PRECESSION * centuries(timestamp) * RAD;
@@ -544,7 +551,10 @@ class Canvas {
   }
 }
 
-/** One aspect as a dotted arc: on the ecliptic they would all lie on one line, so hard ones bow north and soft ones south. */
+/**
+ * One aspect as a dotted arc: on the ecliptic they would all lie on one line, so hard ones bow north and soft ones
+ * south.
+ */
 function arc(canvas: Canvas, a: Body, b: Body, aspect: { kind: AspectKind; orb: number }, when: number, level: number) {
   if (aspect.kind === "conjunction") return;
   const sweep = near(b.longitude - a.longitude);

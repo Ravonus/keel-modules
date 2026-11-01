@@ -101,7 +101,10 @@ function offTrunk(stage: Stage, p: Vec, margin: number): Vec {
   return [axis.p[0] + (dx / d) * need, p[1], axis.p[2] + (dz / d) * need];
 }
 
-/** How far a flier keeps off the bark `g` of the way along its flight: its own size and a little, fading to nothing at the ends. */
+/**
+ * How far a flier keeps off the bark `g` of the way along its flight: its own size and a little, fading to nothing at
+ * the ends.
+ */
 const barkRoom = (size: number, g: number): number =>
   (size * 0.3 + 0.04) * smooth(clamp(Math.min(g, 1 - g) / 0.2, 0, 1));
 
@@ -149,7 +152,10 @@ export function flyPath(a: Anchor, b: Anchor, stage: Stage, size: number, onWood
   return points;
 }
 
-/** Held within a flier's circle round the tree (the crown's reach and a little), so a long climb to a high branch stays in the picture. */
+/**
+ * Held within a flier's circle round the tree (the crown's reach and a little), so a long climb to a high branch stays
+ * in the picture.
+ */
 function withinReach(stage: Stage, p: Vec): Vec {
   const crown = crownOf(stage);
   const cap = crown.reach + 2.6;
@@ -190,7 +196,10 @@ export function crownOf(stage: Stage): {
   return { reach, top, low: Number.isFinite(low) ? low : top, c };
 }
 
-/** Catmull-Rom through keys, ten points a span, kept off the ground and out of the trunk except where it starts and ends, and inside `out`'s bounds when given. */
+/**
+ * Catmull-Rom through keys, ten points a span, kept off the ground and out of the trunk except where it starts and
+ * ends, and inside `out`'s bounds when given.
+ */
 function smoothWay(keys: readonly Vec[], stage: Stage, size: number, out?: (p: Vec) => Vec): PathPoint[] {
   const legs = keys.length - 3;
   const points: PathPoint[] = [];
@@ -213,7 +222,10 @@ function smoothWay(keys: readonly Vec[], stage: Stage, size: number, out?: (p: V
   return points;
 }
 
-/** Which way round a sortie goes and how far: its own way, its laps and on to where it comes in; going home, the short way. */
+/**
+ * Which way round a sortie goes and how far: its own way, its laps and on to where it comes in; going home, the short
+ * way.
+ */
 function sortieTurn(loop: Extract<Loop, { kind: "sortie" }>, from: number, to: number): { dir: number; sweep: number } {
   const wrap = (v: number): number => Math.atan2(Math.sin(v), Math.cos(v));
   if (loop.start) {
@@ -337,7 +349,9 @@ function trunkFoot(place: Place, a: Anchor, stage: Stage): { h: number; a: numbe
   return { h: trunkShare(trunk, a.p[1]), a: side };
 }
 
-/** A perch's branch as a climber walks it, from the trunk outward: on top of the wood, and where it leaves the trunk. */
+/**
+ * A perch's branch as a climber walks it, from the trunk outward: on top of the wood, and where it leaves the trunk.
+ */
 export const inTrunk = (p: Vec, trunk: Stage["trunk"]): boolean => {
   if (!trunk) return false;
   const axis = trunkAxis(trunk, trunkShare(trunk, p[1]));

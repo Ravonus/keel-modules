@@ -15,10 +15,15 @@ import { marksOf, vecAt } from "./paint.js";
 
 // ---------------------------------------------------------------- hair
 
-/** Where a style's locks gather, and the line they run on from there: `t` 0 to 1 along it, `strand` of three in a plait. */
+/**
+ * Where a style's locks gather, and the line they run on from there: `t` 0 to 1 along it, `strand` of three in a plait.
+ */
 interface Tie { readonly at: Vec; readonly tail: (t: number, strand: number) => Vec; readonly spread: number; readonly plait?: boolean }
 
-/** How a head of hair grows, in head radii: as many locks as this, combed from a parting, falling under their own weight and cut where they are cut. */
+/**
+ * How a head of hair grows, in head radii: as many locks as this, combed from a parting, falling under their own weight
+ * and cut where they are cut.
+ */
 interface Comb {
   readonly count: number; readonly length: number; readonly width: number; readonly thick: number;
   /** How hard it falls; how much it stands off the scalp at the root. */
@@ -103,13 +108,18 @@ const offShoulders = (q: Vec): Vec => {
 
 const rootAt = (u: Vec): Vec => add(SKULL_AT, [SKULL[0] * u[0], SKULL[1] * u[1], SKULL[2] * u[2]]);
 
-/** Which way a root's hair leaves it: forward over the brow if it is a fringe, else out from the parting, or from the crown if it has none. */
+/**
+ * Which way a root's hair leaves it: forward over the brow if it is a fringe, else out from the parting, or from the
+ * crown if it has none.
+ */
 function leaving(c: Comb, u: Vec, brow: boolean, parted: number, rand: () => number): Vec {
   const loose = (rand() - 0.5) * (brow ? 0.1 : 0.3), side = u[0] - parted, away: Vec = brow ? [side * 0.3 + loose, 0.1, 1] : c.part === undefined ? [u[0] + loose, 0, u[2] + 0.25] : u[2] < 0.3 ? [side * 1.6 + loose, 0, u[2] - 0.2] : [side * 1.1 + loose, 0.7, -1.5];
   return unit(add(unit(away, SIDE), scale(u, c.stand)));
 }
 
-/** One step of a lock. Combed hair lies on the head until it has somewhere to fall; only what is stiff stands off it. */
+/**
+ * One step of a lock. Combed hair lies on the head until it has somewhere to fall; only what is stiff stands off it.
+ */
 function lockStep(c: Comb, q: Vec, d: Vec, ds: number, brow: boolean): readonly [Vec, Vec] {
   const lies = c.stand < 1, leaning = lies && q[1] < SKULL_AT[1] + 0.25, step = madd(q, leaning ? unit(add(d, [0, -2.4, 0])) : d, ds);
   const next = offShoulders(offHead(lies && step[1] > SKULL_AT[1] ? onSkull(step) : step, brow));
@@ -146,7 +156,11 @@ function gathered(tie: Tie, u: Vec, rand: () => number): readonly Vec[] {
   return tie.plait === true ? up : [...up, ...run];
 }
 
-/** How a lock faces at a point round it. A fold of skin is lit as the skin it lies on, or a thin one is all edge and catches the rim light; a rope or a band is round; a clump of hair faces out, for what lights it is the mass, not the ribbon. */
+/**
+ * How a lock faces at a point round it. A fold of skin is lit as the skin it lies on, or a thin one is all edge and
+ * catches the rim light; a rope or a band is round; a clump of hair faces out, for what lights it is the mass, not the
+ * ribbon.
+ */
 function lockNormal(b: Vec, n: Vec, o: Vec, c: number, r: number, round: boolean, fabric?: number): Vec {
   if (fabric === FABRICS.skin) return unit(add(o, scale(b, c * 0.3)));
   if (fabric !== undefined) return unit(add(scale(b, c * 0.7), scale(n, r)));
@@ -186,7 +200,10 @@ function rootsOf(c: Comb, far: boolean): readonly Vec[] {
   return every.filter((u) => scalped(u) && (c.keep?.(u) ?? true));
 }
 
-/** What hair grows from is its roots' dark, so nothing between the locks reads as a bald patch: the skin behind the hairline, clipped to stubble or not. */
+/**
+ * What hair grows from is its roots' dark, so nothing between the locks reads as a bald patch: the skin behind the
+ * hairline, clipped to stubble or not.
+ */
 function paintScalp(net: Net, roles: readonly string[], h: HeadFrame, size: number, shaved: boolean): void {
   const paint = Math.max(0, roles.indexOf(shaved ? "brow" : "hair"));
   net.role.forEach((_, v) => {
@@ -204,7 +221,10 @@ export const styleOf = (p: Person): HairStyle => (p.outfit.hat === "none" ? p.ha
 /** A lock's shade along it: deep at the root, and a band of sheen where hair rounds the crown. */
 const lockTone = (s: number, tone: number): number => tone * mix(0.72, 1, clamp(s * 5, 0, 1));
 
-/** How close a mesh has to be, by its grid, for a head of locks; further than this, thinner ones; further still, the solid shape alone. */
+/**
+ * How close a mesh has to be, by its grid, for a head of locks; further than this, thinner ones; further still, the
+ * solid shape alone.
+ */
 export const MID_HAIR = 0.02, FAR_HAIR = 0.03;
 
 const ELASTIC = { role: "trim", fabric: FABRICS.satin };
@@ -215,7 +235,9 @@ const looped = (at: Vec, along: Vec, r: number): readonly Vec[] => {
   return Array.from({ length: 11 }, (_, i) => { const t = (i / 10) * TAU; return add(madd(at, a, Math.cos(t) * r), scale(b, Math.sin(t) * r)); });
 };
 
-/** What holds a style up or just dresses it: every tie has its elastic, and now and then a head has a band or a clip. */
+/**
+ * What holds a style up or just dresses it: every tie has its elastic, and now and then a head has a band or a clip.
+ */
 function decorOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, c: Comb): readonly number[] {
   const lay = (line: readonly Vec[], size: readonly [number, number, number]): number[] => Array.from({ length: layLock(net, roles, to, line, size, ELASTIC) }, () => 1);
   const bands = (c.ties ?? []).flatMap((t) => (t.plait === true ? [t.tail(0.98, 0), t.at] : [t.at]).map((at) => {
@@ -229,7 +251,10 @@ const SKIN_RIDGE = { role: "skin", fabric: FABRICS.skin };
 
 const LOOSE: readonly HairStyle[] = ["side", "curly", "bob", "long", "shag", "bangs", "wavy", "locs"];
 
-/** Which ears are bare, left and right. Hair worn loose goes over them, or is tucked back behind one or both; every other head shows them. */
+/**
+ * Which ears are bare, left and right. Hair worn loose goes over them, or is tucked back behind one or both; every
+ * other head shows them.
+ */
 export function tuckOf(p: Person): readonly [boolean, boolean] {
   if (!LOOSE.includes(styleOf(p))) return [true, true];
   const rand = streamOf(p.seed, 0x7475636b), roll = rand(), side = rand() < 0.5;
@@ -252,7 +277,10 @@ function clearOfEar(line: readonly Vec[], tucked: boolean): readonly Vec[] {
   return at < 0 ? line : line.slice(0, at);
 }
 
-/** A lock past the ear on its way down: all of it behind the ear if that side is tucked, all of it clear over the ear if not. */
+/**
+ * A lock past the ear on its way down: all of it behind the ear if that side is tucked, all of it clear over the ear if
+ * not.
+ */
 function pastEar(q: Vec, tucked: boolean): Vec {
   const low = clamp((0.42 - q[1]) / 0.25, 0, 1);
   if (tucked) return offHead([q[0], q[1], q[2] > -0.36 ? mix(q[2], -0.36 - (q[2] + 0.36) * 0.2, low) : q[2]], true);
@@ -260,7 +288,10 @@ function pastEar(q: Vec, tucked: boolean): Vec {
   return [q[0] < 0 ? Math.min(q[0], mix(q[0], -1.08, round)) : Math.max(q[0], mix(q[0], 1.08, round)), q[1], q[2]];
 }
 
-/** A head's boundary: the true surface of what is already on it, round its centre, in head radii. Whatever goes on a person is seated on this, and never on a guess at where a head is. */
+/**
+ * A head's boundary: the true surface of what is already on it, round its centre, in head radii. Whatever goes on a
+ * person is seated on this, and never on a guess at where a head is.
+ */
 export interface Bound {
   /** How far out the surface lies along a direction from the centre. */
   readonly far: (dir: Vec) => number;
@@ -318,7 +349,10 @@ function roundedOff(line: readonly (readonly [number, number])[], times: number)
   return roundedOff([line[0] ?? [0, 0], ...cut, line[line.length - 1] ?? [0, 0]], times - 1);
 }
 
-/** The folds of an ear, forward and up from its middle, in head radii: the rim round the top and back, the ridge inside it, and the flap before it. */
+/**
+ * The folds of an ear, forward and up from its middle, in head radii: the rim round the top and back, the ridge inside
+ * it, and the flap before it.
+ */
 const EAR_RIM: readonly (readonly [number, number])[] = [[0.08, 0.1], [0.1, 0.24], [0.02, 0.32], [-0.1, 0.33], [-0.2, 0.24], [-0.24, 0.1], [-0.21, -0.05], [-0.13, -0.17], [-0.05, -0.26]];
 const EAR_RIDGE: readonly (readonly [number, number])[] = [[-0.03, 0.22], [-0.1, 0.18], [-0.13, 0.08], [-0.1, -0.03], [-0.04, -0.11]];
 const EAR_FLAP: readonly (readonly [number, number])[] = [[0.08, 0.04], [0.09, -0.02], [0.06, -0.08]];
@@ -340,7 +374,10 @@ function pinnaOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, at: (a
   return tones;
 }
 
-/** A pair of ears, each its own: how big, how far they stand out, and how the lobe hangs. Near to, the dish and every fold; a little further, the dish and its rim; far off, only the shape the head already has. */
+/**
+ * A pair of ears, each its own: how big, how far they stand out, and how the lobe hangs. Near to, the dish and every
+ * fold; a little further, the dish and its rim; far off, only the shape the head already has.
+ */
 export function earsOf(net: Net, p: Person, roles: readonly string[], cell: number, seat: Seat): readonly number[] {
   if (cell >= FAR_HAIR || p.outfit.costume === "fursuit" || ["hood", "helmet", "beanie", "pompom", "headwrap"].includes(p.outfit.hat)) return [];
   const rand = streamOf(p.seed, 0x65617273), h = headFrame(restSkeleton(p), p.build.head, p.face), size = p.build.size, k = marksOf(p);
@@ -349,7 +386,8 @@ export function earsOf(net: Net, p: Person, roles: readonly string[], cell: numb
   const tucks = tuckOf(p), level = Math.atan2((k.pupil + k.sn) / 2 + 0.06, 0.85);
   return [-1, 1].flatMap((x, side) => {
     if (!tucks[side]) return [];
-    // (An ear grows from the skin where the skin really is: from the line of the brow to the base of the nose, behind the jaw, leaning back.)
+    // (An ear grows from the skin where the skin really is: from the line of the brow to the base of the nose, behind
+    // the jaw, leaning back.)
     const out = unit([x, 0.04, -0.24], SIDE);
     const at = (a: number, b: number, sunk = 0): Vec => {
       const lean = b * 0.22, dir = bearingOf(x * (Math.PI / 2 + 0.12 - (a - lean) * big), level + b * big);
@@ -383,7 +421,10 @@ function flowOf(c: Comb, u: Vec): Vec {
   return tie ? unit(sub(tie.at, add(SKULL_AT, [u[0] * SKULL[0], u[1] * SKULL[1], u[2] * SKULL[2]])), UP) : unit([u[0] * 0.3, -0.5, -1], UP);
 }
 
-/** What hair grows out of: a skin of it over the skull, ending along the hairline itself, a curve and not a mesh's steps, a little ragged. */
+/**
+ * What hair grows out of: a skin of it over the skull, ending along the hairline itself, a curve and not a mesh's
+ * steps, a little ragged.
+ */
 function capOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, c: Comb, roof: number, far: boolean, rand: () => number): readonly number[] {
   const around = far ? 40 : 96, rows = far ? 6 : 10, base = net.position.length / 3, role = Math.max(0, roles.indexOf("hair")), tones: number[] = [];
   const rag = Array.from({ length: around }, () => (rand() - 0.5) * 0.05), puff = roped(c) ? 1.08 : 1.03;
@@ -419,7 +460,10 @@ function sideOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, c: Comb
   return tones;
 }
 
-/** A fringe: one sheet of hair from under the cap down over the brow, cut in an even line that rises to the temples, a little scalloped. */
+/**
+ * A fringe: one sheet of hair from under the cap down over the brow, cut in an even line that rises to the temples, a
+ * little scalloped.
+ */
 function fringeOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, c: Comb, rand: () => number, far: boolean): readonly number[] {
   if (c.fringe === undefined) return [];
   const across = far ? 16 : 40, rows = 6, base = net.position.length / 3, role = Math.max(0, roles.indexOf("hair")), tones: number[] = [], wide = 0.76;
@@ -478,7 +522,10 @@ function curtainOf(net: Net, roles: readonly string[], to: (q: Vec) => Vec, c: C
 /** Which tie a root's hair goes to: the side it is on, if there are two. */
 const tieOf = (c: Comb, u: Vec): Tie | undefined => c.ties?.[(c.ties.length > 1 && u[0] > 0 ? 1 : 0)];
 
-/** A head of hair as locks, on their head's bone. Each vertex's shade comes back, in order: deep at the root, lock from lock a little apart. */
+/**
+ * A head of hair as locks, on their head's bone. Each vertex's shade comes back, in order: deep at the root, lock from
+ * lock a little apart.
+ */
 export function hairLocks(
   net: Net,
   p: Person,

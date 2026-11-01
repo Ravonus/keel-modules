@@ -6,7 +6,10 @@ import { TAU, clamp, smoothstep } from "./math.js";
 
 export interface Offset { x: number; z: number }
 
-/** The breeze at a moment: how hard it blows (0 is dead calm), and the way it blows toward, in radians from +x toward +z. */
+/**
+ * The breeze at a moment: how hard it blows (0 is dead calm), and the way it blows toward, in radians from +x toward
+ * +z.
+ */
 export interface Breeze { readonly wind: number; readonly dir: number }
 
 /**

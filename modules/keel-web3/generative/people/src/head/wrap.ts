@@ -15,7 +15,10 @@ import { NO_EDGE } from "../body/cage.js";
 import { FABRICS } from "../clothes/fabric.js";
 import { smooth } from "./paint.js";
 
-/** Where a head's fixed mesh goes: its centre and radius in metres, and each landmark it is laid through, in head radii, as they lie on the finished head. */
+/**
+ * Where a head's fixed mesh goes: its centre and radius in metres, and each landmark it is laid through, in head radii,
+ * as they lie on the finished head.
+ */
 export interface Wrap {
   readonly c: Vec;
   readonly R: number;
@@ -26,15 +29,24 @@ export interface Wrap {
   readonly sto: number;
   readonly men: number;
   readonly mouth: number;
-  /** The neck it runs down into, as `lower` meets it: how far back its middle lies, how wide it is and how deep behind, all in head radii. */
+  /**
+   * The neck it runs down into, as `lower` meets it: how far back its middle lies, how wide it is and how deep behind,
+   * all in head radii.
+   */
   readonly neck: readonly [z: number, wide: number, back: number];
   /** How many times its rows and columns are halved. */
   readonly level: number;
 }
 
-/** How far round a landmark `x` lies, and how high a landmark `y`, seen from a head's centre on a face about a radius off. */
+/**
+ * How far round a landmark `x` lies, and how high a landmark `y`, seen from a head's centre on a face about a radius
+ * off.
+ */
 const bearing = (v: number): number => Math.atan2(v, 0.95);
-/** How far an eye opens at `u` eyes outward of its middle, up and down: the same almond the renderer paints, set a little down at its inner end. */
+/**
+ * How far an eye opens at `u` eyes outward of its middle, up and down: the same almond the renderer paints, set a
+ * little down at its inner end.
+ */
 function lidsAt(u: number): readonly [number, number] {
   const w = 1.42, k = clamp(1 - (u * u) / (w * w), 0, 1), m = clamp(-u / w, -1.4, 1.4);
   return [0.5 * k ** 0.62 * (1 - 0.2 * m) - 0.1 * m + 0.02, -0.34 * k ** 0.8 * (1 - 0.4 * m) - 0.1 * m + 0.02];
@@ -61,7 +73,8 @@ function columnsOf(w: Wrap): readonly number[] {
   const { eyeX: x, eye: e, mouth } = w;
   const one = [0.05, 0.1, 0.17, mouth, x - e * 1.42, x - e * 0.7, x, x + e * 0.7, x + e * 1.42, x + e * 1.42 + 0.08].map(bearing);
   const half = [...one, 0.9, 1.1, 1.3, 1.57, 1.85, 2.2, 2.55, 2.85];
-  // (Thinned on one side and mirrored, or an eye's corner could land on a column on its left and miss one on its right.)
+  // (Thinned on one side and mirrored, or an eye's corner could land on a column on its left and miss one on its
+  // right.)
   const side = spaced([0, ...half, Math.PI], 0.012, w.level).slice(1, -1);
   return [...side.map((a) => -a).reverse(), 0, ...side, Math.PI];
 }
@@ -154,7 +167,9 @@ function ballOf(net: Net, from: number, w: Wrap, side: number): Ball {
   return { at: [x, y, (seen > 0 ? front / seen : w.c[2] + w.R * 0.8) - r + w.R * 0.006], r };
 }
 
-/** A ball of an eye, its front half: the renderer paints the white and the iris on it, and a lid over it when it shuts. */
+/**
+ * A ball of an eye, its front half: the renderer paints the white and the iris on it, and a lid over it when it shuts.
+ */
 function eyeball(net: Net, ball: Ball, skin: number): void {
   const first = net.position.length / 3, rings = 7, around = 16;
   const put1 = (th: number, ph: number): void => {
@@ -168,7 +183,10 @@ function eyeball(net: Net, ball: Ball, skin: number): void {
   }
 }
 
-/** Lays a head's skin over the balls of its eyes, as a lid lies, and seats the edge of each lid on its ball, so the eye sits in them. */
+/**
+ * Lays a head's skin over the balls of its eyes, as a lid lies, and seats the edge of each lid on its ball, so the eye
+ * sits in them.
+ */
 function overBalls(net: Net, from: number, rim: ReadonlySet<number>, balls: readonly Ball[], lift: number): void {
   for (let v = from; v < net.position.length / 3; v += 1) for (const ball of balls) {
     const dx = (net.position[v * 3] ?? 0) - ball.at[0], dy = (net.position[v * 3 + 1] ?? 0) - ball.at[1], left = ball.r * ball.r - dx * dx - dy * dy;
@@ -188,13 +206,19 @@ export function headNormals(net: Net, from: number, rows: number, cols: number):
   }
 }
 
-/** How far lips stand off a face at `x`, `y`, in head radii: an upper and a fuller lower, parted by the line between them. */
+/**
+ * How far lips stand off a face at `x`, `y`, in head radii: an upper and a fuller lower, parted by the line between
+ * them.
+ */
 function lipAt(w: Wrap, x: number, y: number): number {
   const k = clamp(1 - (x * x) / (w.mouth * w.mouth * 1.1), 0, 1), up = (y - w.sto - 0.06 * k) / 0.05, down = (y - w.sto + 0.08 * k) / 0.065;
   return k ** 0.5 * (0.026 * Math.exp(-up * up) + 0.034 * Math.exp(-down * down)) - 0.03 * k ** 0.5 * Math.exp(-(((y - w.sto) / 0.014) ** 2));
 }
 
-/** The back of a skull comes in to the neck under it, and the corners of the jaw tuck in with it: nothing behind the face hangs out over the neck like a bowl. */
+/**
+ * The back of a skull comes in to the neck under it, and the corners of the jaw tuck in with it: nothing behind the
+ * face hangs out over the neck like a bowl.
+ */
 function napeOf(w: Wrap, at: Vec): Vec {
   const q = scale(sub(at, w.c), 1 / w.R), [nz, wide, back] = w.neck, pull = smooth(0.3, -0.8, q[1]) * smooth(0.5, -0.1, q[2]);
   if (pull <= 0) return at;
@@ -202,7 +226,10 @@ function napeOf(w: Wrap, at: Vec): Vec {
   return madd(w.c, [mix(q[0], Math.sin(a) * wide, pull), q[1], mix(q[2], nz + Math.cos(a) * back, pull)], w.R);
 }
 
-/** A head as a fixed mesh: every person the same rows and columns, laid through the same lines of a face, shot onto the solid their head is melted from. */
+/**
+ * A head as a fixed mesh: every person the same rows and columns, laid through the same lines of a face, shot onto the
+ * solid their head is melted from.
+ */
 function wrapHead(net: Net, layer: Layer, grid: Grid, w: Wrap, roles: readonly string[]): void {
   const rows = rowsOf(w), cols = columnsOf(w), from = net.position.length / 3, firstIndex = net.index.length, skin = Math.max(0, roles.indexOf("skin"));
   const lids = cols.map((a) => lidRows(rows, w, a)), rim = new Set<number>(), hidden = new Set<number>();
@@ -282,7 +309,10 @@ function neighboursOf(index: readonly number[], from: number): Map<number, Set<n
   return near;
 }
 
-/** A net's newest vertices each drawn toward their neighbours, a few times over: the positions a little, the normals most of the way, for all the way loses a nose's flank. */
+/**
+ * A net's newest vertices each drawn toward their neighbours, a few times over: the positions a little, the normals
+ * most of the way, for all the way loses a nose's flank.
+ */
 function relaxed(net: Net, firstVertex: number, firstIndex: number, passes: number): void {
   if (passes === 0) return;
   const near = neighboursOf(net.index, firstIndex);

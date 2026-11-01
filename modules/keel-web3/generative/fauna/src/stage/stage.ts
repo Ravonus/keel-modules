@@ -29,7 +29,9 @@ export interface Perch {
 /** A surface root, as a capsule lying on the ground: animals step or hop over it, and can stand on it. */
 export interface Root { readonly a: Vec; readonly b: Vec; readonly r: number }
 
-/** What the scene gives the animals each frame: the ground they walk, the trunk they climb, the branches they sit in. */
+/**
+ * What the scene gives the animals each frame: the ground they walk, the trunk they climb, the branches they sit in.
+ */
 export interface Stage {
   /** Walkable radius of the ground around the origin. */
   readonly radius: number;
@@ -110,7 +112,9 @@ export const perchOf = (stage: Stage, i: number): Perch | undefined => {
 };
 export const trunkR = (stage: Stage): number => stage.trunk?.r ?? 0;
 
-/** The trunk's centre and radius at height share `h` (0 at its base, 1 at its top), following its spine when it has one. */
+/**
+ * The trunk's centre and radius at height share `h` (0 at its base, 1 at its top), following its spine when it has one.
+ */
 export function trunkAxis(trunk: NonNullable<Stage["trunk"]>, h: number): Wood {
   const k = clamp(h, 0, 1);
   const spine = trunk.path ?? [];
@@ -155,7 +159,10 @@ export interface Spot { readonly p: Vec; readonly size: number }
 export const trunkClear = (stage: Stage, size: number): number => trunkR(stage) + size * 1.2 + 0.1;
 
 const turnTo = (a: number, b: number): number => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
-/** A heading to look for a spot along: toward the viewer, when there is one, of four picks the nearest to it, so the far side (behind the trunk, from the camera) is rare, not barred. */
+/**
+ * A heading to look for a spot along: toward the viewer, when there is one, of four picks the nearest to it, so the far
+ * side (behind the trunk, from the camera) is rare, not barred.
+ */
 function headingFor(rand: () => number, stage: Stage): number {
   if (!stage.view) return rand() * TAU;
   const view = Math.atan2(stage.view[2], stage.view[0]);
@@ -167,7 +174,10 @@ function headingFor(rand: () => number, stage: Stage): number {
   return best;
 }
 
-/** Whether a spot on the ground is round the back of the tree from the viewer (more than a little past the trunk's side). */
+/**
+ * Whether a spot on the ground is round the back of the tree from the viewer (more than a little past the trunk's
+ * side).
+ */
 function farSide(stage: Stage, x: number, z: number): boolean {
   if (!stage.view) return false;
   const v = Math.hypot(stage.view[0], stage.view[2]);
@@ -205,7 +215,8 @@ export function groundSpot(
     const r = near ? reach * Math.sqrt(rand()) : mix(inner, outer, rand() ** 0.35);
     const x = (near?.[0] ?? 0) + Math.cos(a) * r;
     const z = (near?.[2] ?? 0) + Math.sin(a) * r;
-    // (The first tries keep off the far side, behind the trunk and its roots from the camera; the last take what there is.)
+    // (The first tries keep off the far side, behind the trunk and its roots from the camera; the last take what there
+    // is.)
     if (spotFree(x, z, inner, outer, size, taken) && (attempt >= 8 || !farSide(stage, x, z)))
       return { on: "ground", x, z };
   }

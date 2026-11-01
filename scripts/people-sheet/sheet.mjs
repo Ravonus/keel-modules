@@ -5,7 +5,7 @@
 //   node scripts/people-sheet/sheet.mjs --seeds 3,8,15 --weather rain --out sheet.png
 //   node scripts/people-sheet/sheet.mjs --poses walk,run --time 0.3     (an animation, when that is what is being tested)
 //
-// Needs keel-engine beside this repo (or KEEL_ENGINE), and Playwright with a browser (PLAYWRIGHT, CHROME to point at them).
+// Needs keel-engine beside this repo (or KEEL_ENGINE), and Playwright with a browser (ESBUILD, PLAYWRIGHT, CHROME to point at them).
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -24,7 +24,7 @@ const YAW = { front: 0.3, side: 1.5, back: 3.6 };
 const dirs = (dir) => (existsSync(dir) ? readdirSync(dir).map((name) => join(dir, name)) : []);
 
 const engine = resolve(process.env.KEEL_ENGINE ?? join(here, "../../../keel-engine"));
-const esbuild = [join(engine, "node_modules/.bin/esbuild"), join(here, "../../node_modules/.bin/esbuild"), join(here, "../../../keel-sdk/node_modules/.bin/esbuild")].find(existsSync);
+const esbuild = [process.env.ESBUILD ?? "", join(engine, "node_modules/.bin/esbuild"), join(here, "../../node_modules/.bin/esbuild"), join(here, "../../../keel-sdk/node_modules/.bin/esbuild"), ...dirs(join(homedir(), ".npm/_npx")).map((dir) => join(dir, "node_modules/.bin/esbuild"))].find(existsSync);
 if (!existsSync(join(engine, "packages/lit/src/index.ts")) || !esbuild) throw new Error(`need keel-engine with esbuild, looked in ${engine}`);
 
 async function playwright() {

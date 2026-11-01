@@ -2316,7 +2316,7 @@ const inflated = (c: Capsule, by: number): Capsule => ({ ...c, r: c.r + by, ...(
 function skirtWeights(at: Vec, free: Layer["free"]): readonly [number, number, number] {
   const thigh = boneIndex(at[0] < 0 ? "thigh.L" : "thigh.R");
   const down = free ? clamp((free[0] + 0.1 - at[1]) / free[1], 0, 1) : 0;
-  return [PELVIS, thigh, 1 - Math.min(0.64, down) * clamp(Math.abs(at[0]) / 0.12, 0, 1)];
+  return [PELVIS, thigh, 1 - Math.min(0.92, down * 1.5) * clamp(Math.abs(at[0]) / 0.06, 0, 1)];
 }
 
 /** Whether something over a layer leaves this point of it out of sight. */

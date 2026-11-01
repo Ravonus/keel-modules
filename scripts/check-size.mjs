@@ -15,14 +15,18 @@ const sources = [
   ...globSync("template/src/**/*.ts", { cwd: root }),
   ...globSync("scripts/**/*.{mjs,ts}", { cwd: root }),
 ];
-const limitOf = (file) => LIMITS.find(({ files }) => files.some((glob) => matchesGlob(file, glob)));
+const limitOf = (file) => {
+  const limit = LIMITS.find(({ files }) => files.some((glob) => matchesGlob(file, glob)));
+  if (!limit) throw new Error(`no size limit covers ${file}`);
+  return limit;
+};
 const lines = (file) => readFileSync(join(root, file), "utf8").split("\n").length;
 const over = sources
-  .map((file) => [relative(root, join(root, file)), lines(file)])
-  .filter(([file, n]) => n > limitOf(file).lines)
-  .sort();
+  .map((file) => ({ file: relative(root, join(root, file)), n: lines(file) }))
+  .filter(({ file, n }) => n > limitOf(file).lines)
+  .sort((a, b) => a.file.localeCompare(b.file));
 
-for (const [file, n] of over) {
+for (const { file, n } of over) {
   console.error(`${file}: ${n} lines, the most for a ${limitOf(file).kind} file is ${limitOf(file).lines}. Split it.`);
 }
 process.exitCode = over.length > 0 ? 1 : 0;

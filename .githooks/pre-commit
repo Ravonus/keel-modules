@@ -5,3 +5,5 @@ set -e
 node scripts/check-size.mjs
 staged=$(git diff --cached --name-only --diff-filter=ACMR -- 'modules/*/*/*/src/*.ts' 'modules/*/*/*/src/**/*.ts' 'template/src/*.ts' 'template/src/**/*.ts')
 [ -z "$staged" ] || ./node_modules/.bin/eslint --max-warnings 0 $staged
+# A module's change can leave a script behind it, so scripts are checked whatever was staged.
+./node_modules/.bin/tsc -p scripts/tsconfig.json

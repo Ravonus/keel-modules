@@ -8,7 +8,7 @@
     "prepare": "node scripts/install-hooks.mjs",
     "lint": "eslint --max-warnings 0 \"modules/*/*/*/src/**/*.ts\" \"template/src/**/*.ts\" && node scripts/check-size.mjs",
     "test": "pnpm lint && pnpm typecheck && pnpm vectors",
-    "typecheck": "for config in modules/*/*/*/tsconfig.json template/tsconfig.json; do echo \"== tsc -p $config\"; ./node_modules/.bin/tsc -p \"$config\" || exit 1; done",
+    "typecheck": "for config in modules/*/*/*/tsconfig.json template/tsconfig.json scripts/tsconfig.json; do echo \"== tsc -p $config\"; ./node_modules/.bin/tsc -p \"$config\" || exit 1; done",
     "check:size": "node scripts/check-size.mjs",
     "vectors": "node scripts/run-vectors.mjs",
     "check:catalog": "node scripts/check-catalog.mjs",
@@ -18,6 +18,7 @@
     "test:reproduction": "node --test tests/reproduction.test.mjs"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "eslint": "^10.9.0",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.67.0"

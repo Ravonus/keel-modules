@@ -72,38 +72,8 @@
       "count": 2
     }
   },
-  "modules/keel-web3/render/voxel-dither/src/light.ts": {
-    "max-len": {
-      "count": 1
-    },
-    "max-statements-per-line": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/render/voxel-dither/src/pass.ts": {
-    "@typescript-eslint/max-params": {
-      "count": 3
-    },
-    "max-len": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    },
-    "max-statements-per-line": {
-      "count": 1
-    }
-  },
   "modules/keel-web3/render/voxel-dither/src/screens.ts": {
     "@typescript-eslint/max-params": {
-      "count": 1
-    },
-    "max-len": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/render/voxel-dither/src/signals.ts": {
-    "no-nested-ternary": {
       "count": 1
     }
   },

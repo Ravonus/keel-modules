@@ -69,7 +69,9 @@ export function quantizeTone(value: number, levels: number, threshold: number, a
 export function celRamp(bands: number): Uint8Array {
   const count = Math.round(bounded(bands, 2, 8, 4));
   const ramp = new Uint8Array(count);
-  for (let index = 0; index < count; index += 1) ramp[index] = Math.round(255 * (0.3 + 0.7 * (index / (count - 1)) ** 1.2));
+  for (let index = 0; index < count; index += 1) {
+    ramp[index] = Math.round(255 * (0.3 + 0.7 * (index / (count - 1)) ** 1.2));
+  }
   return ramp;
 }
 

@@ -102,13 +102,17 @@ export const DETAIL_MASK = (1 << DETAIL_LAYER) >>> 0;
  * there). A mesh that draws no colour, such as a shadow proxy, stays with the
  * world, so the parts still cast their shadows on it.
  */
+/** A mesh's materials as a list: none, one or its array. */
+function materialsOf(node: NodeLike): readonly MaterialLike[] {
+  if (node.material === undefined) return [];
+  return Array.isArray(node.material) ? node.material : [node.material];
+}
+
 export function layerDetail(roots: ReadonlySet<NodeLike>, split: boolean): void {
   for (const root of roots) {
     root.traverse((node) => {
       if (node.isMesh !== true || node.layers === undefined) return;
-      const materials =
-        node.material === undefined ? [] : Array.isArray(node.material) ? node.material : [node.material];
-      if (materials.every((material) => material.colorWrite === false)) return;
+      if (materialsOf(node).every((material) => material.colorWrite === false)) return;
       node.layers.mask = split ? DETAIL_MASK : 1;
     });
   }

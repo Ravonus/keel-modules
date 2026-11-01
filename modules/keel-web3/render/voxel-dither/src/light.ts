@@ -97,8 +97,10 @@ export function createCelShader(lit: LitLike, bands: number): CelShader {
     setBands(count) {
       gradient.dispose();
       gradient = ramp(count);
-      for (const toon of toons.values()) { toon.gradientMap = gradient;
-      toon.needsUpdate = true; }
+      for (const toon of toons.values()) {
+        toon.gradientMap = gradient;
+        toon.needsUpdate = true;
+      }
     },
     swap(material, mode) {
       const source = material.userData.voxelDitherSource as MaterialLike | undefined;
@@ -107,7 +109,8 @@ export function createCelShader(lit: LitLike, bands: number): CelShader {
         carryOver(material, source);
         return source;
       }
-      if (source !== undefined || material.isLitMaterial !== true || material.userData.voxelDitherKeep === true) return material;
+      if (source !== undefined || material.isLitMaterial !== true) return material;
+      if (material.userData.voxelDitherKeep === true) return material;
       let toon = toons.get(material);
       if (toon === undefined) {
         toon = new lit.ToonMaterial(toonParameters(material, gradient));

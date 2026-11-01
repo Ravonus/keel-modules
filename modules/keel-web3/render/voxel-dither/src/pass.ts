@@ -100,11 +100,13 @@ function createUniforms(): Record<string, Uniform> {
   };
 }
 
-function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, grid: PixelGrid): void {
+/** The screens of the three depth bands and how tones step through them. */
+function writeScreens(uniforms: Record<string, Uniform>, settings: DitherSettings, grid: PixelGrid): void {
   const bands = bandScreens(settings, Math.min(grid.width, grid.height));
   const order = [bands.near, bands.mid, bands.far];
-  const palette = paletteUniform(settings.palette);
-  const set = (name: string, value: unknown): void => { const uniform = uniforms[name]; if (uniform !== undefined) uniform.value = value; };
+  const set = (name: string, value: unknown): void => {
+    setUniform(uniforms, name, value);
+  };
   set("uScreen", order.map((band) => SCREENS.indexOf(band.screen)));
   set("uScale", order.map((band) => band.scale));
   set("uAmount", order.map((band) => band.amount));
@@ -115,6 +117,14 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
   set("uClump", settings.clump);
   set("uRamp", settings.ramp);
   set("uLuma", settings.color === "luma" ? 1 : 0);
+}
+
+/** The palette tones land on, and the accent palette. */
+function writePalettes(uniforms: Record<string, Uniform>, settings: DitherSettings): void {
+  const palette = paletteUniform(settings.palette);
+  const set = (name: string, value: unknown): void => {
+    setUniform(uniforms, name, value);
+  };
   set("uPalette", palette.data);
   set("uPaletteLab", palette.lab);
   set("uPaletteSize", palette.size);
@@ -122,6 +132,13 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
   set("uAccent", accent.data.subarray(0, 12));
   set("uAccentLab", accent.lab.subarray(0, 12));
   set("uAccentSize", accent.size);
+}
+
+/** The grade over the look (outline, contrast, the signal effects) and the grid it is drawn on. */
+function writeGrade(uniforms: Record<string, Uniform>, settings: DitherSettings, grid: PixelGrid): void {
+  const set = (name: string, value: unknown): void => {
+    setUniform(uniforms, name, value);
+  };
   set("uSkySaturation", settings.skySaturation);
   set("uOutline", settings.outline);
   set("uOutlineColor", settings.outlineColor === null ? [0, 0, 0, 0] : [...hexChannels(settings.outlineColor), 1]);
@@ -134,6 +151,12 @@ function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, 
   set("uGrid", [grid.width, grid.height]);
   set("uPixel", grid.pixel);
   set("uOrigin", [grid.originX, grid.originY]);
+}
+
+function writeLook(uniforms: Record<string, Uniform>, settings: DitherSettings, grid: PixelGrid): void {
+  writeScreens(uniforms, settings, grid);
+  writePalettes(uniforms, settings);
+  writeGrade(uniforms, settings, grid);
 }
 
 /** The scene target (linear light and depth), or the look target (stepped sRGB). */
@@ -184,16 +207,16 @@ function writeRays(uniforms: Record<string, Uniform>, rays: RaySpec | null, view
   Object.assign(uniforms.uRayDensity ?? {}, { value: bounded(rays.density, 0.2, 1, 0.8) });
 }
 
+/** A scene drawn by a renderer through a camera. */
+interface Shot {
+  readonly renderer: RendererLike;
+  readonly scene: unknown;
+  readonly view: CameraLike;
+}
+
 interface Pipeline {
   resize(grid: PixelGrid): void;
-  draw(
-    renderer: RendererLike,
-    scene: unknown,
-    view: CameraLike,
-    settings: DitherSettings,
-    rays: RaySpec | null,
-    detail: ReadonlySet<NodeLike>,
-  ): void;
+  draw(shot: Shot, settings: DitherSettings, rays: RaySpec | null, detail: ReadonlySet<NodeLike>): void;
   dispose(): void;
 }
 
@@ -220,7 +243,8 @@ interface Targets {
 }
 
 /** The world into its grid target and, when split, the detail parts alone into theirs. */
-function drawScene(renderer: RendererLike, scene: unknown, view: CameraLike, targets: Targets, fine: boolean): void {
+function drawScene(shot: Shot, targets: Targets, fine: boolean): void {
+  const { renderer, scene, view } = shot;
   const own = view.layers?.mask ?? 1;
   renderer.setRenderTarget(targets.world);
   renderLayers(renderer, scene, view, fine ? own & ~DETAIL_MASK : own);
@@ -229,15 +253,17 @@ function drawScene(renderer: RendererLike, scene: unknown, view: CameraLike, tar
   renderLayers(renderer, scene, view, DETAIL_MASK);
 }
 
+/** What the look is drawn with: its pass, the quad camera, the shared uniforms and the targets. */
+interface Looks {
+  readonly post: Pass;
+  readonly quad: unknown;
+  readonly uniforms: Record<string, Uniform>;
+  readonly targets: Targets;
+}
+
 /** The look at grid size and, when split, the detail parts' look over it; returns the target the blit shows. */
-function drawLook(
-  renderer: RendererLike,
-  post: Pass,
-  quad: unknown,
-  uniforms: Record<string, Uniform>,
-  targets: Targets,
-  split: number,
-): RenderTargetLike {
+function drawLook(renderer: RendererLike, looks: Looks, split: number): RenderTargetLike {
+  const { post, quad, uniforms, targets } = looks;
   setUniform(uniforms, "uFine", split);
   setUniform(uniforms, "uPass", 0);
   // A pass never samples its own target, so the world's look is bound only to the detail pass.
@@ -284,6 +310,7 @@ function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeli
   const post = createPass(lit, geometry, uniforms, FRAGMENT_GLSL);
   const blit = createPass(lit, geometry, uniforms, BLIT_GLSL);
   const quadCamera = new lit.OrthoCamera(-1, 1, 1, -1, 0, 1);
+  const looks: Looks = { post, quad: quadCamera, uniforms, targets };
   return {
     resize(grid) {
       split = grid.detail;
@@ -293,17 +320,18 @@ function createPipeline(lit: LitLike, uniforms: Record<string, Uniform>): Pipeli
       detailTarget.setSize(grid.width * fine, grid.height * fine);
       detailLook.setSize(grid.width * fine, grid.height * fine);
     },
-    draw(renderer, scene, view, settings, rays, detail) {
+    draw(shot, settings, rays, detail) {
+      const { renderer, view } = shot;
       const previous = renderer.getRenderTarget();
       const fine = split > 1 && detail.size > 0;
       layerDetail(detail, fine);
-      drawScene(renderer, scene, view, targets, fine);
+      drawScene(shot, targets, fine);
       camera.near.value = view.near;
       camera.far.value = view.far;
       camera.ortho.value = view.isOrthographicCamera === true ? 1 : 0;
       camera.sky.value = settings.skyDistance > 0 ? Math.min(settings.skyDistance, view.far * 0.999) : view.far * 0.999;
       writeRays(uniforms, rays, view, settings.rays);
-      setUniform(uniforms, "tLook", drawLook(renderer, post, quadCamera, uniforms, targets, fine ? split : 1).texture);
+      setUniform(uniforms, "tLook", drawLook(renderer, looks, fine ? split : 1).texture);
       renderer.setRenderTarget(previous);
       renderer.render(blit.scene, quadCamera);
     },
@@ -380,7 +408,7 @@ export function createVoxelDither(lit: LitLike, renderer: RendererLike, input?: 
     },
     tagDetail(root) { detail.add(root); },
     render(scene, view) {
-      pipeline.draw(renderer, scene, view, settings, rays, detail);
+      pipeline.draw({ renderer, scene, view }, settings, rays, detail);
     },
     dispose() {
       pipeline.dispose();

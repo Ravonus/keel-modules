@@ -1,6 +1,7 @@
 // Flat ESLint config for the verified readable sources.
 // Every module and the template lint against the same strict, type-aware bar.
 import tseslint from "typescript-eslint";
+import { LIMITS } from "./scripts/size-limits.mjs";
 
 export default tseslint.config(
   {
@@ -25,9 +26,7 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports" }],
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
-      // Size: a file, a function, a line. Nothing here can be hidden by cramming, so the three go together.
-      "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
-      "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
+      // Size: a function and a line, which cramming cannot hide. A file's lines are scripts/check-size.mjs's, and functions go by LIMITS below.
       "max-len": ["error", { code: 120, ignoreUrls: true, ignoreRegExpLiterals: true, ignoreTemplateLiterals: true, ignoreStrings: true }],
       "max-statements": ["error", 25],
       "max-statements-per-line": ["error", { max: 1 }],
@@ -45,4 +44,8 @@ export default tseslint.config(
       "no-console": "error",
     },
   },
+  // Last match wins here and first in LIMITS, so these go in reverse.
+  ...[...LIMITS].reverse().map(({ files, fn }) => ({ files, rules: { "max-lines-per-function": ["error", { max: fn, skipBlankLines: true, skipComments: true }] } })),
+  // Data and shader source is long lines by nature.
+  { files: ["**/*.data.ts", "**/*.table.ts", "**/*.glsl.ts", "**/*.shader.ts"], rules: { "max-len": "off" } },
 );

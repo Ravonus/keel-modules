@@ -3,10 +3,7 @@
   "modules/keel-web3/generative/fauna/src/index.ts": 8066,
   "modules/keel-web3/generative/people/src/index.ts": 4716,
   "modules/keel-web3/generative/tree-growth/src/index.ts": 1760,
-  "modules/keel-web3/render/celestial/src/index.ts": 544,
   "modules/keel-web3/render/sdf-body/src/index.ts": 1949,
-  "modules/keel-web3/render/skin-body/src/index.ts": 758,
   "modules/keel-web3/render/tree-render/src/index.ts": 3434,
-  "modules/keel-web3/render/voxel-dither/src/index.ts": 1488,
-  "modules/keel-web3/render/world-theme/src/index.ts": 840
+  "modules/keel-web3/render/voxel-dither/src/index.ts": 1488
 }

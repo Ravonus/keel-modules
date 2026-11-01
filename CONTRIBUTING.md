@@ -249,6 +249,6 @@ your taste.
 
 ## Size limits
 
-Files stop at 500 lines, functions at 60, lines at 120 columns, and arguments at 4, with one statement a line. Run `git config core.hooksPath .githooks` once in a clone: every commit is then checked. `npm run lint` checks everything.
+Limits go by kind of file, in `scripts/size-limits.mjs`: generators 800 lines with 60-line functions, renderers 1000 and 80, data (`*.data.ts`, `*.table.ts`) and shaders (`*.glsl.ts`) 1200 with longer functions and no line length, tooling 500. Nothing passes 1200. Everywhere else lines stop at 120 columns and arguments at 4, with one statement a line. Run `git config core.hooksPath .githooks` once in a clone: every commit is then checked. `npm run lint` checks everything.
 
 What broke these rules before they existed is recorded in `eslint-suppressions.json` and `scripts/size-baseline.json`, so it does not fail, but new code has to pass and a listed file may only shrink. Split a file instead of raising its number. After paying some of it off, run `npx eslint --prune-suppressions "modules/*/*/*/src/**/*.ts"` and `node scripts/check-size.mjs --update`.

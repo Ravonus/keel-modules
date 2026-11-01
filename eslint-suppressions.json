@@ -11,9 +11,6 @@
     "max-len": {
       "count": 28
     },
-    "max-lines": {
-      "count": 1
-    },
     "max-statements-per-line": {
       "count": 6
     },
@@ -36,9 +33,6 @@
     },
     "max-len": {
       "count": 395
-    },
-    "max-lines": {
-      "count": 1
     },
     "max-lines-per-function": {
       "count": 1
@@ -70,9 +64,6 @@
     },
     "max-len": {
       "count": 574
-    },
-    "max-lines": {
-      "count": 1
     },
     "max-statements": {
       "count": 2
@@ -107,9 +98,6 @@
     },
     "max-len": {
       "count": 99
-    },
-    "max-lines": {
-      "count": 1
     },
     "max-lines-per-function": {
       "count": 1
@@ -222,9 +210,6 @@
     "max-len": {
       "count": 33
     },
-    "max-lines": {
-      "count": 1
-    },
     "max-statements-per-line": {
       "count": 10
     },
@@ -238,9 +223,6 @@
     },
     "max-len": {
       "count": 15
-    },
-    "max-lines": {
-      "count": 1
     },
     "max-statements-per-line": {
       "count": 5
@@ -276,9 +258,6 @@
     "max-len": {
       "count": 197
     },
-    "max-lines": {
-      "count": 1
-    },
     "max-statements": {
       "count": 6
     },
@@ -302,9 +281,6 @@
     "max-len": {
       "count": 35
     },
-    "max-lines": {
-      "count": 1
-    },
     "max-statements": {
       "count": 1
     },
@@ -323,9 +299,6 @@
   "modules/keel-web3/render/world-theme/src/index.ts": {
     "max-len": {
       "count": 17
-    },
-    "max-lines": {
-      "count": 1
     },
     "no-nested-ternary": {
       "count": 4

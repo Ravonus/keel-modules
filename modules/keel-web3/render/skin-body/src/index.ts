@@ -174,6 +174,27 @@ vec3 offLimb(vec3 at, vec4 a, vec4 b, float bone) {
   float far = length(off);
   return far < r && far > 1e-4 ? at + off * (r - far) / far : at;
 }
+// Out from the body's axis to clear a length of leg, seen from the axis along this bit of cloth. Pushing off the leg
+// alone would send cloth the wrong way once a leg had swung out past it.
+vec3 overLimb(vec3 at, vec2 axis, vec4 a, vec4 b, float bone) {
+  int i = int(bone + 0.5);
+  vec3 from = boned(i, vec4(a.xyz, 1.0)), along = boned(i, vec4(b.xyz, 1.0)) - from;
+  float t = clamp(dot(at - from, along) / max(dot(along, along), 1e-6), 0.0, 1.0), r = mix(a.w, b.w, t);
+  r *= 1.5;  // (A leg's whole thickness, with the cloth's own bulk: the capsule alone is only what stops it being crossed.)
+  vec3 limb = from + along * t;
+  vec2 out_ = at.xz - axis;
+  float reach = length(out_);
+  if (reach < 1e-4) return at;
+  out_ /= reach;
+  vec2 to = limb.xz - axis;
+  float ahead = dot(to, out_), aside = length(to - out_ * ahead);
+  if (ahead < 0.0 || aside > r) return at;
+  float clear = ahead + sqrt(r * r - aside * aside);
+  float upright = smoothstep(0.02, 0.3, along.y * along.y / max(dot(along, along), 1e-6));  // (Cloth lies on a level thigh.)
+  float near = upright * (1.0 - smoothstep(r * 0.6, r, aside)) * (1.0 - smoothstep(r * 0.7, r * 1.3, abs(at.y - limb.y)));
+  float to_ = mix(reach, max(reach, clear), near);
+  return vec3(axis.x + out_.x * to_, at.y, axis.y + out_.y * to_);
+}
 // Cloth is the outer layer: whatever a pose does, no leg comes through it.
 vec3 layered(vec3 at) {
   if (uClothBone < 0.5 || aBones.x + 0.5 < uClothBone) return at;
@@ -182,14 +203,19 @@ vec3 layered(vec3 at) {
   at = offLimb(at, uLegJoints[2], uLegJoints[3], uFootBones.x);
   at = offLimb(at, uLegJoints[4], uLegJoints[5], uLegBones.z);
   at = offLimb(at, uLegJoints[5], uLegJoints[6], uLegBones.w);
-  return offLimb(at, uLegJoints[6], uLegJoints[7], uFootBones.y);
+  at = offLimb(at, uLegJoints[6], uLegJoints[7], uFootBones.y);
+  vec2 axis = (boned(int(uLegBones.x + 0.5), vec4(uLegJoints[0].xyz, 1.0)).xz + boned(int(uLegBones.z + 0.5), vec4(uLegJoints[4].xyz, 1.0)).xz) * 0.5;
+  at = overLimb(at, axis, uLegJoints[0], uLegJoints[1], uLegBones.x);
+  at = overLimb(at, axis, uLegJoints[1], uLegJoints[2], uLegBones.y);
+  at = overLimb(at, axis, uLegJoints[4], uLegJoints[5], uLegBones.z);
+  return overLimb(at, axis, uLegJoints[5], uLegJoints[6], uLegBones.w);
 }
 // What hangs from the body trails it, more toward its free edge, a ripple running down through it.
 vec3 hung(vec3 at) {
   float free = aLoose * aLoose;
   vec2 round = position.xz;
   float reach = max(length(round), 1e-3);
-  vec3 swung = uSway.xyz + vec3(0.0, dot(uSway.xz, round) * 1.1, 0.0);
+  vec3 swung = uSway.xyz + vec3(0.0, dot(uSway.xz, round) * 0.6, 0.0);
   vec3 lag = vec3(-round.y, 0.0, round.x) * uDrape.x;
   float wave = sin(uDrape.z + position.y * 9.0 + atan(round.y, round.x) * 3.0) * uDrape.y;
   vec3 rippled = vec3(sin(uSway.w * 3.1 + position.y * 7.0 + position.x * 5.0), 0.0, cos(uSway.w * 2.3 + position.y * 6.0)) * 0.012;

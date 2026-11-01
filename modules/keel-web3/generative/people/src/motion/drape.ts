@@ -36,7 +36,18 @@ const WAVE_MOST = 0.035;
 const WAVE_RUNS = 7;
 const WAVE_RUNS_MORE = 1.5;
 
+/** How far cloth can trail, metres to a body of size 1: air holds a run's flare down, it doesn't blow out for ever. */
+const TRAIL_MOST = 0.13;
+
 const clamp = (v: number, most: number): number => Math.max(-most, Math.min(most, v));
+
+/** A trail that gives way smoothly as it nears the most it can be. */
+function eased(trail: Vec, most: number): Vec {
+  const far = Math.hypot(...trail);
+  if (far < 1e-6) return trail;
+  const k = (most * Math.tanh(far / most)) / far;
+  return [trail[0] * k, trail[1] * k, trail[2] * k];
+}
 
 /** One person's cloth over time: start one for each, and step it with how they go. */
 export function createDrape(p: Person): { step(dt: number, going: Going): Drape } {
@@ -50,7 +61,7 @@ export function createDrape(p: Person): { step(dt: number, going: Going): Drape 
   let lastTurn = 0;
   return {
     step(dt, { velocity, turn = 0 }) {
-      const trail = hang.step(dt, velocity);
+      const trail = eased(hang.step(dt, velocity), TRAIL_MOST * size);
       const pull = (-turn * TWIST_HELD - twist) * TWIST_STIFF - spin * TWIST_DAMP;
       spin += pull * dt - (turn - lastTurn) * TWIST_HELD;
       twist = clamp(twist + spin * dt, TWIST_MOST);

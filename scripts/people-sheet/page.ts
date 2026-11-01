@@ -64,7 +64,7 @@ function chaired(mesh: PersonMesh, p: Person): PersonMesh {
 /** A sheet name of a pose: `seated` on the chair, `rest` the T-pose, or any action. */
 function render(sheet: Sheet): HTMLCanvasElement {
   const { seeds, poses, yaws, size, cell, weather, time } = sheet;
-  const bodies = createSkinBodies(lit as never), studio = createPortraitStudio(lit as never, new OffscreenCanvas(32, 32), bodies as never);
+  const bodies = createSkinBodies(lit), studio = createPortraitStudio(lit, new OffscreenCanvas(32, 32), bodies);
   const shots = seeds.flatMap((seed) => poses.flatMap((pose) => yaws.map((yaw) => ({ seed, pose, yaw }))));
   const per = yaws.length * poses.length, canvas = document.createElement("canvas");
   canvas.width = size * per;
@@ -75,9 +75,9 @@ function render(sheet: Sheet): HTMLCanvasElement {
   page.fillRect(0, 0, canvas.width, canvas.height);
   shots.forEach(({ seed, pose, yaw }, i) => {
     const p = personOf(seed, weather), action = pose as Action, seated = pose === "seated", plain = meshOf(p, cell), mesh = seated ? chaired(plain, p) : plain;
-    const one = bodies.add(mesh as never), top = meshTop(plain.position), x = (i % per) * size, y = Math.floor(i / per) * size;
+    const one = bodies.add(mesh), top = meshTop(plain.position), x = (i % per) * size, y = Math.floor(i / per) * size;
     one.show(false);
-    const frame = studio.shoot({ one, bones: poseMesh(p, action, time), top, head: top * 0.62, motion: { face: FACE }, size, yaw } as never);
+    const frame = studio.shoot({ one, bones: poseMesh(p, action, time), top, head: top * 0.62, motion: { face: FACE }, size, yaw });
     const tile = new OffscreenCanvas(size, size), inTile = tile.getContext("2d");
     inTile?.putImageData(new ImageData(new Uint8ClampedArray(frame), size, size), 0, 0);
     page.drawImage(tile, x, y);

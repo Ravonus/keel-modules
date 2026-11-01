@@ -128,8 +128,15 @@ function lifeAt(model: TreeModel, cycle: number): number {
  * age on a slowing curve for the rest of its life. It never levels off: an
  * old tree still gains a little every year, right up to its death.
  */
+/** How far past life a grand tree goes: the species' own measure for `true`, nothing for `false`. */
+function reachOf(grand: boolean | number): number {
+  if (grand === false) return 0;
+  if (grand === true) return 1;
+  return Math.max(0, grand);
+}
+
 export function grandAt(model: TreeModel, cycle: number, grand: boolean | number = true): Grandeur {
-  const reach = grand === false ? 0 : grand === true ? 1 : Math.max(0, grand);
+  const reach = reachOf(grand);
   const share = clamp01((lifeAt(model, cycle) - 0.04) / 0.96) ** 0.75;
   const measure = GRAND[model.species.id];
   // The few decline cycles pass in a tree's last years; what the natural tree
@@ -189,19 +196,30 @@ function lifePass(model: TreeModel, cycle: number, frame: TreeFrame, shedRoot: I
     const ownDead = clamp01((cycle - at(model.deadAt, node)) / 1.2);
     frame.dead[node] = parent >= 0 ? Math.max(ownDead, at(frame.dead, parent)) : ownDead;
     const inherited = parent >= 0 ? at(shedRoot, parent) : -1;
-    shedRoot[node] = inherited >= 0 ? inherited : cycle >= at(model.shedAt, node) ? node : -1;
+    if (inherited >= 0) shedRoot[node] = inherited;
+    else shedRoot[node] = cycle >= at(model.shedAt, node) ? node : -1;
     const root = at(shedRoot, node);
     const since = root >= 0 ? cycle - at(model.shedAt, root) : -1;
     frame.fall[node] = since < 0 ? 0 : clamp01(since / FALL_CYCLES);
     const small = root >= 0 && at(frame.radius, root) < LOG_RADIUS;
-    frame.rot[node] = since < 0 ? 0 : small ? clamp01(since / FALL_CYCLES) : ramp(since, 1.4, 2.8);
+    frame.rot[node] = rotOf(since, small);
   }
+}
+
+/** How far a shed piece has rotted `since` it fell: a small one goes as it lands, a log lies for years. */
+function rotOf(since: number, small: boolean): number {
+  if (since < 0) return 0;
+  return small ? clamp01(since / FALL_CYCLES) : ramp(since, 1.4, 2.8);
 }
 
 interface FallPose { readonly pivot: Vec; readonly axis: Vec; readonly angle: number; readonly drop: Vec }
 
+/** Where the ground lies and how big the tree stands: what every piece is posed against. */
+interface PoseSetting { readonly ground: number; readonly size: Grandeur }
+
 /** A shed limb swings down about its base and comes to rest flat, pointing out from the trunk. */
-function fallPose(model: TreeModel, root: number, ground: number, random: () => number, size: Grandeur): FallPose {
+function fallPose(model: TreeModel, root: number, setting: PoseSetting, random: () => number): FallPose {
+  const { ground, size } = setting;
   const parent = at(model.parent, root);
   const pivot = restAt(model, parent, size);
   const tip = restAt(model, root, size);
@@ -220,16 +238,10 @@ function fallPose(model: TreeModel, root: number, ground: number, random: () => 
 const restAt = (model: TreeModel, node: number, size: Grandeur): Vec =>
   vec(at(model.x, node) * size.out, at(model.y, node) * size.up, at(model.z, node) * size.out);
 
-function poseFor(
-  model: TreeModel,
-  poses: Map<number, FallPose>,
-  root: number,
-  ground: number,
-  size: Grandeur,
-): FallPose {
+function poseFor(model: TreeModel, poses: Map<number, FallPose>, root: number, setting: PoseSetting): FallPose {
   let pose = poses.get(root);
   if (pose === undefined) {
-    pose = fallPose(model, root, ground, createRandom(model.seed ^ root), size);
+    pose = fallPose(model, root, setting, createRandom(model.seed ^ root));
     poses.set(root, pose);
   }
   return pose;
@@ -250,11 +262,14 @@ function fallen(point: Vec, pose: FallPose, progress: number, ground: number): V
   return vec(moved.x * pull, ground + 0.04 + high + (Math.min(0.12, high * 0.05) - high) * eased, moved.z * pull);
 }
 
-/** Dead wood loses its turgor: each piece sinks from where it grew toward a little under level. */
-function limp(piece: Vec, dead: number, outward: Vec, stray: number, order: number): Vec {
+/** The pitch a dead piece sinks toward: a little under level, crooked by `stray`, lower for thin wood. */
+const restPitch = (stray: number, order: number): number =>
+  LIMP_PITCH + (stray - 0.5) * 2 * LIMP_CROOK - order * LIMP_TWIG;
+
+/** Dead wood loses its turgor: each piece sinks from where it grew toward its resting pitch `rest`. */
+function limp(piece: Vec, dead: number, outward: Vec, rest: number): Vec {
   const flat = Math.hypot(piece.x, piece.z);
   const pitch = Math.atan2(piece.y, flat);
-  const rest = LIMP_PITCH + (stray - 0.5) * 2 * LIMP_CROOK - order * LIMP_TWIG;
   if (pitch <= rest) return piece;
   const sunk = pitch + (rest - pitch) * LIMP * smooth(dead);
   const heading =
@@ -263,9 +278,41 @@ function limp(piece: Vec, dead: number, outward: Vec, stray: number, order: numb
   return vec(heading.x * Math.cos(sunk) * long, Math.sin(sunk) * long, heading.z * Math.cos(sunk) * long);
 }
 
-function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, ground: number, size: Grandeur): void {
-  const poses = new Map<number, FallPose>();
+/** The held end of `node`, as `heldPass` left it. */
+const heldAt = (held: Float64Array, node: number): Vec =>
+  vec(at(held, node * 3), at(held, node * 3 + 1), at(held, node * 3 + 2));
+
+/**
+ * Where every internode's end hangs before anything falls: where it grew, or,
+ * once dead, sunk limp from its parent's held end, never under the ground.
+ */
+function heldPass(model: TreeModel, frame: TreeFrame, setting: PoseSetting): Float64Array {
+  const { ground, size } = setting;
   const held = new Float64Array(model.count * 3);
+  for (let node = 0; node < model.count; node += 1) {
+    const parent = at(model.parent, node);
+    const restBase = parent >= 0 ? restAt(model, parent, size) : vec(0, 0, 0);
+    const restEnd = add(restBase, add(restAt(model, node, size), restBase, -1), at(frame.grow, node));
+    const dead = at(model.order, node) > 0 ? at(frame.dead, node) : 0;
+    let heldEnd = restEnd;
+    if (dead > 0) {
+      const heldBase = parent >= 0 ? heldAt(held, parent) : restBase;
+      const stray = createRandom(model.seed ^ (node * 31 + 7))();
+      const sunk = limp(add(restEnd, restBase, -1), dead, restBase, restPitch(stray, at(model.order, node)));
+      heldEnd = add(heldBase, sunk);
+      heldEnd = vec(heldEnd.x, Math.max(heldEnd.y, ground + 0.04), heldEnd.z);
+    }
+    held[node * 3] = heldEnd.x;
+    held[node * 3 + 1] = heldEnd.y;
+    held[node * 3 + 2] = heldEnd.z;
+  }
+  return held;
+}
+
+function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, setting: PoseSetting): void {
+  const { ground, size } = setting;
+  const poses = new Map<number, FallPose>();
+  const held = heldPass(model, frame, setting);
   for (let node = 0; node < model.count; node += 1) {
     const parent = at(model.parent, node);
     const restBase = parent >= 0 ? restAt(model, parent, size) : vec(0, 0, 0);
@@ -273,34 +320,17 @@ function posePass(model: TreeModel, frame: TreeFrame, shedRoot: Int32Array, grou
     const root = at(shedRoot, node);
     let base = parent >= 0 ? vec(at(frame.x, parent), at(frame.y, parent), at(frame.z, parent)) : vec(0, 0, 0);
     const dead = at(model.order, node) > 0 ? at(frame.dead, node) : 0;
-    const heldBase =
-      parent >= 0 && dead > 0
-        ? vec(at(held, parent * 3), at(held, parent * 3 + 1), at(held, parent * 3 + 2))
-        : restBase;
-    let heldEnd =
-      dead > 0
-        ? add(
-            heldBase,
-            limp(
-              add(restEnd, restBase, -1),
-              dead,
-              restBase,
-              createRandom(model.seed ^ (node * 31 + 7))(),
-              at(model.order, node),
-            ),
-          )
-        : restEnd;
-    if (dead > 0) heldEnd = vec(heldEnd.x, Math.max(heldEnd.y, ground + 0.04), heldEnd.z);
-    held[node * 3] = heldEnd.x;
-    held[node * 3 + 1] = heldEnd.y;
-    held[node * 3 + 2] = heldEnd.z;
+    const heldEnd = heldAt(held, node);
     let end = heldEnd;
     if (root >= 0) {
-      const pose = poseFor(model, poses, root, ground, size);
+      const pose = poseFor(model, poses, root, setting);
       const progress = at(frame.fall, node);
       // The sag lets go as the limb does, so it leaves from where it hung and lands where it always lands.
       end = fallen(add(restEnd, add(heldEnd, restEnd, -1), 1 - progress), pose, progress, ground);
-      if (root === node) base = fallen(add(restBase, add(heldBase, restBase, -1), 1 - progress), pose, progress, ground);
+      const heldBase = parent >= 0 && dead > 0 ? heldAt(held, parent) : restBase;
+      if (root === node) {
+        base = fallen(add(restBase, add(heldBase, restBase, -1), 1 - progress), pose, progress, ground);
+      }
     }
     frame.x[node] = end.x;
     frame.y[node] = end.y;
@@ -326,9 +356,11 @@ export function treeFrame(model: TreeModel, cycle: number, options: FrameOptions
       ? { up: 1, out: 1, girth: 1 }
       : grandAt(model, at01, options.grand);
   growthPass(model, at01, frame);
-  if (size.girth !== 1) for (let node = 0; node < count; node += 1) frame.radius[node] = at(frame.radius, node) * size.girth;
+  if (size.girth !== 1) {
+    for (let node = 0; node < count; node += 1) frame.radius[node] = at(frame.radius, node) * size.girth;
+  }
   lifePass(model, at01, frame, shedRoot);
-  posePass(model, frame, shedRoot, options.ground ?? 0, size);
+  posePass(model, frame, shedRoot, { ground: options.ground ?? 0, size });
   let visible = 0;
   let height = 0;
   for (let node = 0; node < count; node += 1) {

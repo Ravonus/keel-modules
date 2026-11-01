@@ -74,15 +74,24 @@ function limbDrops(frame: TreeFrame, chain: readonly number[], load: Load, sag: 
   });
 }
 
+/** The tree being bent, and the drop every node has gathered from the loads so far. */
+interface Bending {
+  readonly model: TreeModel;
+  readonly frame: TreeFrame;
+  readonly drop: Float32Array;
+  readonly sag: number;
+}
+
 /**
  * Every node's drop under one load. The bend gathers in the thin wood near
  * the animal and the stout limbs it grows from barely give; whatever grows
  * from the bent wood rides along.
  */
-function loadDrop(model: TreeModel, frame: TreeFrame, load: Load, drop: Float32Array, sag: number): void {
+function loadDrop(bending: Bending, load: Load): void {
+  const { model, frame, drop } = bending;
   const chain = limbOf(model, load.node);
   if (chain.length === 0) return;
-  const drops = limbDrops(frame, chain, load, sag);
+  const drops = limbDrops(frame, chain, load, bending.sag);
   const reach = chain.reduce(
     (sum, node) => sum + horizontal(frame, at(frame.baseX, node), at(frame.baseZ, node), node),
     0,
@@ -91,7 +100,9 @@ function loadDrop(model: TreeModel, frame: TreeFrame, load: Load, drop: Float32A
   const cap = Math.min(MOST_SAG, reach * MOST_SAG_SHARE + 0.02);
   const scale = (deepest > cap ? cap / deepest : 1) * Math.sign(load.weight);
   const own = new Float32Array(model.count).fill(Number.NaN);
-  chain.forEach((node, i) => { own[node] = (drops[i] ?? 0) * scale; });
+  chain.forEach((node, i) => {
+    own[node] = (drops[i] ?? 0) * scale;
+  });
   own[0] = 0;
   for (let node = 1; node < model.count; node += 1) {
     if (Number.isNaN(own[node])) own[node] = own[at(model.parent, node)] ?? 0;
@@ -131,8 +142,9 @@ export function bendFrame(
     return target;
   }
   const drop = new Float32Array(model.count);
+  const bending: Bending = { model, frame, drop, sag };
   for (const load of loads)
-    if (load.weight !== 0 && load.node > 0 && load.node < model.count) loadDrop(model, frame, load, drop, sag);
+    if (load.weight !== 0 && load.node > 0 && load.node < model.count) loadDrop(bending, load);
   for (let node = 0; node < model.count; node += 1) {
     target.y[node] = at(frame.y, node) - at(drop, node);
     const parent = at(model.parent, node);

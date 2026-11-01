@@ -21,63 +21,7 @@
   },
   "modules/keel-web3/generative/tree-growth/src/bend.ts": {
     "@typescript-eslint/max-params": {
-      "count": 2
-    },
-    "max-statements-per-line": {
       "count": 1
-    }
-  },
-  "modules/keel-web3/generative/tree-growth/src/frame.ts": {
-    "@typescript-eslint/max-params": {
-      "count": 4
-    },
-    "max-len": {
-      "count": 2
-    },
-    "max-statements": {
-      "count": 1
-    },
-    "no-nested-ternary": {
-      "count": 3
-    }
-  },
-  "modules/keel-web3/generative/tree-growth/src/model.ts": {
-    "@typescript-eslint/max-params": {
-      "count": 4
-    },
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 3
-    },
-    "complexity": {
-      "count": 1
-    },
-    "max-depth": {
-      "count": 1
-    },
-    "max-len": {
-      "count": 2
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/generative/tree-growth/src/simulation.ts": {
-    "@typescript-eslint/max-params": {
-      "count": 5
-    },
-    "max-len": {
-      "count": 4
-    },
-    "max-statements-per-line": {
-      "count": 4
-    }
-  },
-  "modules/keel-web3/generative/tree-growth/src/species.ts": {
-    "max-len": {
-      "count": 21
     }
   },
   "modules/keel-web3/render/celestial/src/ephemeris.ts": {

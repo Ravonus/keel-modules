@@ -39,16 +39,18 @@ interface Bud {
   vigor: number;
 }
 
-export function addNode(
-  sim: Sim,
-  parent: number,
-  pos: Vec,
-  dir: Vec,
-  order: number,
-  birth: number,
-  span: number,
-  main: boolean,
-): number {
+/** A fresh internode: where it ends, which way it heads, its order, when it grows and whether it carries the axis. */
+export interface NewNode {
+  readonly pos: Vec;
+  readonly dir: Vec;
+  readonly order: number;
+  readonly birth: number;
+  readonly span: number;
+  readonly main: boolean;
+}
+
+export function addNode(sim: Sim, parent: number, node: NewNode): number {
+  const { pos, dir, order, birth, span, main } = node;
   const index = sim.pos.length;
   sim.pos.push(pos);
   sim.dir.push(dir);
@@ -73,16 +75,22 @@ export function addBud(sim: Sim, node: number, dir: Vec, terminal: boolean): voi
   sim.buds.push({ node, dir, terminal, alive: true, light: 0, vigor: 0 });
 }
 
+/** Where along a shoot a fresh internode sits: how far round the axis its bud turns, and whether it is the last. */
+interface ShootStep { readonly turn: number; readonly end: boolean }
+
 /** Side buds for a fresh internode: one per node by phyllotaxis, or a whorl at a shoot's end. */
-function setLateralBuds(sim: Sim, node: number, axis: Vec, turn: number, shootEnd: boolean): void {
+function setLateralBuds(sim: Sim, node: number, axis: Vec, step: ShootStep): void {
   const { species, random } = sim;
+  const { turn, end: shootEnd } = step;
   const angle = (species.angle * Math.PI) / 180;
   const side = perpendicular(axis);
   if (species.whorl > 0 && at(sim.order, node) > 0) {
     // Conifer side branches fork flat, one bud each side, so the tiers stay layered.
     if (!shootEnd) return;
     const flatSide = normalize(cross(axis, vec(0, 1, 0)), side);
-    for (const sign of [-1, 1]) addBud(sim, node, normalize(add(vec(axis.x * 0.7, axis.y * 0.7, axis.z * 0.7), flatSide, sign * 0.7)), false);
+    for (const sign of [-1, 1]) {
+      addBud(sim, node, normalize(add(vec(axis.x * 0.7, axis.y * 0.7, axis.z * 0.7), flatSide, sign * 0.7)), false);
+    }
     return;
   }
   if (species.whorl > 0) {
@@ -133,9 +141,16 @@ function growShoot(sim: Sim, bud: Bud, count: number, cycle: number): void {
     heading = normalize(pull, heading);
     const to = add(from, heading, 0.88 + sim.random() * 0.24);
     if (to.y < 0.6 || cellOf(to) < 0) return;
-    node = addNode(sim, node, to, heading, order, cycle + step / count, 1 / count, bud.terminal || step > 0);
+    node = addNode(sim, node, {
+      pos: to,
+      dir: heading,
+      order,
+      birth: cycle + step / count,
+      span: 1 / count,
+      main: bud.terminal || step > 0,
+    });
     turn += (species.divergence * Math.PI) / 180;
-    setLateralBuds(sim, node, heading, turn, step === count - 1);
+    setLateralBuds(sim, node, heading, { turn, end: step === count - 1 });
   }
   if (node !== bud.node) addBud(sim, node, heading, true);
 }
@@ -146,8 +161,15 @@ function crownReach(sim: Sim, y: number): number {
   return sim.species.spread * Math.max(sim.height, 6) * (1 - cone * clamp01(y / Math.max(sim.height, 1))) + 0.6 * cone;
 }
 
+/** What each internode gathers from the crown beyond it: light, and the living buds that see it. */
+interface Canopy {
+  readonly light: number[];
+  readonly budCount: number[];
+}
+
 /** Light seen by every bud, then gathered down the branches (basipetal). */
-function gatherLight(sim: Sim, light: number[], budCount: number[]): void {
+function gatherLight(sim: Sim, canopy: Canopy): void {
+  const { light, budCount } = canopy;
   for (const bud of sim.buds) {
     const at = sim.pos[bud.node] ?? vec(0, 0, 0);
     const reach = crownReach(sim, at.y);
@@ -161,8 +183,10 @@ function gatherLight(sim: Sim, light: number[], budCount: number[]): void {
     let buds = 0;
     for (const index of sim.nodeBuds[node] ?? []) {
       const bud = sim.buds[index];
-      if (bud?.alive === true) { sum += bud.light;
-      buds += 1; }
+      if (bud?.alive === true) {
+        sum += bud.light;
+        buds += 1;
+      }
     }
     for (const child of sim.children[node] ?? []) {
       if (at(sim.deadAt, child) !== Infinity) continue;
@@ -174,8 +198,15 @@ function gatherLight(sim: Sim, light: number[], budCount: number[]): void {
   }
 }
 
+/** Vigor on its way up the tree: the light each internode gathered, and the vigor each has been given. */
+interface VigorFlow {
+  readonly light: number[];
+  readonly incoming: number[];
+}
+
 /** Splits a node's vigor between the continuing axis and its side shoots (Borchert–Honda). */
-function splitVigor(sim: Sim, node: number, vigor: number, light: number[], incoming: number[]): void {
+function splitVigor(sim: Sim, node: number, vigor: number, flow: VigorFlow): void {
+  const { light, incoming } = flow;
   const lambda = sim.species.apical;
   const mainTargets: [number, number][] = [];
   const sideTargets: [number, number][] = [];
@@ -195,7 +226,10 @@ function splitVigor(sim: Sim, node: number, vigor: number, light: number[], inco
     for (const [target, value] of targets) {
       const amount = sum > 0 ? (share * value) / sum : 0;
       if (target >= 0) incoming[target] = amount;
-      else { const bud = sim.buds[-1 - target]; if (bud !== undefined) bud.vigor = amount; }
+      else {
+        const bud = sim.buds[-1 - target];
+        if (bud !== undefined) bud.vigor = amount;
+      }
     }
   };
   give(mainTargets, (vigor * lambda * mainLight) / total, mainLight);
@@ -206,9 +240,10 @@ function distributeVigor(sim: Sim, light: number[], vigorScale: number): void {
   const incoming = new Array<number>(sim.pos.length).fill(0);
   for (const bud of sim.buds) bud.vigor = 0;
   incoming[0] = sim.species.vigor * vigorScale * at(light, 0);
+  const flow: VigorFlow = { light, incoming };
   for (let node = 0; node < sim.pos.length; node += 1) {
     if (at(sim.deadAt, node) !== Infinity) continue;
-    splitVigor(sim, node, at(incoming, node), light, incoming);
+    splitVigor(sim, node, at(incoming, node), flow);
   }
 }
 
@@ -222,14 +257,18 @@ function killBranch(sim: Sim, root: number, cycle: number): void {
     sim.deadAt[node] = cycle;
     size += 1;
     castShadow(sim.grid, sim.pos[node] ?? vec(0, 0, 0), -1);
-    for (const index of sim.nodeBuds[node] ?? []) { const bud = sim.buds[index]; if (bud !== undefined) bud.alive = false; }
+    for (const index of sim.nodeBuds[node] ?? []) {
+      const bud = sim.buds[index];
+      if (bud !== undefined) bud.alive = false;
+    }
     stack.push(...(sim.children[node] ?? []));
   }
   sim.shedAt[root] = cycle + 0.5 + sim.random() * 1.1 + Math.log2(1 + size) * 0.55;
 }
 
 /** Self-pruning: a side branch whose buds stay in deep shade starves and dies. */
-function prune(sim: Sim, light: number[], budCount: number[], cycle: number, threshold: number): void {
+function prune(sim: Sim, canopy: Canopy, cycle: number, threshold: number): void {
+  const { light, budCount } = canopy;
   for (let node = 1; node < sim.pos.length; node += 1) {
     if (at(sim.main, node) === 1 || at(sim.deadAt, node) !== Infinity) continue;
     const buds = at(budCount, node);
@@ -244,7 +283,8 @@ function liftCrown(sim: Sim, cycle: number): void {
   const below = (sim.species.lift ?? 0) * sim.height;
   if (below <= 0) return;
   for (let node = 1; node < sim.pos.length; node += 1) {
-    if (at(sim.order, node) !== 1 || at(sim.order, at(sim.parent, node)) !== 0 || at(sim.deadAt, node) !== Infinity) continue;
+    if (at(sim.order, node) !== 1 || at(sim.order, at(sim.parent, node)) !== 0) continue;
+    if (at(sim.deadAt, node) !== Infinity) continue;
     if ((sim.pos[node]?.y ?? 0) < below && sim.random() < 0.5) killBranch(sim, node, cycle);
   }
 }
@@ -272,17 +312,24 @@ function budShoots(sim: Sim): [Bud, number][] {
   return shoots;
 }
 
+/** What a cycle has to grow with: how vigour is scaled, the shade a branch starves under, and the wood allowed. */
+export interface CycleBudget {
+  readonly vigorScale: number;
+  readonly shed: number;
+  readonly allowed: number;
+}
+
 /**
  * One cycle of growth. `allowed` is how many internodes the growth curve
  * grants this cycle; when the buds want more, every shoot is trimmed by the
  * same share (rounded at random), so no part of the crown is favoured.
  */
-export function growCycle(sim: Sim, cycle: number, vigorScale: number, shed: number, allowed: number): void {
-  const light: number[] = [];
-  const budCount: number[] = [];
+export function growCycle(sim: Sim, cycle: number, budget: CycleBudget): void {
+  const { vigorScale, shed, allowed } = budget;
+  const canopy: Canopy = { light: [], budCount: [] };
   clearTrunk(sim);
-  gatherLight(sim, light, budCount);
-  distributeVigor(sim, light, vigorScale);
+  gatherLight(sim, canopy);
+  distributeVigor(sim, canopy.light, vigorScale);
   const shoots = budShoots(sim);
   const wanted = shoots.reduce((sum, [, count]) => sum + count, 0);
   const share = wanted > allowed ? Math.max(0, allowed) / wanted : 1;
@@ -292,7 +339,7 @@ export function growCycle(sim: Sim, cycle: number, vigorScale: number, shed: num
     bud.alive = false;
     growShoot(sim, bud, trimmed, cycle);
   }
-  prune(sim, light, budCount, cycle, shed);
+  prune(sim, canopy, cycle, shed);
   liftCrown(sim, cycle);
 }
 
@@ -302,8 +349,10 @@ function leaderTop(sim: Sim): number {
   let height = 0;
   for (let node = 0; node < sim.pos.length; node += 1) {
     const y = sim.pos[node]?.y ?? 0;
-    if (at(sim.order, node) === 0 && y > height) { top = node;
-    height = y; }
+    if (at(sim.order, node) === 0 && y > height) {
+      top = node;
+      height = y;
+    }
   }
   return top;
 }
@@ -318,9 +367,9 @@ function killLeaderTop(sim: Sim, cycle: number): void {
 
 /** Dieback: the weakest living limbs die, a growing share of the crown each cycle. */
 function dieBack(sim: Sim, cycle: number, share: number): void {
-  const light: number[] = [];
-  const budCount: number[] = [];
-  gatherLight(sim, light, budCount);
+  const canopy: Canopy = { light: [], budCount: [] };
+  gatherLight(sim, canopy);
+  const { light, budCount } = canopy;
   const candidates: [number, number][] = [];
   let living = 0;
   for (let node = 1; node < sim.pos.length; node += 1) {
@@ -328,7 +377,9 @@ function dieBack(sim: Sim, cycle: number, share: number): void {
     living += 1;
     const buds = at(budCount, node);
     // Old trees die back from the twigs inward; the big scaffold limbs stay.
-    if (at(sim.main, node) === 0 && buds > 0 && buds < 40) candidates.push([node, at(light, node) / buds - sim.random() * 0.15]);
+    if (at(sim.main, node) === 0 && buds > 0 && buds < 40) {
+      candidates.push([node, at(light, node) / buds - sim.random() * 0.15]);
+    }
   }
   candidates.sort((a, b) => a[1] - b[1]);
   let killed = 0;
@@ -345,13 +396,11 @@ function dieBack(sim: Sim, cycle: number, share: number): void {
 export function declineCycle(sim: Sim, cycle: number, decline: number): void {
   if (decline > 0.3 && decline <= 0.3 + 1 / (sim.species.cycles * 0.28)) killLeaderTop(sim, cycle);
   dieBack(sim, cycle, 0.03 + decline * decline * 0.3);
-  growCycle(
-    sim,
-    cycle,
-    Math.max(0.3, 1 - decline * 0.9),
-    sim.species.shed + decline * 0.2,
-    declineAllowance(sim, decline),
-  );
+  growCycle(sim, cycle, {
+    vigorScale: Math.max(0.3, 1 - decline * 0.9),
+    shed: sim.species.shed + decline * 0.2,
+    allowed: declineAllowance(sim, decline),
+  });
 }
 
 

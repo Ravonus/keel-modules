@@ -13,7 +13,8 @@
 export { SPECIES, SPECIES_IDS, speciesOf } from "./species.js";
 export type { SpeciesId, Hemisphere, PhenologySpec, OrnamentKind, OrnamentSpec, PalmSpec, Species } from "./species.js";
 export { createRandom } from "./math.js";
-export { mixShares, blendSpecies, growTree, sectors, kindOrnaments, PACE, cycleAt } from "./model.js";
+export { mixShares, blendSpecies, growTree, kindOrnaments, PACE, cycleAt } from "./model.js";
+export { sectors } from "./sectors.js";
 export type { TreeModel, LeafSlots, GrowInput, KindOrnament, Pace } from "./model.js";
 export { GRAND, grandAt, treeFrame } from "./frame.js";
 export type { TreeFrame, FrameOptions } from "./frame.js";

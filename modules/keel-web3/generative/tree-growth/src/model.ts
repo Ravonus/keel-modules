@@ -1,4 +1,4 @@
-// The model: a tree grown from its species and seed, its leaf slots, sectors, ornaments and pace through life.
+// The model: a tree grown from its species and seed, its leaf slots, ornaments and pace through life.
 
 import { SPECIES, speciesOf } from "./species.js";
 import type { OrnamentSpec, PalmSpec, Species, SpeciesId } from "./species.js";
@@ -6,7 +6,7 @@ import { add, at, clamp01, createRandom, cross, normalize, perpendicular, ramp, 
 import type { Vec } from "./math.js";
 import { GRID_X, GRID_Y } from "./light.js";
 import { addBud, addNode, declineCycle, growCycle } from "./simulation.js";
-import type { Sim } from "./simulation.js";
+import type { CycleBudget, NewNode, Sim } from "./simulation.js";
 
 // ---------------------------------------------------------------- the model
 
@@ -94,7 +94,9 @@ const blendNumber = (shares: readonly [SpeciesId, number][], pick: (species: Spe
  */
 export function blendSpecies(mix: Readonly<Record<string, number>>): Species {
   const shares = mixShares(mix);
-  const major = SPECIES[shares[0]![0]];
+  const [first] = shares;
+  if (first === undefined) throw new Error("tree-growth: a mix always has a share");
+  const major = SPECIES[first[0]];
   if (shares.length === 1 || major.palm !== null) return major;
   const mean = (pick: (species: Species) => number): number => blendNumber(shares, pick);
   const round = (pick: (species: Species) => number): number => Math.max(1, Math.round(mean(pick)));
@@ -191,8 +193,16 @@ function newSim(species: Species, seed: number, maxNodes: number): Sim {
   };
 }
 
+/** One frond to unfold: which way round the crown it leaves, how long it is and when it grows. */
+interface Frond {
+  readonly around: number;
+  readonly length: number;
+  readonly cycle: number;
+}
+
 /** Unfolds one frond from the crown: a rachis that leaves steep and arches out and down. */
-function growFrond(sim: Sim, top: number, around: number, length: number, cycle: number): void {
+function growFrond(sim: Sim, top: number, frond: Frond): void {
+  const { around, length, cycle } = frond;
   const segments = 8;
   const out = vec(Math.cos(around), 0, Math.sin(around));
   const lift = 1 - sim.random() * 0.5;
@@ -200,54 +210,64 @@ function growFrond(sim: Sim, top: number, around: number, length: number, cycle:
   let node = top;
   for (let step = 0; step < segments; step += 1) {
     const heading = normalize(vec(out.x, lift - (step / (segments - 1)) * sag, out.z));
-    node = addNode(
-      sim,
-      node,
-      add(sim.pos[node] ?? vec(0, 0, 0), heading, length / segments),
-      heading,
-      1,
-      cycle + step * 0.03,
-      0.2,
-      false,
-    );
+    node = addNode(sim, node, {
+      pos: add(sim.pos[node] ?? vec(0, 0, 0), heading, length / segments),
+      dir: heading,
+      order: 1,
+      birth: cycle + step * 0.03,
+      span: 0.2,
+      main: false,
+    });
   }
 }
 
+/** A palm's crown: the trunk's top internode and the way it is heading. */
+interface Crown {
+  readonly top: number;
+  readonly heading: Vec;
+}
+
 /** Two trunk internodes a cycle: barely rising while the young palm establishes, curving back toward the sky. */
-function climbTrunk(sim: Sim, top: number, heading: Vec, cycle: number, vigor: number): [number, Vec] {
+function climbTrunk(sim: Sim, crown: Crown, cycle: number, vigor: number): Crown {
   const rise = (0.2 + 0.85 * ramp(cycle, 2, 6)) * vigor;
-  let node = top;
-  let dir = heading;
+  let node = crown.top;
+  let dir = crown.heading;
   for (let step = 0; step < 2; step += 1) {
     dir = normalize(add(dir, vec(0, 1, 0), 0.05));
-    node = addNode(sim, node, add(sim.pos[node] ?? vec(0, 0, 0), dir, rise), dir, 0, cycle - 1 + step * 0.5, 0.5, true);
+    node = addNode(sim, node, {
+      pos: add(sim.pos[node] ?? vec(0, 0, 0), dir, rise),
+      dir,
+      order: 0,
+      birth: cycle - 1 + step * 0.5,
+      span: 0.5,
+      main: true,
+    });
   }
-  return [node, dir];
+  return { top: node, heading: dir };
 }
 
 function simulatePalm(sim: Sim, palm: PalmSpec): void {
   const { species, random } = sim;
   const toward = random() * Math.PI * 2;
   const lean = palm.lean * (0.6 + random() * 0.8);
-  let heading = normalize(vec(Math.cos(toward) * lean, 1, Math.sin(toward) * lean));
-  let top = addNode(sim, -1, vec(0, 0.2, 0), heading, 0, 0, 1, true);
+  const heading = normalize(vec(Math.cos(toward) * lean, 1, Math.sin(toward) * lean));
+  const seedling: NewNode = { pos: vec(0, 0.2, 0), dir: heading, order: 0, birth: 0, span: 1, main: true };
+  let crown: Crown = { top: addNode(sim, -1, seedling), heading };
   const matureAt = Math.round(species.cycles * 0.72);
   let around = random() * Math.PI * 2;
   for (let cycle = 1; cycle < species.cycles; cycle += 1) {
     const life = Math.min(1, cycle / matureAt);
     const decline = cycle > matureAt ? (cycle - matureAt) / (species.cycles - matureAt) : 0;
-    [top, heading] = climbTrunk(sim, top, heading, cycle, 1 - decline * 0.75);
+    crown = climbTrunk(sim, crown, cycle, 1 - decline * 0.75);
     const fronds = Math.max(1, Math.round(palm.fronds * (1 - decline * 0.6)));
     for (let index = 0; index < fronds; index += 1) {
       around += (species.divergence * Math.PI) / 180;
       const first = sim.pos.length;
-      growFrond(
-        sim,
-        top,
+      growFrond(sim, crown.top, {
         around,
-        palm.frond * (0.15 + 0.85 * life ** 0.8) * (1 - decline * 0.35),
-        cycle - 1 + index / fronds,
-      );
+        length: palm.frond * (0.15 + 0.85 * life ** 0.8) * (1 - decline * 0.35),
+        cycle: cycle - 1 + index / fronds,
+      });
       const dies = cycle + palm.frondLife * (0.8 + random() * 0.4);
       for (let node = first; node < sim.pos.length; node += 1) sim.deadAt[node] = dies;
       sim.shedAt[first] = dies + 0.3 + random() * 0.5;
@@ -267,16 +287,28 @@ function simulate(species: Species, seed: number, maxNodes: number): Sim {
     return sim;
   }
   const lean = normalize(vec((sim.random() - 0.5) * 0.12, 1, (sim.random() - 0.5) * 0.12));
-  const seedling = addNode(sim, -1, vec(lean.x, 1, lean.z), lean, 0, 0, 1, true);
+  const sprout: NewNode = { pos: vec(lean.x, 1, lean.z), dir: lean, order: 0, birth: 0, span: 1, main: true };
+  const seedling = addNode(sim, -1, sprout);
   addBud(sim, seedling, lean, true);
   const matureAt = Math.round(species.cycles * 0.72);
   for (let cycle = 1; cycle < species.cycles; cycle += 1) {
-    if (cycle <= matureAt) growCycle(sim, cycle, 1 + 1.6 / (1 + cycle * 0.4), species.shed, growthAllowance(sim, cycle, matureAt));
+    if (cycle <= matureAt) growCycle(sim, cycle, youthBudget(sim, cycle, matureAt));
     else declineCycle(sim, cycle, (cycle - matureAt) / (species.cycles - matureAt));
   }
   // Whatever still lives dies over the last cycle; the snag then stands frozen.
-  for (let node = 0; node < sim.pos.length; node += 1) if (at(sim.deadAt, node) === Infinity) sim.deadAt[node] = species.cycles - 0.6;
+  for (let node = 0; node < sim.pos.length; node += 1) {
+    if (at(sim.deadAt, node) === Infinity) sim.deadAt[node] = species.cycles - 0.6;
+  }
   return sim;
+}
+
+/** A growing year's budget: vigour that eases with age, the species' own shade limit, the curve's allowance. */
+function youthBudget(sim: Sim, cycle: number, matureAt: number): CycleBudget {
+  return {
+    vigorScale: 1 + 1.6 / (1 + cycle * 0.4),
+    shed: sim.species.shed,
+    allowed: growthAllowance(sim, cycle, matureAt),
+  };
 }
 
 /** What slots hang from: how many nodes, each one's heading, and whether the tree is a palm. */
@@ -292,15 +324,24 @@ const simSource = (sim: Sim): SlotSource => ({
   heading: (node) => sim.dir[node] ?? vec(0, 1, 0),
 });
 
-function leafSlots(
-  source: SlotSource,
-  perNode: number,
-  spread: number,
-  hang: number,
-  seed: number,
-  eligible: (node: number) => boolean,
-): LeafSlots {
-  const random = createRandom(seed);
+/** How slots hang from a node: how many, how far out, how far down, and the stream that scatters them. */
+interface SlotSpec {
+  readonly perNode: number;
+  readonly spread: number;
+  readonly hang: number;
+  readonly seed: number;
+}
+
+/** The slot arrays being filled, with the spec and stream they are filled by. */
+interface SlotFill {
+  readonly slots: LeafSlots;
+  readonly spec: SlotSpec;
+  readonly random: () => number;
+}
+
+function leafSlots(source: SlotSource, spec: SlotSpec, eligible: (node: number) => boolean): LeafSlots {
+  const { perNode, spread, hang } = spec;
+  const random = createRandom(spec.seed);
   const nodes: number[] = [];
   for (let node = 0; node < source.count; node += 1)
     if (eligible(node)) for (let index = 0; index < perNode; index += 1) nodes.push(node);
@@ -315,10 +356,11 @@ function leafSlots(
     size: new Float32Array(count),
     tone: new Uint8Array(count),
   };
+  const fill: SlotFill = { slots, spec, random };
   for (let index = 0; index < count; index += 1) {
     const heading = source.heading(at(slots.node, index));
     if (source.palm && hang > 0) {
-      leaflet(slots, index, heading, spread, hang, random);
+      leaflet(fill, index, heading);
       continue;
     }
     const theta = random() * Math.PI * 2;
@@ -341,14 +383,9 @@ const frondBase = (sim: Sim, node: number): boolean =>
   at(sim.order, node) > 0 && at(sim.order, at(sim.parent, node)) === 0;
 
 /** A palm leaflet: one of a pair of rows down each side of the frond's rachis, drooping at its tip. */
-function leaflet(
-  slots: LeafSlots & { dx: Float32Array; dy: Float32Array; dz: Float32Array },
-  index: number,
-  heading: Vec,
-  spread: number,
-  hang: number,
-  random: () => number,
-): void {
+function leaflet(fill: SlotFill, index: number, heading: Vec): void {
+  const { slots, random } = fill;
+  const { spread, hang } = fill.spec;
   const side = normalize(cross(heading, vec(0, 1, 0)), perpendicular(heading));
   const sign = index % 2 === 0 ? 1 : -1;
   const reach = spread * (0.25 + 0.75 * random());
@@ -362,10 +399,10 @@ function leaflet(
 }
 
 function ornamentSlots(sim: Sim, spec: OrnamentSpec | null, spread: number, seed: number): LeafSlots {
-  if (spec === null) return leafSlots(simSource(sim), 0, 0, 0, 0, () => false);
+  if (spec === null) return leafSlots(simSource(sim), { perNode: 0, spread: 0, hang: 0, seed: 0 }, () => false);
   const palm = sim.species.palm !== null;
   const floor = (spec.above ?? 0) * sim.height;
-  return leafSlots(simSource(sim), spec.perNode, spread, 0, seed, (node) =>
+  return leafSlots(simSource(sim), { perNode: spec.perNode, spread, hang: 0, seed }, (node) =>
     palm ? frondBase(sim, node) : at(sim.order, node) > 0 && (sim.pos[node]?.y ?? 0) >= floor,
   );
 }
@@ -400,8 +437,10 @@ export function growTree(input: GrowInput): TreeModel {
     deadAt: Float32Array.from(sim.deadAt),
     shedAt: Float32Array.from(sim.shedAt, (value) => (value === Infinity ? 1e9 : value)),
     phase: Float32Array.from(sim.pos, () => random() * Math.PI * 2),
-    leaves: leafSlots(simSource(sim), species.leafSlots, species.leafSpread, species.hang, seed ^ 0x1eaf, (node) =>
-      leafEligible(sim, node),
+    leaves: leafSlots(
+      simSource(sim),
+      { perNode: species.leafSlots, spread: species.leafSpread, hang: species.hang, seed: seed ^ 0x1eaf },
+      (node) => leafEligible(sim, node),
     ),
     blossoms: ornamentSlots(sim, species.flower, species.leafSpread * 0.8, seed ^ 0xb105),
     fruit: ornamentSlots(sim, species.fruit, species.leafSpread * 0.7, seed ^ 0xf2017),
@@ -411,158 +450,6 @@ export function growTree(input: GrowInput): TreeModel {
     })),
   };
   return model;
-}
-
-/**
- * Splits a grown tree into sectors, the way a chimera plant carries whole
- * limbs of different tissue: each main limb (and everything it carries) goes
- * to one strain, so that each strain's share of the crown's leaves is close
- * to its share in `shares`. Strain 0, the first, keeps the trunk. Returns the
- * strain of every internode. A strain with too small a share for any limb
- * still gets the smallest one, so a trace of hidden makeup always shows.
- */
-/** Whether `node` grows from `limb` (anywhere out along it). */
-function isBelow(model: TreeModel, node: number, limb: number): boolean {
-  for (let up = at(model.parent, node); up >= 0; up = at(model.parent, up)) if (up === limb) return true;
-  return false;
-}
-
-export function sectors(model: TreeModel, shares: readonly number[], seed = model.seed): Uint8Array {
-  const strain = new Uint8Array(model.count);
-  if (shares.length <= 1) return strain;
-  const order = model.order;
-  // Leaf-years each internode carries, counted up from the twigs (parents come first, so walk backwards):
-  // a shoot that is shaded out young counts for little.
-  const carried = new Float64Array(model.count);
-  for (let index = 0; index < model.leaves.count; index += 1) {
-    const node = at(model.leaves.node, index);
-    const held = Math.max(0, Math.min(at(model.deadAt, node), model.cycles) - at(model.birth, node)) / model.cycles;
-    carried[node] = at(carried, node) + held;
-  }
-  for (let node = model.count - 1; node > 0; node -= 1) {
-    const parent = at(model.parent, node);
-    if (parent >= 0) carried[parent] = at(carried, parent) + at(carried, node);
-  }
-  // Main limbs that live a good while (a quarter of the life): a limb shaded out young would carry its strain as bare
-  // sticks.
-  const main: number[] = [];
-  for (let node = 0; node < model.count; node += 1) {
-    const parent = at(model.parent, node);
-    if (at(order, node) > 0 && (parent < 0 || at(order, parent) === 0) && at(carried, node) > 0) main.push(node);
-  }
-  const lasting = main.filter(
-    (node) => Math.min(at(model.deadAt, node), model.cycles) - at(model.birth, node) >= model.cycles * 0.25,
-  );
-  const limbs = lasting.length >= shares.length ? lasting : main;
-  const random = createRandom(seed ^ 0x5ec7);
-  // Shuffle first so limbs born together (a whorl) fall to different strains, then walk them in the order
-  // they grow: each goes to the strain furthest behind its share, so every age of the tree shows each strain
-  // at its share, not only the old tree.
-  for (let index = limbs.length - 1; index > 0; index -= 1) {
-    const other = Math.floor(random() * (index + 1));
-    [limbs[index], limbs[other]] = [limbs[other]!, limbs[index]!];
-  }
-  limbs.sort((a, b) => Math.round(at(model.birth, a) * 2) - Math.round(at(model.birth, b) * 2));
-  const sum = shares.reduce((acc, share) => acc + Math.max(0, share), 0) || 1;
-  const want = shares.map((share) => Math.max(0, share) / sum);
-  const have = new Float64Array(shares.length);
-  const owner = new Map<number, number>();
-  let walked = 0;
-  for (const limb of limbs) {
-    walked += at(carried, limb);
-    let pick = 0;
-    let behind = -Infinity;
-    for (let index = 0; index < shares.length; index += 1) {
-      const short = (want[index] ?? 0) * walked - at(have, index);
-      if ((want[index] ?? 0) > 0 && short > behind) {
-        behind = short;
-        pick = index;
-      }
-    }
-    owner.set(limb, pick);
-    have[pick] = at(have, pick) + at(carried, limb);
-  }
-  // Even a tiny share holds a limb: the smallest one, taken from the first strain.
-  for (let index = 1; index < shares.length; index += 1) {
-    if ((want[index] ?? 0) <= 0 || at(have, index) > 0) continue;
-    let small = -1;
-    for (const limb of limbs)
-      if (owner.get(limb) === 0 && (small < 0 || at(carried, limb) < at(carried, small))) small = limb;
-    if (small >= 0) {
-      owner.set(small, index);
-      have[index] = at(carried, small);
-    }
-  }
-  for (let node = 0; node < model.count; node += 1) {
-    const parent = at(model.parent, node);
-    strain[node] = owner.get(node) ?? (parent >= 0 ? at(strain, parent) : 0);
-  }
-  // Whole limbs come in big lumps, and old low limbs that carried leaves for years may hold few now, so a
-  // strain can end well short in the grown crown (the third kind gets what is left). Counting the leaves
-  // on the tree through the middle of its life, it takes side branches off the strains over their share, the biggest
-  // that
-  // still fit first, so a quarter share shows as about a quarter of the grown crown.
-  const prime = (node: number): number =>
-    [0.35, 0.5, 0.65].filter(
-      (t) => at(model.birth, node) <= model.cycles * t && at(model.deadAt, node) > model.cycles * t,
-    ).length;
-  const alive = new Float64Array(model.count);
-  for (let index = 0; index < model.leaves.count; index += 1) {
-    const node = at(model.leaves.node, index);
-    alive[node] = at(alive, node) + prime(node);
-  }
-  for (let node = model.count - 1; node > 0; node -= 1) {
-    const parent = at(model.parent, node);
-    if (parent >= 0) alive[parent] = at(alive, parent) + at(alive, node);
-  }
-  const now = new Float64Array(shares.length);
-  for (let index = 0; index < model.leaves.count; index += 1) {
-    const node = at(model.leaves.node, index);
-    now[at(strain, node)] = at(now, at(strain, node)) + prime(node);
-  }
-  const total = now.reduce((acc, count) => acc + count, 0);
-  const taken = new Set<number>();
-  const takenAbove = (node: number): boolean => {
-    for (let up = at(model.parent, node); up >= 0; up = at(model.parent, up)) if (taken.has(up)) return true;
-    return false;
-  };
-  // The strain furthest short goes first, the main kind included (an oak limb can outgrow the cherry it is on).
-  const needy = shares
-    .map((_, index) => index)
-    .sort((a, b) => (want[b] ?? 0) * total - at(now, b) - ((want[a] ?? 0) * total - at(now, a)));
-  for (const index of needy) {
-    let short = (want[index] ?? 0) * total - at(now, index);
-    if (short <= total * 0.03) continue;
-    const side: number[] = [];
-    for (let node = 0; node < model.count; node += 1) {
-      const parent = at(model.parent, node);
-      if (
-        parent < 0 ||
-        at(order, parent) === 0 ||
-        at(order, node) <= at(order, parent) ||
-        at(strain, node) === index ||
-        at(alive, node) <= 0
-      )
-        continue;
-      side.push(node);
-    }
-    side.sort((a, b) => at(alive, b) - at(alive, a));
-    for (const node of side) {
-      if (short <= total * 0.03) break;
-      const from = at(strain, node);
-      const load = at(alive, node);
-      const spare = at(now, from) - (want[from] ?? 0) * total;
-      if (from === index || load > short * 1.25 || load > spare || takenAbove(node)) continue;
-      taken.add(node);
-      now[from] = at(now, from) - load;
-      now[index] = at(now, index) + load;
-      short -= load;
-      for (let child = node; child < model.count; child += 1) {
-        if (child === node || isBelow(model, child, node)) strain[child] = index;
-      }
-    }
-  }
-  return strain;
 }
 
 /** One kind's flowers or fruit: what they are and where they hang. */
@@ -606,10 +493,7 @@ export function kindOrnaments(
     const floor = (spec.above ?? 0) * top;
     const slots = leafSlots(
       source,
-      spec.perNode,
-      spread,
-      0,
-      (model.seed ^ salt ^ (kind * 0x9e37)) >>> 0,
+      { perNode: spec.perNode, spread, hang: 0, seed: (model.seed ^ salt ^ (kind * 0x9e37)) >>> 0 },
       (node) => at(kinds, node) === kind && at(model.order, node) > 0 && at(model.y, node) >= floor,
     );
     return slots.count > 0 ? { spec, slots } : null;

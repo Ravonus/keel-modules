@@ -28,14 +28,16 @@ export interface Pass {
 }
 
 /** Schedule passes ahead to `t`; `make` may decline one (nothing fits the sky just then). */
-export function passesUntil(
-  list: Pass[],
-  clock: { last: number },
-  rand: () => number,
-  every: readonly [number, number],
-  t: number,
-  make: (start: number) => Pass | null,
-): void {
+/** The sky's traffic: its passes so far, when the last was set off, its own roll, and how often one comes. */
+export interface Traffic {
+  readonly list: Pass[];
+  readonly clock: { last: number };
+  readonly rand: () => number;
+  readonly every: readonly [number, number];
+}
+
+export function passesUntil(traffic: Traffic, t: number, make: (start: number) => Pass | null): void {
+  const { list, clock, rand, every } = traffic;
   while (clock.last < t + 1) {
     clock.last += between(rand, every);
     const pass = make(clock.last);
@@ -137,7 +139,13 @@ export const fading = (bodies: readonly Body[], pass: Pass, t: number): Body[] =
   return bodies.map((body) => ({ ...body, fade }));
 };
 
-export function passOf(kind: SkyKind, start: number, rand: () => number, reach: number, plan: SkyPlan): Pass {
+export function passOf(
+  kind: SkyKind,
+  start: number,
+  rand: () => number,
+  over: { readonly reach: number; readonly plan: SkyPlan },
+): Pass {
+  const { reach, plan } = over;
   const route = ROUTES[kind];
   const { from, to } = routeOf(kind, rand, reach);
   const crane = kind === "flock" && plan.birds === "crane";
@@ -158,9 +166,19 @@ export function passOf(kind: SkyKind, start: number, rand: () => number, reach: 
 /** (A cruise with no start or end in sight: no launch, no landing, just its own flaps and glides.) */
 export const FLY_SEGMENT: Segment = { act: "fly", t0: -1e6, t1: 1e6, from: { on: "ground", x: 0, z: 0 }, to: { on: "ground", x: 0, z: 0 }, yaw: 0, face: -1, mode: "fly", pace: 4 };
 
-function flyingBird(id: string, who: Who, p: Vec, dir: Vec, t: number, up: Vec = UP): Body {
+/** Where a bird of the sky is and which way it points, and its up when banked. */
+interface Aloft { readonly p: Vec; readonly dir: Vec; readonly up?: Vec }
+
+/** How much a thing in the sky glows: a comet or a satellite outright, a UFO or a jet by its lights. */
+function glowOf(kind: PlaneKind): number {
+  if (kind === "ufo" || kind === "jet") return 0.6;
+  return kind === "comet" || kind === "satellite" ? 1 : 0;
+}
+
+function flyingBird(id: string, who: Who, t: number, aloft: Aloft): Body {
+  const { p, dir, up = UP } = aloft;
   const m: Moment = { frame: frameOf(p, dir, up), phase: 0, moving: 1, pace: 4, mode: "fly", segment: FLY_SEGMENT, pose: { ...restPose(), wing: 1 }, t };
-  return bodyOf(id, who, m, poseWho(who, m));
+  return bodyOf(id, who, m, { capsules: poseWho(who, m) });
 }
 
 /**
@@ -196,7 +214,7 @@ export function flockBodies(pass: Pass, who: Who, t: number): Body[] {
       0,
     ]);
     // (Down a vee each bird beats a little after the one ahead, a wave along the line.)
-    out.push(flyingBird(`flock.${String(pass.seed)}.${String(i)}`, who, p, dir, t + (pass.v ? Math.abs(rank) * 0.22 : i * 0.37), up));
+    out.push(flyingBird(`flock.${String(pass.seed)}.${String(i)}`, who, t + (pass.v ? Math.abs(rank) * 0.22 : i * 0.37), { p, dir, up }));
   }
   return out;
 }
@@ -228,7 +246,7 @@ export function swarmBodies(pass: Pass, who: Who | null, t: number): Body[] {
     const dir = unit(sub(swarmAt(pass, i, t + 0.05, bats), p), [0, 0, 1]);
     const id = `${pass.kind}.${String(pass.seed)}.${String(i)}`;
     if (bats || !who) out.push(batBody(id, p, dir, t + i * 0.21));
-    else out.push(flyingBird(id, who, p, dir, t + i * 0.29));
+    else out.push(flyingBird(id, who, t + i * 0.29, { p, dir }));
   }
   return out;
 }
@@ -239,15 +257,15 @@ const BAT_LOOK: Palette = { coat: "#3a2e34", alt: "#2a2026", belly: "#4a3a40", d
 function batBody(id: string, p: Vec, dir: Vec, t: number): Body {
   const size = 0.22;
   const kit: Kit = { f: frameOf(p, dir), out: [], roll: 0, pivot: [0, 0, 0] };
-  ball(kit, "body", "coat", [0, 0, 0], size * 0.22, 0.85);
-  ball(kit, "head", "coat", [0, size * 0.04, size * 0.22], size * 0.14);
+  ball(kit, "body", "coat", { p: [0, 0, 0], r: size * 0.22, flat: 0.85 });
+  ball(kit, "head", "coat", { p: [0, size * 0.04, size * 0.22], r: size * 0.14 });
   for (const x of [-1, 1]) {
-    cap(kit, "ear", "dark", [x * size * 0.06, size * 0.12, size * 0.24], [x * size * 0.09, size * 0.26, size * 0.2], size * 0.04, 0.4, [0, 0, 1]);
+    cap(kit, "ear", "dark", { a: [x * size * 0.06, size * 0.12, size * 0.24], b: [x * size * 0.09, size * 0.26, size * 0.2], r: size * 0.04, flat: 0.4, up: [0, 0, 1] });
     const beat = Math.sin(t * 15 + (x > 0 ? 0 : 0.2));
     const tip: Vec = [x * size * 0.95, beat * size * 0.5, -size * 0.05];
     const elbow: Vec = [x * size * 0.45, beat * size * 0.3 + size * 0.08, size * 0.1];
-    cap(kit, "wing", "alt", [x * size * 0.1, 0, size * 0.05], elbow, size * 0.16, 0.12);
-    cap(kit, "wing", "alt", elbow, tip, size * 0.14, 0.12);
+    cap(kit, "wing", "alt", { a: [x * size * 0.1, 0, size * 0.05], b: elbow, r: size * 0.16, flat: 0.12 });
+    cap(kit, "wing", "alt", { a: elbow, b: tip, r: size * 0.14, flat: 0.12 });
   }
   return { id, kind: "bat", label: "Bat", action: "fly", morph: "normal", at: p, front: dir, capsules: kit.out, palette: BAT_LOOK, glow: 0 };
 }
@@ -268,108 +286,108 @@ const PLANE_LOOKS: Readonly<Record<PlaneKind, Palette>> = {
 
 /** A red light that blinks: on aircraft by day and night. */
 function beacon(kit: Kit, at: Vec, r: number, t: number): void {
-  if (Math.sin(t * 5.2) > 0.6) ball(kit, "beacon", "glow", at, r);
+  if (Math.sin(t * 5.2) > 0.6) ball(kit, "beacon", "glow", { p: at, r });
 }
 
 function airliner(kit: Kit, size: number, prop: boolean, t: number): void {
   const L = size;
-  cap(kit, "fuselage", "coat", [0, 0, -L * 0.5], [0, 0, L * 0.5], L * 0.07);
+  cap(kit, "fuselage", "coat", { a: [0, 0, -L * 0.5], b: [0, 0, L * 0.5], r: L * 0.07 });
   for (const x of [-1, 1]) {
-    cap(kit, "wing", "alt", [0, -L * 0.02, L * 0.02], [x * L * 0.5, -L * 0.02, -L * 0.12], L * 0.06, 0.18);
-    cap(kit, "tailplane", "alt", [0, 0, -L * 0.45], [x * L * 0.18, 0, -L * 0.52], L * 0.03, 0.2);
-    ball(kit, "light", "glow", [x * L * 0.5, -L * 0.02, -L * 0.12], L * 0.025);
-    if (!prop) ball(kit, "engine", "dark", [x * L * 0.18, -L * 0.07, L * 0.06], L * 0.04);
+    cap(kit, "wing", "alt", { a: [0, -L * 0.02, L * 0.02], b: [x * L * 0.5, -L * 0.02, -L * 0.12], r: L * 0.06, flat: 0.18 });
+    cap(kit, "tailplane", "alt", { a: [0, 0, -L * 0.45], b: [x * L * 0.18, 0, -L * 0.52], r: L * 0.03, flat: 0.2 });
+    ball(kit, "light", "glow", { p: [x * L * 0.5, -L * 0.02, -L * 0.12], r: L * 0.025 });
+    if (!prop) ball(kit, "engine", "dark", { p: [x * L * 0.18, -L * 0.07, L * 0.06], r: L * 0.04 });
   }
-  cap(kit, "fin", "accent", [0, 0, -L * 0.4], [0, L * 0.18, -L * 0.52], L * 0.04, 0.2, [1, 0, 0]);
-  if (prop) ball(kit, "propeller", "dark", [0, 0, L * 0.53], L * 0.09, 0.08, [0, 0, 1]);
+  cap(kit, "fin", "accent", { a: [0, 0, -L * 0.4], b: [0, L * 0.18, -L * 0.52], r: L * 0.04, flat: 0.2, up: [1, 0, 0] });
+  if (prop) ball(kit, "propeller", "dark", { p: [0, 0, L * 0.53], r: L * 0.09, flat: 0.08, up: [0, 0, 1] });
   beacon(kit, [0, L * 0.09, 0], L * 0.03, t);
   beacon(kit, [0, -L * 0.08, 0.1 * L], L * 0.03, t + 0.5);
 }
 
 function banner(kit: Kit, size: number, t: number): void {
-  cap(kit, "rope", "dark", [0, 0, -size * 0.5], [0, -size * 0.05, -size * 0.9], size * 0.006);
+  cap(kit, "rope", "dark", { a: [0, 0, -size * 0.5], b: [0, -size * 0.05, -size * 0.9], r: size * 0.006 });
   for (let i = 0; i < 5; i += 1) {
     const wave = Math.sin(t * 6 - i) * size * 0.03;
-    cap(kit, "banner", i % 2 === 0 ? "accent" : "alt", [wave, -size * 0.05, -size * (0.92 + i * 0.22)], [wave, -size * 0.05, -size * (1.12 + i * 0.22)], size * 0.09, 0.08, [1, 0, 0]);
+    cap(kit, "banner", i % 2 === 0 ? "accent" : "alt", { a: [wave, -size * 0.05, -size * (0.92 + i * 0.22)], b: [wave, -size * 0.05, -size * (1.12 + i * 0.22)], r: size * 0.09, flat: 0.08, up: [1, 0, 0] });
   }
 }
 
 function saucer(kit: Kit, size: number, t: number): void {
-  ball(kit, "disc", "coat", [0, 0, 0], size * 0.5, 0.22);
-  ball(kit, "rim", "alt", [0, -size * 0.04, 0], size * 0.56, 0.08);
-  ball(kit, "dome", "glow", [0, size * 0.12, 0], size * 0.2, 0.8);
+  ball(kit, "disc", "coat", { p: [0, 0, 0], r: size * 0.5, flat: 0.22 });
+  ball(kit, "rim", "alt", { p: [0, -size * 0.04, 0], r: size * 0.56, flat: 0.08 });
+  ball(kit, "dome", "glow", { p: [0, size * 0.12, 0], r: size * 0.2, flat: 0.8 });
   for (let i = 0; i < 8; i += 1) {
     const a = (i / 8) * TAU + t * 1.5;
-    if (Math.sin(t * 5 + i) > -0.2) ball(kit, "light", "accent", [Math.cos(a) * size * 0.52, -size * 0.04, Math.sin(a) * size * 0.52], size * 0.04);
+    if (Math.sin(t * 5 + i) > -0.2) ball(kit, "light", "accent", { p: [Math.cos(a) * size * 0.52, -size * 0.04, Math.sin(a) * size * 0.52], r: size * 0.04 });
   }
 }
 
 function balloonShape(kit: Kit, size: number): void {
   for (let i = 0; i < 6; i += 1) {
     const a = (i / 6) * TAU;
-    cap(kit, "gore", i % 2 === 0 ? "coat" : "alt", [Math.cos(a) * size * 0.2, size * 0.75, Math.sin(a) * size * 0.2], [Math.cos(a) * size * 0.14, size * 0.25, Math.sin(a) * size * 0.14], size * 0.27);
+    cap(kit, "gore", i % 2 === 0 ? "coat" : "alt", { a: [Math.cos(a) * size * 0.2, size * 0.75, Math.sin(a) * size * 0.2], b: [Math.cos(a) * size * 0.14, size * 0.25, Math.sin(a) * size * 0.14], r: size * 0.27 });
   }
-  ball(kit, "envelope", "belly", [0, size * 0.55, 0], size * 0.4);
-  for (const x of [-1, 1]) cap(kit, "rope", "dark", [x * size * 0.12, size * 0.12, 0], [x * size * 0.06, -size * 0.22, 0], size * 0.006);
-  ball(kit, "basket", "dark", [0, -size * 0.27, 0], size * 0.07, 0.8);
-  ball(kit, "flame", "glow", [0, -size * 0.1, 0], size * 0.04);
+  ball(kit, "envelope", "belly", { p: [0, size * 0.55, 0], r: size * 0.4 });
+  for (const x of [-1, 1]) cap(kit, "rope", "dark", { a: [x * size * 0.12, size * 0.12, 0], b: [x * size * 0.06, -size * 0.22, 0], r: size * 0.006 });
+  ball(kit, "basket", "dark", { p: [0, -size * 0.27, 0], r: size * 0.07, flat: 0.8 });
+  ball(kit, "flame", "glow", { p: [0, -size * 0.1, 0], r: size * 0.04 });
 }
 
 function helicopter(kit: Kit, size: number, t: number): void {
-  ball(kit, "cabin", "coat", [0, 0, size * 0.1], size * 0.22, 0.9);
-  ball(kit, "window", "accent", [0, size * 0.05, size * 0.22], size * 0.13, 0.7);
-  cap(kit, "boom", "coat", [0, size * 0.03, -size * 0.08], [0, size * 0.09, -size * 0.66], size * 0.05);
-  cap(kit, "fin", "alt", [0, size * 0.08, -size * 0.62], [0, size * 0.24, -size * 0.7], size * 0.04, 0.25, [1, 0, 0]);
-  cap(kit, "mast", "dark", [0, size * 0.18, size * 0.06], [0, size * 0.28, size * 0.06], size * 0.025);
+  ball(kit, "cabin", "coat", { p: [0, 0, size * 0.1], r: size * 0.22, flat: 0.9 });
+  ball(kit, "window", "accent", { p: [0, size * 0.05, size * 0.22], r: size * 0.13, flat: 0.7 });
+  cap(kit, "boom", "coat", { a: [0, size * 0.03, -size * 0.08], b: [0, size * 0.09, -size * 0.66], r: size * 0.05 });
+  cap(kit, "fin", "alt", { a: [0, size * 0.08, -size * 0.62], b: [0, size * 0.24, -size * 0.7], r: size * 0.04, flat: 0.25, up: [1, 0, 0] });
+  cap(kit, "mast", "dark", { a: [0, size * 0.18, size * 0.06], b: [0, size * 0.28, size * 0.06], r: size * 0.025 });
   for (let blade = 0; blade < 2; blade += 1) {
     const a = t * 31 + blade * (Math.PI / 2);
     const d: Vec = [Math.cos(a) * size * 0.68, 0, Math.sin(a) * size * 0.68];
-    cap(kit, "blade", "dark", add([0, size * 0.29, size * 0.06], d), sub([0, size * 0.29, size * 0.06], d), size * 0.022, 0.3);
+    cap(kit, "blade", "dark", { a: add([0, size * 0.29, size * 0.06], d), b: sub([0, size * 0.29, size * 0.06], d), r: size * 0.022, flat: 0.3 });
   }
   const tail = t * 40;
-  cap(kit, "tail-rotor", "dark", [size * 0.03, size * 0.09 + Math.cos(tail) * size * 0.1, -size * 0.66 + Math.sin(tail) * size * 0.1], [size * 0.03, size * 0.09 - Math.cos(tail) * size * 0.1, -size * 0.66 - Math.sin(tail) * size * 0.1], size * 0.012);
-  for (const x of [-1, 1]) cap(kit, "skid", "dark", [x * size * 0.14, -size * 0.25, -size * 0.12], [x * size * 0.14, -size * 0.25, size * 0.26], size * 0.016);
+  cap(kit, "tail-rotor", "dark", { a: [size * 0.03, size * 0.09 + Math.cos(tail) * size * 0.1, -size * 0.66 + Math.sin(tail) * size * 0.1], b: [size * 0.03, size * 0.09 - Math.cos(tail) * size * 0.1, -size * 0.66 - Math.sin(tail) * size * 0.1], r: size * 0.012 });
+  for (const x of [-1, 1]) cap(kit, "skid", "dark", { a: [x * size * 0.14, -size * 0.25, -size * 0.12], b: [x * size * 0.14, -size * 0.25, size * 0.26], r: size * 0.016 });
   beacon(kit, [0, -size * 0.2, 0], size * 0.03, t);
 }
 
 function blimp(kit: Kit, size: number, t: number): void {
-  cap(kit, "envelope", "coat", [0, 0, -size * 0.3], [0, 0, size * 0.3], size * 0.18);
-  cap(kit, "band", "alt", [0, 0, -size * 0.04], [0, 0, size * 0.04], size * 0.185);
+  cap(kit, "envelope", "coat", { a: [0, 0, -size * 0.3], b: [0, 0, size * 0.3], r: size * 0.18 });
+  cap(kit, "band", "alt", { a: [0, 0, -size * 0.04], b: [0, 0, size * 0.04], r: size * 0.185 });
   for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-    cap(kit, "fin", "alt", [x * size * 0.08, y * size * 0.08, -size * 0.38], [x * size * 0.2, y * size * 0.2, -size * 0.47], size * 0.05, 0.2, x === 0 ? [1, 0, 0] : UP);
+    cap(kit, "fin", "alt", { a: [x * size * 0.08, y * size * 0.08, -size * 0.38], b: [x * size * 0.2, y * size * 0.2, -size * 0.47], r: size * 0.05, flat: 0.2, up: x === 0 ? [1, 0, 0] : UP });
   }
-  ball(kit, "gondola", "dark", [0, -size * 0.2, size * 0.05], size * 0.06, 0.7);
-  for (let i = 0; i < 3; i += 1) ball(kit, "window", "glow", [size * 0.04, -size * 0.2, size * (i * 0.04 - 0.01)], size * 0.012);
+  ball(kit, "gondola", "dark", { p: [0, -size * 0.2, size * 0.05], r: size * 0.06, flat: 0.7 });
+  for (let i = 0; i < 3; i += 1) ball(kit, "window", "glow", { p: [size * 0.04, -size * 0.2, size * (i * 0.04 - 0.01)], r: size * 0.012 });
   beacon(kit, [0, size * 0.19, 0], size * 0.015, t);
 }
 
 function kiteShape(kit: Kit, size: number, t: number): void {
   // Faces the way it looks; a diamond of two crossed sails, bows down its tail, and the long line down to the ground.
-  cap(kit, "sail", "coat", [0, -size * 0.55, 0], [0, size * 0.45, 0], size * 0.26, 0.08, [0, 0, 1]);
-  cap(kit, "sail", "alt", [-size * 0.32, size * 0.12, 0.01], [size * 0.32, size * 0.12, 0.01], size * 0.18, 0.08, [0, 0, 1]);
-  for (let i = 0; i < 6; i += 1) ball(kit, "bow", i % 2 === 0 ? "accent" : "alt", [Math.sin(t * 3.4 - i * 0.8) * size * 0.12, -size * (0.7 + i * 0.22), -size * 0.05 * i], size * 0.05, 0.4, [0, 0, 1]);
-  cap(kit, "line", "dark", [0, -size * 0.45, 0], [0, -9, -7], 0.008);
+  cap(kit, "sail", "coat", { a: [0, -size * 0.55, 0], b: [0, size * 0.45, 0], r: size * 0.26, flat: 0.08, up: [0, 0, 1] });
+  cap(kit, "sail", "alt", { a: [-size * 0.32, size * 0.12, 0.01], b: [size * 0.32, size * 0.12, 0.01], r: size * 0.18, flat: 0.08, up: [0, 0, 1] });
+  for (let i = 0; i < 6; i += 1) ball(kit, "bow", i % 2 === 0 ? "accent" : "alt", { p: [Math.sin(t * 3.4 - i * 0.8) * size * 0.12, -size * (0.7 + i * 0.22), -size * 0.05 * i], r: size * 0.05, flat: 0.4, up: [0, 0, 1] });
+  cap(kit, "line", "dark", { a: [0, -size * 0.45, 0], b: [0, -9, -7], r: 0.008 });
 }
 
 function satellite(kit: Kit, size: number, t: number): void {
   // Far off it is a steady point of light, now and then flaring as its panels catch the sun.
   const flare = Math.max(0, Math.sin(t * 0.7) - 0.9) * 10;
-  ball(kit, "light", "glow", [0, 0, 0], size * (0.3 + flare * 0.5));
-  for (const x of [-1, 1]) cap(kit, "panel", "alt", [x * size * 0.3, 0, 0], [x * size * 0.9, 0, 0], size * 0.16, 0.1, [0, 0, 1]);
+  ball(kit, "light", "glow", { p: [0, 0, 0], r: size * (0.3 + flare * 0.5) });
+  for (const x of [-1, 1]) cap(kit, "panel", "alt", { a: [x * size * 0.3, 0, 0], b: [x * size * 0.9, 0, 0], r: size * 0.16, flat: 0.1, up: [0, 0, 1] });
 }
 
 function rocket(kit: Kit, size: number, t: number): void {
-  cap(kit, "hull", "coat", [0, 0, -size * 0.35], [0, 0, size * 0.3], size * 0.09);
-  ball(kit, "nose", "accent", [0, 0, size * 0.38], size * 0.08, 0.9);
-  for (const a of [0, 2.1, 4.2]) cap(kit, "fin", "alt", [0, 0, -size * 0.25], [Math.cos(a) * size * 0.18, Math.sin(a) * size * 0.18, -size * 0.4], size * 0.03, 0.25);
-  ball(kit, "flame", "glow", [0, 0, -size * (0.48 + 0.04 * Math.sin(t * 40))], size * 0.1, 0.7);
-  for (let i = 1; i <= 9; i += 1) ball(kit, "smoke", "belly", [Math.sin(t * 2 + i) * size * 0.04 * i, 0, -size * (0.55 + i * 0.4)], size * (0.08 + i * 0.03), 0.9);
+  cap(kit, "hull", "coat", { a: [0, 0, -size * 0.35], b: [0, 0, size * 0.3], r: size * 0.09 });
+  ball(kit, "nose", "accent", { p: [0, 0, size * 0.38], r: size * 0.08, flat: 0.9 });
+  for (const a of [0, 2.1, 4.2]) cap(kit, "fin", "alt", { a: [0, 0, -size * 0.25], b: [Math.cos(a) * size * 0.18, Math.sin(a) * size * 0.18, -size * 0.4], r: size * 0.03, flat: 0.25 });
+  ball(kit, "flame", "glow", { p: [0, 0, -size * (0.48 + 0.04 * Math.sin(t * 40))], r: size * 0.1, flat: 0.7 });
+  for (let i = 1; i <= 9; i += 1) ball(kit, "smoke", "belly", { p: [Math.sin(t * 2 + i) * size * 0.04 * i, 0, -size * (0.55 + i * 0.4)], r: size * (0.08 + i * 0.03), flat: 0.9 });
 }
 
 function comet(kit: Kit, size: number): void {
   // A bright head and a tail of light streaming back along its path.
-  ball(kit, "head", "glow", [0, 0, 0], size * 0.22);
-  for (let i = 1; i <= 10; i += 1) ball(kit, "tail", "glow", [0, 0, -size * i * 0.6], size * 0.2 * (1 - i / 12));
+  ball(kit, "head", "glow", { p: [0, 0, 0], r: size * 0.22 });
+  for (let i = 1; i <= 10; i += 1) ball(kit, "tail", "glow", { p: [0, 0, -size * i * 0.6], r: size * 0.2 * (1 - i / 12) });
 }
 
 const PLANE_SIZE: Readonly<Record<PlaneKind, number>> = {
@@ -392,7 +410,7 @@ const PLANE_SHAPES: Readonly<Record<PlaneKind, (kit: Kit, size: number, t: numbe
   banner(kit, size, t); },
   jet: (kit, size, t) => {
     airliner(kit, size, false, t);
-    for (let i = 1; i <= 10; i += 1) ball(kit, "contrail", "glow", [0, 0, -size * (0.5 + i * 0.45)], size * (0.03 + i * 0.012), 0.9);
+    for (let i = 1; i <= 10; i += 1) ball(kit, "contrail", "glow", { p: [0, 0, -size * (0.5 + i * 0.45)], r: size * (0.03 + i * 0.012), flat: 0.9 });
   },
   ufo: saucer,
   balloon: (kit, size) => { balloonShape(kit, size); },
@@ -422,6 +440,5 @@ export function planeBody(kind: PlaneKind, pass: Pass, t: number): Body {
   const p = add(lerpV(pass.from, pass.to, kind === "ufo" ? smooth(u) * 0.6 + u * 0.4 : u), PLANE_DRIFT[kind]?.(t) ?? [0, 0, 0]);
   const kit: Kit = { f: frameOf(p, dir), out: [], roll: 0, pivot: [0, 0, 0] };
   PLANE_SHAPES[kind](kit, PLANE_SIZE[kind], t);
-  const bright = kind === "ufo" || kind === "jet" ? 0.6 : kind === "comet" || kind === "satellite" ? 1 : 0;
-  return { id: `${kind}.${String(pass.seed)}`, kind, label: PLANE_LABELS[kind], action: "fly", morph: "normal", at: p, front: dir, capsules: kit.out, palette: PLANE_LOOKS[kind], glow: bright };
+  return { id: `${kind}.${String(pass.seed)}`, kind, label: PLANE_LABELS[kind], action: "fly", morph: "normal", at: p, front: dir, capsules: kit.out, palette: PLANE_LOOKS[kind], glow: glowOf(kind) };
 }

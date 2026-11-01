@@ -15,7 +15,8 @@ import { buildOf, ownPhase } from "./kit.js";
 import type { Kit } from "./kit.js";
 import { quadSpine, shoulderOf } from "./quad.js";
 import { domeOf, mantleLine, poseQuad, shellHeart } from "./quad-trunk.js";
-import { macaqueKind, macaquePelt, monkeyPelt, posePrimate, slothCrown } from "./primates.js";
+import { macaquePelt, monkeyPelt, posePrimate, slothCrown } from "./primates.js";
+import { macaqueKind } from "./primate-body.js";
 import { STANCES, poseBird } from "./birds.js";
 import { poseSerpent } from "./serpents.js";
 import { poseBug, poseCrab } from "./bugs.js";
@@ -256,8 +257,14 @@ function grainPose(
   if (who.member.species === "tortoise") return plateGrain(who, m, capsules);
   return who.member.species === "hedgehog" ? quillGrain(who, m) : {};
 }
+/** How much of a body its grain covers, by plan: finest on a snake, coarsest on a bird. */
+function grainShare(plan: Plan): number {
+  if (plan === "serpent") return 0.022;
+  return plan === "bird" ? 0.07 : 0.05;
+}
+
 function grainOf(who: Who, m: Moment, capsules: readonly Capsule[]): Pick<Body, "grain"> {
-  const [kind, share] = COARSE[who.member.species] ?? [GRAINS[who.spec.plan], who.spec.plan === "serpent" ? 0.022 : who.spec.plan === "bird" ? 0.07 : 0.05];
+  const [kind, share] = COARSE[who.member.species] ?? [GRAINS[who.spec.plan], grainShare(who.spec.plan)];
   // (A shell keeps its plates in any light: they are what stops its dome at the rim.)
   if (!kind || (kind !== "plate" && MORPHS[who.member.morph].glow > 0.5)) return {};
   // (An upright bird's feathers lie down it, not back along it: in rows round an owl, not stripes up it.)
@@ -358,7 +365,8 @@ function eyesOf(who: Who, asleep: boolean): Pick<Body, "eye" | "palette"> {
   const masked = who.spec.build.extras.includes("mask");
   const shift = gene();
   const iris = mixColor(palette.eye, shift < 0.5 ? "#1c140e" : "#b89a58", Math.abs(shift - 0.5) * 0.5);
-  const color = style.skinLid ? palette.accent : masked ? palette.dark : palette.coat;
+  const furColor = masked ? palette.dark : palette.coat;
+  const color = style.skinLid ? palette.accent : furColor;
   // (Skin lids come right down in sleep, to a dark line along the lashes.)
   const own = lid + (lid > 0 ? mix(-0.07, 0.09, gene()) : 0);
   return { eye: { role: "eye", lid: style.skinLid && asleep ? SHUT_LID : own, slant: slant * mix(0.7, 1.3, gene()), color, pupil: pupil === "bead" ? "dark" : pupil, ring: style.rim, ...(style.skinLid ? { spark: style.spark ?? 0.2 } : {}) }, palette: { ...palette, eye: iris } };
@@ -383,7 +391,14 @@ function formOf(who: Who): Pick<Body, "form"> {
   if (!GRAINS[who.spec.plan] || who.spec.plan === "serpent" || MORPHS[who.member.morph].glow > 0.5) return {};
   const gene = createRandom(markOf(who) ^ 0x7c15d3a1);
   const r = who.spec.build.body * who.member.size;
-  return { form: { amount: r * (who.spec.plan === "bird" ? 0.07 : who.spec.build.extras.includes("shell") ? 0.012 : macaqueKind(who) ? 0.05 : 0.17) * mix(0.75, 1.3, gene()), size: r * mix(0.85, 1.5, gene()) } };
+  return { form: { amount: r * reliefOf(who) * mix(0.75, 1.3, gene()), size: r * mix(0.85, 1.5, gene()) } };
+}
+
+/** How far a body's form stands off it, in its own radii: barely on a shell, most on fur. */
+function reliefOf(who: Who): number {
+  if (who.spec.plan === "bird") return 0.07;
+  if (who.spec.build.extras.includes("shell")) return 0.012;
+  return macaqueKind(who) ? 0.05 : 0.17;
 }
 
 /** A spread train's feathers, for the renderer to paint shaft, barbs and eye on. */
@@ -433,6 +448,12 @@ function coatOf(who: Who, q: Pose): Pick<Body, "pattern" | "material"> {
  * standing, and only just off the ground once it sits or lies, the trunk
  * down there with them. A calico's black patches lie among its orange.
  */
+/** A pattern's second colour, where its kind has one: the dark of patches, the belly of grizzle. */
+function secondOf(who: Who, kind: CoatPattern["kind"]): Pick<CoatPattern, "second"> {
+  if (kind === "patches") return { second: who.member.palette.dark };
+  return kind === "grizzle" ? { second: who.member.palette.belly } : {};
+}
+
 function trunkOf(who: Who, kind: CoatPattern["kind"], q: Pose): Pick<CoatPattern, "trunk" | "second" | "dorsal"> {
   // (A shell's hide goes as pale as its belly where it turns under.)
   if (kind === "scutes") return { second: who.member.palette.belly };
@@ -444,7 +465,7 @@ function trunkOf(who: Who, kind: CoatPattern["kind"], q: Pose): Pick<CoatPattern
   const trunk: Vec = [low, -(b.len * size) / 2 - r * 0.75, (b.len * size) / 2 + r * 0.7];
   // (The spine's dark line runs on a standing back only; sat up, the midline is its chest.)
   const dorsal = mix(shoulderOf(b, size) + r * (kind === "grizzle" ? 0.1 : 0.5), size * 9, Math.max(q.sit, q.lie, q.curl) > 0.1 ? 1 : 0);
-  return { trunk, dorsal, ...(kind === "patches" ? { second: who.member.palette.dark } : kind === "grizzle" ? { second: who.member.palette.belly } : {}) };
+  return { trunk, dorsal, ...secondOf(who, kind) };
 }
 
 /**
@@ -478,8 +499,12 @@ function aboveFloor(capsules: readonly Capsule[], m: Moment): readonly Capsule[]
   });
 }
 
-export function bodyOf(id: string, who: Who, m: Moment, drawn: readonly Capsule[], scene?: Scene): Body {
-  const capsules = aboveFloor(drawn, m);
+/** What is drawn of an animal, and the scene it stands in when it is in one. */
+export interface Drawn { readonly capsules: readonly Capsule[]; readonly scene?: Scene | undefined }
+
+export function bodyOf(id: string, who: Who, m: Moment, drawn: Drawn): Body {
+  const { scene } = drawn;
+  const capsules = aboveFloor(drawn.capsules, m);
   return {
     id,
     kind: who.member.species,
@@ -522,12 +547,9 @@ export function poseSpecies(id: SpeciesId, action: Action = "stand", t = 0, opti
   const traits = traitsOf(seed === undefined ? null : streamOf(seed, "fauna.pose.traits"), young, options.sex ?? "male");
   const member = memberOf(
     createRandom(seed ?? 1),
-    id,
-    coat,
-    young,
     { morph: options.morph, region: region ?? undefined },
-    undefined,
-    traits,
+    { id, coat, young },
+    { traits },
   );
   const spec = specOf(member);
   return galleryBody(id, { member, spec }, action, t);
@@ -539,7 +561,7 @@ function galleryBody(id: SpeciesId, who: Who, action: Action, t: number): Body {
   const m = climbing
     ? onGalleryTrunk(galleryMoment(who.spec, action, t), who.member.size)
     : galleryMoment(who.spec, action, t);
-  return bodyOf(id, who, m, [...poseWho(who, m), ...(climbing ? [galleryTrunk(who, m)] : [])]);
+  return bodyOf(id, who, m, { capsules: [...poseWho(who, m), ...(climbing ? [galleryTrunk(who, m)] : [])] });
 }
 
 const GALLERY_MODES: Partial<Record<Action, MoveMode>> = { fly: "fly", climb: "climb", wander: "walk", run: "walk", hop: "walk", stalk: "walk" };
@@ -563,7 +585,8 @@ function galleryMoment(spec: SpeciesSpec, action: Action, t: number): Moment {
   // (It hangs at its drawn size, its legs dangling below its arms.)
   const phase = (t * pace) / Math.max(0.5, spec.build.len);
   const hop = action === "hop" && spec.plan === "bird" ? spec.size * 0.5 * Math.abs(Math.sin(Math.PI * phase)) : 0;
-  const lift: Vec = action === "fly" ? [0, spec.size * 2, 0] : action === "hang" ? [0, Math.max(spec.size, TOY * Math.sqrt(spec.size)) * 2.4, 0] : [0, hop, 0];
+  const hung: Vec = action === "hang" ? [0, Math.max(spec.size, TOY * Math.sqrt(spec.size)) * 2.4, 0] : [0, hop, 0];
+  const lift: Vec = action === "fly" ? [0, spec.size * 2, 0] : hung;
   return {
     frame: frameOf(lift, [0, 0, 1]),
     phase,

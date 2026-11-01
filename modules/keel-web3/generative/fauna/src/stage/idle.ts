@@ -130,9 +130,14 @@ export function actionsOf(spec: SpeciesSpec): Action[] {
   const base = PLAN_ACTIONS[spec.plan];
   const out = new Set<Action>(Object.keys(base) as Action[]);
   // A temper of 0 takes an action off the animal's menu: a tortoise does not run, a fox does not graze.
-  for (const [action, weight] of Object.entries(spec.temper) as [Action, number][]) if (weight > 0) out.add(action); else out.delete(action);
-  if (!spec.climbs && spec.plan !== "bird") { out.delete("climb");
-  out.delete("hang"); }
+  for (const [action, weight] of Object.entries(spec.temper) as [Action, number][]) {
+    if (weight > 0) out.add(action);
+    else out.delete(action);
+  }
+  if (!spec.climbs && spec.plan !== "bird") {
+    out.delete("climb");
+    out.delete("hang");
+  }
   if (!spec.flies) out.delete("fly");
   return [...out];
 }
@@ -201,7 +206,8 @@ function columnWeight(spec: SpeciesSpec, action: Action, mood: Mood): number {
 /** How the weather weighs an action: rain and snow keep animals still, and fliers out of the air. */
 function skyWeight(action: Action, mood: Mood): number {
   const moving = MOVES.has(action);
-  if (mood.weather === "rain") return WET[action] ?? (action === "fly" ? 0.3 : moving ? 0.5 : 1);
+  const wet = moving ? 0.5 : 1;
+  if (mood.weather === "rain") return WET[action] ?? (action === "fly" ? 0.3 : wet);
   if (mood.weather === "snow") return SNOWY[action] ?? (moving ? 0.6 : 1);
   return 1;
 }

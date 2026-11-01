@@ -8,7 +8,8 @@ import { anchorOf, trunkPoint } from "./stage.js";
 import type { Place, Stage } from "./stage.js";
 import { alongPath, bankedUp, branchWay, pathLength, woodMapOf, woodNear } from "./paths.js";
 import type { PathPoint } from "./paths.js";
-import { offWood, pathFor, springOf, yawFrom } from "./director.js";
+import { pathFor, springOf, yawFrom } from "./director.js";
+import { offWood } from "./perches.js";
 import type { Actor, MoveMode, Scene, Segment } from "./director.js";
 import { ownPhase } from "../animals/kit.js";
 import type { Who } from "../animals/bodies.js";
@@ -82,8 +83,10 @@ export type Pose = Record<PoseKey, number>;
 export const restPose = (): Pose => Object.fromEntries(POSE_KEYS.map((key) => [key, 0])) as Pose;
 
 export const bump = (k: number): number => Math.sin(Math.PI * clamp(k, 0, 1));
-export const pulse = (t: number, every: number, width: number): number => { const u = (t % every) / every;
-return u < width ? bump(u / width) : 0; };
+export const pulse = (t: number, every: number, width: number): number => {
+  const u = (t % every) / every;
+  return u < width ? bump(u / width) : 0;
+};
 
 type PoseFn = (tl: number, k: number, d: number) => Partial<Pose>;
 /** What each action does to the body, `tl` seconds into it, `k` of the way through. */
@@ -255,24 +258,24 @@ const TRUNK_WINDS = 10;
 const TRUNK_PITCH = 11;
 export const liesAlong = (actor: Actor): boolean => actor.spec.plan === "serpent" && actor.spec.build.leg === 0;
 
+/** When a frame is wanted, and the heading the animal turns onto its way from (its segment's own by default). */
+export interface When { readonly t: number; readonly from?: number | undefined }
+
+/** Which way a mover points: a climber down the wood's slope, a flier level, a walker flat along the ground. */
+function headingOf(mode: MoveMode, fw: Vec): Vec {
+  if (mode === "climb") return fw;
+  return mode === "fly" ? level(fw) : flat(fw);
+}
+
 export function movingFrame(
   actor: Actor,
   segment: Segment,
-  t: number,
   scene: Scene,
-  from = segment.yaw,
+  when: When,
 ): { frame: Frame; phase: number; moving: number; trail?: readonly Vec[] } {
+  const { t, from = segment.yaw } = when;
   const mode = segment.mode ?? "walk";
-  const path = pathFor(
-    mode,
-    segment.from,
-    segment.to,
-    scene,
-    actor.member.size,
-    springOf(actor),
-    segment.loop,
-    segment.via,
-  );
+  const path = pathFor({ ...segment, mode }, scene, actor.member.size, springOf(actor));
   const d = Math.max(0.01, segment.t1 - segment.t0);
   const u = clamp((t - segment.t0) / d, 0, 1);
   const stride = bodyStride(actor);
@@ -288,13 +291,17 @@ export function movingFrame(
   const at = alongPath(path, share);
   // Climbing, it follows the wood's slope; walking, it keeps level, and it
   // turns onto its way over its first steps instead of all at once.
-  let fw = mode === "climb" ? at.fw : mode === "fly" ? level(at.fw) : flat(at.fw);
+  let fw = headingOf(mode, at.fw);
   const turning = (t - segment.t0) / TURN_TIME;
   if (mode !== "climb" && turning < 1)
     fw = dirOf(turnToward(from, Math.atan2(fw[0], fw[2]), smooth(turning)), Math.asin(clamp(fw[1], -1, 1)));
   const moving = clamp(Math.min(1, (t - segment.t0) / 0.25, (segment.t1 - t) / 0.25), 0, 1);
   if (mode === "fly")
-    return { frame: flyingFrame(actor, segment, t, path, share, at.p, fw), phase: at.travelled / stride, moving };
+    return {
+      frame: flyingFrame(actor, segment, t, { path, share, p: at.p, fw }),
+      phase: at.travelled / stride,
+      moving,
+    };
   const p = add(mode === "climb" ? outOfWood(at.p, scene.stage) : at.p, [
     0,
     hopLift(actor, segment, mode, at.travelled) * moving,
@@ -333,15 +340,11 @@ function outOfWood(p: Vec, stage: Stage): Vec {
  * that bounds, rising on each burst of wingbeats and dipping with its wings
  * shut.
  */
-function flyingFrame(
-  actor: Actor,
-  segment: Segment,
-  t: number,
-  path: readonly PathPoint[],
-  share: number,
-  p: Vec,
-  fw: Vec,
-): Frame {
+/** Where a flier is on its way: the path, how far along it, and the point and heading there. */
+interface Flight { readonly path: readonly PathPoint[]; readonly share: number; readonly p: Vec; readonly fw: Vec }
+
+function flyingFrame(actor: Actor, segment: Segment, t: number, flight: Flight): Frame {
+  const { path, share, p, fw } = flight;
   const total = Math.max(1e-6, pathLength(path));
   const span = Math.max(0.01, segment.t1 - segment.t0);
   const step = Math.min(0.08, 0.5 / total);
@@ -375,14 +378,11 @@ function perchYaw(actor: Actor, along: Vec, came: number): number {
   return Math.cos(left - came) >= 0 ? left : yaw - Math.PI / 2;
 }
 
-function restingFrame(
-  actor: Actor,
-  segment: Segment,
-  t: number,
-  scene: Scene,
-  partners: readonly Actor[],
-  turn = segment.turn,
-): Frame {
+/** A rest's moment: when, who else is about to face, and the heading it turns from (its segment's by default). */
+interface Rest { readonly t: number; readonly partners: readonly Actor[]; readonly turn?: number | undefined }
+
+function restingFrame(actor: Actor, segment: Segment, scene: Scene, rest: Rest): Frame {
+  const { t, partners, turn = segment.turn } = rest;
   const anchor = anchorOf(segment.to, scene.stage, scene.backs);
   if (segment.to.on === "trunk") {
     return segment.act === "drum" || actor.spec.plan === "bird"
@@ -405,9 +405,9 @@ export function momentOf(actor: Actor, t: number, scene: Scene, partners: readon
   // Each action turns on from the heading the last one really ended on (a
   // partner it watched may have moved on; a short look may not have finished
   // turning), so the body never snaps round between them.
-  const from = prev?.mode === null && prev.to.on === "ground" ? frameYaw(restingFrame(actor, prev, t, scene, partners)) : undefined;
+  const from = prev?.mode === null && prev.to.on === "ground" ? frameYaw(restingFrame(actor, prev, scene, { t, partners })) : undefined;
   if (segment.mode) {
-    const { frame, phase, moving, trail } = movingFrame(actor, segment, t, scene, from);
+    const { frame, phase, moving, trail } = movingFrame(actor, segment, scene, { t, from });
     return {
       frame,
       trail: trail && overLimbs(trail, actor, scene.stage),
@@ -423,7 +423,7 @@ export function momentOf(actor: Actor, t: number, scene: Scene, partners: readon
   const trail = liesAlong(actor) ? perchTrail(segment.to, scene) : undefined;
   const lying = trail && overLimbs(trail, actor, scene.stage);
   return {
-    frame: restingFrame(actor, segment, t, scene, partners, from ?? segment.turn),
+    frame: restingFrame(actor, segment, scene, { t, partners, turn: from ?? segment.turn }),
     trail: lying,
     phase: 0,
     moving: 0,

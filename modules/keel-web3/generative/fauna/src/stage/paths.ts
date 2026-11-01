@@ -26,7 +26,11 @@ function clearOfTrunk(stage: Stage, p: Vec, size: number): Vec {
  * arc. A springy animal (`spring` near 1: a bird, a rabbit) hops it with room
  * to spare; a heavy one steps over.
  */
-export function walkPath(a: Anchor, b: Anchor, stage: Stage, size: number, spring = 0): PathPoint[] {
+/** Who walks: how big, and how springy (0 steps over a root, near 1 hops it). */
+export interface Walker { readonly size: number; readonly spring?: number }
+
+export function walkPath(a: Anchor, b: Anchor, stage: Stage, walker: Walker): PathPoint[] {
+  const { size, spring = 0 } = walker;
   const span = Math.hypot(b.p[0] - a.p[0], b.p[2] - a.p[2]);
   const steps = clamp(Math.ceil(span / Math.max(0.03, size * 0.2)), 8, 96);
   const points: Vec[] = [];
@@ -66,7 +70,7 @@ function flightHeading(p: Vec, other: Vec, span: number, reach: number): Vec {
 }
 
 /** A point on a Catmull-Rom curve through four points. */
-function catmull(p0: Vec, p1: Vec, p2: Vec, p3: Vec, u: number): Vec {
+function catmull([p0, p1, p2, p3]: readonly [Vec, Vec, Vec, Vec], u: number): Vec {
   const u2 = u * u;
   const u3 = u2 * u;
   return [0, 1, 2].map((i) => {
@@ -115,7 +119,12 @@ const barkRoom = (size: number, g: number): number =>
  * out, crosses, and comes in on a long glide, from a little below a branch
  * to swoop up onto it, or from above the ground to drop onto it.
  */
-export function flyPath(a: Anchor, b: Anchor, stage: Stage, size: number, onWood: boolean): PathPoint[] {
+/** Who flies: how big, and whether it is bound for a branch or the trunk (else the ground). */
+export interface Flier { readonly size: number; readonly onWood: boolean }
+
+/** The keys of a flight: off its start, out and round on the climb, in on the glide, and onto its end. */
+function flightKeys(a: Anchor, b: Anchor, stage: Stage, flier: Flier): Vec[] {
+  const { size, onWood } = flier;
   const span = Math.hypot(b.p[0] - a.p[0], b.p[2] - a.p[2]);
   const rise = b.p[1] - a.p[1];
   // (Climbing, at most about one up for two across, so even a big bird winds up to a high branch on a wide loop.)
@@ -137,12 +146,20 @@ export function flyPath(a: Anchor, b: Anchor, stage: Stage, size: number, onWood
   );
   const leave = roundTrunk([climbed[0], a.p[1] + 0.15 + Math.max(rise, 0) * 0.55, climbed[2]], clear);
   const near = roundTrunk([coming[0], b.p[1] + drop, coming[2]], clear);
-  const keys = [a.p, a.p, leave, near, b.p, b.p].map((p) => withinReach(stage, p));
+  return [a.p, a.p, leave, near, b.p, b.p].map((p) => withinReach(stage, p));
+}
+
+export function flyPath(a: Anchor, b: Anchor, stage: Stage, flier: Flier): PathPoint[] {
+  const { size } = flier;
+  const keys = flightKeys(a, b, stage, flier);
   const legs = keys.length - 3;
   const points: PathPoint[] = [];
   for (let i = 0; i <= legs * 10; i += 1) {
     const leg = Math.min(legs - 1, Math.floor(i / 10));
-    const p = catmull(keys[leg] ?? a.p, keys[leg + 1] ?? a.p, keys[leg + 2] ?? b.p, keys[leg + 3] ?? b.p, i / 10 - leg);
+    const p = catmull(
+      [keys[leg] ?? a.p, keys[leg + 1] ?? a.p, keys[leg + 2] ?? b.p, keys[leg + 3] ?? b.p],
+      i / 10 - leg,
+    );
     // Never through the ground on the way, only off it and onto it at the ends.
     const g = i / (legs * 10);
     const lift = size * 0.3 * Math.min(1, g / 0.15, (1 - g) / 0.15);
@@ -208,10 +225,7 @@ function smoothWay(keys: readonly Vec[], stage: Stage, size: number, out?: (p: V
   for (let i = 0; i <= legs * 10; i += 1) {
     const leg = Math.min(legs - 1, Math.floor(i / 10));
     const p = catmull(
-      keys[leg] ?? first,
-      keys[leg + 1] ?? first,
-      keys[leg + 2] ?? last,
-      keys[leg + 3] ?? last,
+      [keys[leg] ?? first, keys[leg + 1] ?? first, keys[leg + 2] ?? last, keys[leg + 3] ?? last],
       i / 10 - leg,
     );
     const g = i / (legs * 10);
@@ -243,7 +257,11 @@ function sortieTurn(loop: Extract<Loop, { kind: "sortie" }>, from: number, to: n
  * branch to swoop up onto it, or from above the ground to drop onto it. The
  * circle ends where it comes in, so it turns home on its way round.
  */
-export function sortiePath(a: Anchor, b: Anchor, stage: Stage, size: number, loop: Extract<Loop, { kind: "sortie" }>, fromWood: boolean, onWood: boolean): PathPoint[] {
+/** A sortie: who flies it, its loop, and whether it leaves from and comes home to wood. */
+export interface Sortie extends Flier { readonly loop: Extract<Loop, { kind: "sortie" }>; readonly fromWood: boolean }
+
+export function sortiePath(a: Anchor, b: Anchor, stage: Stage, sortie: Sortie): PathPoint[] {
+  const { size, loop, fromWood, onWood } = sortie;
   const c = stage.trunk?.base ?? [0, stage.top, 0];
   const outward = (p: Vec): Vec => unit([p[0] - c[0], 0, p[2] - c[2]], [1, 0, 0]);
   const clear = trunkClear(stage, size) * 1.4;
@@ -286,7 +304,11 @@ export function sortiePath(a: Anchor, b: Anchor, stage: Stage, size: number, loo
  * and down, with a loop-the-loop now and then, kept low (under its
  * `ceiling`) and near the tree.
  */
-export function flutterPath(a: Anchor, b: Anchor, stage: Stage, size: number, loop: Extract<Loop, { kind: "flutter" }>): PathPoint[] {
+/** A flutter: who flies it and its seeded jinks. */
+export interface Flutter { readonly size: number; readonly loop: Extract<Loop, { kind: "flutter" }> }
+
+export function flutterPath(a: Anchor, b: Anchor, stage: Stage, flutter: Flutter): PathPoint[] {
+  const { size, loop } = flutter;
   const rand = createRandom(Math.floor(loop.seed * 4294967295) >>> 0);
   const c = stage.trunk?.base ?? [0, stage.top, 0];
   const way = sub(b.p, a.p);
@@ -428,7 +450,11 @@ const cellKey = (x: number, y: number, z: number): number => (x * 1024 + y) * 10
 
 /** Each grid cell between two corners. */
 function cellsBetween(low: Vec, high: Vec, visit: (key: number) => void): void {
-  for (let x = cellOf(low[0]); x <= cellOf(high[0]); x += 1) for (let y = cellOf(low[1]); y <= cellOf(high[1]); y += 1) for (let z = cellOf(low[2]); z <= cellOf(high[2]); z += 1) visit(cellKey(x, y, z));
+  for (let x = cellOf(low[0]); x <= cellOf(high[0]); x += 1) {
+    for (let y = cellOf(low[1]); y <= cellOf(high[1]); y += 1) {
+      for (let z = cellOf(low[2]); z <= cellOf(high[2]); z += 1) visit(cellKey(x, y, z));
+    }
+  }
 }
 
 const corner = (a: Vec, b: Vec, pick: (x: number, y: number) => number, by: number): Vec => [
@@ -460,7 +486,9 @@ export function woodMapOf(stage: Stage): WoodMap {
     edges.push({ a, b, keys });
   }
   const cells = new Map<number, number[]>();
-  edges.forEach((edge, i) => { fileEdge(cells, edge, i); });
+  edges.forEach((edge, i) => {
+    fileEdge(cells, edge, i);
+  });
   const map = { edges, cells, thickest: edges.reduce((most, e) => Math.max(most, e.a.r, e.b.r), 0) };
   woodMaps.set(stage, map);
   return map;
@@ -469,7 +497,9 @@ export function woodMapOf(stage: Stage): WoodMap {
 /** The wood filed within `reach` of a point. */
 export function woodNear(map: WoodMap, p: Vec, reach: number): WoodEdge[] {
   const found = new Set<number>();
-  cellsBetween(sub(p, [reach, reach, reach]), add(p, [reach, reach, reach]), (key) => { for (const i of map.cells.get(key) ?? []) found.add(i); });
+  cellsBetween(sub(p, [reach, reach, reach]), add(p, [reach, reach, reach]), (key) => {
+    for (const i of map.cells.get(key) ?? []) found.add(i);
+  });
   return [...found].flatMap((i) => map.edges[i] ?? []);
 }
 
@@ -491,8 +521,12 @@ export function sameLimb(from: BranchWay | null, to: BranchWay | null): PathPoin
  * branch, round and up the trunk to where the other branch leaves it, and out
  * along that one. Two perches on the same limb meet where their branches part.
  */
-export function climbPath(from: Place, to: Place, a: Anchor, b: Anchor, stage: Stage, size: number): PathPoint[] {
-  if (!stage.trunk || (from.on === "ground" && to.on === "ground")) return walkPath(a, b, stage, size, 0);
+/** A climb's ends: the two places and where each is on the stage. */
+export interface ClimbEnds { readonly from: Place; readonly to: Place; readonly a: Anchor; readonly b: Anchor }
+
+export function climbPath(ends: ClimbEnds, stage: Stage, size: number): PathPoint[] {
+  const { from, to, a, b } = ends;
+  if (!stage.trunk || (from.on === "ground" && to.on === "ground")) return walkPath(a, b, stage, { size, spring: 0 });
   const out: PathPoint[] = [{ p: a.p, up: a.up }];
   const fromWay = branchWay(from, stage);
   const toWay = branchWay(to, stage);

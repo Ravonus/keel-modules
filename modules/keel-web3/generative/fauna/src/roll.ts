@@ -4,8 +4,10 @@
 
 export function hashName(name: string): number {
   let h = 2166136261;
-  for (let i = 0; i < name.length; i += 1) { h ^= name.charCodeAt(i);
-  h = Math.imul(h, 16777619); }
+  for (let i = 0; i < name.length; i += 1) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
   return h >>> 0;
 }
 
@@ -30,7 +32,10 @@ export function pick<T>(rand: () => number, entries: readonly (readonly [T, numb
   let total = 0;
   for (const [, w] of entries) total += Math.max(0, w);
   let roll = rand() * total;
-  for (const [value, w] of entries) { roll -= Math.max(0, w); if (roll < 0) return value; }
+  for (const [value, w] of entries) {
+    roll -= Math.max(0, w);
+    if (roll < 0) return value;
+  }
   return first[0];
 }
 export const between = (rand: () => number, [lo, hi]: readonly [number, number]): number => lo + (hi - lo) * rand();

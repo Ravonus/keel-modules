@@ -58,8 +58,12 @@ const owlSkull = (face: OwlFace): { readonly back: number; readonly r: number; r
   flat: 0.76,
 });
 
+/** An owl's head and its face as its coat has it. */
+interface Owl { readonly h: Head; readonly face: OwlFace }
+
 /** A point `s` across and `u` up an owl's face, `out` head radii off the skull's front (as `owlHead` draws it). */
-function onOwlFace(h: Head, face: OwlFace, s: number, u: number, out = 0): Vec {
+function onOwlFace(owl: Owl, s: number, u: number, out = 0): Vec {
+  const { h, face } = owl;
   const skull = owlSkull(face);
   const ds = Math.max(0, Math.abs(s) - face.crown);
   return at3(h, skull.back + skull.flat * Math.sqrt(Math.max(0, skull.r * skull.r - ds * ds - u * u)) + out, s, u);
@@ -76,15 +80,16 @@ export function owlHead(kit: Kit, who: Who, head: Head, m: Moment): void {
   const skull = owlSkull(face);
   // (Carried back, right over its toes.)
   const h: Head = { ...head, c: madd(head.c, [0, 0, 1], -head.r * 0.05) };
+  const owl: Owl = { h, face };
   // (Wider than it is tall, so the crown runs flat between its corners, and flattened in front for the face;
   // sunk into the top of its body and melted into it, so no neck or notch shows between them.)
-  cap(kit, "head", "coat", at3(h, skull.back, -face.crown, 0), at3(h, skull.back, face.crown, 0), h.r * skull.r, skull.flat, h.d, { melt: 0.9 });
-  owlFaceMarks(kit, who, h, face, m.segment.act !== "sleep");
-  owlDisc(kit, h, face);
+  cap(kit, "head", "coat", { a: at3(h, skull.back, -face.crown, 0), b: at3(h, skull.back, face.crown, 0), r: h.r * skull.r, flat: skull.flat, up: h.d, finish: { melt: 0.9 } });
+  owlFaceMarks(kit, who, owl, m.segment.act !== "sleep");
+  owlDisc(kit, owl);
   // (A barn owl's pale ridge, standing out of its heart down from its forehead to the bill.)
-  if (face.heart) cap(kit, "ridge", "horn", onOwlFace(h, face, 0, 0.58, -0.05), onOwlFace(h, face, 0, -0.06, -0.03), h.r * 0.075, 1, UP, { r1: h.r * 0.06, melt: 0 });
-  for (const x of [-1, 1]) owlEye(kit, h, face, x, m.segment.act !== "sleep");
-  owlBeak(kit, h, face, m.pose.mouth);
+  if (face.heart) cap(kit, "ridge", "horn", { a: onOwlFace(owl, 0, 0.58, -0.05), b: onOwlFace(owl, 0, -0.06, -0.03), r: h.r * 0.075, flat: 1, up: UP, finish: { r1: h.r * 0.06, melt: 0 } });
+  for (const x of [-1, 1]) owlEye(kit, owl, x, m.segment.act !== "sleep");
+  owlBeak(kit, owl, m.pose.mouth);
   if (who.member.coat === "great horned") owlTufts(kit, h);
 }
 
@@ -95,16 +100,10 @@ export function owlHead(kit: Kit, who: Who, head: Head, m: Moment): void {
  * lies across the face; carved, it stands off it so it cuts in only `dish`
  * head radii at its deepest.
  */
-function discHalf(
-  kit: Kit,
-  part: string,
-  role: Role,
-  h: Head,
-  face: OwlFace,
-  x: number,
-  grow: number,
-  finish: Finish,
-): void {
+interface Lobe { readonly role: Role; readonly x: number; readonly grow: number; readonly finish: Finish }
+function discHalf(kit: Kit, part: string, owl: Owl, lobe: Lobe): void {
+  const { h, face } = owl;
+  const { role, x, grow, finish } = lobe;
   // (A heart's lobes overlap down its middle, so it reads as one white face and never as two goggles.)
   const [top, end] = face.heart
     ? ([
@@ -121,17 +120,14 @@ function discHalf(
   const thick = finish.carve === true ? 0.12 : r * 0.75;
   // (A tapered part thins with its radius: each end stands off by its own thickness.)
   const off = (k: number): number => (finish.carve === true ? thick * k - face.dish : 0);
-  cap(
-    kit,
-    part,
-    role,
-    onOwlFace(h, face, x * top[0], top[1], off(1)),
-    onOwlFace(h, face, x * end[0], end[1], off(r1 / r)),
-    h.r * r,
-    thick / r,
-    n,
-    { ...finish, r1: h.r * r1 },
-  );
+  cap(kit, part, role, {
+    a: onOwlFace(owl, x * top[0], top[1], off(1)),
+    b: onOwlFace(owl, x * end[0], end[1], off(r1 / r)),
+    r: h.r * r,
+    flat: thick / r,
+    up: n,
+    finish: { ...finish, r1: h.r * r1 },
+  });
 }
 
 /**
@@ -139,23 +135,32 @@ function discHalf(
  * rim in a darker colour, and dished only a little (a carve), so its edge
  * reads as a soft crease and never as a ring of the crown's colour.
  */
-function owlDisc(kit: Kit, h: Head, face: OwlFace): void {
+function owlDisc(kit: Kit, owl: Owl): void {
+  const { h, face } = owl;
   // (Both halves' paint first, so inside either the rims, which are the halves grown a little, give way to it.)
-  for (const x of [-1, 1]) discHalf(kit, `disc.${x < 0 ? "L" : "R"}`, face.disc, h, face, x, 0, { decal: true });
-  for (const x of [-1, 1]) owlRim(kit, h, face, x);
-  if (face.heart) for (const x of [-1, 1]) discHalf(kit, `dish.${x < 0 ? "L" : "R"}`, face.disc, h, face, x, -0.04, { carve: true, melt: 0.6 });
+  for (const x of [-1, 1]) discHalf(kit, `disc.${x < 0 ? "L" : "R"}`, owl, { role: face.disc, x, grow: 0, finish: { decal: true } });
+  for (const x of [-1, 1]) owlRim(kit, owl, x);
+  if (face.heart) for (const x of [-1, 1]) discHalf(kit, `dish.${x < 0 ? "L" : "R"}`, owl, { role: face.disc, x, grow: -0.04, finish: { carve: true, melt: 0.6 } });
   // (A round disc's dish is one wide cut across both its halves.)
-  else cap(kit, "dish", face.disc, onOwlFace(h, face, -0.46, 0.1, 0.1 - face.dish), onOwlFace(h, face, 0.46, 0.1, 0.1 - face.dish), h.r * 0.62, 0.16, h.d, { carve: true, melt: 0.6 });
+  else cap(kit, "dish", face.disc, { a: onOwlFace(owl, -0.46, 0.1, 0.1 - face.dish), b: onOwlFace(owl, 0.46, 0.1, 0.1 - face.dish), r: h.r * 0.62, flat: 0.16, up: h.d, finish: { carve: true, melt: 0.6 } });
 }
 
 /** The line round a half of the disc: all the way round it, or (an `open` rim) a crescent down its outer side only. */
-function owlRim(kit: Kit, h: Head, face: OwlFace, x: number): void {
+function owlRim(kit: Kit, owl: Owl, x: number): void {
+  const { h, face } = owl;
   const part = `rim.${x < 0 ? "L" : "R"}`;
-  if (face.open) cap(kit, part, face.rim, onOwlFace(h, face, x * 0.94, 0.34), onOwlFace(h, face, x * 0.78, -0.24), h.r * 0.25, 1, UP, {
-    r1: h.r * 0.2,
-    decal: true,
+  if (face.open) cap(kit, part, face.rim, {
+    a: onOwlFace(owl, x * 0.94, 0.34),
+    b: onOwlFace(owl, x * 0.78, -0.24),
+    r: h.r * 0.25,
+    flat: 1,
+    up: UP,
+    finish: {
+      r1: h.r * 0.2,
+      decal: true,
+    },
   });
-  else discHalf(kit, part, face.rim, h, face, x, face.ring, { decal: true });
+  else discHalf(kit, part, owl, { role: face.rim, x, grow: face.ring, finish: { decal: true } });
 }
 
 /**
@@ -164,39 +169,34 @@ function owlRim(kit: Kit, h: Head, face: OwlFace, x: number): void {
  * lobes of its heart down to the bill; a great horned owl's pale brows in a V over the bill (its white
  * throat is on its body, see `owlBib`).
  */
-function owlFaceMarks(kit: Kit, who: Who, h: Head, face: OwlFace, open: boolean): void {
-  const on = (s: number, u: number): Vec => onOwlFace(h, face, s, u);
+function owlFaceMarks(kit: Kit, who: Who, owl: Owl, open: boolean): void {
+  const { h, face } = owl;
+  const on = (s: number, u: number): Vec => onOwlFace(owl, s, u);
   // (Each stands off the face at its upper end, so it still lies on the face where the face bulges out between its
   // ends.)
   if (who.member.coat === "barn")
-    cap(kit, "notch", "coat", onOwlFace(h, face, 0, 0.92, 0.12), on(0, 0.14), h.r * 0.15, 1, UP, {
+    cap(kit, "notch", "coat", { a: onOwlFace(owl, 0, 0.92, 0.12), b: on(0, 0.14), r: h.r * 0.15, flat: 1, up: UP, finish: {
       r1: h.r * 0.03,
       decal: true,
-    });
+    } });
   // (A round eye's dark ring painted round it on the disc, so it frames the eye however the face curves.)
   if (open && !face.heart)
     for (const x of [-1, 1])
-      decal(
-        kit,
-        `eye.${x < 0 ? "L" : "R"}.ring`,
-        "dark",
-        onOwlFace(h, face, x * face.apart, face.high),
-        onOwlFace(h, face, x * face.apart, face.high),
-        h.r * face.eye * face.lid,
-      );
+      decal(kit, `eye.${x < 0 ? "L" : "R"}.ring`, "dark", {
+        a: onOwlFace(owl, x * face.apart, face.high),
+        b: onOwlFace(owl, x * face.apart, face.high),
+        r: h.r * face.eye * face.lid,
+      });
   if (who.member.coat === "great horned")
     for (const x of [-1, 1])
-      cap(
-        kit,
-        `brow.${x < 0 ? "L" : "R"}`,
-        "accent",
-        onOwlFace(h, face, x * 0.03, -0.04, 0.02),
-        onOwlFace(h, face, x * 0.56, 0.56, 0.05),
-        h.r * 0.12,
-        1,
-        UP,
-        { r1: h.r * 0.07, decal: true },
-      );
+      cap(kit, `brow.${x < 0 ? "L" : "R"}`, "accent", {
+        a: onOwlFace(owl, x * 0.03, -0.04, 0.02),
+        b: onOwlFace(owl, x * 0.56, 0.56, 0.05),
+        r: h.r * 0.12,
+        flat: 1,
+        up: UP,
+        finish: { r1: h.r * 0.07, decal: true },
+      });
 }
 
 /**
@@ -206,26 +206,27 @@ function owlFaceMarks(kit: Kit, who: Who, h: Head, face: OwlFace, open: boolean)
  * snowy owl's big and lemon yellow in a dark ring, only a thin lid on a
  * snowy owl (painted on the disc, see `owlFaceMarks`). Shut, a dark slit across the disc.
  */
-function owlEye(kit: Kit, h: Head, face: OwlFace, x: number, open: boolean): void {
+function owlEye(kit: Kit, owl: Owl, x: number, open: boolean): void {
+  const { h, face } = owl;
   const part = `eye.${x < 0 ? "L" : "R"}`;
   const r = h.r * face.eye;
   const n = unit(madd(h.d, h.s, x * 0.12));
-  const surface = onOwlFace(h, face, x * face.apart, face.high, -face.dish);
+  const surface = onOwlFace(owl, x * face.apart, face.high, -face.dish);
   if (!open) {
     // (Up out of the dish, its ends drawn back round the face, so the slit lies on it and never stands off it.)
     const lid = madd(madd(surface, h.u, -r * 0.1), n, h.r * face.dish);
     const end = (k: number): Vec => madd(madd(lid, h.s, k * r * 0.6), n, -r * 0.1);
-    cap(kit, part, "dark", end(-1), end(1), r * 0.1, 1, UP, { melt: 0 });
+    cap(kit, part, "dark", { a: end(-1), b: end(1), r: r * 0.1, flat: 1, up: UP, finish: { melt: 0 } });
     return;
   }
   const across = unit(cross(n, h.u), h.s);
   const up = cross(across, n);
   // (Sunk so only a shallow lens of it stands proud, its pupil and its spark flat on it.)
   const c = madd(surface, n, -r * 0.15);
-  ball(kit, part, "eye", c, r, 0.3, n);
+  ball(kit, part, "eye", { p: c, r, flat: 0.3, up: n });
   const dark = h.eye?.pupil === "dark";
-  ball(kit, `${part}.pupil`, "pupil", madd(c, n, r * 0.2), r * (dark ? 0.76 : 0.42), 0.25, n);
-  ball(kit, `${part}.shine`, "shine", madd(madd(madd(c, n, r * 0.28), up, r * 0.32), across, -r * 0.18), r * (dark ? 0.28 : 0.2), 0.4, n);
+  ball(kit, `${part}.pupil`, "pupil", { p: madd(c, n, r * 0.2), r: r * (dark ? 0.76 : 0.42), flat: 0.25, up: n });
+  ball(kit, `${part}.shine`, "shine", { p: madd(madd(madd(c, n, r * 0.28), up, r * 0.32), across, -r * 0.18), r: r * (dark ? 0.28 : 0.2), flat: 0.4, up: n });
 }
 
 /**
@@ -234,18 +235,25 @@ function owlEye(kit: Kit, h: Head, face: OwlFace, x: number, open: boolean): voi
  * great horned owl's dark grey, a snowy owl's black, sunk in a tuft of white
  * bristles.
  */
-function owlBeak(kit: Kit, h: Head, face: OwlFace, mouth: number): void {
+/** How far the bill's root sinks into the face: into a snowy owl's bristles, a little into a heart. */
+function billSink(face: OwlFace): number {
+  if (face.bristle) return 0.08;
+  return face.heart ? 0.06 : 0;
+}
+
+function owlBeak(kit: Kit, owl: Owl, mouth: number): void {
+  const { h, face } = owl;
   const wide = face.bill * 0.46;
   const tall = face.bill;
-  const sunk = face.bristle ? 0.08 : face.heart ? 0.06 : 0;
+  const sunk = billSink(face);
   // (A heart's set low, down its ridge between the eyes.)
-  const root = onOwlFace(h, face, 0, face.high - face.bill * (face.heart ? 1.1 : 0.75), -sunk);
+  const root = onOwlFace(owl, 0, face.high - face.bill * (face.heart ? 1.1 : 0.75), -sunk);
   const knee = madd(madd(root, h.d, h.r * tall * 0.5), h.u, -h.r * tall * 0.4);
   const tip = madd(madd(knee, h.d, -h.r * tall * 0.16), h.u, -h.r * tall * 0.46);
-  if (face.bristle) ball(kit, "beak.bristle", "accent", madd(root, h.u, -h.r * tall * 0.2), h.r * tall * 1.05, 0.62, h.d);
-  cap(kit, "beak", "horn", root, knee, h.r * wide, 0.95, h.s, { r1: h.r * wide * 0.72 });
-  cap(kit, "beak.tip", face.tip, knee, tip, h.r * wide * 0.72, 0.85, h.s, { r1: h.r * 0.025, melt: 0 });
-  if (mouth > 0.05) cap(kit, "beak.lower", "horn", madd(root, h.u, -h.r * tall * 0.5), madd(madd(root, h.d, h.r * tall * 0.4), h.u, -h.r * tall * (0.5 + 0.6 * mouth)), h.r * wide * 0.5);
+  if (face.bristle) ball(kit, "beak.bristle", "accent", { p: madd(root, h.u, -h.r * tall * 0.2), r: h.r * tall * 1.05, flat: 0.62, up: h.d });
+  cap(kit, "beak", "horn", { a: root, b: knee, r: h.r * wide, flat: 0.95, up: h.s, finish: { r1: h.r * wide * 0.72 } });
+  cap(kit, "beak.tip", face.tip, { a: knee, b: tip, r: h.r * wide * 0.72, flat: 0.85, up: h.s, finish: { r1: h.r * 0.025, melt: 0 } });
+  if (mouth > 0.05) cap(kit, "beak.lower", "horn", { a: madd(root, h.u, -h.r * tall * 0.5), b: madd(madd(root, h.d, h.r * tall * 0.4), h.u, -h.r * tall * (0.5 + 0.6 * mouth)), r: h.r * wide * 0.5 });
 }
 
 /**
@@ -257,7 +265,7 @@ function owlTufts(kit: Kit, h: Head): void {
   for (const x of [-1, 1]) {
     const root = at3(h, 0.22, x * 0.42, 0.72);
     const dir = unit(add(add(h.u, scale(h.s, x * 0.42)), scale(h.d, -0.2)));
-    cap(kit, `ear.${x < 0 ? "L" : "R"}`, "alt", root, madd(root, dir, h.r * 0.6), h.r * 0.4, 0.46, h.d, { r1: h.r * 0.11, melt: 0.35, shadow: false });
+    cap(kit, `ear.${x < 0 ? "L" : "R"}`, "alt", { a: root, b: madd(root, dir, h.r * 0.6), r: h.r * 0.4, flat: 0.46, up: h.d, finish: { r1: h.r * 0.11, melt: 0.35, shadow: false } });
   }
 }
 
@@ -314,24 +322,30 @@ export function owlFold(kit: Kit, style: WingStyle, body: BirdBody, x: number): 
   const wrist = at(0.36, 0.48, 0.3);
   const point = at(-1.1, 0.3, 0.78);
   const face = owlTurned(body, unit([x * 0.8, 0, -0.6]));
-  cap(kit, `wing.${L}`, panel, wrist, point, r * 0.72, 0.94, face, { r1: r * 0.27, melt: 0.1 });
+  cap(kit, `wing.${L}`, panel, { a: wrist, b: point, r: r * 0.72, flat: 0.94, up: face, finish: { r1: r * 0.27, melt: 0.1 } });
   // (Fanned from under the wing's middle, each tip a step lower and further back along its edge, the longest last at
   // its point.)
   const root = at(-0.05, 0.93, 0.5);
   OWL_PRIMARIES.forEach(([up, out, back], i) => {
     // (Hardly melted, so each keeps its own edge and still wears the coat's pattern.)
-    cap(kit, `wingtip.${L}${String(i)}`, tips, root, at(up, out, back), r * 0.22, 0.4, face, {
+    cap(kit, `wingtip.${L}${String(i)}`, tips, { a: root, b: at(up, out, back), r: r * 0.22, flat: 0.4, up: face, finish: {
       r1: r * 0.14,
       melt: 0.08,
-    });
+    } });
   });
 }
 
 /** A row of pale spots across an open wing, from near its root out toward its tip. */
-export function wingSpots(kit: Kit, role: Role, L: string, root: Vec, tip: Vec, chord: number): void {
+export function wingSpots(
+  kit: Kit,
+  role: Role,
+  L: string,
+  span: { readonly root: Vec; readonly tip: Vec; readonly chord: number },
+): void {
+  const { root, tip, chord } = span;
   for (let i = 0; i < 4; i += 1) {
     const at = lerpV(root, tip, 0.3 + i * 0.17);
-    decal(kit, `wing.spot.${L}${String(i)}`, role, at, at, chord * 0.14);
+    decal(kit, `wing.spot.${L}${String(i)}`, role, { a: at, b: at, r: chord * 0.14 });
   }
 }
 
@@ -343,7 +357,7 @@ export function owlTail(kit: Kit, who: Who, body: BirdBody): void {
   const at = owlAt(body, 1);
   // (Its face turned back, so it hangs on down the line of the back.)
   const fan = unit(sub(at(0.3, 0, 1), at(0, 0, 0)));
-  cap(kit, "tail.1", wingStyle(who).fold[1], at(-0.74, 0, 0.78), at(-1.12, 0, 0.92), body.r * 0.46, 0.32, fan, { r1: body.r * 0.52, melt: 0.4 });
+  cap(kit, "tail.1", wingStyle(who).fold[1], { a: at(-0.74, 0, 0.78), b: at(-1.12, 0, 0.92), r: body.r * 0.46, flat: 0.32, up: fan, finish: { r1: body.r * 0.52, melt: 0.4 } });
 }
 
 /**
@@ -366,11 +380,11 @@ export function owlTorso(kit: Kit, coat: string, body: BirdBody): void {
   const ring = (k: readonly [number, number, number]): Vec => at(k[0], 0, k[2]);
   const over = sub(at(0, 0, 1), at(0, 0, 0));
   const snowy = coat === "snowy";
-  cap(kit, "body", "coat", ring(mid), ring(top), r * mid[1], OWL_DEEP, over, { r1: r * top[1] * owlShapeOf(coat).chest });
-  cap(kit, "belly", "coat", ring(mid), ring(low), r * mid[1], OWL_DEEP, over, { r1: r * low[1] });
+  cap(kit, "body", "coat", { a: ring(mid), b: ring(top), r: r * mid[1], flat: OWL_DEEP, up: over, finish: { r1: r * top[1] * owlShapeOf(coat).chest } });
+  cap(kit, "belly", "coat", { a: ring(mid), b: ring(low), r: r * mid[1], flat: OWL_DEEP, up: over, finish: { r1: r * low[1] } });
   // (Its bars first, so they lie over the plain white of its breast.)
   if (snowy) owlBars(kit, body);
-  cap(kit, "breast", owlUnder(coat), at(snowy ? 0.3 : -1.7, 0, -0.75), at(0.55, 0, -0.62), r * (snowy ? 0.7 : 1.4), 1, UP, { r1: r * (snowy ? 0.8 : 1.06), decal: true, under: !snowy });
+  cap(kit, "breast", owlUnder(coat), { a: at(snowy ? 0.3 : -1.7, 0, -0.75), b: at(0.55, 0, -0.62), r: r * (snowy ? 0.7 : 1.4), flat: 1, up: UP, finish: { r1: r * (snowy ? 0.8 : 1.06), decal: true, under: !snowy } });
 }
 
 /**
@@ -379,7 +393,7 @@ export function owlTorso(kit: Kit, coat: string, body: BirdBody): void {
  * crescent shows below the disc, its horns rising to either side.
  */
 export function owlBib(kit: Kit, h: Head): void {
-  cap(kit, "bib", "accent", at3(h, 0.5, -0.5, -0.92), at3(h, 0.5, 0.5, -0.92), h.r * 0.5, 1, UP, { decal: true });
+  cap(kit, "bib", "accent", { a: at3(h, 0.5, -0.5, -0.92), b: at3(h, 0.5, 0.5, -0.92), r: h.r * 0.5, flat: 1, up: UP, finish: { decal: true } });
 }
 
 /**
@@ -408,19 +422,20 @@ const OWL_LEGS: Readonly<Record<string, OwlLeg>> = {
  * gathers there, tapering to its shank on a chunky foot of three toes, each
  * with a dark hooked claw.
  */
-export function owlFoot(kit: Kit, who: Who, body: BirdBody, x: number, foot: Vec): void {
+export function owlFoot(kit: Kit, who: Who, body: BirdBody, stand: { readonly x: number; readonly foot: Vec }): void {
+  const { x, foot } = stand;
   const r = body.r;
   const L = x < 0 ? "L" : "R";
   const leg = OWL_LEGS[who.member.coat] ?? OWL_LEG;
   const heel = add(foot, [0, r * 0.13, 0]);
-  cap(kit, `leg.${L}`, owlUnder(who.member.coat), owlAt(body, x)(-1.06, 0.56, -0.04), heel, r * leg.thigh, 1, UP, { r1: r * leg.shank, melt: 0.65 });
+  cap(kit, `leg.${L}`, owlUnder(who.member.coat), { a: owlAt(body, x)(-1.06, 0.56, -0.04), b: heel, r: r * leg.thigh, flat: 1, up: UP, finish: { r1: r * leg.shank, melt: 0.65 } });
   for (const [k, yaw, len] of [[0, -0.6, 0.42], [1, 0, 0.5], [2, 0.6, 0.42]] as const) {
     const dir = dirOf(yaw + x * 0.14, -0.1);
     const tip = madd(heel, dir, r * len);
     // (Crisp, so the breast's paint never reaches down onto them.)
-    cap(kit, `leg.${L}.toe${String(k)}`, leg.skin, heel, tip, r * leg.toe, 1, UP, { r1: r * leg.toe * 0.82, melt: 0 });
+    cap(kit, `leg.${L}.toe${String(k)}`, leg.skin, { a: heel, b: tip, r: r * leg.toe, flat: 1, up: UP, finish: { r1: r * leg.toe * 0.82, melt: 0 } });
     // (A hooked claw, curling down to grip, crisp so the toe's colour never pales it.)
-    cap(kit, `leg.${L}.claw${String(k)}`, "dark", madd(tip, dir, r * leg.toe * 0.3), madd(madd(tip, dir, r * 0.17), UP, -r * 0.1), r * leg.claw, 1, UP, { r1: r * 0.015, melt: 0 });
+    cap(kit, `leg.${L}.claw${String(k)}`, "dark", { a: madd(tip, dir, r * leg.toe * 0.3), b: madd(madd(tip, dir, r * 0.17), UP, -r * 0.1), r: r * leg.claw, flat: 1, up: UP, finish: { r1: r * 0.015, melt: 0 } });
   }
 }
 
@@ -437,13 +452,13 @@ function owlBars(kit: Kit, body: BirdBody): void {
   const on = (up: number, out: number): Vec =>
     at(up, out, 0.16 - 0.88 * Math.sqrt(Math.max(0, 1 - (out * out) / 1.15)));
   OWL_BELLY_MARKS.forEach(([up, out], i) => {
-    for (const x of [-1, 1]) cap(kit, `bar.${String(i)}${x < 0 ? "L" : "R"}`, "dark", on(up, out), on(up + 0.18, out + x * 0.32), body.r * 0.06, 1, UP, { r1: body.r * 0.04, decal: true, melt: 0.7 });
+    for (const x of [-1, 1]) cap(kit, `bar.${String(i)}${x < 0 ? "L" : "R"}`, "dark", { a: on(up, out), b: on(up + 0.18, out + x * 0.32), r: body.r * 0.06, flat: 1, up: UP, finish: { r1: body.r * 0.04, decal: true, melt: 0.7 } });
   });
 }
 
 /** A barn owl's grey veil, soft and broken over its gold: down its crown and across its back and wings. */
 export function owlVeil(kit: Kit, body: BirdBody, h: Head): void {
   const at = owlAt(body, 1);
-  cap(kit, "veil.crown", "alt", at3(h, -0.5, 0, 0.8), at3(h, -0.95, 0, 0.2), h.r * 0.56, 1, UP, { decal: true, melt: 1.7 });
-  cap(kit, "veil.back", "alt", at(0.5, 0, 1.05), at(-0.6, 0, 1.15), body.r * 0.8, 1, UP, { decal: true, melt: 1.7 });
+  cap(kit, "veil.crown", "alt", { a: at3(h, -0.5, 0, 0.8), b: at3(h, -0.95, 0, 0.2), r: h.r * 0.56, flat: 1, up: UP, finish: { decal: true, melt: 1.7 } });
+  cap(kit, "veil.back", "alt", { a: at(0.5, 0, 1.05), b: at(-0.6, 0, 1.15), r: body.r * 0.8, flat: 1, up: UP, finish: { decal: true, melt: 1.7 } });
 }

@@ -108,14 +108,11 @@ function leaping(gait: QuadGait, phase: number): number {
   return clamp(up * 9, -1, 1);
 }
 
-function strideOf(
-  gait: QuadGait,
-  m: Moment,
-  q: Pose,
-  size: number,
-  r: number,
-  free: number,
-): { lift: number; flex: number; reach: number } {
+/** What a stride is scaled by: the animal's size, its body radius, and how free it is to stride at all. */
+interface StrideScale { readonly size: number; readonly r: number; readonly free: number }
+
+function strideOf(gait: QuadGait, m: Moment, q: Pose, by: StrideScale): { lift: number; flex: number; reach: number } {
+  const { size, r, free } = by;
   const cyc = TAU * m.phase;
   const arc = airborne(gait, m.phase);
   // (A leap gathers on the ground: it sinks over its feet, drives up nose first and comes down nose first.)
@@ -129,12 +126,18 @@ function strideOf(
   };
 }
 
+/** How far into each way of resting. */
+interface Rests {
+  readonly sit: number;
+  readonly loaf: number;
+  readonly rump: number;
+  readonly haunch: number;
+  readonly lie: number;
+  readonly rear: number;
+}
+
 /** How far into each way of resting: an action's sit becomes this animal's own sit (a deer lies, a bear sits back). */
-function restsOf(
-  b: Build,
-  q: Pose,
-  m: Moment,
-): { sit: number; loaf: number; rump: number; haunch: number; lie: number; rear: number } {
+function restsOf(b: Build, q: Pose, m: Moment): Rests {
   const own = (style: SitStyle): number => (b.sit === style ? q.sit : 0);
   const lie = b.sit === "lie" || b.sit === "tuck" ? Math.max(q.lie, q.sit) : q.lie;
   const loaf = own("loaf");
@@ -148,17 +151,28 @@ export function nosing(b: Build, q: Pose): number {
   return b.stoop === undefined ? 0 : clamp(-q.headPitch / 0.55, 0, 1) * (1 - clamp(q.sit + q.lie + q.curl, 0, 1));
 }
 
-export function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
-  const size = actor.member.size;
-  const b = buildOf(actor);
-  const L = b.len * size;
-  const r = b.body * size;
-  // (Shorter forelegs set the shoulders lower: a rabbit's back slopes down to its head.)
-  const stand = shoulderOf(b, size);
-  const shY = stand * (bipedal(b) ? 1 : b.fore);
-  const hipY = stand * b.hip;
-  const { sit, loaf, rump, haunch, lie, rear } = restsOf(b, q, m);
-  const hu = r * b.haunch;
+/** A standing body's measures: its length and radius, its shoulder and hip heights, its haunch. */
+interface Standing {
+  readonly L: number;
+  readonly r: number;
+  readonly shY: number;
+  readonly hipY: number;
+  readonly hu: number;
+}
+
+/** How far up on its hind legs a standing animal is, by how it sits. */
+function rearAngle(b: Build): number {
+  if (bipedal(b)) return 1.28;
+  return b.sit === "haunch" ? 1.42 : 1.25;
+}
+
+/**
+ * The pelvis and shoulders folded into each way of resting, with how far it is up (on its haunches or rump) and
+ * down (lying or loafed).
+ */
+function foldedSpine(b: Build, stand: Standing, rests: Rests, q: Pose): { P: Vec; S: Vec; up: number; down: number } {
+  const { L, r, shY, hipY, hu } = stand;
+  const { sit, loaf, rump, haunch, lie, rear } = rests;
   let P: Vec = [0, hipY, -L / 2];
   let S: Vec = [0, shY, L / 2];
   // A dog's sit: the rump down by its heels and the back raised steeply, the
@@ -178,7 +192,7 @@ export function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
   S = lerpV(S, madd(upP, [0, Math.sin(upA), Math.cos(upA)], L * 0.72), up);
   // Up on its hind legs: upright for the animals that sit up (a meerkat on watch), leaning for the rest.
   const rearP: Vec = [0, hipY * 0.95, -L * 0.12];
-  const rearA = bipedal(b) ? 1.28 : b.sit === "haunch" ? 1.42 : 1.25;
+  const rearA = rearAngle(b);
   const rearK = rear * (1 - sit) * (1 - up);
   P = lerpV(P, rearP, rearK);
   S = lerpV(S, madd(rearP, [0, Math.sin(rearA), Math.cos(rearA)], L * (bipedal(b) ? 1 : 0.85)), rearK);
@@ -188,9 +202,27 @@ export function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
   S = lerpV(S, [0, r * b.chest * (loaf > lie ? 1.25 : 1.05), L * (loaf > lie ? 0.42 : 0.5)], down);
   S = madd(S, UP, -q.bow * Math.max(0, S[1] - r * 1.4) * 0.55);
   S = madd(S, UP, -nosing(b, q) * (b.stoop ?? 0) * r);
+  return { P, S, up, down };
+}
+
+export function quadSpine(actor: Who, q: Pose, m: Moment): QuadBody {
+  const size = actor.member.size;
+  const b = buildOf(actor);
+  const L = b.len * size;
+  const r = b.body * size;
+  // (Shorter forelegs set the shoulders lower: a rabbit's back slopes down to its head.)
+  const stand = shoulderOf(b, size);
+  const shY = stand * (bipedal(b) ? 1 : b.fore);
+  const hipY = stand * b.hip;
+  const rests = restsOf(b, q, m);
+  const { sit, loaf, rump, haunch, lie, rear } = rests;
+  const hu = r * b.haunch;
+  const folded = foldedSpine(b, { L, r, shY, hipY, hu }, rests, q);
+  const { up, down } = folded;
+  let { P, S } = folded;
   const gait = quadGait(actor, m);
   const free = m.moving * (1 - sit) * (1 - down) * (1 - up);
-  const { lift, flex, reach } = strideOf(gait, m, q, size, r, free);
+  const { lift, flex, reach } = strideOf(gait, m, q, { size, r, free });
   // (However hard it lands, the belly stays out of the ground.)
   const belly = free > 0 ? r * 1.5 : -Infinity;
   P = [P[0], Math.max(P[1] + lift - flex, Math.min(P[1], belly)), P[2] - reach];
@@ -230,35 +262,44 @@ interface FootPlan { readonly foot: Vec; readonly tilt: number }
  */
 function stanceFoot(b: Build, body: QuadBody, leg: LegId, q: Pose): FootPlan {
   const x = sideOf(leg);
-  const { P, S, w, L, legF, legH, r } = body;
+  return foreLeg(leg) ? foreStance(b, body, x, q) : hindStance(b, body, x);
+}
+
+/** Where a forefoot rests. */
+function foreStance(b: Build, body: QuadBody, x: number, q: Pose): FootPlan {
+  const { S, w, L, legF, r } = body;
   const low = LOWER[b.foot];
-  if (foreLeg(leg)) {
-    // (A foreleg made as a column stands right under its shoulder.)
-    let foot: Vec = [x * w, 0, b.legMake ? S[2] - r * 0.1 : S[2] + 0.05 * L];
-    let tilt = b.legMake ? 0 : low.foreTilt;
-    foot = lerpV(foot, [x * w * 0.9, 0, S[2] + 0.04 * L], body.sit);
-    // A bear sits back with its forepaws down between its knees; a squirrel holds them to its mouth.
-    foot = lerpV(foot, [x * w * 0.75, 0, S[2] + L * 0.12], body.rump);
-    tilt = mix(tilt, -0.8, body.rump);
-    foot = lerpV(foot, add(S, [x * w * 0.55, -r * 0.05, r * 1.0 + legF * 0.12]), body.haunch);
-    tilt = mix(tilt, 2.4, body.haunch);
-    // Lying: a dog's forearms flat out in front (a sphinx); a deer's folded back under its chest.
-    const hoof = b.foot === "hoof";
-    foot = lerpV(foot, hoof ? [x * w * 0.9, 0, S[2] - legF * 0.05] : [x * w * 1.05, 0, S[2] + legF * 0.62], body.lie);
-    tilt = mix(tilt, hoof ? 1.5 : -1.5, body.lie);
-    foot = lerpV(foot, [x * w * 0.8, 0, S[2] + r * 0.25], body.loaf);
-    tilt = mix(tilt, 1.45, body.loaf);
-    foot = lerpV(foot, [x * w, 0, S[2] + legF * 0.55], q.bow);
-    tilt = mix(tilt, -1.3, q.bow);
-    const rear = bipedal(b) ? 1 : body.rear * (1 - body.sit) * (1 - body.lie);
-    foot = lerpV(
-      foot,
-      add(S, bipedal(b) ? [x * w * 1.05, -legF * 0.62, legF * 0.62] : [x * w * 0.9, -legF * 0.42, legF * 0.3]),
-      rear,
-    );
-    tilt = mix(tilt, 1.0, rear);
-    return { foot, tilt };
-  }
+  // (A foreleg made as a column stands right under its shoulder.)
+  let foot: Vec = [x * w, 0, b.legMake ? S[2] - r * 0.1 : S[2] + 0.05 * L];
+  let tilt = b.legMake ? 0 : low.foreTilt;
+  foot = lerpV(foot, [x * w * 0.9, 0, S[2] + 0.04 * L], body.sit);
+  // A bear sits back with its forepaws down between its knees; a squirrel holds them to its mouth.
+  foot = lerpV(foot, [x * w * 0.75, 0, S[2] + L * 0.12], body.rump);
+  tilt = mix(tilt, -0.8, body.rump);
+  foot = lerpV(foot, add(S, [x * w * 0.55, -r * 0.05, r * 1.0 + legF * 0.12]), body.haunch);
+  tilt = mix(tilt, 2.4, body.haunch);
+  // Lying: a dog's forearms flat out in front (a sphinx); a deer's folded back under its chest.
+  const hoof = b.foot === "hoof";
+  foot = lerpV(foot, hoof ? [x * w * 0.9, 0, S[2] - legF * 0.05] : [x * w * 1.05, 0, S[2] + legF * 0.62], body.lie);
+  tilt = mix(tilt, hoof ? 1.5 : -1.5, body.lie);
+  foot = lerpV(foot, [x * w * 0.8, 0, S[2] + r * 0.25], body.loaf);
+  tilt = mix(tilt, 1.45, body.loaf);
+  foot = lerpV(foot, [x * w, 0, S[2] + legF * 0.55], q.bow);
+  tilt = mix(tilt, -1.3, q.bow);
+  const rear = bipedal(b) ? 1 : body.rear * (1 - body.sit) * (1 - body.lie);
+  foot = lerpV(
+    foot,
+    add(S, bipedal(b) ? [x * w * 1.05, -legF * 0.62, legF * 0.62] : [x * w * 0.9, -legF * 0.42, legF * 0.3]),
+    rear,
+  );
+  tilt = mix(tilt, 1.0, rear);
+  return { foot, tilt };
+}
+
+/** Where a hind foot rests. */
+function hindStance(b: Build, body: QuadBody, x: number): FootPlan {
+  const { P, w, L, legH, r } = body;
+  const low = LOWER[b.foot];
   let foot: Vec = [x * w, 0, b.legMake ? P[2] + r * 0.25 : P[2]];
   let tilt = low.hindTilt;
   // Every fold lays the hock flat on the ground with the foot out ahead of it.
@@ -273,7 +314,20 @@ function stanceFoot(b: Build, body: QuadBody, leg: LegId, q: Pose): FootPlan {
   return { foot, tilt };
 }
 
-export function quadFoot(actor: Who, body: QuadBody, leg: LegId, q: Pose, m: Moment, head: Vec): FootPlan {
+/**
+ * The legs' work for one pose: the body they hang from, where its head is (a paw reaches for it), the moment, and
+ * the legs as drawn so far.
+ */
+export interface Legwork {
+  readonly body: QuadBody;
+  readonly head: Vec;
+  readonly m: Moment;
+  readonly lines: LegLine[];
+}
+
+export function quadFoot(actor: Who, work: Legwork, leg: LegId): FootPlan {
+  const { body, m } = work;
+  const q = m.pose;
   const b = buildOf(actor);
   const plan = stanceFoot(b, body, leg, q);
   let { foot, tilt } = plan;
@@ -294,11 +348,14 @@ export function quadFoot(actor: Who, body: QuadBody, leg: LegId, q: Pose, m: Mom
     const swing = (c.y / Math.max(1e-9, lift)) * body.free;
     tilt += swing * (fore ? 1.5 : -0.95);
   }
-  return pawWork({ foot, tilt }, body, leg, q, m.t, head);
+  return pawWork({ foot, tilt }, work, leg);
 }
 
 /** A hind paw scratching behind an ear, forepaws digging. */
-function pawWork(plan: FootPlan, body: QuadBody, leg: LegId, q: Pose, t: number, head: Vec): FootPlan {
+function pawWork(plan: FootPlan, work: Legwork, leg: LegId): FootPlan {
+  const { body, head } = work;
+  const q = work.m.pose;
+  const t = work.m.t;
   let { foot, tilt } = plan;
   if (leg === "HR" && q.scratch > 0) foot = add(lerpV(foot, add(head, [body.w * 1.4, -body.r * 0.9, -body.r * 1.2]), q.scratch * 0.85), [0, Math.sin(t * 26) * body.r * 0.3 * q.scratch, 0]);
   if (foreLeg(leg) && q.dig > 0) {
@@ -343,7 +400,9 @@ export interface LegLine {
   readonly x: number;
 }
 
-export function quadLeg(kit: Kit, actor: Who, body: QuadBody, leg: LegId, plan: FootPlan, lines: LegLine[]): void {
+export function quadLeg(kit: Kit, actor: Who, work: Legwork, leg: LegId): void {
+  const plan = quadFoot(actor, work, leg);
+  const { body, lines } = work;
   const b = buildOf(actor);
   const x = sideOf(leg);
   const fore = foreLeg(leg);
@@ -369,28 +428,53 @@ export function quadLeg(kit: Kit, actor: Who, body: QuadBody, leg: LegId, plan: 
   );
   const name = `leg.${leg}`;
   const [r0, r1, r2, r3] = taperOf(b, fore);
-  if (b.extras.includes("shell")) { columnLeg(kit, name, [root, mid, end], [r0, r1, r2, r3], legR, fore);
-  stumpFoot(kit, name, sole, legR, fore, x);
-  return; }
+  const shank: Shank = { name, end, sole, legR, plantR, fore, x };
+  if (b.extras.includes("shell")) {
+    columnLeg(kit, shank, [root, mid], [r0, r1, r2, r3]);
+    stumpFoot(kit, shank);
+    return;
+  }
   lines.push({ name, root, mid, sole, ground: plan.foot[1], legR, x });
-  cone(kit, `${name}.upper`, "coat", root, mid, legR * r0, legR * r1);
-  cone(kit, `${name}.lower`, "coat", mid, end, legR * r2, legR * r3, b.legMake ? 0.8 : 0.45);
-  if (b.legMake) softPaw(kit, b, name, sole, legR, fore);
-  else footParts(kit, b, name, end, sole, legR, plantR);
+  legBones(kit, b, shank, { root, mid, taper: [r0, r1, r2, r3] });
+}
+
+/** A leg's two bones, tapered as its kind's are, and the foot on the end of them. */
+/** A leg's upper joints, and the radii of its bones' ends, top to bottom. */
+interface Bones { readonly root: Vec; readonly mid: Vec; readonly taper: readonly [number, number, number, number] }
+
+function legBones(kit: Kit, b: Build, shank: Shank, bones: Bones): void {
+  const { name, end, legR } = shank;
+  const { root, mid, taper: [r0, r1, r2, r3] } = bones;
+  cone(kit, `${name}.upper`, "coat", { a: root, b: mid, r: legR * r0, r1: legR * r1 });
+  cone(kit, `${name}.lower`, "coat", { a: mid, b: end, r: legR * r2, r1: legR * r3, melt: b.legMake ? 0.8 : 0.45 });
+  if (b.legMake) softPaw(kit, b, shank);
+  else footParts(kit, b, shank);
+}
+
+/**
+ * The bottom of a leg: its name, its lowest joint and where its sole lies, its radius and its foot's, which end of
+ * the body it is on and which side.
+ */
+interface Shank {
+  readonly name: string;
+  readonly end: Vec;
+  readonly sole: Vec;
+  readonly legR: number;
+  readonly plantR: number;
+  readonly fore: boolean;
+  readonly x: number;
 }
 
 /** A tortoise's leg: a tapered column, the foreleg's front flattened into a shield for its big scales. */
 function columnLeg(
   kit: Kit,
-  name: string,
-  [root, mid, end]: readonly [Vec, Vec, Vec],
+  { name, end, legR, fore }: Shank,
+  [root, mid]: readonly [Vec, Vec],
   [r0, r1, r2, r3]: readonly [number, number, number, number],
-  legR: number,
-  fore: boolean,
 ): void {
   const flat = fore ? 0.78 : 1;
-  cap(kit, `${name}.upper`, "coat", root, mid, legR * r0, flat, [0, 0, 1], { r1: legR * r1, melt: 0.6 });
-  cap(kit, `${name}.lower`, "coat", mid, end, legR * r2, flat, [0, 0, 1], { r1: legR * r3, melt: 0.5 });
+  cap(kit, `${name}.upper`, "coat", { a: root, b: mid, r: legR * r0, flat, up: [0, 0, 1], finish: { r1: legR * r1, melt: 0.6 } });
+  cap(kit, `${name}.lower`, "coat", { a: mid, b: end, r: legR * r2, flat, up: [0, 0, 1], finish: { r1: legR * r3, melt: 0.5 } });
 }
 
 /**
@@ -411,66 +495,64 @@ function lowOf(b: Build, fore: boolean): { share: number; lean: number; upper: n
 const taperOf = (b: Build, fore: boolean): readonly [number, number, number, number] =>
   fore ? (b.legMake?.fore ?? b.taper?.fore ?? LEG_TAPER.fore) : (b.legMake?.hind ?? b.taper?.hind ?? LEG_TAPER.hind);
 
-const softRole = (b: Build): Role => (b.extras.includes("mitts") ? "belly" : b.extras.includes("socks") ? "dark" : "coat");
+function softRole(b: Build): Role {
+  if (b.extras.includes("mitts")) return "belly";
+  return b.extras.includes("socks") ? "dark" : "coat";
+}
 
 /**
  * The foot of a soft leg: a low oval paw the leg flows into with no neck above it, its pale fur running up into the
  * leg.
  */
-function softPaw(kit: Kit, b: Build, name: string, sole: Vec, legR: number, fore: boolean): void {
+function softPaw(kit: Kit, b: Build, shank: Shank): void {
+  const { name, sole, legR, fore } = shank;
   if (b.extras.includes("toes")) {
-    toedPaw(kit, name, sole, legR, fore);
+    toedPaw(kit, shank);
     return;
   }
-  cap(
-    kit,
-    `${name}.paw`,
-    softRole(b),
-    madd(sole, [0, 0, 1], -legR * 0.2),
-    madd(sole, [0, 0, 1], legR * 0.75),
-    legR * 1.18,
-    0.62,
-    UP,
-    { melt: 0.9 },
-  );
+  cap(kit, `${name}.paw`, softRole(b), {
+    a: madd(sole, [0, 0, 1], -legR * 0.2),
+    b: madd(sole, [0, 0, 1], legR * 0.75),
+    r: legR * 1.18,
+    flat: 0.62,
+    up: UP,
+    finish: { melt: 0.9 },
+  });
   // (A raccoon's forepaw is a hand: two lines over its front part three fingers, each a blade deep enough to follow the
   // paw's curve.)
   if (fore && b.extras.includes("fingers"))
     for (const x of [-1, 1])
-      cap(
-        kit,
-        `${name}.finger`,
-        "alt",
-        add(sole, [x * legR * 0.36, legR * 0.3, legR * 0.8]),
-        add(sole, [x * legR * 0.44, legR * 0.05, legR * 1.5]),
-        legR * 0.6,
-        0.16,
-        [1, 0, 0],
-        { decal: true },
-      );
+      cap(kit, `${name}.finger`, "alt", {
+        a: add(sole, [x * legR * 0.36, legR * 0.3, legR * 0.8]),
+        b: add(sole, [x * legR * 0.44, legR * 0.05, legR * 1.5]),
+        r: legR * 0.6,
+        flat: 0.16,
+        up: [1, 0, 0],
+        finish: { decal: true },
+      });
 }
 
 /**
  * An elephant's foot on a tortoise: the column's end spread round and flat on the ground, a row of stout blunt nails of
  * pale horn along its toe edge, turned out a little.
  */
-function stumpFoot(kit: Kit, name: string, sole: Vec, legR: number, fore: boolean, x: number): void {
-  cap(kit, `${name}.paw`, "coat", sole, sole, legR * 1.06, 0.68, UP, { melt: 0.3 });
+function stumpFoot(kit: Kit, { name, sole, legR, fore, x }: Shank): void {
+  cap(kit, `${name}.paw`, "coat", { a: sole, b: sole, r: legR * 1.06, flat: 0.68, up: UP, finish: { melt: 0.3 } });
   const span = legR * (fore ? 0.92 : 0.74);
   const toe = add(sole, [x * legR * 0.22, -legR * 0.38, legR * 0.68]);
-  cap(kit, `${name}.nails`, "horn", add(toe, [-span, 0, -x * legR * 0.2]), add(toe, [span, 0, x * legR * 0.2]), legR * 0.215, 1, UP, { row: fore ? 5 : 4, bow: [0, 0, legR * 0.36], shadow: false });
+  cap(kit, `${name}.nails`, "horn", { a: add(toe, [-span, 0, -x * legR * 0.2]), b: add(toe, [span, 0, x * legR * 0.2]), r: legR * 0.215, flat: 1, up: UP, finish: { row: fore ? 5 : 4, bow: [0, 0, legR * 0.36], shadow: false } });
 }
 
 /**
  * A low flat paw of bare skin with its toes as nubs of their own, a hedgehog's: three to a forepaw and two to a hind
  * one, all a body's parts can spare.
  */
-function toedPaw(kit: Kit, name: string, sole: Vec, legR: number, fore: boolean): void {
+function toedPaw(kit: Kit, { name, sole, legR, fore }: Shank): void {
   for (const x of fore ? [-1, 0, 1] : [-0.6, 0.6]) {
     const nub = add(sole, [x * legR * 0.85, -legR * 0.3, legR * (1.7 - Math.abs(x) * 0.25)]);
-    cap(kit, `${name}.toe${String(x)}`, "accent", nub, nub, legR * 0.5, 0.75, UP, { melt: 0.15 });
+    cap(kit, `${name}.toe${String(x)}`, "accent", { a: nub, b: nub, r: legR * 0.5, flat: 0.75, up: UP, finish: { melt: 0.15 } });
   }
-  cap(kit, `${name}.paw`, "accent", madd(sole, [0, 0, 1], -legR * 0.2), madd(sole, [0, 0, 1], legR * 0.5), legR * 1.18, 0.5, UP, { melt: 0.25 });
+  cap(kit, `${name}.paw`, "accent", { a: madd(sole, [0, 0, 1], -legR * 0.2), b: madd(sole, [0, 0, 1], legR * 0.5), r: legR * 1.18, flat: 0.5, up: UP, finish: { melt: 0.25 } });
 }
 
 /**
@@ -514,7 +596,11 @@ function clawsOut(paw: Paw, m: Moment): number {
  * into it, and its claws as another, rooted inside the toes' tips and drawn
  * out to points. Shaped by its kind, and a little by the animal.
  */
-function pawDigits(kit: Kit, b: Build, line: LegLine, paw: Paw, out: number, gene: () => number): void {
+/** How far a paw's claws are out, and its own roll for the small differences in its toes. */
+interface Digits { readonly b: Build; readonly paw: Paw; readonly out: number; readonly gene: () => number }
+
+function pawDigits(kit: Kit, line: LegLine, digits: Digits): void {
+  const { b, paw, out, gene } = digits;
   const { name, sole, ground, legR, x } = line;
   const span = legR * paw.fan * mix(0.92, 1.08, gene());
   const long = legR * paw.long * mix(0.85, 1.15, gene());
@@ -526,15 +612,15 @@ function pawDigits(kit: Kit, b: Build, line: LegLine, paw: Paw, out: number, gen
   });
   // (Claws a cat has just put out matter more than its toes, so they go last.)
   const toes = row(edge);
-  cap(kit, `${name}.toes`, b.legMake ? softRole(b) : "dark", toes.a, toes.b, legR * 0.26, 0.8, UP, { row: paw.toes, reach: [0, -legR * 0.02, toe], melt: 0.32, shadow: false, detail: paw.sheathed && out >= 0.05 ? 2 : 1 });
+  cap(kit, `${name}.toes`, b.legMake ? softRole(b) : "dark", { a: toes.a, b: toes.b, r: legR * 0.26, flat: 0.8, up: UP, finish: { row: paw.toes, reach: [0, -legR * 0.02, toe], melt: 0.32, shadow: false, detail: paw.sheathed && out >= 0.05 ? 2 : 1 } });
   if (out < 0.05) return;
   const claws = row(add(edge, [0, -legR * 0.05, toe * 0.86]));
-  cap(kit, `${name}.claws`, "horn", claws.a, claws.b, legR * paw.stout, 1, UP, { row: paw.toes, reach: [0, -long * paw.curl * out, long * out], sharp: true, melt: 0.1, shadow: false, detail: paw.sheathed ? 1 : 2 });
+  cap(kit, `${name}.claws`, "horn", { a: claws.a, b: claws.b, r: legR * paw.stout, flat: 1, up: UP, finish: { row: paw.toes, reach: [0, -long * paw.curl * out, long * out], sharp: true, melt: 0.1, shadow: false, detail: paw.sheathed ? 1 : 2 } });
 }
 
 /** The muscle a leg hangs from, a flat sheet down its outside: a shoulder blade and upper arm, a thigh. */
 const legMass = (kit: Kit, { name, root, mid, legR }: LegLine): void => {
-  cap(kit, `${name}.mass`, "coat", add(root, [0, legR * 1.1, 0]), lerpV(root, mid, 0.72), legR * 1.5, 0.6, [1, 0, 0], { r1: legR * 0.95, melt: 0.95, shadow: false, detail: 3 });
+  cap(kit, `${name}.mass`, "coat", { a: add(root, [0, legR * 1.1, 0]), b: lerpV(root, mid, 0.72), r: legR * 1.5, flat: 0.6, up: [1, 0, 0], finish: { r1: legR * 0.95, melt: 0.95, shadow: false, detail: 3 } });
 };
 
 /** A leg's finishing parts, each set one `detail` group, so a device short of parts drops them whole, muscle first. */
@@ -543,26 +629,29 @@ export function legFinish(kit: Kit, actor: Who, lines: readonly LegLine[], m: Mo
   const paw = PAWS[actor.member.species] ?? PAW;
   const gene = createRandom(markOf(actor) ^ 0x7ac3119d);
   const shape = [gene(), gene(), gene()];
-  if (b.foot !== "hoof" && !b.extras.includes("toes") && !b.extras.includes("fingers")) for (const line of lines) { let i = 0;
-  pawDigits(kit, b, line, paw, clawsOut(paw, m), () => shape[i++] ?? 0.5); }
+  if (b.foot !== "hoof" && !b.extras.includes("toes") && !b.extras.includes("fingers"))
+    for (const line of lines) {
+      let i = 0;
+      pawDigits(kit, line, { b, paw, out: clawsOut(paw, m), gene: () => shape[i++] ?? 0.5 });
+    }
   for (const line of lines) legMass(kit, line);
   // (A deer's slim leg shows its joints: a knobbed knee or hock, the fetlock over each hoof.)
-  if (b.foot === "hoof") for (const { name, mid, legR } of lines) cap(kit, `${name}.knee`, "coat", mid, mid, legR * 0.72, 0.9, [1, 0, 0], { melt: 0.5, shadow: false, detail: 2 });
+  if (b.foot === "hoof") for (const { name, mid, legR } of lines) cap(kit, `${name}.knee`, "coat", { a: mid, b: mid, r: legR * 0.72, flat: 0.9, up: [1, 0, 0], finish: { melt: 0.5, shadow: false, detail: 2 } });
 }
 
 /** The lowest bone and what it stands on: a hoof's cannon and hoof, a flat sole, a pastern and paw. */
-function footParts(kit: Kit, b: Build, name: string, end: Vec, sole: Vec, legR: number, plantR: number): void {
+function footParts(kit: Kit, b: Build, { name, end, sole, legR, plantR }: Shank): void {
   const lowRole: Role = b.extras.includes("socks") ? "dark" : "coat";
   if (b.foot === "hoof") {
-    cone(kit, `${name}.cannon`, lowRole, end, sole, legR * 0.55, legR * 0.48, 0.35);
+    cone(kit, `${name}.cannon`, lowRole, { a: end, b: sole, r: legR * 0.55, r1: legR * 0.48, melt: 0.35 });
     // (Cloven: two toes of horn, wedged forward from the fetlock.)
     const wide: Vec = [plantR * 0.55, 0, 0];
-    cap(kit, `${name}.paw`, "dark", sub(sole, wide), add(sole, wide), plantR * 0.62, 1, UP, { row: 2, reach: [0, -plantR * 0.5, plantR * 1.1], melt: 0.1 });
+    cap(kit, `${name}.paw`, "dark", { a: sub(sole, wide), b: add(sole, wide), r: plantR * 0.62, flat: 1, up: UP, finish: { row: 2, reach: [0, -plantR * 0.5, plantR * 1.1], melt: 0.1 } });
     return;
   }
   const toe = madd(sole, [0, 0, 1], plantR * (b.foot === "plant" ? 0.6 : 0.35));
   // (A sole lies flat, heel to toe, so the foot reads from the side.)
-  if (b.foot === "plant") cap(kit, `${name}.cannon`, lowRole, end, sole, legR * 0.75, 0.7, UP, { r1: legR * 0.85, melt: 0.4 });
-  else cone(kit, `${name}.cannon`, lowRole, end, sole, legR * (b.taper ? 0.42 : 0.62), legR * (b.taper ? 0.46 : 0.55), 0.35);
-  cap(kit, `${name}.paw`, "dark", toe, toe, plantR * (b.foot === "plant" ? 1.25 : 1.35), b.foot === "plant" ? 0.6 : 0.7, UP, { melt: 0.3 });
+  if (b.foot === "plant") cap(kit, `${name}.cannon`, lowRole, { a: end, b: sole, r: legR * 0.75, flat: 0.7, up: UP, finish: { r1: legR * 0.85, melt: 0.4 } });
+  else cone(kit, `${name}.cannon`, lowRole, { a: end, b: sole, r: legR * (b.taper ? 0.42 : 0.62), r1: legR * (b.taper ? 0.46 : 0.55), melt: 0.35 });
+  cap(kit, `${name}.paw`, "dark", { a: toe, b: toe, r: plantR * (b.foot === "plant" ? 1.25 : 1.35), flat: b.foot === "plant" ? 0.6 : 0.7, up: UP, finish: { melt: 0.3 } });
 }

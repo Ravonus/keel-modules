@@ -10,10 +10,8 @@ import { anchorOf, groundSpot } from "./stage.js";
 import type { Place, Spot, Stage } from "./stage.js";
 import { pathLength, woodMapOf } from "./paths.js";
 import type { Loop } from "./paths.js";
-import {
-  GROUND_BIRDS, groundMove, onGround, pathFor, perchCount, perchFits, perchFree, randomPerch, roomyPerch, stay,
-  travel,
-} from "./director.js";
+import { GROUND_BIRDS, groundMove, onGround, pathFor, stay, travel } from "./director.js";
+import { perchCount, perchFits, perchFree, randomPerch, roomyPerch } from "./perches.js";
 import type { Actor, Pantry, Scene, Troupe } from "./director.js";
 import { extend } from "./scenes.js";
 import { frameYaw, momentOf, movingFrame } from "./moments.js";
@@ -69,11 +67,15 @@ function startsUp(member: CastMember, stage: Stage, rand: () => number): boolean
   return rand() < (kind.temper.hang !== undefined || member.species === "koala" || member.species === "owl" || member.species === "loris" ? 0.85 : 0.3);
 }
 
-function actorOf(member: CastMember, index: number, seed: number, centre: Place, stage: Stage, taken: readonly Spot[], pantry: Pantry): Actor {
+/** What a troupe's actors are cast into: its seed, where it gathers, the stage, and the herd's pantry. */
+interface Troupeing { readonly seed: number; readonly centre: Place; readonly stage: Stage; readonly pantry: Pantry }
+
+function actorOf(member: CastMember, index: number, taken: readonly Spot[], into: Troupeing): Actor {
+  const { seed, centre, stage, pantry } = into;
   const rand = streamOf(seed, `fauna.actor.${index}.${member.species}`);
   const spec = specOf(member);
   const near = anchorOf(centre, stage, []).p;
-  const place: Place = startsUp(member, stage, rand) ? { on: "perch", i: Math.floor(rand() * 9973) } : groundSpot(rand, stage, member.size, near, member.size * 3 + 0.3, taken);
+  const place: Place = startsUp(member, stage, rand) ? { on: "perch", i: Math.floor(rand() * 9973) } : groundSpot(rand, stage, member.size, { near, reach: member.size * 3 + 0.3, taken });
   const actor: Actor = { index, member, spec, rand, day: matrixOf(spec, {}), night: matrixOf(spec, { night: true }), moods: new Map(), segments: [], until: 0, place, limbs: [0, 1], yaw: rand() * TAU, last: "stand", pos: anchorOf(place, stage, []).p, back: null, mates: [], pantry };
   stay(actor, spec.plan === "bug" ? "hover" : "stand", 0.3 + rand() * 1.5);
   return actor;
@@ -89,7 +91,7 @@ function troupesOf(cast: Cast, stage: Stage, pantry: Pantry): Troupe[] {
     const actors: Actor[] = [];
     group.members.forEach((member, i) => {
       const taken = actors.filter((actor) => actor.place.on === "ground").map((actor) => ({ p: anchorOf(actor.place, stage, []).p, size: actor.member.size }));
-      actors.push(actorOf(member, i, cast.seed + g * 101, centre, stage, taken, pantry));
+      actors.push(actorOf(member, i, taken, { seed: cast.seed + g * 101, centre, stage, pantry }));
     });
     const scene: Scene = { stage, backs: [] };
     for (const actor of actors) {
@@ -140,7 +142,7 @@ function stopHere(actor: Actor, index: number, t: number, scene: Scene): boolean
     return true;
   }
   if (segment.mode !== "walk" || t >= segment.t1) return false;
-  const here = movingFrame(actor, segment, t, scene).frame.o;
+  const here = movingFrame(actor, segment, scene, { t }).frame.o;
   const to: Place = { on: "ground", x: here[0], z: here[2] };
   const end = Math.max(segment.t0 + 0.05, t);
   list[index] = { ...segment, t1: end, to };
@@ -170,10 +172,16 @@ function recall(actor: Actor, index: number, t: number, scene: Scene): void {
     actor.place = segment.from;
     return;
   }
-  const here = movingFrame(actor, segment, t, scene).frame;
+  const here = movingFrame(actor, segment, scene, { t }).frame;
   const loop: Loop = { ...segment.loop, laps: 0, start: here.o };
-  const speed = pathLength(pathFor("fly", segment.from, segment.to, scene, actor.member.size, 1, segment.loop)) / Math.max(0.01, segment.t1 - segment.t0);
-  const duration = Math.max(1.5, pathLength(pathFor("fly", segment.from, segment.to, scene, actor.member.size, 1, loop)) / Math.max(0.5, speed));
+  const trip = { mode: "fly", from: segment.from, to: segment.to } as const;
+  const speed =
+    pathLength(pathFor({ ...trip, loop: segment.loop }, scene, actor.member.size, 1)) /
+    Math.max(0.01, segment.t1 - segment.t0);
+  const duration = Math.max(
+    1.5,
+    pathLength(pathFor({ ...trip, loop }, scene, actor.member.size, 1)) / Math.max(0.5, speed),
+  );
   list[index] = { ...segment, t1: t };
   list.push({ ...segment, t0: t, t1: t + duration, yaw: frameYaw(here), loop });
   actor.until = t + duration;
@@ -186,14 +194,14 @@ function obey(actor: Actor, to: Order["to"], scene: Scene, spot: number): void {
   const size = actor.member.size;
   const { spec } = actor;
   if (to.on === "perch" && perchCount(scene) > 0 && (spec.flies || spec.climbs) && !GROUND_BIRDS.has(actor.member.species)) {
-    travel(actor, { on: "perch", i: roomyPerch(scene.stage, to.i + spot, size) }, spec.flies ? "fly" : "climb", scene);
+    travel(actor, { on: "perch", i: roomyPerch(scene.stage, to.i + spot, size) }, scene, { act: spec.flies ? "fly" : "climb" });
   } else {
     // A branch it cannot climb: it comes to stand under it and looks up.
     const target = to.on === "perch" ? anchorOf({ on: "perch", i: to.i }, scene.stage, scene.backs).p : [to.x, 0, to.z] as Vec;
     const angle = spot * 2.4;
     const gap = spot === 0 ? 0 : size * 1.6 + 0.1;
     const place = onGround(scene.stage, size, target[0] + Math.cos(angle) * gap, target[2] + Math.sin(angle) * gap);
-    travel(actor, place, groundMove(actor, place, scene), scene);
+    travel(actor, place, scene, { act: groundMove(actor, place, scene) });
   }
   stay(actor, "look", 2 + actor.rand() * 1.5);
 }
@@ -216,6 +224,34 @@ function commandTroupes(troupes: readonly Troupe[], t: number, order: Order, sta
 
 
 
+/** Who crosses the sky: the bird of its flocks, of its vees, and of its swarms, each cast once from the sky's plan. */
+interface Flyers { readonly flock: Who | null; readonly vee: Who | null; readonly swarm: Who | null }
+
+function flyersOf(cast: Cast): Flyers {
+  const flyer = (species: SpeciesId | null, coat: string, name: string): Who | null => (species ? { member: memberOf(streamOf(cast.seed, `fauna.sky.${name}`), { morph: "normal", region: cast.sky.region ?? undefined }, { id: species, coat: coat || (speciesOf(species).coats[0]?.[0] ?? ""), young: false }), spec: speciesOf(species) } : null);
+  return { flock: flyer(cast.sky.birds, cast.sky.coats.birds, "bird"), vee: flyer(cast.sky.vee, cast.sky.coats.vee, "vee"), swarm: flyer(cast.sky.swarm, cast.sky.coats.swarm, "swarm") };
+}
+
+/** The bodies of one pass over the sky at `t`. */
+function passBodies(flyers: Flyers, pass: Pass, t: number): Body[] {
+  if (pass.kind === "flock") return flyers.flock ? flockBodies(pass, flyers.flock, t) : [];
+  if (pass.kind === "vee") return flyers.vee ? flockBodies(pass, flyers.vee, t) : [];
+  if (pass.kind === "murmuration" || pass.kind === "bats") return swarmBodies(pass, pass.kind === "bats" ? null : flyers.swarm, t);
+  return [planeBody(pass.kind, pass, t)];
+}
+
+/** The meals in the pantry that are finished by `t`, taken out of it. */
+function eatenBy(pantry: Pantry, t: number): string[] {
+  const done: string[] = [];
+  for (const [key, meal] of pantry) {
+    if (meal.t <= t) {
+      done.push(key);
+      pantry.delete(key);
+    }
+  }
+  return done;
+}
+
 /** The scene's living cast: call `at` every frame with the stage, and `sky` for what flies over. */
 export function createHerd(cast: Cast): Herd {
   let troupes: Troupe[] | null = null;
@@ -225,14 +261,7 @@ export function createHerd(cast: Cast): Herd {
   const clock = { last: 0 };
   const skyRand = streamOf(cast.seed, "fauna.sky.passes");
   clock.last = -between(skyRand, [0.2, 0.8]) * cast.sky.every[0];
-  const flyer = (species: SpeciesId | null, coat: string, name: string): Who | null => (species ? { member: memberOf(streamOf(cast.seed, `fauna.sky.${name}`), species, coat || (speciesOf(species).coats[0]?.[0] ?? ""), false, { morph: "normal", region: cast.sky.region ?? undefined }), spec: speciesOf(species) } : null);
-  const flyers = { flock: flyer(cast.sky.birds, cast.sky.coats.birds, "bird"), vee: flyer(cast.sky.vee, cast.sky.coats.vee, "vee"), swarm: flyer(cast.sky.swarm, cast.sky.coats.swarm, "swarm") };
-  const drawPass = (pass: Pass, t: number): Body[] => {
-    if (pass.kind === "flock") return flyers.flock ? flockBodies(pass, flyers.flock, t) : [];
-    if (pass.kind === "vee") return flyers.vee ? flockBodies(pass, flyers.vee, t) : [];
-    if (pass.kind === "murmuration" || pass.kind === "bats") return swarmBodies(pass, pass.kind === "bats" ? null : flyers.swarm, t);
-    return [planeBody(pass.kind, pass, t)];
-  };
+  const flyers = flyersOf(cast);
   return {
     cast,
     at(t: number, stage: Stage): Body[] {
@@ -254,29 +283,31 @@ export function createHerd(cast: Cast): Herd {
         }
       });
       const bodies = settledBodies(posed, prints);
-      read = () => clippingOf(bodies.map((body, i) => ({ body, own: ownWood(posed[i]?.m.segment ?? FLY_SEGMENT, stage) })), woodMapOf(stage));
+      read = () =>
+        clippingOf(
+          bodies.map((body, i) => ({ body, own: ownWood(posed[i]?.m.segment ?? FLY_SEGMENT, stage) })),
+          woodMapOf(stage),
+        );
       return bodies;
     },
     clipping: () => read(),
     sky(t: number, now: SkyNow = {}): Body[] {
       const reach = now.radius ?? 1;
-      passesUntil(passes, clock, skyRand, cast.sky.every, t, (start) => {
+      passesUntil({ list: passes, clock, rand: skyRand, every: cast.sky.every }, t, (start) => {
         const kind = nextTraffic(skyRand, cast.sky, now);
         // A busy sky still clears between passes: never more than a few at once.
         const crowded = passes.filter((pass) => pass.end > start).length >= SKY_AT_ONCE;
-        return kind && !crowded ? passOf(kind, start, skyRand, reach, cast.sky) : null;
+        return kind && !crowded ? passOf(kind, start, skyRand, { reach, plan: cast.sky }) : null;
       });
-      return passes.filter((pass) => t >= pass.start && t < pass.end).flatMap((pass) => fading(drawPass(pass, t), pass, t));
+      return passes
+        .filter((pass) => t >= pass.start && t < pass.end)
+        .flatMap((pass) => fading(passBodies(flyers, pass, t), pass, t));
     },
     command(t: number, order: Order, stage: Stage): string[] {
       troupes ??= troupesOf(cast, stage, pantry);
       return commandTroupes(troupes, t, order, stage);
     },
-    eaten(t: number): string[] {
-      const done: string[] = [];
-      for (const [key, meal] of pantry) if (meal.t <= t) { done.push(key); pantry.delete(key); }
-      return done;
-    },
+    eaten: (t: number): string[] => eatenBy(pantry, t),
   };
 }
 
@@ -299,13 +330,19 @@ function rayToSegment(o: Vec, d: Vec, a: Vec, b: Vec): { gap: number; along: num
  * The body a ray from `origin` along `direction` hits first (a click picked
  * into the scene), or null. A little slack makes small animals easy to tap.
  */
-export function pickBody(bodies: readonly Body[], origin: Vec, direction: Vec, slack = 1.25): { id: string; distance: number } | null {
+export function pickBody(
+  bodies: readonly Body[],
+  origin: Vec,
+  direction: Vec,
+  slack = 1.25,
+): { id: string; distance: number } | null {
   const d = unit(direction);
   let best: { id: string; distance: number } | null = null;
   for (const body of bodies) {
     for (const c of body.capsules) {
       const hit = rayToSegment(origin, d, c.a, c.b);
-      if (hit.gap <= c.r * slack + 0.02 && (!best || hit.along < best.distance)) best = { id: body.id, distance: hit.along };
+      if (hit.gap <= c.r * slack + 0.02 && (!best || hit.along < best.distance))
+        best = { id: body.id, distance: hit.along };
     }
   }
   return best;

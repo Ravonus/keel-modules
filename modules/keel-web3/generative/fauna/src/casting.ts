@@ -229,15 +229,15 @@ function lookLabel(id: SpeciesId, coat: string, region: RegionId | null): string
   return look?.[2] ?? speciesOf(id).label;
 }
 
-export function memberOf(
-  rand: () => number,
-  id: SpeciesId,
-  coat: string,
-  young: boolean,
-  input: CastInput,
-  skin: () => number = rand,
-  traits: Traits = traitsOf(null, young),
-): CastMember {
+/** What a member is cast as: its species, coat and whether it is young. */
+export interface Look { readonly id: SpeciesId; readonly coat: string; readonly young: boolean }
+
+/** A member's own rolls: the stream its morph comes from (the cast's by default), and its traits when it has them. */
+export interface Own { readonly skin?: () => number; readonly traits?: Traits }
+
+export function memberOf(rand: () => number, input: CastInput, look: Look, own?: Own): CastMember {
+  const { id, coat, young } = look;
+  const { skin = rand, traits = traitsOf(null, young) } = own ?? {};
   const spec = speciesOf(id);
   const colors = coatColors(id, coat);
   const morph = morphFor(skin, input);
@@ -267,19 +267,31 @@ function sexOf(kind: GroupKind, i: number, rand: () => number): Traits["sex"] | 
   return undefined;
 }
 
+/** How many a group of a kind has: one, two, a parent and its young, or a pack of the species' own size. */
+function countOf(rand: () => number, kind: GroupKind, spec: SpeciesSpec): number {
+  if (kind === "solo") return 1;
+  if (kind === "pair") return 2;
+  return kind === "family" ? 1 + intBetween(rand, 1, 2) : intBetween(rand, spec.pack[0], spec.pack[1]);
+}
+
 function groupOf(rand: () => number, id: SpeciesId, kind: GroupKind, input: CastInput): CastGroup {
   const spec = speciesOf(id);
   const seed = numericSeed(input.seed);
   const coats = looksFor(id, contextOf(input).region);
   const coat = pick(rand, coats.map(([name, weight]) => [name, weight] as const));
-  const count = kind === "solo" ? 1 : kind === "pair" ? 2 : kind === "family" ? 1 + intBetween(rand, 1, 2) : intBetween(rand, spec.pack[0], spec.pack[1]);
+  const count = countOf(rand, kind, spec);
   const skin = streamOf(seed, `fauna.skin.${id}`);
   const members = Array.from({ length: count }, (_, i) => {
     const young = kind === "family" && i > 0;
     const own = streamOf(seed, `fauna.traits.${id}.${i}`);
     // (A mixed-up pack: now and then one wears another of the local coats.)
     const wears = rand() < 0.15 ? pick(rand, coats.map(([name, weight]) => [name, weight] as const)) : coat;
-    return memberOf(rand, id, wears, young, input, skin, traitsOf(own, young, sexOf(kind, i, own)));
+    return memberOf(
+      rand,
+      input,
+      { id, coat: wears, young },
+      { skin, traits: traitsOf(own, young, sexOf(kind, i, own)) },
+    );
   });
   return { kind, members };
 }
@@ -327,6 +339,13 @@ const OWN_SPECS = new WeakMap<CastMember, SpeciesSpec>();
  * it, so two foxes of a pack differ in leg and tail, in pace, and in how much
  * they watch, rest and roam. Its menu of actions stays its kind's.
  */
+/** How much a trait scales an action's temper: a wary act by boldness, a restful or lively one by liveliness. */
+function temperScale(action: Action, t: Traits): number {
+  if (WARY.has(action)) return 1 / t.bold;
+  if (RESTFUL.has(action)) return 1 / t.lively;
+  return LIVELY.has(action) ? t.lively : 1;
+}
+
 export function specOf(member: CastMember): SpeciesSpec {
   const known = OWN_SPECS.get(member);
   if (known) return known;
@@ -346,7 +365,7 @@ export function specOf(member: CastMember): SpeciesSpec {
   };
   const temper: Partial<Record<Action, number>> = { ...kind.temper };
   for (const action of actionsOf(kind)) {
-    const k = WARY.has(action) ? 1 / t.bold : RESTFUL.has(action) ? 1 / t.lively : LIVELY.has(action) ? t.lively : 1;
+    const k = temperScale(action, t);
     if (Math.abs(k - 1) > 1e-9) temper[action] = (kind.temper[action] ?? 1) * k;
   }
   const spec: SpeciesSpec = { ...kind, speed: kind.speed * t.tempo, build, temper };
@@ -389,8 +408,10 @@ function tierFor(rand: () => number, input: CastInput): Tier {
 
 function groupsFor(rand: () => number, tier: Tier, input: CastInput): CastGroup[] {
   if (tier === "none") return [];
-  if (tier === "mixed") { const g = mixedGroup(rand, input, isSpecies(input.species) ? input.species : null);
-  return g ? [g] : groupsFor(rand, "solo", input); }
+  if (tier === "mixed") {
+    const g = mixedGroup(rand, input, isSpecies(input.species) ? input.species : null);
+    return g ? [g] : groupsFor(rand, "solo", input);
+  }
   const forced = isSpecies(input.species) ? input.species : null;
   const id = forced ?? pickSpecies(rand, input);
   if (!id) return [];
@@ -445,7 +466,9 @@ function labelOf(groups: readonly CastGroup[]): string {
 function rarityOf(tier: Tier, groups: readonly CastGroup[]): Rarity {
   let rarity: Rarity = "common";
   for (const group of groups) {
-    for (const member of group.members) rarity = rarer(rarer(rarity, speciesOf(member.species).rarity), MORPHS[member.morph].rarity);
+    for (const member of group.members) {
+      rarity = rarer(rarer(rarity, speciesOf(member.species).rarity), MORPHS[member.morph].rarity);
+    }
     if (group.kind === "pack" || group.kind === "family") rarity = rarer(rarity, "uncommon");
   }
   if (tier === "mixed") rarity = bumpRarity(rarer(rarity, "uncommon"));

@@ -113,12 +113,16 @@ const IRIS: Partial<Record<SpeciesId, string>> = {
   tanuki: "#2a1a10", possum: "#1a1210", loris: "#4a3018", mongoose: "#8a5a1a", kookaburra: "#3a2414", guineafowl: "#5a2414",
 };
 
-export const hexRgb = (hex: string): [number, number, number] => { const v = Number.parseInt(hex.slice(1), 16);
-return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+export const hexRgb = (hex: string): [number, number, number] => {
+  const v = Number.parseInt(hex.slice(1), 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+};
 const rgbHex = (rgb: readonly number[]): string => `#${rgb.map((c) => Math.round(clamp(c, 0, 255)).toString(16).padStart(2, "0")).join("")}`;
-export const mixColor = (a: string, b: string, k: number): string => { const x = hexRgb(a);
-const y = hexRgb(b);
-return rgbHex(x.map((c, i) => mix(c, y[i] ?? c, k))); };
+export const mixColor = (a: string, b: string, k: number): string => {
+  const x = hexRgb(a);
+  const y = hexRgb(b);
+  return rgbHex(x.map((c, i) => mix(c, y[i] ?? c, k)));
+};
 
 export type CoatColors = readonly [string, string, string, string, string];
 
@@ -156,9 +160,11 @@ function skinOf(base: Palette, morph: Morph): Palette {
 }
 
 /** Part way to its own grey: a plain coat sits in the scene's tones and leaves the loud colours to the tree. */
-const muted = (hex: string, k: number): string => { const [r, g, b] = hexRgb(hex);
-const y = r * 0.3 + g * 0.59 + b * 0.11;
-return rgbHex([r, g, b].map((c) => mix(c, y, k))); };
+const muted = (hex: string, k: number): string => {
+  const [r, g, b] = hexRgb(hex);
+  const y = r * 0.3 + g * 0.59 + b * 0.11;
+  return rgbHex([r, g, b].map((c) => mix(c, y, k)));
+};
 
 /**
  * A black coat painted as pixel art paints one: a cool charcoal at least `floor` light (sRGB luma),
@@ -166,8 +172,10 @@ return rgbHex([r, g, b].map((c) => mix(c, y, k))); };
  */
 const CHARCOAL = "#5a6274";
 function charcoal(hex: string, floor: number): string {
-  const luma = (h: string): number => { const [r, g, b] = hexRgb(h);
-  return (r * 0.3 + g * 0.59 + b * 0.11) / 255; };
+  const luma = (h: string): number => {
+    const [r, g, b] = hexRgb(h);
+    return (r * 0.3 + g * 0.59 + b * 0.11) / 255;
+  };
   const y = luma(hex);
   return y >= floor ? hex : mixColor(hex, CHARCOAL, (floor - y) / Math.max(0.01, luma(CHARCOAL) - y));
 }
@@ -182,8 +190,10 @@ function faceColors(id: SpeciesId, coatName: string, accent: string, dark: strin
 }
 
 /** Whether a species' horn is its claws, a darker thing than a deer's antler or a tortoise's nail. */
-const clawed = (id: SpeciesId): boolean => { const b = SPECIES[id].build;
-return SPECIES[id].plan === "quad" && b.foot !== "hoof" && !b.extras.includes("shell"); };
+const clawed = (id: SpeciesId): boolean => {
+  const b = SPECIES[id].build;
+  return SPECIES[id].plan === "quad" && b.foot !== "hoof" && !b.extras.includes("shell");
+};
 
 export function paletteOf(id: SpeciesId, colors: CoatColors, morph: Morph, coatName = ""): Palette {
   const plain = morph === "normal" ? 0.32 : 0;

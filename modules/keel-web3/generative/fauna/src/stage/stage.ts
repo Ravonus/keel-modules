@@ -186,7 +186,12 @@ function farSide(stage: Stage, x: number, z: number): boolean {
 }
 
 /** Whether a spot lies between the trunk's clearance and the rim, with room from the others. */
-function spotFree(x: number, z: number, inner: number, outer: number, size: number, taken: readonly Spot[]): boolean {
+function spotFree(
+  [x, z]: readonly [number, number],
+  [inner, outer]: readonly [number, number],
+  size: number,
+  taken: readonly Spot[],
+): boolean {
   const d = Math.hypot(x, z);
   return (
     d >= inner &&
@@ -200,24 +205,26 @@ function spotFree(x: number, z: number, inner: number, outer: number, size: numb
  * Spots lean out toward the rim, past the root tangle and the canopy's shade,
  * where an animal stands against open ground and not among the roots.
  */
-export function groundSpot(
-  rand: () => number,
-  stage: Stage,
-  size: number,
-  near?: Vec,
-  reach = 0,
-  taken: readonly Spot[] = [],
-): Place {
+/** Where to look for a spot: within `reach` of `near` when given, and clear of the spots `taken`. */
+export interface Whereabouts {
+  readonly near?: Vec | undefined;
+  readonly reach?: number;
+  readonly taken?: readonly Spot[];
+}
+
+export function groundSpot(rand: () => number, stage: Stage, size: number, where?: Whereabouts): Place {
+  const { near, reach = 0, taken = [] } = where ?? {};
   const inner = trunkClear(stage, size);
   const outer = Math.max(inner + 0.2, stage.radius - size * 0.8);
+  const [nx, , nz] = near ?? [0, 0, 0];
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const a = headingFor(rand, stage);
     const r = near ? reach * Math.sqrt(rand()) : mix(inner, outer, rand() ** 0.35);
-    const x = (near?.[0] ?? 0) + Math.cos(a) * r;
-    const z = (near?.[2] ?? 0) + Math.sin(a) * r;
+    const x = nx + Math.cos(a) * r;
+    const z = nz + Math.sin(a) * r;
     // (The first tries keep off the far side, behind the trunk and its roots from the camera; the last take what there
     // is.)
-    if (spotFree(x, z, inner, outer, size, taken) && (attempt >= 8 || !farSide(stage, x, z)))
+    if (spotFree([x, z], [inner, outer], size, taken) && (attempt >= 8 || !farSide(stage, x, z)))
       return { on: "ground", x, z };
   }
   const a = headingFor(rand, stage);

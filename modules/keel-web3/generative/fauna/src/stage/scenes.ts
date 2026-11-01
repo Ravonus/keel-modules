@@ -7,23 +7,28 @@ import { SPAN } from "./idle.js";
 import { groundSpot } from "./stage.js";
 import type { Place, Stage } from "./stage.js";
 import {
-  GROUND_BIRDS, can, leg, moodOf, onGround, perchCount, placeBeside, placeTop, randomPerch, roomyPerch, soloStep,
-  sortie, stay, takenBy, toGround, travel, waitUntil, yawFrom,
+  GROUND_BIRDS, can, leg, moodOf, onGround, placeBeside, placeTop, soloStep, sortie, stay, takenBy, toGround, travel,
+  waitUntil, yawFrom,
 } from "./director.js";
+import { perchCount, randomPerch, roomyPerch } from "./perches.js";
 import type { Actor, Scene, Troupe } from "./director.js";
 
 // ---------------------------------------------------------------- joint scenes
 
 /** Hold an actor in one action until `time`. */
-function holdAs(actor: Actor, act: Action, time: number, partner?: Actor, scene?: Scene): void {
+/** A partner to face, in the scene they share. */
+interface Toward { readonly partner: Actor; readonly scene: Scene }
+
+function holdAs(actor: Actor, act: Action, time: number, toward?: Toward): void {
   if (actor.until >= time - 0.02) return;
-  if (partner && scene) stayFacing(actor, act, time - actor.until, partner, scene);
+  if (toward) stayFacing(actor, act, time - actor.until, toward);
   else stay(actor, act, time - actor.until);
 }
 
 /** Stay turned to a partner, and keep facing that way after, so the next action starts from there. */
-function stayFacing(actor: Actor, act: Action, duration: number, partner: Actor, scene: Scene): void {
-  stay(actor, act, duration, partner.index);
+function stayFacing(actor: Actor, act: Action, duration: number, toward: Toward): void {
+  const { partner, scene } = toward;
+  stay(actor, act, duration, { face: partner.index });
   const here = placeTop(actor.place, scene);
   const there = placeTop(partner.place, scene);
   if (actor.place.on === "ground" && Math.hypot(there[0] - here[0], there[2] - here[2]) > 1e-3) actor.yaw = yawFrom(here, there);
@@ -59,11 +64,11 @@ function groomScene(troupe: Troupe, scene: Scene): boolean {
   const [a, b] = pair;
   begin(pair, scene);
   const bp = placeTop(b.place, scene);
-  travel(a, placeBeside(bp, b.yaw, troupe.rand() < 0.5 ? -1 : 1, (a.member.size + b.member.size) * 0.5), "wander", scene);
+  travel(a, placeBeside(bp, b.yaw, troupe.rand() < 0.5 ? -1 : 1, (a.member.size + b.member.size) * 0.5), scene, { act: "wander" });
   holdAs(b, "sit", a.until);
   const length = between(troupe.rand, [5, 9]);
   stay(b, b.spec.plan === "primate" ? "sit" : "lie", length);
-  stayFacing(a, "groom", length, b, scene);
+  stayFacing(a, "groom", length, { partner: b, scene });
   return true;
 }
 
@@ -78,14 +83,14 @@ function nuzzleScene(troupe: Troupe, scene: Scene): boolean {
   const mid = lerpV(pa, pb, 0.5);
   const dir = unit(sub(pb, pa), [1, 0, 0]);
   const gap = (headReach(a) + headReach(b)) * 0.5 + 0.02;
-  travel(a, { on: "ground", x: mid[0] - dir[0] * gap, z: mid[2] - dir[2] * gap }, "wander", scene);
-  travel(b, { on: "ground", x: mid[0] + dir[0] * gap, z: mid[2] + dir[2] * gap }, "wander", scene);
+  travel(a, { on: "ground", x: mid[0] - dir[0] * gap, z: mid[2] - dir[2] * gap }, scene, { act: "wander" });
+  travel(b, { on: "ground", x: mid[0] + dir[0] * gap, z: mid[2] + dir[2] * gap }, scene, { act: "wander" });
   const start = Math.max(a.until, b.until);
-  holdAs(a, "look", start, b, scene);
-  holdAs(b, "look", start, a, scene);
+  holdAs(a, "look", start, { partner: b, scene });
+  holdAs(b, "look", start, { partner: a, scene });
   const length = between(troupe.rand, SPAN.nuzzle);
-  stayFacing(a, "nuzzle", length, b, scene);
-  stayFacing(b, "nuzzle", length, a, scene);
+  stayFacing(a, "nuzzle", length, { partner: b, scene });
+  stayFacing(b, "nuzzle", length, { partner: a, scene });
   return true;
 }
 
@@ -114,20 +119,22 @@ function chaseScene(troupe: Troupe, scene: Scene): boolean {
   const [a, b] = pair;
   begin(pair, scene);
   const stops = [0, 1, 2].map(() => groundSpot(troupe.rand, scene.stage, a.member.size));
-  stayFacing(b, "play", 0.7, a, scene);
+  stayFacing(b, "play", 0.7, { partner: a, scene });
   for (const stop of stops) {
     const from = placeTop(a.place, scene);
-    travel(a, stop, "run", scene);
+    travel(a, stop, scene, { act: "run" });
     const to = placeTop(stop, scene);
     const back = unit(sub(from, to), [0, 0, -1]);
     const gap = a.member.size * a.spec.build.len + b.member.size * b.spec.build.len;
-    arriveAfter(b, a, () => { travel(b, { on: "ground", x: to[0] + back[0] * gap, z: to[2] + back[2] * gap }, "run", scene, 1.05); });
+    arriveAfter(b, a, () => {
+      travel(b, { on: "ground", x: to[0] + back[0] * gap, z: to[2] + back[2] * gap }, scene, { act: "run", hurry: 1.05 });
+    });
   }
   const start = Math.max(a.until, b.until);
-  holdAs(a, "look", start, b, scene);
-  holdAs(b, "look", start, a, scene);
-  stayFacing(a, "play", 1.8, b, scene);
-  stayFacing(b, "play", 1.8, a, scene);
+  holdAs(a, "look", start, { partner: b, scene });
+  holdAs(b, "look", start, { partner: a, scene });
+  stayFacing(a, "play", 1.8, { partner: b, scene });
+  stayFacing(b, "play", 1.8, { partner: a, scene });
   return true;
 }
 
@@ -140,13 +147,13 @@ function followScene(troupe: Troupe, scene: Scene): boolean {
   for (let leg = 0; leg < 2; leg += 1) {
     const stop = groundSpot(troupe.rand, scene.stage, leader.member.size);
     const from = placeTop(leader.place, scene);
-    travel(leader, stop, "wander", scene);
+    travel(leader, stop, scene, { act: "wander" });
     const to = placeTop(stop, scene);
     const back = unit(sub(from, to), [0, 0, -1]);
     pack.slice(1).forEach((actor, i) => {
       const gap = (i + 1) * (leader.member.size * leader.spec.build.len + 0.08);
       holdAs(actor, "look", actor.until + 0.5 + i * 0.4);
-      travel(actor, { on: "ground", x: to[0] + back[0] * gap, z: to[2] + back[2] * gap }, "wander", scene);
+      travel(actor, { on: "ground", x: to[0] + back[0] * gap, z: to[2] + back[2] * gap }, scene, { act: "wander" });
     });
   }
   return true;
@@ -154,7 +161,11 @@ function followScene(troupe: Troupe, scene: Scene): boolean {
 
 /** Everyone sings (or howls, or stands up to keep watch), one after another. */
 function chorusScene(troupe: Troupe, scene: Scene): boolean {
-  const voice = (actor: Actor): Action | null => (can(actor, "howl") ? "howl" : can(actor, "sing") ? "sing" : actor.spec.temper.rear !== undefined && actor.spec.temper.rear >= 2 ? "rear" : null);
+  const voice = (actor: Actor): Action | null => {
+    if (can(actor, "howl")) return "howl";
+    if (can(actor, "sing")) return "sing";
+    return actor.spec.temper.rear !== undefined && actor.spec.temper.rear >= 2 ? "rear" : null;
+  };
   const singers = troupe.actors.filter((actor) => voice(actor) !== null);
   if (singers.length < 2) return false;
   const start = begin(singers, scene, false);
@@ -180,7 +191,7 @@ function huddleScene(troupe: Troupe, scene: Scene): boolean {
   const turn = troupe.rand() * TAU;
   const arrived = sleepers.map((actor, i) => {
     const a = (i / sleepers.length) * TAU + turn;
-    travel(actor, { on: "ground", x: centre[0] + Math.cos(a) * ring, z: centre[2] + Math.sin(a) * ring }, "wander", scene);
+    travel(actor, { on: "ground", x: centre[0] + Math.cos(a) * ring, z: centre[2] + Math.sin(a) * ring }, scene, { act: "wander" });
     const yaw = actor.yaw;
     actor.yaw = Math.atan2(-Math.sin(a), Math.cos(a));
     return yaw;
@@ -189,8 +200,8 @@ function huddleScene(troupe: Troupe, scene: Scene): boolean {
   const length = between(troupe.rand, [16, 34]);
   sleepers.forEach((actor, i) => {
     const wait = start - actor.until;
-    if (wait > 0.02) stay(actor, "lie", wait, -1, actor.yaw, arrived[i]);
-    stay(actor, scene.stage.night === true ? "sleep" : "lie", length, -1, actor.yaw, wait > 0.02 ? undefined : arrived[i]);
+    if (wait > 0.02) stay(actor, "lie", wait, { face: -1, yaw: actor.yaw, turn: arrived[i] });
+    stay(actor, scene.stage.night === true ? "sleep" : "lie", length, { face: -1, yaw: actor.yaw, turn: wait > 0.02 ? undefined : arrived[i] });
   });
   return true;
 }
@@ -204,11 +215,11 @@ function danceScene(troupe: Troupe, scene: Scene): boolean {
   const pa = placeTop(a.place, scene);
   const gap = headReach(a) + headReach(b);
   const yaw = troupe.rand() * TAU;
-  travel(b, { on: "ground", x: pa[0] + Math.sin(yaw) * gap, z: pa[2] + Math.cos(yaw) * gap }, "wander", scene);
-  holdAs(a, "look", b.until, b, scene);
+  travel(b, { on: "ground", x: pa[0] + Math.sin(yaw) * gap, z: pa[2] + Math.cos(yaw) * gap }, scene, { act: "wander" });
+  holdAs(a, "look", b.until, { partner: b, scene });
   const length = between(troupe.rand, SPAN.display);
-  stayFacing(a, "display", length, b, scene);
-  stayFacing(b, a.member.species === "peacock" ? "peck" : "display", length, a, scene);
+  stayFacing(a, "display", length, { partner: b, scene });
+  stayFacing(b, a.member.species === "peacock" ? "peck" : "display", length, { partner: a, scene });
   return true;
 }
 
@@ -220,12 +231,13 @@ function feedScene(troupe: Troupe, scene: Scene): boolean {
   begin([parent, young], scene);
   const pp = placeTop(parent.place, scene);
   const gap = parent.spec.plan === "bird" ? parent.member.size * 0.6 : parent.member.size * 0.35;
-  travel(young, placeBeside(pp, parent.yaw, troupe.rand() < 0.5 ? -1 : 1, gap), "wander", scene);
-  holdAs(parent, "look", young.until, young, scene);
+  travel(young, placeBeside(pp, parent.yaw, troupe.rand() < 0.5 ? -1 : 1, gap), scene, { act: "wander" });
+  holdAs(parent, "look", young.until, { partner: young, scene });
   const length = between(troupe.rand, [5, 10]);
   const bird = parent.spec.plan === "bird";
-  stay(parent, bird ? "peck" : can(parent, "graze") ? "graze" : "groom", length, bird ? young.index : -1);
-  stayFacing(young, bird ? "flap" : "nuzzle", length, parent, scene);
+  const meal: Action = can(parent, "graze") ? "graze" : "groom";
+  stay(parent, bird ? "peck" : meal, length, { face: bird ? young.index : -1 });
+  stayFacing(young, bird ? "flap" : "nuzzle", length, { partner: parent, scene });
   return true;
 }
 
@@ -235,7 +247,7 @@ function rideScene(troupe: Troupe, scene: Scene): boolean {
   const mount = troupe.actors.find((actor) => actor.spec.plan === "quad" && actor.member.size >= 0.4 && actor.index < (rider?.index ?? -1));
   if (!rider || !mount || rider.place.on === "back") return false;
   begin([rider], scene, false);
-  travel(rider, { on: "back", m: mount.index }, "fly", scene);
+  travel(rider, { on: "back", m: mount.index }, scene, { act: "fly" });
   for (let i = 0; i < 4; i += 1) stay(rider, pick(troupe.rand, [["look", 3], ["preen", 2], ["sing", 1.5], ["stand", 1]]), between(troupe.rand, [3, 6]));
   return true;
 }
@@ -247,14 +259,14 @@ function climbScene(troupe: Troupe, scene: Scene): boolean {
   const [a, b] = pair;
   begin(pair, scene, false);
   const i = Math.floor(troupe.rand() * 9973);
-  travel(a, { on: "perch", i }, "climb", scene);
-  stayFacing(b, "look", 0.8, a, scene);
-  travel(b, { on: "perch", i: i + 1 }, "climb", scene);
+  travel(a, { on: "perch", i }, scene, { act: "climb" });
+  stayFacing(b, "look", 0.8, { partner: a, scene });
+  travel(b, { on: "perch", i: i + 1 }, scene, { act: "climb" });
   const start = Math.max(a.until, b.until);
   holdAs(a, "sit", start);
   const length = between(troupe.rand, [6, 12]);
   stay(a, can(a, "eat") ? "eat" : "sit", length);
-  stayFacing(b, can(b, "groom") ? "groom" : "sit", length, a, scene);
+  stayFacing(b, can(b, "groom") ? "groom" : "sit", length, { partner: a, scene });
   return true;
 }
 
@@ -277,10 +289,10 @@ function sentryScene(troupe: Troupe, scene: Scene): boolean {
     if (actor === guard) continue;
     const jobs = (["dig", "sniff", "graze", "eat"] as const).filter((act) => can(actor, act));
     for (let guardrail = 0; guardrail < 6 && actor.until < start + length - 1.5; guardrail += 1) {
-      if (troupe.rand() < 0.45) travel(actor, groundSpot(actor.rand, scene.stage, actor.member.size, post, actor.member.size * 5 + 0.3, takenBy(actor, scene)), "wander", scene, 0.8);
+      if (troupe.rand() < 0.45) travel(actor, groundSpot(actor.rand, scene.stage, actor.member.size, { near: post, reach: actor.member.size * 5 + 0.3, taken: takenBy(actor, scene) }), scene, { act: "wander", hurry: 0.8 });
       stay(actor, jobs[Math.floor(troupe.rand() * jobs.length)] ?? "sniff", between(troupe.rand, [1.8, 3.5]));
     }
-    holdAs(actor, "look", start + length, guard, scene);
+    holdAs(actor, "look", start + length, { partner: guard, scene });
   }
   return true;
 }
@@ -302,11 +314,11 @@ function alarmScene(troupe: Troupe, scene: Scene): boolean {
   const stage = scene.stage;
   const away = threat + Math.PI;
   for (const actor of troupe.actors) {
-    if (actor !== scout) holdAs(actor, "look", scout.until - 0.15 + troupe.rand() * 0.4, scout, scene);
+    if (actor !== scout) holdAs(actor, "look", scout.until - 0.15 + troupe.rand() * 0.4, { partner: scout, scene });
     flee(actor, away, scene);
     const here = placeTop(actor.place, scene);
     const back = Math.atan2(Math.cos(threat) * stage.radius - here[0], Math.sin(threat) * stage.radius - here[2]);
-    stay(actor, can(actor, "rear") && actor.rand() < 0.5 ? "rear" : "look", between(actor.rand, [2, 3.5]), -1, actor.place.on === "ground" ? back : actor.yaw);
+    stay(actor, can(actor, "rear") && actor.rand() < 0.5 ? "rear" : "look", between(actor.rand, [2, 3.5]), { face: -1, yaw: actor.place.on === "ground" ? back : actor.yaw });
   }
   return true;
 }
@@ -318,13 +330,17 @@ function alarmScene(troupe: Troupe, scene: Scene): boolean {
 function flee(actor: Actor, away: number, scene: Scene): void {
   const stage = scene.stage;
   const perches = perchCount(scene) > 0;
-  if (actor.spec.flies && perches && !GROUND_BIRDS.has(actor.member.species)) { travel(actor, randomPerch(actor, scene), "fly", scene);
-  return; }
-  if (actor.spec.climbs && perches && actor.rand() < 0.7) { travel(actor, randomPerch(actor, scene), "climb", scene, 1.4);
-  return; }
+  if (actor.spec.flies && perches && !GROUND_BIRDS.has(actor.member.species)) {
+    travel(actor, randomPerch(actor, scene), scene, { act: "fly" });
+    return;
+  }
+  if (actor.spec.climbs && perches && actor.rand() < 0.7) {
+    travel(actor, randomPerch(actor, scene), scene, { act: "climb", hurry: 1.4 });
+    return;
+  }
   const a = away + (actor.rand() - 0.5) * 1.4;
   const r = stage.radius * between(actor.rand, [0.55, 0.9]);
-  travel(actor, onGround(stage, actor.member.size, Math.cos(a) * r, Math.sin(a) * r), can(actor, "run") ? "run" : "hop", scene, 1.15);
+  travel(actor, onGround(stage, actor.member.size, Math.cos(a) * r, Math.sin(a) * r), scene, { act: can(actor, "run") ? "run" : "hop", hurry: 1.15 });
 }
 
 /**
@@ -342,16 +358,16 @@ function stalkScene(troupe: Troupe, scene: Scene): boolean {
   const from = placeTop(hunter.place, scene);
   const dir = unit(sub(target, from), [0, 0, 1]);
   const gap = headReach(hunter) * 2 + prey.member.size + 0.25;
-  travel(hunter, { on: "ground", x: target[0] - dir[0] * gap, z: target[2] - dir[2] * gap }, "stalk", scene);
-  stay(hunter, "stalk", between(troupe.rand, [0.8, 1.8]), prey.index);
+  travel(hunter, { on: "ground", x: target[0] - dir[0] * gap, z: target[2] - dir[2] * gap }, scene, { act: "stalk" });
+  stay(hunter, "stalk", between(troupe.rand, [0.8, 1.8]), { face: prey.index });
   const leap = hunter.until;
   holdAs(prey, prey.spec.plan === "bird" ? "peck" : "graze", leap + 0.25);
-  travel(hunter, { on: "ground", x: target[0] - dir[0] * headReach(hunter), z: target[2] - dir[2] * headReach(hunter) }, can(hunter, "hop") ? "hop" : "run", scene, 1.3);
-  if (prey.spec.flies && perchCount(scene) > 0) travel(prey, randomPerch(prey, scene), "fly", scene);
+  travel(hunter, { on: "ground", x: target[0] - dir[0] * headReach(hunter), z: target[2] - dir[2] * headReach(hunter) }, scene, { act: can(hunter, "hop") ? "hop" : "run", hurry: 1.3 });
+  if (prey.spec.flies && perchCount(scene) > 0) travel(prey, randomPerch(prey, scene), scene, { act: "fly" });
   else {
     const a = Math.atan2(dir[2], dir[0]) + (troupe.rand() - 0.5);
     const r = scene.stage.radius * 0.8;
-    travel(prey, onGround(scene.stage, prey.member.size, Math.cos(a) * r, Math.sin(a) * r), can(prey, "run") ? "run" : "hop", scene, 1.3);
+    travel(prey, onGround(scene.stage, prey.member.size, Math.cos(a) * r, Math.sin(a) * r), scene, { act: can(prey, "run") ? "run" : "hop", hurry: 1.3 });
   }
   stay(prey, "look", between(troupe.rand, [2, 3]));
   stay(hunter, "look", between(troupe.rand, [1, 2]));
@@ -365,18 +381,20 @@ function mobScene(troupe: Troupe, scene: Scene): boolean {
   const mob = troupe.actors.filter((actor) => actor.member.species === "crow");
   if (!owl || mob.length === 0 || perchCount(scene) === 0 || scene.stage.night === true) return false;
   begin([owl, ...mob], scene, false);
-  if (owl.place.on !== "perch") travel(owl, randomPerch(owl, scene), "fly", scene);
+  if (owl.place.on !== "perch") travel(owl, randomPerch(owl, scene), scene, { act: "fly" });
   const roost = owl.place.on === "perch" ? owl.place.i : 0;
-  mob.forEach((crow, k) => { travel(crow, { on: "perch", i: roomyPerch(scene.stage, roost + 1 + k * 2, crow.member.size) }, "fly", scene); });
+  mob.forEach((crow, k) => {
+    travel(crow, { on: "perch", i: roomyPerch(scene.stage, roost + 1 + k * 2, crow.member.size) }, scene, { act: "fly" });
+  });
   const start = Math.max(owl.until, ...mob.map((crow) => crow.until));
   const length = between(troupe.rand, [6, 10]);
   holdAs(owl, "look", start);
   stay(owl, "look", length);
   for (const crow of mob) {
-    holdAs(crow, "look", start, owl, scene);
-    while (crow.until < start + length - 0.5) stayFacing(crow, troupe.rand() < 0.5 ? "flap" : "sing", between(troupe.rand, [0.9, 1.6]), owl, scene);
+    holdAs(crow, "look", start, { partner: owl, scene });
+    while (crow.until < start + length - 0.5) stayFacing(crow, troupe.rand() < 0.5 ? "flap" : "sing", between(troupe.rand, [0.9, 1.6]), { partner: owl, scene });
   }
-  travel(owl, randomPerch(owl, scene), "fly", scene);
+  travel(owl, randomPerch(owl, scene), scene, { act: "fly" });
   return true;
 }
 
@@ -387,14 +405,14 @@ function perchScene(troupe: Troupe, scene: Scene): boolean {
   const [a, b] = pair;
   begin(pair, scene, false);
   const i = roomyPerch(scene.stage, Math.floor(troupe.rand() * 9973), a.member.size);
-  if (a.place.on !== "perch" || a.place.i !== i) travel(a, { on: "perch", i }, "fly", scene);
-  travel(b, { on: "perch", i: roomyPerch(scene.stage, i + 1, b.member.size, i, (a.member.size + b.member.size) * 0.75) }, "fly", scene);
+  if (a.place.on !== "perch" || a.place.i !== i) travel(a, { on: "perch", i }, scene, { act: "fly" });
+  travel(b, { on: "perch", i: roomyPerch(scene.stage, i + 1, b.member.size, { beside: i, gap: (a.member.size + b.member.size) * 0.75 }) }, scene, { act: "fly" });
   const start = Math.max(a.until, b.until);
-  holdAs(a, "look", start, b, scene);
+  holdAs(a, "look", start, { partner: b, scene });
   const length = between(troupe.rand, [4, 8]);
   const duet = can(a, "sing") && can(b, "sing") && troupe.rand() < 0.5;
-  stayFacing(a, duet ? "sing" : "preen", length, b, scene);
-  stayFacing(b, duet ? "sing" : "preen", length, a, scene);
+  stayFacing(a, duet ? "sing" : "preen", length, { partner: b, scene });
+  stayFacing(b, duet ? "sing" : "preen", length, { partner: a, scene });
   return true;
 }
 
@@ -415,10 +433,10 @@ function flockScene(troupe: Troupe, scene: Scene): boolean {
   if (!flight || loop?.kind !== "sortie") return true;
   const speed = flight.pace * leader.member.size;
   flock.slice(1).forEach((bird, k) => {
-    holdAs(bird, "look", flight.t0 + 0.2 + k * 0.25 + troupe.rand() * 0.2, leader, scene);
-    const to: Place = flight.to.on === "perch" ? { on: "perch", i: roomyPerch(scene.stage, flight.to.i + 1 + k, bird.member.size) } : groundSpot(bird.rand, scene.stage, bird.member.size, placeTop(flight.to, scene), bird.member.size * 4 + 0.3, takenBy(bird, scene));
+    holdAs(bird, "look", flight.t0 + 0.2 + k * 0.25 + troupe.rand() * 0.2, { partner: leader, scene });
+    const to: Place = flight.to.on === "perch" ? { on: "perch", i: roomyPerch(scene.stage, flight.to.i + 1 + k, bird.member.size) } : groundSpot(bird.rand, scene.stage, bird.member.size, { near: placeTop(flight.to, scene), reach: bird.member.size * 4 + 0.3, taken: takenBy(bird, scene) });
     const own = { ...loop, R: loop.R + (troupe.rand() - 0.3) * 0.5, h: loop.h + (troupe.rand() - 0.5) * 0.6 };
-    leg(bird, to, "fly", scene, 1, own, speed * between(troupe.rand, [0.96, 1.04]));
+    leg(bird, to, scene, { act: "fly", hurry: 1, loop: own, speed: speed * between(troupe.rand, [0.96, 1.04]) });
     stay(bird, "look", between(troupe.rand, [1, 2.5]));
   });
   return true;
@@ -440,7 +458,8 @@ function sceneWeight(fn: SceneFn, weight: number, stage: Stage): number {
   const wet = mood.weather !== undefined;
   if (fn === huddleScene) return weight * (wet ? 4 : 1) * (mood.night === true ? 2 : 1);
   if (fn === chorusScene) return weight * (mood.twilight === true ? 3 : 1);
-  if (fn === chaseScene || fn === danceScene || fn === flockScene || fn === stalkScene) return weight * (wet ? 0.25 : 1);
+  const chasing = fn === chaseScene || fn === danceScene || fn === flockScene || fn === stalkScene;
+  if (chasing) return weight * (wet ? 0.25 : 1);
   return weight;
 }
 

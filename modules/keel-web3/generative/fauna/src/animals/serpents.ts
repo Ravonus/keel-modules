@@ -88,8 +88,8 @@ export function poseSerpent(kit: Kit, who: Who, m: Moment): void {
     if (!a || !c) continue;
     // Slim at the neck, fullest a third of the way down, to a fine tip.
     const taper = snakeGirth(i / n);
-    cap(kit, `body.${i}`, banded && i % 2 === 1 ? "alt" : "coat", a, c, r0 * taper, 0.8, UP, { r1: r0 * snakeGirth((i + 1) / n) });
-    if (b.extras.includes("spots") && i % 2 === 0) ball(kit, "spot", "accent", add(lerpV(a, c, 0.5), [0, r0 * taper * 0.6, 0]), r0 * taper * 0.35, 0.5);
+    cap(kit, `body.${i}`, banded && i % 2 === 1 ? "alt" : "coat", { a, b: c, r: r0 * taper, flat: 0.8, up: UP, finish: { r1: r0 * snakeGirth((i + 1) / n) } });
+    if (b.extras.includes("spots") && i % 2 === 0) ball(kit, "spot", "accent", { p: add(lerpV(a, c, 0.5), [0, r0 * taper * 0.6, 0]), r: r0 * taper * 0.35, flat: 0.5 });
   }
   if (b.leg === 0) snakeMarks(kit, who, points, r0);
   serpentHead(kit, who, points, m);
@@ -122,7 +122,16 @@ function snakeLines(kit: Kit, who: Who, points: readonly Vec[], r0: number): voi
     const on = (p: Vec, x: number, y: number, g: number): Vec =>
       add(add(p, scale(side, x * g * 0.8)), [0, y * g * 0.8, 0]);
     // (Sunk well into the body, so the line stays on the skin where the bones bend away from a straight run.)
-    lines.forEach(([x, y], line) => { cap(kit, `line.${line}`, role, on(a, x, y, gA), on(c, x, y, gC), gA * 0.24, 1, UP, { decal: true, r1: gC * 0.24 }); });
+    lines.forEach(([x, y], line) => {
+      cap(kit, `line.${line}`, role, {
+        a: on(a, x, y, gA),
+        b: on(c, x, y, gC),
+        r: gA * 0.24,
+        flat: 1,
+        up: UP,
+        finish: { decal: true, r1: gC * 0.24 },
+      });
+    });
   }
 }
 
@@ -137,7 +146,7 @@ function snakeSaddles(kit: Kit, who: Who, points: readonly Vec[], r0: number): v
     if (!a || !c) continue;
     const at = add(lerpV(a, c, k - i), [0, r0 * 0.8, 0]);
     const side = scale(spineSide(a, c), r0 * mix(0.5, 0.8, gene()) * (1 - k / n / 2));
-    decal(kit, "saddle", "alt", sub(at, side), add(at, side), r0 * 0.42);
+    decal(kit, "saddle", "alt", { a: sub(at, side), b: add(at, side), r: r0 * 0.42 });
   }
 }
 
@@ -160,20 +169,39 @@ function serpentHead(kit: Kit, who: Who, points: readonly Vec[], m: Moment): voi
     ...eyeOfSpecies(who),
   };
   // (A wedge, broad behind the jaws and flat, wider than the neck it sits on.)
-  cap(kit, "head", "coat", at3(h, -0.35, 0, 0), at3(h, 0.8, 0, -0.08), h.r * 0.92, 0.62, h.u, { r1: h.r * 0.52, melt: 0.8 });
+  cap(kit, "head", "coat", { a: at3(h, -0.35, 0, 0), b: at3(h, 0.8, 0, -0.08), r: h.r * 0.92, flat: 0.62, up: h.u, finish: { r1: h.r * 0.52, melt: 0.8 } });
   // (Set into the flat of the head's side, not on the sphere an eye usually sits on.)
-  for (const x of [-1, 1]) eyeAt(kit, `eye.${x < 0 ? "L" : "R"}`, h, at3(h, 0.3, x * 0.7, 0.2), unit(add(scale(h.s, x), scale(h.u, 0.5))), h.r * 0.2, true);
-  if (m.pose.mouth > 0.2 && m.segment.act === "flick") cap(kit, "tongue", "accent", at3(h, 1, 0, -0.1), madd(at3(h, 1, 0, -0.1), hd, h.r * 1.4 * m.pose.mouth), h.r * 0.08);
+  for (const x of [-1, 1]) eyeAt(kit, `eye.${x < 0 ? "L" : "R"}`, h, { at: at3(h, 0.3, x * 0.7, 0.2), n: unit(add(scale(h.s, x), scale(h.u, 0.5))), r: h.r * 0.2, open: true });
+  if (m.pose.mouth > 0.2 && m.segment.act === "flick") cap(kit, "tongue", "accent", { a: at3(h, 1, 0, -0.1), b: madd(at3(h, 1, 0, -0.1), hd, h.r * 1.4 * m.pose.mouth), r: h.r * 0.08 });
 }
 
 /** A gecko's foot: five thin toes spread from the wrist, each ending in a round sticky pad. */
-function geckoFoot(kit: Kit, part: string, at: Vec, r0: number, x: number, fore: boolean): void {
+function geckoFoot(
+  kit: Kit,
+  part: string,
+  foot: { readonly at: Vec; readonly r0: number; readonly x: number; readonly fore: boolean },
+): void {
+  const { at, r0, x, fore } = foot;
   const flat: Vec = [at[0], r0 * 0.1, at[2]];
   const lean = fore ? 1 : -0.3;
   const [a, b] = [add(flat, [-r0 * 0.34, 0, r0 * 0.12 * lean]), add(flat, [r0 * 0.34, 0, r0 * 0.12 * lean])];
   const reach: Vec = [x * r0 * 0.3, 0, r0 * 0.62 * lean];
-  cap(kit, `${part}.toes`, "coat", a, b, r0 * 0.085, 1, UP, { row: 5, reach, melt: 0.2, shadow: false });
-  cap(kit, `${part}.pads`, "coat", add(a, reach), add(b, reach), r0 * 0.15, 0.6, UP, { row: 5, melt: 0.1, shadow: false, detail: 1 });
+  cap(kit, `${part}.toes`, "coat", {
+    a,
+    b,
+    r: r0 * 0.085,
+    flat: 1,
+    up: UP,
+    finish: { row: 5, reach, melt: 0.2, shadow: false },
+  });
+  cap(kit, `${part}.pads`, "coat", {
+    a: add(a, reach),
+    b: add(b, reach),
+    r: r0 * 0.15,
+    flat: 0.6,
+    up: UP,
+    finish: { row: 5, melt: 0.1, shadow: false, detail: 1 },
+  });
 }
 
 function lizardLegs(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void {
@@ -186,8 +214,8 @@ function lizardLegs(kit: Kit, who: Who, points: readonly Vec[], m: Moment): void
       const step = footCycle(m.phase - (leg === "FL" || leg === "HR" ? 0 : 0.5), 0.55, 0.55 * bodyStride(who) * m.moving, size * 0.06);
       const foot: Vec = [body[0] + x * size * 0.2, step.y, body[2] + step.z + (k === "F" ? size * 0.05 : -size * 0.03)];
       const wide: Vec = [foot[0] + x * size * 0.1, foot[1], foot[2]];
-      limb(kit, `leg.${leg}`, "coat", add(body, [x * r0 * 0.8, r0 * 0.1, 0]), wide, [size * 0.13, size * 0.13], r0 * 0.27, [x, 1, 0], "coat");
-      geckoFoot(kit, `leg.${leg}`, wide, r0, x, k === "F");
+      limb(kit, `leg.${leg}`, "coat", { root: add(body, [x * r0 * 0.8, r0 * 0.1, 0]), target: wide, lengths: [size * 0.13, size * 0.13], radius: r0 * 0.27, pole: [x, 1, 0], end: "coat" });
+      geckoFoot(kit, `leg.${leg}`, { at: wide, r0, x, fore: k === "F" });
     }
   }
 }

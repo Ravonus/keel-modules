@@ -19,17 +19,18 @@ export interface Kit {
 
 const rolled = (kit: Kit, v: Vec): Vec => (kit.roll === 0 ? v : add(rollV(sub(v, kit.pivot), kit.roll), kit.pivot));
 
-export function cap(
-  kit: Kit,
-  part: string,
-  role: Role,
-  a: Vec,
-  b: Vec,
-  r: number,
-  flatness = 1,
-  up: Vec = UP,
-  finish?: Finish,
-): void {
+/** Where a capsule lies: its ends and radius, and as it needs them its flatness, its up and its finish. */
+export interface Span {
+  readonly a: Vec;
+  readonly b: Vec;
+  readonly r: number;
+  readonly flat?: number;
+  readonly up?: Vec;
+  readonly finish?: Finish;
+}
+
+export function cap(kit: Kit, part: string, role: Role, span: Span): void {
+  const { a, b, r, flat: flatness = 1, up = UP, finish } = span;
   if (!(r > 0.0002)) return;
   const upRolled = kit.roll === 0 ? up : rollV(up, kit.roll);
   const capsule: Capsule = {
@@ -72,28 +73,55 @@ function finished(kit: Kit, finish: Finish): Partial<Capsule> {
   };
 }
 /** A tapered part: r at a, r1 at b, melting `melt` as far as the rest. */
-export const cone = (kit: Kit, part: string, role: Role, a: Vec, b: Vec, r: number, r1: number, melt = 1): void => { cap(kit, part, role, a, b, r, 1, UP, { r1, melt }); };
+export function cone(kit: Kit, part: string, role: Role, span: Omit<Span, "flat" | "up" | "finish"> & { readonly r1: number; readonly melt?: number }): void {
+  const { a, b, r, r1, melt = 1 } = span;
+  cap(kit, part, role, { a, b, r, flat: 1, up: UP, finish: { r1, melt } });
+}
 /** A patch of colour on the body (no surface of its own): a bib, a rump, a mask. */
-export const decal = (kit: Kit, part: string, role: Role, a: Vec, b: Vec, r: number): void => { cap(kit, part, role, a, b, r, 1, UP, { decal: true }); };
-export const ball = (kit: Kit, part: string, role: Role, p: Vec, r: number, flatness = 1, up: Vec = UP): void => { cap(kit, part, role, p, p, r, flatness, up); };
+export function decal(kit: Kit, part: string, role: Role, span: Pick<Span, "a" | "b" | "r">): void {
+  const { a, b, r } = span;
+  cap(kit, part, role, { a, b, r, flat: 1, up: UP, finish: { decal: true } });
+}
+/** A round part at `p`. */
+export function ball(
+  kit: Kit,
+  part: string,
+  role: Role,
+  dot: { readonly p: Vec; readonly r: number; readonly flat?: number; readonly up?: Vec },
+): void {
+  const { p, r, flat: flatness = 1, up = UP } = dot;
+  cap(kit, part, role, { a: p, b: p, r, flat: flatness, up });
+}
+
+/** A limb's reach: from `root` to `target`, bending toward `pole`, each bone's length, and how it ends. */
+export interface Reach {
+  readonly root: Vec;
+  readonly target: Vec;
+  readonly lengths: readonly [number, number];
+  readonly radius: number;
+  readonly pole: Vec;
+  readonly end?: Role;
+  readonly melt?: number;
+}
 
 /** A two-bone limb from `root` to `target`, bending toward `pole`, with a paw (or hand, or foot) at the end. */
-export function limb(kit: Kit, part: string, role: Role, root: Vec, target: Vec, lengths: readonly [number, number], radius: number, pole: Vec, end: Role = "dark", melt?: number): Vec {
+export function limb(kit: Kit, part: string, role: Role, reach: Reach): Vec {
+  const { root, target, lengths, radius, pole, end = "dark", melt } = reach;
   // A target on the ground (or the bark) is where the sole meets it: the paw's
   // centre sits its own height above, fading out as the foot lifts.
   const sole = radius * 0.8;
   const lifted: Vec = [target[0], target[1] + sole * clamp(1 - target[1] / (sole * 2), 0, 1), target[2]];
   const { mid, end: tip } = solveTwoBone(root, lifted, lengths[0], lengths[1], pole);
   if (melt === undefined) {
-    cap(kit, `${part}.upper`, role, root, mid, radius);
-    cap(kit, `${part}.lower`, role, mid, tip, radius * 0.78);
-    ball(kit, `${part}.paw`, end, tip, radius * 0.95, 0.75);
+    cap(kit, `${part}.upper`, role, { a: root, b: mid, r: radius });
+    cap(kit, `${part}.lower`, role, { a: mid, b: tip, r: radius * 0.78 });
+    ball(kit, `${part}.paw`, end, { p: tip, r: radius * 0.95, flat: 0.75 });
     return tip;
   }
   // (Tapered, and melting only `melt` as far, so a limb stays a limb against the body.)
-  cone(kit, `${part}.upper`, role, root, mid, radius, radius * 0.8, Math.max(melt, 0.6));
-  cone(kit, `${part}.lower`, role, mid, tip, radius * 0.78, radius * 0.6, melt);
-  cap(kit, `${part}.paw`, end, tip, tip, radius * 0.85, 0.75, UP, { melt });
+  cone(kit, `${part}.upper`, role, { a: root, b: mid, r: radius, r1: radius * 0.8, melt: Math.max(melt, 0.6) });
+  cone(kit, `${part}.lower`, role, { a: mid, b: tip, r: radius * 0.78, r1: radius * 0.6, melt });
+  cap(kit, `${part}.paw`, end, { a: tip, b: tip, r: radius * 0.85, flat: 0.75, up: UP, finish: { melt } });
   return tip;
 }
 

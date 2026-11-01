@@ -7,7 +7,7 @@ import { groundY, perchOf, trunkAxis } from "./stage.js";
 import type { Place, Stage, Wood } from "./stage.js";
 import { woodKey, woodMapOf, woodNear } from "./paths.js";
 import type { WoodMap } from "./paths.js";
-import { offWood } from "./director.js";
+import { offWood } from "./perches.js";
 import type { Actor, Scene, Segment } from "./director.js";
 import type { Capsule, Moment } from "./moments.js";
 import { bodyOf } from "../animals/bodies.js";
@@ -40,14 +40,10 @@ const greeting = (a: Footprint, b: Footprint): boolean =>
   a.team === b.team && (a.faces === b.self || b.faces === a.self);
 
 /** How far ring `a` lies inside ring `b`, each carried by its animal's shove so far, and the way out of it. */
-function overlapOf(
-  a: Ring,
-  at: readonly [number, number],
-  b: Ring,
-  bt: readonly [number, number],
-  tie: number,
-  room: number,
-): { gap: number; x: number; z: number } {
+/** A ring and how far its animal's shove has carried it so far. */
+type Shoved = readonly [ring: Ring, by: readonly [number, number]];
+
+function overlapOf([a, at]: Shoved, [b, bt]: Shoved, tie: number, room: number): { gap: number; x: number; z: number } {
   const dx = a.x + at[0] - b.x - bt[0];
   const dz = a.z + at[1] - b.z - bt[1];
   const d = Math.hypot(dx, dz);
@@ -70,7 +66,7 @@ export function shoveApart(prints: readonly (Footprint | null)[]): (readonly [nu
     if (!a || !b || !at || !bt) return;
     const room = greeting(a, b) ? SNUG : 1;
     for (const ra of a.rings) for (const rb of b.rings) {
-      const { gap, x, z } = overlapOf(ra, at, rb, bt, i + j * 2.4, room);
+      const { gap, x, z } = overlapOf([ra, at], [rb, bt], i + j * 2.4, room);
       if (gap <= 0) continue;
       const share = b.weight / (a.weight + b.weight);
       at[0] += x * gap * share;
@@ -79,7 +75,9 @@ export function shoveApart(prints: readonly (Footprint | null)[]): (readonly [nu
       bt[1] -= z * gap * (1 - share);
     }
   };
-  for (let pass = 0; pass < SHOVE_PASSES; pass += 1) for (let i = 0; i < prints.length; i += 1) for (let j = i + 1; j < prints.length; j += 1) pushPair(i, j);
+  for (let pass = 0; pass < SHOVE_PASSES; pass += 1) {
+    for (let i = 0; i < prints.length; i += 1) for (let j = i + 1; j < prints.length; j += 1) pushPair(i, j);
+  }
   return shove;
 }
 
@@ -206,7 +204,12 @@ export function clippingOf(frame: readonly { body: Body; own: readonly Wood[] }[
     .filter(({ own }, i) => inWood(cores[i] ?? [], new Set(own.map(woodKey)), map))
     .map(({ body }) => body.id);
   const bodies: (readonly [string, string])[] = [];
-  frame.forEach(({ body }, i) => { for (let j = i + 1; j < frame.length; j += 1) { const other = frame[j]; if (other && inOther(cores[i] ?? [], cores[j] ?? [])) bodies.push([body.id, other.body.id]); } });
+  frame.forEach(({ body }, i) => {
+    for (let j = i + 1; j < frame.length; j += 1) {
+      const other = frame[j];
+      if (other && inOther(cores[i] ?? [], cores[j] ?? [])) bodies.push([body.id, other.body.id]);
+    }
+  });
   return { wood, bodies };
 }
 
@@ -230,7 +233,9 @@ export function passOnWood(prints: readonly (WoodPrint | null)[]): Vec[] {
       lean[j] = madd(lean[j] ?? [0, 0, 0], out, -gap * (1 - share));
     }
   };
-  for (let pass = 0; pass < SHOVE_PASSES; pass += 1) for (let i = 0; i < prints.length; i += 1) for (let j = i + 1; j < prints.length; j += 1) pair(i, j);
+  for (let pass = 0; pass < SHOVE_PASSES; pass += 1) {
+    for (let i = 0; i < prints.length; i += 1) for (let j = i + 1; j < prints.length; j += 1) pair(i, j);
+  }
   return lean;
 }
 
@@ -276,6 +281,6 @@ export function settledBodies(posed: readonly Posed[], prints: readonly (Footpri
     const lean = add(leans[i] ?? [0, 0, 0], print ? clearOfLimbs(print, limbs) : [0, 0, 0]);
     const moved = shoved(m, capsules, add(overGround(scene.stage, m, shoves[i] ?? [0, 0]), lean));
     actor.pos = moved.m.frame.o;
-    return bodyOf(id, actor, moved.m, moved.capsules, scene);
+    return bodyOf(id, actor, moved.m, { capsules: moved.capsules, scene });
   });
 }

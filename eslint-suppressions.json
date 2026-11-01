@@ -4,18 +4,49 @@
       "count": 1
     }
   },
-  "modules/keel-web3/audio/lofi-grove/src/index.ts": {
+  "modules/keel-web3/audio/lofi-grove/src/band.ts": {
     "@typescript-eslint/max-params": {
-      "count": 3
+      "count": 2
     },
     "max-len": {
-      "count": 28
+      "count": 10
     },
     "max-statements-per-line": {
-      "count": 6
+      "count": 5
+    }
+  },
+  "modules/keel-web3/audio/lofi-grove/src/events.ts": {
+    "@typescript-eslint/max-params": {
+      "count": 1
+    },
+    "max-len": {
+      "count": 5
     },
     "no-nested-ternary": {
       "count": 2
+    }
+  },
+  "modules/keel-web3/audio/lofi-grove/src/index.ts": {
+    "max-len": {
+      "count": 1
+    }
+  },
+  "modules/keel-web3/audio/lofi-grove/src/roll.ts": {
+    "max-len": {
+      "count": 1
+    }
+  },
+  "modules/keel-web3/audio/lofi-grove/src/score.ts": {
+    "max-len": {
+      "count": 10
+    },
+    "max-statements-per-line": {
+      "count": 1
+    }
+  },
+  "modules/keel-web3/audio/lofi-grove/src/songbook.ts": {
+    "max-len": {
+      "count": 1
     }
   },
   "modules/keel-web3/generative/fauna/src/birds.ts": {

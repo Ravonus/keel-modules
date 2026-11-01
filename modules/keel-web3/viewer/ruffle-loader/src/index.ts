@@ -147,8 +147,7 @@ function installResourceHooks(
   // Keep that gateway and the host's URL-property guard intact.
   try {
     hostWindow.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      return originalFetch(resources.get(fileName(raw)) ?? input, init);
+      return originalFetch(resources.get(fileName(urlOf(input))) ?? input, init);
     };
   } catch {
     /* The host gateway continues to enforce the same aliases. */
@@ -174,6 +173,12 @@ function installResourceHooks(
   };
 }
 
+/** The URL a fetch was asked for, whatever form it came in. */
+function urlOf(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  return input instanceof URL ? input.href : input.url;
+}
+
 function loadPlayer(hostWindow: RuffleWindow, document: Document, main: string | undefined): Promise<RufflePlayerApi> {
   return new Promise<RufflePlayerApi>((resolve, reject) => {
     try {
@@ -186,7 +191,9 @@ function loadPlayer(hostWindow: RuffleWindow, document: Document, main: string |
         if (typeof api?.newest !== "function") reject(new Error("Ruffle did not expose RufflePlayer.newest()."));
         else resolve(api as RufflePlayerApi);
       };
-      script.onerror = () => { reject(new Error("Verified Ruffle main resource failed to load.")); };
+      script.onerror = () => {
+        reject(new Error("Verified Ruffle main resource failed to load."));
+      };
       document.head.appendChild(script);
     } catch (error) {
       reject(error instanceof Error ? error : new Error(String(error)));

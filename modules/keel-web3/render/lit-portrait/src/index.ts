@@ -102,10 +102,10 @@ export function portraitShot(
 function block(
   raw: Uint8Array,
   wide: number,
-  x: number,
-  y: number,
+  at: readonly [number, number],
   over: number,
 ): readonly [number, number, number, number] {
+  const [x, y] = at;
   let r = 0;
   let g = 0;
   let b = 0;
@@ -126,8 +126,12 @@ function block(
 function stoodUp(rgba: Uint8Array, o: number, channel: number, near: readonly number[]): number {
   let sum = 0;
   let n = 0;
-  for (const d of near) if (rgba[o + d + 3]) { sum += rgba[o + d + channel] ?? 0;
-  n += 1; }
+  for (const d of near) {
+    if (rgba[o + d + 3]) {
+      sum += rgba[o + d + channel] ?? 0;
+      n += 1;
+    }
+  }
   const own = rgba[o + channel] ?? 0;
   return n ? Math.max(0, Math.min(255, own + (own - sum / n) * CRISP)) : own;
 }
@@ -146,7 +150,7 @@ export function shrinkPortrait(raw: Uint8Array, wide: number, size: number): Uin
   const over = wide / size;
   const out = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
-    const [r, g, b, a] = block(raw, wide, x * over, y * over, over);
+    const [r, g, b, a] = block(raw, wide, [x * over, y * over], over);
     const o = (y * size + x) * 4;
     if (!a) continue;
     out.set([r / a, g / a, b / a, a / (over * over)], o);

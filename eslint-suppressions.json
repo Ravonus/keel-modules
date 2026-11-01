@@ -39,19 +39,6 @@
       "count": 1
     }
   },
-  "modules/keel-web3/render/lit-pass/src/index.ts": {
-    "max-statements-per-line": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/render/lit-portrait/src/index.ts": {
-    "@typescript-eslint/max-params": {
-      "count": 1
-    },
-    "max-statements-per-line": {
-      "count": 1
-    }
-  },
   "modules/keel-web3/render/skin-body/src/index.ts": {
     "@typescript-eslint/max-params": {
       "count": 1
@@ -74,29 +61,6 @@
   },
   "modules/keel-web3/render/voxel-dither/src/screens.ts": {
     "@typescript-eslint/max-params": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/render/world-theme/src/index.ts": {
-    "no-nested-ternary": {
-      "count": 4
-    }
-  },
-  "modules/keel-web3/timing/frame-clock/src/index.ts": {
-    "max-statements-per-line": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/viewer/ruffle-loader/src/index.ts": {
-    "max-statements-per-line": {
-      "count": 1
-    },
-    "no-nested-ternary": {
-      "count": 1
-    }
-  },
-  "modules/keel-web3/viewer/verified-assets/src/index.ts": {
-    "max-statements-per-line": {
       "count": 1
     }
   }

@@ -58,7 +58,9 @@ export function createLitPass(lit: PassLit, gl: WebGL2RenderingContext): LitPass
       // (The camera stands at the eye unturned, so its view is a shift: the projection takes the rest of `clip`.)
       camera.projectionMatrix.fromArray(clip).multiply(shift.makeTranslation(origin[0], origin[1], origin[2]));
       camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-      gl.bindFramebuffer = (kind, buffer) => { bind(kind, buffer ?? target); };
+      gl.bindFramebuffer = (kind, buffer) => {
+        bind(kind, buffer ?? target);
+      };
       try {
         renderer.resetState();
         renderer.setViewport(0, 0, width, height);

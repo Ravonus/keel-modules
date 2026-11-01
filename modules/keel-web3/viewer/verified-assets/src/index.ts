@@ -46,6 +46,9 @@ export function createVerifiedAssets(resolveResource: ResolveResource): Verified
     text,
     async json(id: string): Promise<unknown> { return JSON.parse(await text(id)) as unknown; },
     async image(id: string, mediaType = "image/webp"): Promise<ImageBitmap> { return createImageBitmap(new Blob([await bytes(id)], { type: mediaType })); },
-    clear(id?: string): void { if (id === undefined) cache.clear(); else cache.delete(id); },
+    clear(id?: string): void {
+      if (id === undefined) cache.clear();
+      else cache.delete(id);
+    },
   };
 }

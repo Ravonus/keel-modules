@@ -52,6 +52,13 @@ export function mixHex(a: string, b: string, amount: number): string {
   return toHex(ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t);
 }
 
+/** Which sixth of the hue wheel a colour sits in, and how far along it, from the channel that leads. */
+function hueSector(rgb: readonly [number, number, number], max: number, delta: number): number {
+  const [r, g, b] = rgb;
+  if (max === r) return ((g - b) / delta) % 6;
+  return max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+}
+
 /** Turns a colour round the hue wheel by `degrees`, keeping its lightness and saturation. */
 export function shiftHue(hex: string, degrees: number): string {
   const [r, g, b] = parseHex(hex).map((channel) => channel / 255) as [number, number, number];
@@ -61,7 +68,7 @@ export function shiftHue(hex: string, degrees: number): string {
   const delta = max - min;
   if (delta === 0) return hex.toLowerCase();
   const saturation = delta / (1 - Math.abs(2 * light - 1));
-  const raw = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+  const raw = hueSector([r, g, b], max, delta);
   const hue = (((raw * 60 + degrees) % 360) + 360) % 360;
   const chroma = (1 - Math.abs(2 * light - 1)) * saturation;
   const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
@@ -538,6 +545,12 @@ export interface WorldLook {
   readonly density: number;
 }
 
+/** How big the sun is drawn: a striped one wide, a star small, the rest about a twentieth of the sky. */
+function sunSize(sun: SunStyle, random: () => number): number {
+  if (sun === "striped") return 0.16 + random() * 0.06;
+  return sun === "star" ? 0.05 : 0.04 + random() * 0.02;
+}
+
 function resolveWorld(id: WorldId, random: () => number): WorldLook {
   const recipe = WORLDS[id];
   const [variant, palette] = pick(recipe.palettes, random);
@@ -546,7 +559,7 @@ function resolveWorld(id: WorldId, random: () => number): WorldLook {
   return {
     id, label: recipe.label, variant, form: recipe.form, skyline: recipe.skyline, clouds: pick(recipe.clouds, random),
     sky: palette.sky, skylineColors: palette.skyline, cloudColors: palette.cloud,
-    sun: { style: sun, colors: palette.sun, size: sun === "striped" ? 0.16 + random() * 0.06 : sun === "star" ? 0.05 : 0.04 + random() * 0.02 },
+    sun: { style: sun, colors: palette.sun, size: sunSize(sun, random) },
     moon: { style: moon, color: palette.moon, size: moon === "big" || moon === "neon" ? 0.1 + random() * 0.05 : 0.035 + random() * 0.02 },
     skyMix: recipe.skyMix, light: { tint: palette.light, mix: recipe.lightMix }, stars: recipe.stars,
     height: 0.8 + random() * 0.5, density: 0.75 + random() * 0.5,
@@ -805,7 +818,13 @@ function resolveGlitch(forced: string | undefined, random: () => number): Glitch
     const rarity = GLITCH_KINDS[parts[part].kind].rarity;
     return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(rarest) ? rarity : rarest;
   }, "common");
-  return { id: full ? "full" : hit.length === 0 ? "clean" : hit.join("+"), rarity: full ? "legendary" : worst, full, parts };
+  return { id: glitchId(full, hit), rarity: full ? "legendary" : worst, full, parts };
+}
+
+/** A glitch's id: "full", "clean", or the parts it hits joined. */
+function glitchId(full: boolean, hit: readonly GlitchPart[]): string {
+  if (full) return "full";
+  return hit.length === 0 ? "clean" : hit.join("+");
 }
 
 /**
@@ -832,7 +851,7 @@ function givenGlitch(signals: SignalInput, strength: number): GlitchLook {
     const rarity = GLITCH_KINDS[parts[part].kind].rarity;
     return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(rarest) ? rarity : rarest;
   }, "common");
-  return { id: full ? "full" : hit.length === 0 ? "clean" : hit.join("+"), rarity: full ? "legendary" : worst, full, parts };
+  return { id: glitchId(full, hit), rarity: full ? "legendary" : worst, full, parts };
 }
 
 function glitchName(glitch: GlitchLook): string {

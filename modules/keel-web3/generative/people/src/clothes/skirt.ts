@@ -117,6 +117,9 @@ export function hemOf(p: Person): number {
   return lerpV(leg.hip, leg.knee, LONG_TOP[p.outfit.top] ?? 0.78)[1];
 }
 
+/** Looseness too slight to swing: cloth with any at all rides out over a thigh that comes up under it. */
+const RIDES = 0.002;
+
 /** What hangs from a waist: whether it is a long top's fall, the ring it starts from, and the body it hangs over. */
 interface Hung {
   readonly long: boolean;
@@ -137,9 +140,9 @@ export function skirtShell(net: Net, p: Person, roles: readonly string[], { long
   const cage = skirtCage(p, loop, { hem, clear, bulk: bulkOf(body, from, hem, middle) });
   const free: Layer["free"] = [from - 0.1, Math.max(0.1, from - hem)];
   const hang = (at: Vec, row: Row): readonly [number, number, number, number] => {
-    if (row.slice(3).some((v) => v > 0)) return [...strongest(row), 0];
+    if (row.slice(3).some((v) => v > 0)) return [...strongest(row), RIDES];
     const [a, b, w] = skirtWeights(at, hangOf(s, 1)[0][1], s.left.leg.hip[1] + 0.02);
-    return [a, b, w, clamp((free[0] - at[1]) / free[1], 0, 1)];
+    return [a, b, w, clamp((free[0] - at[1]) / free[1], RIDES, 1)];
   };
   const fabric = long ? topCloth(p) : lowerCloth(p);
   const role = (): string => (long ? "top" : "bottom");

@@ -200,7 +200,7 @@ vec3 overLimb(vec3 at, vec3 centre, vec4 a, vec4 b, float bone) {
 vec3 layered(vec3 at) {
   if (uClothBone < 0.5) return at;
   bool panel = aBones.x + 0.5 >= uClothBone;
-  if (!panel && (aFabric < 0.5 || aLoose <= 0.0)) return at;  // cloth still on the pelvis only rides over the thighs
+  if (!panel && (aBones.x > 0.5 || aFabric < 0.5 || aLoose <= 0.0)) return at;  // cloth still on the pelvis only rides over the thighs
   if (panel) {
     at = offLimb(at, uLegJoints[0], uLegJoints[1], uLegBones.x);
     at = offLimb(at, uLegJoints[1], uLegJoints[2], uLegBones.y);
@@ -270,6 +270,8 @@ void main() {
     float top = 1.0 - smoothstep(0.3, 0.55, hip / distance(uLegJoints[0].xyz, uLegJoints[1].xyz));
     seen.xyz *= 1.0 + (0.1 + 0.25 * top) / length(seen.xyz);
   }
+  // Cloth ridden out over a thigh stays under what lies on the lap, and over the skin.
+  if (uClothBone > 0.5 && bone < 1.0 && aFabric > 0.5 && aLoose > 0.0) seen.xyz *= 1.0 + 0.05 / length(seen.xyz);
   gl_Position = projectionMatrix * seen;
 }`;
 

@@ -1,6 +1,6 @@
 // Bones: the skinning skeleton, cloth that arrives late, which bone each part hangs on, and a pose as bone matrices.
 
-import { FRONT, UP, add, cross, dot, lerpV, scale, sub, unit } from "../vec.js";
+import { FRONT, UP, add, cross, dot, lerpV, scale, sub, unit, clamp } from "../vec.js";
 import type { Vec } from "../vec.js";
 import type { Person } from "./person.js";
 import { restSkeleton } from "../motion/skeleton.js";
@@ -68,11 +68,20 @@ function panelOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
   return [hinge, add(hinge, [0, -down, z])];
 }
 
-/** Below the knees cloth has nothing under it, and falls straight down. */
+/**
+ * Below the knees cloth has nothing under it, and falls straight down: but what is drawn under someone sitting lies on
+ * along the seat, the further the more it is drawn.
+ */
 export function hangOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
-  const [, end] = panelOf(s, side);
-  return [end, add(end, [0, -0.3, 0])];
+  const [start, end] = panelOf(s, side);
+  const [, drop, on] = sub(end, start);
+  const lies = side < 0 ? clamp(on / Math.max(1e-3, Math.hypot(drop, on)) / LIES_BY, 0, 1) : 0;
+  return [end, add(end, [0, -0.3 * Math.cos(lies * LIES_MOST), 0.3 * Math.sin(lies * LIES_MOST)])];
 }
+
+/** How forward a back panel is, as a slope, when what hangs from it lies flat out, and how far round that takes it. */
+const LIES_BY = 0.6;
+const LIES_MOST = 1.3;
 
 const BONES: readonly (readonly [string, (s: Skeleton) => readonly [Vec, Vec]])[] = [
   ["pelvis", (s) => [s.pelvis, s.waist]],

@@ -604,8 +604,9 @@ const KNEE_BLEND = 0.08;
  */
 export function skirtWeights(at: Vec, knee = -FAR, hinge = FAR): readonly [number, number, number] {
   if (at[1] > hinge) return [PELVIS, PELVIS, 1];
+  const across = clamp(0.5 + at[2] / PANEL_DEEP, 0, 1);
   const blend = (at[1] - knee + KNEE_BLEND) / (2 * KNEE_BLEND);
-  if (blend > 0 && blend < 1) {
+  if (blend > 0 && blend < 1 && (across === 0 || across === 1)) {  // not at the sides: two bones can't span that seam
     const panel = at[2] < 0 ? "back" : "front";
     return [boneIndex(`skirt.${panel}`), boneIndex(`hang.${panel}`), blend * blend * (3 - 2 * blend)];
   }

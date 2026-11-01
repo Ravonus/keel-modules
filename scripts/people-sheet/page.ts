@@ -2,9 +2,13 @@
 import * as lit from "keel-lit";
 import { createSkinBodies } from "../../modules/keel-web3/render/skin-body/src/index.ts";
 import { createPortraitStudio, meshTop } from "../../modules/keel-web3/render/lit-portrait/src/index.ts";
-import { meshOf, personOf, poseMesh, skeletonOf } from "../../modules/keel-web3/generative/people/src/index.ts";
+import { createDrape, drapeAt, meshOf, personOf, poseMesh, skeletonOf, velocityAt } from "../../modules/keel-web3/generative/people/src/index.ts";
 import type { Action, Person, PersonMesh, Weather } from "../../modules/keel-web3/generative/people/src/index.ts";
+import type { Drape } from "../../modules/keel-web3/generative/people/src/index.ts";
+import type { SkinMotion } from "../../modules/keel-web3/render/skin-body/src/index.ts";
 import { coveredSkin, tinted } from "./cover.ts";
+
+type Vec = readonly [number, number, number];
 
 interface Sheet { seeds: number[]; poses: string[]; yaws: number[]; size: number; cell: number; weather: Weather; time: number }
 type Box = readonly [x0: number, x1: number, y0: number, y1: number, z0: number, z1: number];
@@ -109,9 +113,47 @@ function compared(plain: Uint8Array, marked: Uint8Array): { through: number; bod
   return { through, body, frame };
 }
 
+/** What a posed body is given of its cloth's state. */
+const motionOf = ({ trail, twist, wave, phase }: Drape, time: number): SkinMotion => (
+  { face: FACE, sway: [...trail, time], drape: sheetDrape ? [twist, wave, phase] : [0, 0, 0] });
+let sheetDrape = true;
+
+/** A run of frames through a stop and a turn, side on, stepped as a host would: what cloth does after the body. */
+function film({ seeds, cell, size }: Sheet): HTMLCanvasElement {
+  const bodies = createSkinBodies(lit), studio = createPortraitStudio(lit, new OffscreenCanvas(32, 32), bodies);
+  const beats = [["walk", 1.4, 0], ["stand", 1, 0], ["stand", 0.7, 3.2], ["stand", 1, 0]] as const;
+  const frames = 30, canvas = document.createElement("canvas");
+  canvas.width = size * frames;
+  canvas.height = size * seeds.length;
+  const page = canvas.getContext("2d");
+  seeds.forEach((seed, row) => {
+    const p = personOf(seed), mesh = meshOf(p, cell), top = meshTop(mesh.position), one = bodies.add(mesh), drape = createDrape(p);
+    one.show(false);
+    let time = 0, yaw = 1.5, shot = 0, next = 0, was: Action = "walk";
+    for (const [action, long, turn] of beats) {
+      for (let at = 0; at < long; at += 1 / 60) {
+        time += 1 / 60;
+        yaw += turn / 60;
+        const fade = Math.min(1, at / 0.25), from = was === action ? undefined : { action: was, t: time, k: 1 - fade };
+        const own = velocityAt(p, action, time), left = velocityAt(p, was, time);
+        const now = drape.step(1 / 60, { velocity: own.map((v, i) => v * fade + (left[i] ?? 0) * (1 - fade)) as unknown as Vec, turn });
+        if (time < next) continue;
+        next += 0.12;
+        const frame = studio.shoot({ one, bones: poseMesh(p, action, time, from), top, head: top * 0.62, motion: motionOf(now, time), size, yaw });
+        page?.putImageData(new ImageData(new Uint8ClampedArray(frame), size, size), shot * size, row * size);
+        shot += 1;
+      }
+      was = action;
+    }
+    one.remove();
+  });
+  return canvas;
+}
+
 /** Every shot of a sheet scored, each rendered twice, plain and with its covered skin tinted. */
-function score(sheet: Sheet & { times: number[]; worst: number }): { shots: Shot[]; png: string } {
+function score(sheet: Sheet & { times: number[]; worst: number; drape?: boolean }): { shots: Shot[]; png: string } {
   const { seeds, poses, yaws, size, cell, weather, times, worst } = sheet;
+  sheetDrape = sheet.drape !== false;
   const bodies = createSkinBodies(lit), studio = createPortraitStudio(lit, new OffscreenCanvas(32, 32), bodies);
   const shots: Shot[] = [];
   for (const seed of seeds) for (const pose of poses) {
@@ -120,8 +162,8 @@ function score(sheet: Sheet & { times: number[]; worst: number }): { shots: Shot
     const ones = [bodies.add(mesh), bodies.add(tinted(mesh, covered))];
     for (const one of ones) one.show(false);
     for (const yaw of yaws) for (const time of times) {
-      const bones = poseMesh(p, pose as Action, time);
-      const [a, b] = ones.map((one) => studio.shoot({ one, bones, top, head: top * 0.62, motion: { face: FACE }, size, yaw }));
+      const bones = poseMesh(p, pose as Action, time), motion = motionOf(drapeAt(p, pose as Action, time), time);
+      const [a, b] = ones.map((one) => studio.shoot({ one, bones, top, head: top * 0.62, motion, size, yaw }));
       if (!a || !b) continue;
       shots.push({ seed, pose, yaw, time, top: p.outfit.top, bottom: p.outfit.bottom, ...compared(a, b) });
     }
@@ -137,6 +179,7 @@ function score(sheet: Sheet & { times: number[]; worst: number }): { shots: Shot
   return { shots: shots.map(({ frame: _, ...rest }) => rest), png: canvas.toDataURL("image/png") };
 }
 
-const pageApi = globalThis as unknown as { sheet: (s: Sheet) => string; score: typeof score };
+const pageApi = globalThis as unknown as { sheet: (s: Sheet) => string; score: typeof score; film: (s: Sheet) => string };
+pageApi.film = (s) => film(s).toDataURL("image/png");
 pageApi.sheet = (s) => render(s).toDataURL("image/png");
 pageApi.score = score;

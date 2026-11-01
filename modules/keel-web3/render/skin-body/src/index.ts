@@ -121,6 +121,8 @@ export interface SkinMotion {
   readonly face?: FaceState;
   readonly sway?: Sway;
   readonly jiggle?: Vec;
+  /** How far the hem lags round, and how tall the wave running down what hangs is, and where it has got to. */
+  readonly drape?: readonly [twist: number, wave: number, phase: number];
 }
 
 export interface SkinOne {
@@ -156,6 +158,7 @@ attribute float aLoose;
 attribute float aSoft;
 uniform vec4 uSway;
 uniform vec3 uJiggle;  // how far soft flesh has been left behind
+uniform vec3 uDrape;  // how far the hem lags round, and the wave going down it: how tall, how far on
 uniform vec4 uLegJoints[8];  // hip, knee, ankle and toe, each leg, and how thick
 uniform vec4 uLegBones;
 uniform vec3 uFootBones;
@@ -184,7 +187,13 @@ vec3 layered(vec3 at) {
 // What hangs from the body trails it, more toward its free edge, a ripple running down through it.
 vec3 hung(vec3 at) {
   float free = aLoose * aLoose;
-  return at + uJiggle * aSoft + (uSway.xyz + vec3(sin(uSway.w * 3.1 + position.y * 7.0 + position.x * 5.0), 0.0, cos(uSway.w * 2.3 + position.y * 6.0)) * 0.012) * free;
+  vec2 round = position.xz;
+  float reach = max(length(round), 1e-3);
+  vec3 swung = uSway.xyz + vec3(0.0, dot(uSway.xz, round) * 1.1, 0.0);
+  vec3 lag = vec3(-round.y, 0.0, round.x) * uDrape.x;
+  float wave = sin(uDrape.z + position.y * 9.0 + atan(round.y, round.x) * 3.0) * uDrape.y;
+  vec3 rippled = vec3(sin(uSway.w * 3.1 + position.y * 7.0 + position.x * 5.0), 0.0, cos(uSway.w * 2.3 + position.y * 6.0)) * 0.012;
+  return at + uJiggle * aSoft + (swung + lag + rippled + vec3(round.x, 0.0, round.y) / reach * wave) * free;
 }
 `;
 
@@ -769,11 +778,13 @@ function addBody(lit: SkinLit, group: LitNode, shared: Shared, mesh: SkinMesh): 
   const uBones = bonesUniform(lit);
   const uSway: Uniform = { value: new lit.Vector4() };
   const uJiggle: Uniform = { value: new lit.Vector3() };
+  const uDrape: Uniform = { value: new lit.Vector3() };
   const legs = legUniforms(lit, mesh.legs);
   const uniforms: Record<string, Uniform> = {
     uBones,
     uSway,
     uJiggle,
+    uDrape,
     ...legs,
     uHostDepth,
     uHostForward,
@@ -788,7 +799,7 @@ function addBody(lit: SkinLit, group: LitNode, shared: Shared, mesh: SkinMesh): 
     fragmentShader: FRAGMENT,
   });
   const depth = new lit.CustomMaterial({
-    uniforms: { uBones, uSway, uJiggle, ...legs },
+    uniforms: { uBones, uSway, uJiggle, uDrape, ...legs },
     vertexShader: DEPTH_VERTEX,
     fragmentShader: DEPTH_FRAGMENT,
   });
@@ -805,6 +816,7 @@ function addBody(lit: SkinLit, group: LitNode, shared: Shared, mesh: SkinMesh): 
       bonesInto(uBones, bones);
       (uSway.value as LitV4).set(...sway);
       (uJiggle.value as { set(x: number, y: number, z: number): void }).set(...jiggle);
+      (uDrape.value as { set(x: number, y: number, z: number): void }).set(...(motion.drape ?? [0, 0, 0]));
       node.position.set(at[0], at[1], at[2]);
       node.rotation.y = yaw;
       if (!face) return;

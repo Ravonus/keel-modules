@@ -20,7 +20,7 @@ const { values } = parseArgs({ options: {
   seeds: { type: "string", default: "3,8,15,63,44" }, poses: { type: "string", default: "rest,seated" },
   views: { type: "string", default: "front,side,back" }, weather: { type: "string", default: "mild" },
   size: { type: "string", default: "260" }, cell: { type: "string", default: "0.02" }, time: { type: "string", default: "0" },
-  out: { type: "string", default: "people-sheet.png" }, score: { type: "boolean", default: false }, worst: { type: "string", default: "24" },
+  out: { type: "string", default: "people-sheet.png" }, score: { type: "boolean", default: false }, film: { type: "boolean", default: false }, "no-drape": { type: "boolean", default: false }, worst: { type: "string", default: "24" },
 } });
 const YAW = { front: 0.3, side: 1.5, back: 3.6 };
 const dirs = (dir) => (existsSync(dir) ? readdirSync(dir).map((name) => join(dir, name)) : []);
@@ -75,9 +75,9 @@ try {
     seeds: seedsOf(values.seeds), poses: values.poses.split(","), yaws: values.views.split(",").map((view) => YAW[view] ?? Number(view)),
     size: Number(values.size), cell: Number(values.cell), weather: values.weather, time: Number(values.time),
   };
-  const scored = values.score ? await page.evaluate((s) => globalThis.score(s), { ...sheet, times: values.time.split(",").map(Number), worst: Number(values.worst) }) : undefined;
+  const scored = values.score ? await page.evaluate((s) => globalThis.score(s), { ...sheet, times: values.time.split(",").map(Number), worst: Number(values.worst), drape: !values["no-drape"] }) : undefined;
   if (scored) report(scored.shots);
-  const png = scored?.png ?? await page.evaluate((s) => globalThis.sheet(s), sheet);
+  const png = scored?.png ?? await page.evaluate((s) => (s.film ? globalThis.film(s) : globalThis.sheet(s)), { ...sheet, film: values.film });
   writeFileSync(values.out, Buffer.from(png.split(",")[1], "base64"));
   await browser.close();
   console.log(values.out);

@@ -52,6 +52,28 @@ export default [
     expect: [true, true, true, true, true, true, true, true, true, true, true],
   },
   {
+    name: 'cloth carries on after the body: a stop settles, a turn wraps it and it swings back, and it is the same each time',
+    run: ({ personOf, createDrape, drapeAt, velocityAt }) => {
+      const p = personOf(38), drape = createDrape(p), still = { velocity: [0, 0, 0] };
+      const run = (steps, going) => Array.from({ length: steps }, () => drape.step(1 / 60, going)).at(-1);
+      const walked = run(120, { velocity: velocityAt(p, 'walk', 0.4) });
+      const stopped = run(40, still), settled = run(160, still);
+      const turning = run(40, { velocity: [0, 0, 0], turn: 3.2 }), back = run(200, still);
+      return [walked.wave > 0, stopped.wave > settled.wave, settled.wave < 0.001, turning.twist < -0.2, Math.abs(back.twist) < 0.02, JSON.stringify(drapeAt(p, 'walk', 0.4)) === JSON.stringify(drapeAt(p, 'walk', 0.4))];
+    },
+    expect: [true, true, true, true, true, true],
+  },
+  {
+    name: 'a foot kicked up behind a run hangs off the ankle, and one on the ground stays level',
+    run: ({ personOf, skeletonOf }) => {
+      const p = personOf(7), shin = (leg) => [leg.ankle[1] - leg.knee[1], leg.ankle[2] - leg.knee[2]], foot = (leg) => [leg.toe[1] - leg.ankle[1], leg.toe[2] - leg.ankle[2]];
+      const cos = (leg) => (shin(leg)[0] * foot(leg)[0] + shin(leg)[1] * foot(leg)[1]) / (Math.hypot(...shin(leg)) * Math.hypot(...foot(leg)));
+      const legs = Array.from({ length: 64 }, (_, i) => skeletonOf(p, 'run', (i / 64) * Math.PI * 2).left.leg), stand = skeletonOf(p, 'stand', 0).left.leg;
+      return [legs.every((leg) => cos(leg) > -0.45), Math.abs(cos(stand)) < 0.35];
+    },
+    expect: [true, true],
+  },
+  {
     name: 'there are many kinds of clothes and hair, and loose cloth lags a move, swings back and settles',
     run: ({ personOf, createHang }) => {
       const all = Array.from({ length: 900 }, (_, seed) => personOf(seed));

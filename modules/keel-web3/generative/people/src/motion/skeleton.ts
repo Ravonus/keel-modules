@@ -56,17 +56,27 @@ export interface Skeleton {
 /** A limb's direction, swung `a` radians forward of hanging straight down. */
 const pitched = (a: number): Vec => [0, -Math.cos(a), Math.sin(a)];
 
+/** Past this far back a shin, a foot stops tipping with it as it does on the ground, and hangs from the ankle. */
+const SHIN_BACK = -0.6;
+/** How far a hanging foot goes for each radian of shin past that: a little more, so it's pointed, not hooked. */
+const HANGS = 1.25;
+
+/** Where a foot points: near level, tipping only as the leg swings through, and hanging off a shin kicked back. */
+function footAlong(swing: Swing, side: number): Vec {
+  const shin = swing.thigh - swing.knee;
+  const pitch = swing.pitch ?? 0;
+  const turned = side * (swing.turned ?? 0);
+  if (shin >= SHIN_BACK) return unit([turned, -0.12 + clamp(shin, -1, 1) * 1.1 + pitch, 1]);
+  const tip = Math.atan(-0.12 + SHIN_BACK * 1.1 + pitch) + (shin - SHIN_BACK) * HANGS;
+  return unit([turned * Math.cos(tip), Math.sin(tip), Math.cos(tip)]);
+}
+
 function legOf(p: Person, hip: Vec, swing: Swing, side = 0): Leg {
   const length = TALL * p.build.legs * 0.5;
   const out = (a: number): Vec => unit(add(pitched(a), [side * (swing.splay ?? 0), 0, 0]));
   const knee = madd(hip, out(swing.thigh), length);
   const ankle = madd(knee, out(swing.thigh - swing.knee), length * 0.96);
-  // (The foot stays near level, tipping only as the leg swings through.)
-  const toe = madd(
-    add(ankle, [0, -0.02, 0]),
-    unit([side * (swing.turned ?? 0), -0.12 + clamp(swing.thigh - swing.knee, -1, 1) * 1.1 + (swing.pitch ?? 0), 1]),
-    TALL * 0.08 * p.build.foot,
-  );
+  const toe = madd(add(ankle, [0, -0.02, 0]), footAlong(swing, side), TALL * 0.08 * p.build.foot);
   return { hip, knee, ankle, toe, end: madd(toe, unit(sub(toe, ankle)), 0.05) };
 }
 

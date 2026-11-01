@@ -72,6 +72,10 @@ Each seed is drawn from the front, side and back, and `seated` sits on a chair, 
 
 Cloth is layered by rule, not tuned garment by garment: a mesh carries its `legs`, and render/skin-body pushes anything hanging from the skirt bones out of them in every pose.
 
+### Cloth over time
+
+`createDrape(p)` is one person's cloth: keep one for each person and step it each frame with how they go, in their own frame, with how fast they turn. It gives `trail`, `twist`, `wave` and `phase`; pass `sway: [...trail, t]` and `drape: [twist, wave, phase]` to render/skin-body's `pose`. A stop then settles over about a second, and a turn wraps the hem and swings back. `drapeAt` runs one up to a moment, for a still. `--film` on the sheet tool draws a walk, a stop and a turn as a strip of frames.
+
 ### The clip score
 
 `--score` puts a number on what has come through. It tints the skin that clothes cover at rest, renders each shot with and without the tint through the real shader, and counts the pixels that differ, so it only counts what you could see. `--out` gets the worst shots, marked red.
@@ -80,4 +84,4 @@ Cloth is layered by rule, not tuned garment by garment: a mesh carries its `legs
 node scripts/people-sheet/sheet.mjs --score --seeds 1-40 --poses rest,stand,walk,run,sit,crouch,dance,seated --views front,side,back --time .1,.35,.6,.85 --size 240 --out worst.png
 ```
 
-Run it before and after a cloth change and compare. It scored 0.030 on 2026-11-01. `rest` is its floor, 0.016 then: nothing has moved there, so anything it shows is a mark left by the test itself, such as a line of scalp on a few people. It leaves out the head, the neck, and sleeve mouths and armholes, where skin is seen at rest. Skin a flaring hem bares counts, since that is a fault of the flare; a hem that really is meant to lift would need its own say.
+Run it before and after a cloth change and compare. It scored 0.042 on 2026-11-01, posed with cloth's state. `rest` is its floor, 0.022 then: nothing has moved there, so anything it shows is a mark left by the test itself, such as a line of scalp on a few people. It leaves out the head, the neck, and sleeve mouths and armholes, where skin is seen at rest. Skin a flaring hem bares counts, since that is a fault of the flare; a hem that really is meant to lift would need its own say.

@@ -4,6 +4,7 @@ import { createSkinBodies } from "../../modules/keel-web3/render/skin-body/src/i
 import { createPortraitStudio, meshTop } from "../../modules/keel-web3/render/lit-portrait/src/index.ts";
 import { meshOf, personOf, poseMesh, skeletonOf } from "../../modules/keel-web3/generative/people/src/index.ts";
 import type { Action, Person, PersonMesh, Weather } from "../../modules/keel-web3/generative/people/src/index.ts";
+import { coveredSkin, tinted } from "./cover.ts";
 
 interface Sheet { seeds: number[]; poses: string[]; yaws: number[]; size: number; cell: number; weather: Weather; time: number }
 type Box = readonly [x0: number, x1: number, y0: number, y1: number, z0: number, z1: number];
@@ -89,4 +90,53 @@ function render(sheet: Sheet): HTMLCanvasElement {
   return canvas;
 }
 
-(globalThis as unknown as { sheet: (s: Sheet) => string }).sheet = (s) => render(s).toDataURL("image/png");
+/** What one shot of the score shows: how many of the body's pixels are skin its clothes should be over. */
+interface Shot { seed: number; pose: string; yaw: number; time: number; top: string; bottom: string; through: number; body: number; frame?: Uint8ClampedArray }
+
+/** How far a channel has to move for a pixel to be the tint and not the renderer's noise. */
+const TINTED = 48;
+
+/** The frame with whatever came through in red, and how many pixels that is and how many the body covers. */
+function compared(plain: Uint8Array, marked: Uint8Array): { through: number; body: number; frame: Uint8ClampedArray } {
+  const frame = new Uint8ClampedArray(plain);
+  let through = 0, body = 0;
+  for (let i = 0; i < plain.length; i += 4) {
+    if ((plain[i + 3] ?? 0) > 0) body += 1;
+    if (![0, 1, 2].some((c) => Math.abs((plain[i + c] ?? 0) - (marked[i + c] ?? 0)) > TINTED)) continue;
+    through += 1;
+    frame.set([255, 0, 0, 255], i);
+  }
+  return { through, body, frame };
+}
+
+/** Every shot of a sheet scored, each rendered twice, plain and with its covered skin tinted. */
+function score(sheet: Sheet & { times: number[]; worst: number }): { shots: Shot[]; png: string } {
+  const { seeds, poses, yaws, size, cell, weather, times, worst } = sheet;
+  const bodies = createSkinBodies(lit), studio = createPortraitStudio(lit, new OffscreenCanvas(32, 32), bodies);
+  const shots: Shot[] = [];
+  for (const seed of seeds) for (const pose of poses) {
+    const p = personOf(seed, weather), plain = meshOf(p, cell), covered = coveredSkin(plain);
+    const mesh = pose === "seated" ? chaired(plain, p) : plain, top = meshTop(plain.position);
+    const ones = [bodies.add(mesh), bodies.add(tinted(mesh, covered))];
+    for (const one of ones) one.show(false);
+    for (const yaw of yaws) for (const time of times) {
+      const bones = poseMesh(p, pose as Action, time);
+      const [a, b] = ones.map((one) => studio.shoot({ one, bones, top, head: top * 0.62, motion: { face: FACE }, size, yaw }));
+      if (!a || !b) continue;
+      shots.push({ seed, pose, yaw, time, top: p.outfit.top, bottom: p.outfit.bottom, ...compared(a, b) });
+    }
+    for (const one of ones) one.remove();
+  }
+  const canvas = document.createElement("canvas"), hits = [...shots].sort((a, b) => b.through / b.body - a.through / a.body).slice(0, worst);
+  canvas.width = size * Math.min(6, hits.length || 1);
+  canvas.height = size * Math.ceil(hits.length / 6 || 1);
+  const page = canvas.getContext("2d");
+  hits.forEach((shot, i) => {
+    if (shot.frame) page?.putImageData(new ImageData(new Uint8ClampedArray(shot.frame), size, size), (i % 6) * size, Math.floor(i / 6) * size);
+  });
+  return { shots: shots.map(({ frame: _, ...rest }) => rest), png: canvas.toDataURL("image/png") };
+}
+
+const pageApi = globalThis as unknown as { sheet: (s: Sheet) => string; score: typeof score };
+pageApi.sheet = (s) => render(s).toDataURL("image/png");
+pageApi.score = score;

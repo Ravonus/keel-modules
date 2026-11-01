@@ -71,3 +71,13 @@ node scripts/people-sheet/sheet.mjs --seeds 3,8,15 --poses walk,run --time 0.3 -
 Each seed is drawn from the front, side and back, and `seated` sits on a chair, solid to the floor: cloth is judged against something that stops it. Look for legs through cloth, holes, and cloth that does not fall from the knee.
 
 Cloth is layered by rule, not tuned garment by garment: a mesh carries its `legs`, and render/skin-body pushes anything hanging from the skirt bones out of them in every pose.
+
+### The clip score
+
+`--score` puts a number on what has come through. It tints the skin that clothes cover at rest, renders each shot with and without the tint through the real shader, and counts the pixels that differ, so it only counts what you could see. `--out` gets the worst shots, marked red.
+
+```
+node scripts/people-sheet/sheet.mjs --score --seeds 1-40 --poses rest,stand,walk,run,sit,crouch,dance,seated --views front,side,back --time .1,.35,.6,.85 --size 240 --out worst.png
+```
+
+Run it before and after a cloth change and compare. It scored 0.030 on 2026-11-01. `rest` is its floor, 0.016 then: nothing has moved there, so anything it shows is a mark left by the test itself, such as a line of scalp on a few people. It leaves out the head, the neck, and sleeve mouths and armholes, where skin is seen at rest. Skin a flaring hem bares counts, since that is a fault of the flare; a hem that really is meant to lift would need its own say.

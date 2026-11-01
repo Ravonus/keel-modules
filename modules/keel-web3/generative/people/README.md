@@ -58,3 +58,16 @@ A head near enough to read is a fixed mesh: the same rows and columns on everyon
 What goes on a head is seated on its boundary, `boundOf`: the true surface round the head's centre, built from the vertices already there. Ears grow from the skin's boundary and hand back their tops and lobes, glasses and earrings hold on to those, and clips, bands and headphones lie on the outer boundary over hair and hats. Hat crowns are built the same way, over the skin and the hair really under them. Clothes do it too: `frontBound` reads what a body has on, jacket fronts lie on it, and a polo's collar runs round the top's own neckline.
 
 `render/skin-body` lights hair along its strands. Hair vertices carry their direction in `cloth.xyz` and a strand coordinate in `cloth.w`.
+
+## Judging clothes
+
+Look at clothes in a T-pose, standing (`rest`) and sitting (`seated`), so no arm lies over the cloth. Use another pose only when that pose or animation is what is being tested.
+
+```bash
+node scripts/people-sheet/sheet.mjs --seeds 3,8,15 --weather rain --out sheet.png
+node scripts/people-sheet/sheet.mjs --seeds 3,8,15 --poses walk,run --time 0.3 --out moving.png
+```
+
+Each seed is drawn from the front, side and back, and `seated` sits on a chair, solid to the floor: cloth is judged against something that stops it. Look for legs through cloth, holes, and cloth that does not fall from the knee.
+
+Cloth is layered by rule, not tuned garment by garment: a mesh carries its `legs`, and render/skin-body pushes anything hanging from the skirt bones out of them in every pose.

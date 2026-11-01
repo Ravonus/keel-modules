@@ -29,6 +29,18 @@ export interface SkinMesh {
   readonly index: Uint32Array;
   /** Where the face lies at rest, if it has one. */
   readonly face?: SkinFace;
+  /** What cloth may never be inside. */
+  readonly legs?: SkinLegs;
+}
+
+/** The legs as cloth meets them: hanging cloth is pushed out of them, in any pose, on any body. */
+export interface SkinLegs {
+  /** Each leg's thigh bone and shin bone, left then right. */
+  readonly bones: readonly [number, number, number, number];
+  /** Hip, knee and ankle at rest, left then right, each `x y z radius`: 24 numbers. */
+  readonly joints: readonly number[];
+  /** The first bone that only cloth hangs from: what goes with those is what is pushed. */
+  readonly cloth: number;
 }
 
 /** What is worn on or lies on a face; all of it optional, none of it there by default. */
@@ -118,6 +130,7 @@ export interface SkinOptions {
 }
 
 const MOST_BONES = 30;
+const LEG_JOINTS = 6;
 
 const SKIN = /* glsl */ `
 #define ROWS ${String(MOST_BONES * 3)}
@@ -128,8 +141,28 @@ attribute float aLoose;
 attribute float aSoft;
 uniform vec4 uSway;
 uniform vec3 uJiggle;  // how far soft flesh has been left behind
+uniform vec4 uLegJoints[6];  // hip, knee and ankle, each leg, and how thick
+uniform vec4 uLegBones;
+uniform float uClothBone;
 vec3 boned(int b, vec4 v) { return vec3(dot(uBones[b * 3], v), dot(uBones[b * 3 + 1], v), dot(uBones[b * 3 + 2], v)); }
 vec3 skinned(vec4 v) { return boned(int(aBones.x + 0.5), v) * aWeight + boned(int(aBones.y + 0.5), v) * (1.0 - aWeight); }
+// Out of a length of leg to its surface, if inside it.
+vec3 offLimb(vec3 at, vec4 a, vec4 b, float bone) {
+  int i = int(bone + 0.5);
+  vec3 from = boned(i, vec4(a.xyz, 1.0)), along = boned(i, vec4(b.xyz, 1.0)) - from;
+  float t = clamp(dot(at - from, along) / max(dot(along, along), 1e-6), 0.0, 1.0), r = mix(a.w, b.w, t);
+  vec3 off = at - from - along * t;
+  float far = length(off);
+  return far < r && far > 1e-4 ? at + off * (r - far) / far : at;
+}
+// Cloth is the outer layer: whatever a pose does, no leg comes through it.
+vec3 layered(vec3 at) {
+  if (uClothBone < 0.5 || aBones.x + 0.5 < uClothBone) return at;
+  at = offLimb(at, uLegJoints[0], uLegJoints[1], uLegBones.x);
+  at = offLimb(at, uLegJoints[1], uLegJoints[2], uLegBones.y);
+  at = offLimb(at, uLegJoints[3], uLegJoints[4], uLegBones.z);
+  return offLimb(at, uLegJoints[4], uLegJoints[5], uLegBones.w);
+}
 // What hangs from the body trails it, more toward its free edge, a ripple running down through it.
 vec3 hung(vec3 at) {
   float free = aLoose * aLoose;
@@ -152,7 +185,7 @@ varying vec3 vRest;
 varying vec3 vNormal;
 varying vec3 vView;
 void main() {
-  vec3 at = hung(skinned(vec4(position, 1.0)));
+  vec3 at = layered(hung(skinned(vec4(position, 1.0))));
   // (Cloth crowds where its two bones have closed on each other: most between them, none where one has it alone.)
   vec3 up = vec3(0.0, 1.0, 0.0), side = vec3(1.0, 0.0, 0.0);
   float closed = 2.0 - dot(boned(int(aBones.x + 0.5), vec4(up, 0.0)), boned(int(aBones.y + 0.5), vec4(up, 0.0))) - dot(boned(int(aBones.x + 0.5), vec4(side, 0.0)), boned(int(aBones.y + 0.5), vec4(side, 0.0)));
@@ -561,7 +594,7 @@ void main() {
 }`;
 
 const DEPTH_VERTEX = /* glsl */ `${SKIN}
-void main() { gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(hung(skinned(vec4(position, 1.0))), 1.0); }`;
+void main() { gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(layered(hung(skinned(vec4(position, 1.0)))), 1.0); }`;
 const DEPTH_FRAGMENT = /* glsl */ `
 #include <packing>
 void main() { gl_FragColor = packDepthToRGBA(gl_FragCoord.z); }`;
@@ -629,6 +662,15 @@ function lookUniforms(lit: SkinLit, face: SkinFace): Record<string, Uniform> {
   return { uBrowLine: { value: new lit.Vector4(a, b, c, d) }, uMarks: { value: new lit.Vector4(freckles, spots, tired, seed % 97) }, uShadow: washed(shadow), uBlush: washed(blush), uLiner: { value: liner }, uSkin: { value: skinOf(lit, face.look) }, uMoleA: mole(moles[0]), uMoleB: mole(moles[1]) };
 }
 
+function legUniforms(lit: SkinLit, legs: SkinLegs | undefined): Record<string, Uniform> {
+  const n = (i: number): number => legs?.joints[i] ?? 0, [a, b, c, d] = legs?.bones ?? [0, 0, 0, 0];
+  return {
+    uLegJoints: { value: Array.from({ length: LEG_JOINTS }, (_, i) => new lit.Vector4(n(i * 4), n(i * 4 + 1), n(i * 4 + 2), n(i * 4 + 3))) },
+    uLegBones: { value: new lit.Vector4(a, b, c, d) },
+    uClothBone: { value: legs?.cloth ?? 0 },
+  };
+}
+
 function faceUniforms(lit: SkinLit, given: SkinFace | undefined): Record<string, Uniform> {
   const face = given ?? NO_FACE;
   const v4 = (at: Vec, w: number): Uniform => ({ value: new lit.Vector4(at[0], at[1], at[2], w) });
@@ -666,9 +708,10 @@ export function createSkinBodies(lit: SkinLit, options: SkinOptions = {}): SkinB
       const uBones = bonesUniform();
       const uSway: Uniform = { value: new lit.Vector4() };
       const uJiggle: Uniform = { value: new lit.Vector3() };
-      const uniforms: Record<string, Uniform> = { uBones, uSway, uJiggle, uHostDepth, uHostForward, ...lights, ...faceUniforms(lit, mesh.face) };
+      const legs = legUniforms(lit, mesh.legs);
+      const uniforms: Record<string, Uniform> = { uBones, uSway, uJiggle, ...legs, uHostDepth, uHostForward, ...lights, ...faceUniforms(lit, mesh.face) };
       const material = new lit.CustomMaterial({ side: "both", defines, uniforms, vertexShader: VERTEX, fragmentShader: FRAGMENT });
-      const depth = new lit.CustomMaterial({ uniforms: { uBones, uSway, uJiggle }, vertexShader: DEPTH_VERTEX, fragmentShader: DEPTH_FRAGMENT });
+      const depth = new lit.CustomMaterial({ uniforms: { uBones, uSway, uJiggle, ...legs }, vertexShader: DEPTH_VERTEX, fragmentShader: DEPTH_FRAGMENT });
       const node = new lit.Mesh(geometry, material);
       node.frustumCulled = false;
       node.castShadow = true;

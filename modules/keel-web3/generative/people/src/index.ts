@@ -2111,6 +2111,15 @@ function weightsAt(parts: readonly Capsule[], bones: readonly number[], at: Vec)
   return [first, second, clamp(0.5 + (next - near) / 0.14, 0.5, 1)];
 }
 
+/** How thick a leg is at the hip, knee and ankle to what hangs over it, a little more than it really is, for the cloth to clear it. */
+const LEG_THICK = [0.1, 0.07, 0.055] as const;
+
+function legsOf(p: Person): PersonMesh["legs"] {
+  const { left, right } = restSkeleton(p), wide = limbWide(p.build), size = p.build.size;
+  const joints = [left, right].flatMap(({ leg }) => [leg.hip, leg.knee, leg.ankle].flatMap((at, i) => [...scale(at, size), (LEG_THICK[i] ?? 0) * wide * size]));
+  return { bones: [boneIndex("thigh.L"), boneIndex("shin.L"), boneIndex("thigh.R"), boneIndex("shin.R")], joints, cloth: boneIndex("skirt.front") };
+}
+
 /** A person's mesh, at rest: what `poseMesh` moves. Colours are by `roles`, one per vertex, from `palette`. */
 export interface PersonMesh {
   readonly position: Float32Array;
@@ -2134,6 +2143,8 @@ export interface PersonMesh {
   readonly soft: Float32Array;
   readonly index: Uint32Array;
   /** Where each eye sits at rest, and how big, and the mouth: what the face is painted from. */
+  /** What cloth may never be inside: its renderer pushes it out, whatever the pose. */
+  readonly legs: { readonly bones: readonly [number, number, number, number]; readonly joints: readonly number[]; readonly cloth: number };
   readonly face: { readonly eyes: readonly [Vec, Vec]; readonly eye: number; readonly mouth: Vec; readonly mouthWide: number; readonly head: number; readonly iris: string; readonly lip: string; readonly brow: string; readonly browLine: readonly [number, number, number, number]; readonly look: Partial<Look> & { readonly seed?: number }; readonly lash: string; readonly white: string };
 }
 
@@ -4550,6 +4561,7 @@ export function meshOf(p: Person, cell = 0.016): PersonMesh {
   return {
     position: Float32Array.from(kept.position), normal: Float32Array.from(kept.normal), role: Uint8Array.from(kept.role), roles, palette: p.palette,
     bones: Uint8Array.from(kept.bones), weight: Float32Array.from(kept.weight), fabric: Uint8Array.from(kept.fabric), loose: Float32Array.from(kept.loose), cloth: Float32Array.from(kept.cloth), shade, soft: Float32Array.from(kept.soft), index: Uint32Array.from(kept.index),
+    legs: legsOf(p),
     face: { eyes: [eyeAt(-1), eyeAt(1)], eye: p.build.head * p.face.eye * size, mouth: scale(h.mark(0, p.face.bone.sto, 0.9), size), mouthWide: p.build.head * p.face.mouthWide * size, head: p.build.head * size, lip: p.face.look.lip ?? p.palette.lip ?? "#a85a52", browLine: browLineOf(p), look: p.outfit.costume === "fursuit" ? {} : { ...p.face.look, seed: p.seed }, ...faceInks(p) },
   };
 }

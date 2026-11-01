@@ -1916,17 +1916,25 @@ function bodyOf(p: Person, action: Action, t: number, at: Vec, yaw: number, rich
 const BACK_DRAWN = 0.5;
 /** How much of the thigh's length a panel is: what lies on a lap from a hinge ahead of the hips reaches the knee and no further. */
 const PANEL_LONG = 0.72;
+/** How softly the lead goes from one knee to the other, metres. */
+const PASSING = 0.03;
 /** Where a panel hinges, in front of or behind the hips by their width, the front over the top of the thighs: on the surface, so what turns lies on the lap and not under it. */
 const HINGE_OUT = 0.6, HINGE_UP = 0.11;
 /** How far the front of a skirt is shoved ahead of a leg coming forward, of how far the knee has come. */
 const PUSHED = 0.4, PUSHED_MOST = 0.05;
 
+/** How far the leg leading a panel has come. The further of the two knees, without the corner where they pass each other: cloth has no way to reverse in an instant. */
+function ledOf({ left, right }: Skeleton, side: 1 | -1): number {
+  const [a, b] = [left, right].map(({ leg }) => sub(leg.knee, leg.hip)[2]) as [number, number];
+  return (a + b) / 2 + side * (Math.hypot((a - b) / 2, PASSING) - PASSING);
+}
+
 /** A panel of a skirt, from between the hips to level with the knees: the front is pushed by whichever leg leads, the back by whichever trails, so neither leg ever comes through it. */
 function panelOf(s: Skeleton, side: 1 | -1): readonly [Vec, Vec] {
   const { left, right } = s, from = lerpV(left.leg.hip, right.leg.hip, 0.5);
-  const swings = [left, right].map(({ leg }) => sub(leg.knee, leg.hip)), lead = swings.reduce((a, b) => (b[2] * side > a[2] * side ? b : a));
-  const z = (lead[2] * side > 0 ? lead[2] : side > 0 ? 0 : Math.max(0, lead[2]) * BACK_DRAWN) * PANEL_LONG;
-  const span = Math.hypot(...lead) * PANEL_LONG, down = Math.sqrt(Math.max(0, span * span - z * z));
+  const led = ledOf(s, side);
+  const z = (led * side > 0 ? led : side > 0 ? 0 : Math.max(0, led) * BACK_DRAWN) * PANEL_LONG;
+  const span = Math.hypot(...sub(left.leg.knee, left.leg.hip)) * PANEL_LONG, down = Math.sqrt(Math.max(0, span * span - z * z));
   const hinge = add(from, [0, side > 0 ? HINGE_UP : 0, side * Math.abs(left.leg.hip[0] - right.leg.hip[0]) * HINGE_OUT + (side > 0 ? Math.min(z * PUSHED, PUSHED_MOST) : 0)]);
   return [hinge, add(hinge, [0, -down, z])];
 }
@@ -1973,6 +1981,19 @@ const BONES: readonly (readonly [string, (s: Skeleton) => readonly [Vec, Vec]])[
 export const BONE_COUNT = BONES.length;
 
 const boneIndex = (name: string): number => BONES.findIndex(([bone]) => bone === name);
+
+/** Where a body was a moment ago: what its cloth is still answering to. */
+interface Late { readonly panel: Skeleton; readonly hang: Skeleton }
+/** How far behind the legs cloth is, seconds: it arrives after them, the hem after the rest. */
+const PANEL_LATE = 0.06, HANG_LATE = 0.14;
+const CLOTH_LATE: ReadonlyMap<number, readonly ["panel" | "hang", 1 | -1]> = new Map([["skirt.front", "panel", 1], ["skirt.back", "panel", -1], ["hang.front", "hang", 1], ["hang.back", "hang", -1]].map(([bone, when, side]) => [boneIndex(bone as string), [when, side] as ["panel" | "hang", 1 | -1]]));
+/** What a piece of cloth answers to: a leg shoves it at once, but what the leg has left comes after it late. */
+function clothTime(bone: number, now: Skeleton, late?: Late): Skeleton {
+  const piece = CLOTH_LATE.get(bone);
+  if (!late || !piece) return now;
+  const [when, side] = piece, then = late[when];
+  return ledOf(then, side) * side > ledOf(now, side) * side ? then : now;
+}
 
 /** The forearms, which take half a hand's roll. */
 const FOREARMS: ReadonlyMap<number, "left" | "right"> = new Map([[boneIndex("fore.L"), "left"], [boneIndex("fore.R"), "right"]]);
@@ -2111,13 +2132,13 @@ function weightsAt(parts: readonly Capsule[], bones: readonly number[], at: Vec)
   return [first, second, clamp(0.5 + (next - near) / 0.14, 0.5, 1)];
 }
 
-/** How thick a leg is at the hip, knee and ankle to what hangs over it, a little more than it really is, for the cloth to clear it. */
-const LEG_THICK = [0.1, 0.07, 0.055] as const;
+/** How thick a leg is at the hip, knee, ankle and toe to what hangs over it, a little more than it really is, for the cloth to clear it. */
+const LEG_THICK = [0.1, 0.07, 0.055, 0.05] as const;
 
 function legsOf(p: Person): PersonMesh["legs"] {
   const { left, right } = restSkeleton(p), wide = limbWide(p.build), size = p.build.size;
-  const joints = [left, right].flatMap(({ leg }) => [leg.hip, leg.knee, leg.ankle].flatMap((at, i) => [...scale(at, size), (LEG_THICK[i] ?? 0) * wide * size]));
-  return { bones: [boneIndex("thigh.L"), boneIndex("shin.L"), boneIndex("thigh.R"), boneIndex("shin.R")], joints, cloth: boneIndex("skirt.front") };
+  const joints = [left, right].flatMap(({ leg }) => [leg.hip, leg.knee, leg.ankle, leg.toe].flatMap((at, i) => [...scale(at, size), (LEG_THICK[i] ?? 0) * wide * size]));
+  return { bones: [boneIndex("thigh.L"), boneIndex("shin.L"), boneIndex("thigh.R"), boneIndex("shin.R")], feet: [boneIndex("foot.L"), boneIndex("foot.R")], joints, cloth: boneIndex("skirt.front") };
 }
 
 /** A person's mesh, at rest: what `poseMesh` moves. Colours are by `roles`, one per vertex, from `palette`. */
@@ -2144,7 +2165,7 @@ export interface PersonMesh {
   readonly index: Uint32Array;
   /** Where each eye sits at rest, and how big, and the mouth: what the face is painted from. */
   /** What cloth may never be inside: its renderer pushes it out, whatever the pose. */
-  readonly legs: { readonly bones: readonly [number, number, number, number]; readonly joints: readonly number[]; readonly cloth: number };
+  readonly legs: { readonly bones: readonly [number, number, number, number]; readonly feet: readonly [number, number]; readonly joints: readonly number[]; readonly cloth: number };
   readonly face: { readonly eyes: readonly [Vec, Vec]; readonly eye: number; readonly mouth: Vec; readonly mouthWide: number; readonly head: number; readonly iris: string; readonly lip: string; readonly brow: string; readonly browLine: readonly [number, number, number, number]; readonly look: Partial<Look> & { readonly seed?: number }; readonly lash: string; readonly white: string };
 }
 
@@ -4642,8 +4663,9 @@ function halfRolled(swing: readonly [Vec, Vec, Vec], hand: readonly [Vec, Vec, V
 
 /** A pose's bone matrices; given `from`, that many parts of the way from another action, for a fade. */
 export function poseMesh(p: Person, action: Action, t: number, from?: { readonly action: Action; readonly t: number; readonly k: number }): Float32Array {
-  const target = skeletonOf(p, action, phaseOf(p, action, t));
-  return bonesOf(p, from ? blended(skeletonOf(p, from.action, phaseOf(p, from.action, from.t)), target, 1 - from.k) : target);
+  const target = skeletonOf(p, action, phaseOf(p, action, t)), at = (lag: number): Skeleton => skeletonOf(p, action, phaseOf(p, action, t - lag));
+  const late = LONG_TOP[p.outfit.top] !== undefined || p.outfit.bottom === "skirt" ? { panel: at(PANEL_LATE), hang: at(HANG_LATE) } : undefined;
+  return bonesOf(p, from ? blended(skeletonOf(p, from.action, phaseOf(p, from.action, from.t)), target, 1 - from.k) : target, late);
 }
 
 /** Where a body's joints have been thrown, by physics or anything else, in metres from the point the mesh stands on. */
@@ -4674,12 +4696,12 @@ export function limpBones(p: Person, limp: Limp): Float32Array {
   return bonesOf(p, { spin: 0, turn: limp.turn ?? 0, pelvis, waist, chest, neck, head, left: limb("left"), right: limb("right") });
 }
 
-function bonesOf(p: Person, now: Skeleton): Float32Array {
+function bonesOf(p: Person, now: Skeleton, late?: Late): Float32Array {
   const rest = restSkeleton(p);
   const k = p.build.size;
   const out = new Float32Array(BONES.length * 12);
   BONES.forEach(([, joints], i) => {
-    const [ra, rb] = joints(rest), [na, nb] = joints(now);
+    const [ra, rb] = joints(rest), [na, nb] = joints(clothTime(i, now, late));
     const hand = HAND_BONES.get(i), arm = FOREARMS.get(i);
     const r = hand ? handFrame(ra, rb, rest[hand].arm.knuckles) : arm ? handFrame(ra, rb, rest[arm].arm.knuckles) : boneFrame(ra, rb);
     const m = arm ? halfRolled(swungFrame(r, ra, rb, na, nb), handFrame(na, nb, now[arm].arm.knuckles)) : hand ? handFrame(na, nb, now[hand].arm.knuckles) : ARM_BONES.has(i) ? swungFrame(r, ra, rb, na, nb) : boneFrame(na, nb, i === HEAD ? now.turn : now.spin * (TURNS[i] ?? 0));

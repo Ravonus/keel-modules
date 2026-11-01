@@ -37,7 +37,9 @@ export interface SkinMesh {
 export interface SkinLegs {
   /** Each leg's thigh bone and shin bone, left then right. */
   readonly bones: readonly [number, number, number, number];
-  /** Hip, knee and ankle at rest, left then right, each `x y z radius`: 24 numbers. */
+  /** Each foot's bone, left then right. */
+  readonly feet: readonly [number, number];
+  /** Hip, knee, ankle and toe at rest, left then right, each `x y z radius`: 32 numbers. */
   readonly joints: readonly number[];
   /** The first bone that only cloth hangs from: what goes with those is what is pushed. */
   readonly cloth: number;
@@ -130,7 +132,7 @@ export interface SkinOptions {
 }
 
 const MOST_BONES = 30;
-const LEG_JOINTS = 6;
+const LEG_JOINTS = 8;
 
 const SKIN = /* glsl */ `
 #define ROWS ${String(MOST_BONES * 3)}
@@ -141,8 +143,9 @@ attribute float aLoose;
 attribute float aSoft;
 uniform vec4 uSway;
 uniform vec3 uJiggle;  // how far soft flesh has been left behind
-uniform vec4 uLegJoints[6];  // hip, knee and ankle, each leg, and how thick
+uniform vec4 uLegJoints[8];  // hip, knee, ankle and toe, each leg, and how thick
 uniform vec4 uLegBones;
+uniform vec3 uFootBones;
 uniform float uClothBone;
 vec3 boned(int b, vec4 v) { return vec3(dot(uBones[b * 3], v), dot(uBones[b * 3 + 1], v), dot(uBones[b * 3 + 2], v)); }
 vec3 skinned(vec4 v) { return boned(int(aBones.x + 0.5), v) * aWeight + boned(int(aBones.y + 0.5), v) * (1.0 - aWeight); }
@@ -160,8 +163,10 @@ vec3 layered(vec3 at) {
   if (uClothBone < 0.5 || aBones.x + 0.5 < uClothBone) return at;
   at = offLimb(at, uLegJoints[0], uLegJoints[1], uLegBones.x);
   at = offLimb(at, uLegJoints[1], uLegJoints[2], uLegBones.y);
-  at = offLimb(at, uLegJoints[3], uLegJoints[4], uLegBones.z);
-  return offLimb(at, uLegJoints[4], uLegJoints[5], uLegBones.w);
+  at = offLimb(at, uLegJoints[2], uLegJoints[3], uFootBones.x);
+  at = offLimb(at, uLegJoints[4], uLegJoints[5], uLegBones.z);
+  at = offLimb(at, uLegJoints[5], uLegJoints[6], uLegBones.w);
+  return offLimb(at, uLegJoints[6], uLegJoints[7], uFootBones.y);
 }
 // What hangs from the body trails it, more toward its free edge, a ripple running down through it.
 vec3 hung(vec3 at) {
@@ -189,7 +194,8 @@ void main() {
   // (Cloth crowds where its two bones have closed on each other: most between them, none where one has it alone.)
   vec3 up = vec3(0.0, 1.0, 0.0), side = vec3(1.0, 0.0, 0.0);
   float closed = 2.0 - dot(boned(int(aBones.x + 0.5), vec4(up, 0.0)), boned(int(aBones.y + 0.5), vec4(up, 0.0))) - dot(boned(int(aBones.x + 0.5), vec4(side, 0.0)), boned(int(aBones.y + 0.5), vec4(side, 0.0)));
-  vHang = vec2(aLoose, clamp(closed * 0.9, 0.0, 1.0) * 4.0 * aWeight * (1.0 - aWeight));
+  // (Not where a skirt's own panels meet: they part with every step, and that is no fold.)
+  vHang = vec2(aLoose, uClothBone > 0.5 && aBones.x + 0.5 >= uClothBone ? 0.0 : clamp(closed * 0.9, 0.0, 1.0) * 4.0 * aWeight * (1.0 - aWeight));
   // (Hair carries the way it runs, turned with its bone like a normal.)
   vCloth = abs(aFabric - 3.0) < 0.5 && dot(aCloth.xyz, aCloth.xyz) > 0.25 ? vec4(mat3(modelMatrix) * skinned(vec4(aCloth.xyz, 0.0)), aCloth.w) : aCloth;
   vShade = aShade;
@@ -667,6 +673,7 @@ function legUniforms(lit: SkinLit, legs: SkinLegs | undefined): Record<string, U
   return {
     uLegJoints: { value: Array.from({ length: LEG_JOINTS }, (_, i) => new lit.Vector4(n(i * 4), n(i * 4 + 1), n(i * 4 + 2), n(i * 4 + 3))) },
     uLegBones: { value: new lit.Vector4(a, b, c, d) },
+    uFootBones: { value: new lit.Vector3(legs?.feet[0] ?? 0, legs?.feet[1] ?? 0, 0) },
     uClothBone: { value: legs?.cloth ?? 0 },
   };
 }

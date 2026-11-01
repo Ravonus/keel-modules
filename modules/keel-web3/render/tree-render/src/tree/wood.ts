@@ -20,8 +20,10 @@ export function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): 
   const swayB: Offset = { x: 0, z: 0 };
   for (let node = 0; node < model.count; node += 1) {
     const fallen = at(frame.fall, node) > 0;
-    if (at(frame.grow, node) <= 0 || at(frame.rot, node) >= 1 || (fallen && !tree.features.deadwood)) { clearSlot(array, node);
-    continue; }
+    if (at(frame.grow, node) <= 0 || at(frame.rot, node) >= 1 || (fallen && !tree.features.deadwood)) {
+      clearSlot(array, node);
+      continue;
+    }
     const radius = at(frame.radius, node) * (1 - at(frame.rot, node) * 0.7);
     const a: [number, number, number] = [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)];
     const b: [number, number, number] = [at(frame.x, node), at(frame.y, node), at(frame.z, node)];
@@ -41,40 +43,63 @@ export function poseWood(tree: Tree, frame: TreeFrameLike, motion: TreeMotion): 
 
 /** Surface roots flare out from the trunk foot and thicken with it. */
 function poseRoots(tree: Tree, frame: TreeFrameLike, array: Float32Array): void {
-  const { model, ground } = tree;
+  const { model } = tree;
   const trunk = at(frame.radius, 0);
   const breaks = treeBreaks(tree, trunk);
   for (const [index, root] of model.roots.entries()) {
     const first = model.count + index * ROOT_SEGMENTS;
     for (let part = 0; part < ROOT_SEGMENTS; part += 1) clearSlot(array, first + part);
     if (!tree.features.roots || trunk < 0.06) continue;
+    const site: RootSite = { first, root, trunk };
     if (!tree.smooth) {
-      const reach = (0.25 + trunk * 2.4) * root.reach;
-      const c = Math.cos(root.angle);
-      const s = Math.sin(root.angle);
-      writeSegment(
-        array,
-        first,
-        [c * trunk * 0.5, ground.y + trunk * 0.9, s * trunk * 0.5],
-        [c * reach, ground.y + 0.02, s * reach],
-        trunk * 0.42,
-      );
+      poseBlockRoot(tree, array, site);
       continue;
     }
-    // A palm's roots are a short fibrous flare at its foot, never long runners.
-    const parts = tree.features.rootSink && model.species.palm ? 4 : ROOT_SEGMENTS;
-    // Till a tree is old its roots stay within the inner part of the planter; an old one's run to the lip and over it.
-    const reach = tree.features.rootSink && trunk < ROOT_OLD ? (ground.rootReach ?? ground.radius) * 0.42 : Infinity;
-    const plan = breaks[index] ?? NO_ROOT_BREAK;
-    poseRootPath(
-      array,
-      first,
-      rootPath(root, trunk, ground, plan),
-      tree.features.rootSink ? ROOT_SINK : 0,
-      parts,
-      plan.heave > 0 ? Infinity : reach,
-    );
+    poseSmoothRoot(tree, array, site, breaks[index] ?? NO_ROOT_BREAK);
   }
+}
+
+/** One root's slots in the wood mesh, the root itself and the trunk radius it grows from. */
+interface RootSite {
+  readonly first: number;
+  readonly root: { readonly angle: number; readonly reach: number };
+  readonly trunk: number;
+}
+
+/** The voxel form's root: one straight piece from the trunk foot to the ground. */
+function poseBlockRoot(tree: Tree, array: Float32Array, site: RootSite): void {
+  const { ground } = tree;
+  const { first, root, trunk } = site;
+  const reach = (0.25 + trunk * 2.4) * root.reach;
+  const c = Math.cos(root.angle);
+  const s = Math.sin(root.angle);
+  writeSegment(
+    array,
+    first,
+    [c * trunk * 0.5, ground.y + trunk * 0.9, s * trunk * 0.5],
+    [c * reach, ground.y + 0.02, s * reach],
+    trunk * 0.42,
+  );
+}
+
+/** How far out a `rootSink` root may run before it dives: the inner part of the planter till the tree is old. */
+function sinkReach(tree: Tree, trunk: number): number {
+  const { ground } = tree;
+  // Till a tree is old its roots stay within the inner part of the planter; an old one's run to the lip and over it.
+  return tree.features.rootSink && trunk < ROOT_OLD ? (ground.rootReach ?? ground.radius) * 0.42 : Infinity;
+}
+
+function poseSmoothRoot(tree: Tree, array: Float32Array, site: RootSite, plan: RootBreak): void {
+  const { model, ground } = tree;
+  const { first, root, trunk } = site;
+  // A palm's roots are a short fibrous flare at its foot, never long runners.
+  const parts = tree.features.rootSink && model.species.palm ? 4 : ROOT_SEGMENTS;
+  const reach = sinkReach(tree, trunk);
+  poseRootPath(array, first, rootPath(root, trunk, ground, plan), {
+    sink: tree.features.rootSink ? ROOT_SINK : 0,
+    parts,
+    reach: plan.heave > 0 ? Infinity : reach,
+  });
 }
 
 /** The roots' break plans for this trunk (`rootBreak`), kept while the trunk holds its girth. */
@@ -93,6 +118,12 @@ function treeBreaks(tree: Tree, trunk: number): readonly RootBreak[] {
 /** Weathered stone, darkest first: the chunks' colour when the host does not pass its planter's. */
 const SHARD_COLORS = ["#5e4a3a", "#7a634f", "#958068"] as const;
 
+/** A shard's colour from the planter's: a hole is the darkest, any other tone its own (the last past the end). */
+function shardTone(colors: readonly string[], shard: RootShard): string {
+  if (shard.tone === HOLE_TONE) return colors[0] ?? SHARD_COLORS[0];
+  return colors[Math.min(shard.tone, colors.length - 1)] ?? SHARD_COLORS[0];
+}
+
 /** The planter chunks the roots broke loose, posed only when the trunk grows. */
 function poseShards(tree: Tree, trunk: number): void {
   const mesh = tree.meshes.shards;
@@ -105,14 +136,12 @@ function poseShards(tree: Tree, trunk: number): void {
     for (let slot = 0; slot < ROOT_SHARDS; slot += 1) {
       const shard = shards[slot];
       const place = index * ROOT_SHARDS + slot;
-      if (!shard) { clearSlot(array, place);
-      continue; }
+      if (!shard) {
+        clearSlot(array, place);
+        continue;
+      }
       writeShard(array, place, shard);
-      tree.a.set(
-        shard.tone === HOLE_TONE
-          ? (colors[0] ?? SHARD_COLORS[0])
-          : (colors[Math.min(shard.tone, colors.length - 1)] ?? SHARD_COLORS[0]),
-      );
+      tree.a.set(shardTone(colors, shard));
       mesh.setColorAt(place, shard.tone === HOLE_TONE ? tree.a.multiplyScalar(0.28) : tree.a);
     }
   }
@@ -140,7 +169,7 @@ export function writeShard(array: Float32Array, index: number, shard: RootShard)
     (y[0] ?? 0) * sy, (y[1] ?? 0) * sy, (y[2] ?? 0) * sy, 0,
     (out[0] ?? 0) * sz, (out[1] ?? 0) * sz, (out[2] ?? 0) * sz, 0,
   ]);
-  writeOrigin(array, index, shard.x, shard.y, shard.z);
+  writeOrigin(array, index, [shard.x, shard.y, shard.z]);
 }
 
 /**
@@ -154,14 +183,15 @@ const ROOT_SINK = 0.06;
 /** The trunk radius past which a tree is old enough for its roots to reach the planter's lip. */
 const ROOT_OLD = 0.45;
 
-function poseRootPath(
-  array: Float32Array,
-  first: number,
-  path: readonly RootPoint[],
-  sink: number,
-  parts: number,
-  reach: number,
-): void {
+/** How far a posed root runs: `parts` pieces at most, stopping where it thins below `sink` or runs past `reach`. */
+interface RootRun {
+  readonly sink: number;
+  readonly parts: number;
+  readonly reach: number;
+}
+
+function poseRootPath(array: Float32Array, first: number, path: readonly RootPoint[], run: RootRun): void {
+  const { sink, parts, reach } = run;
   for (let part = 0; part < parts; part += 1) {
     const p = path[part];
     const q = path[part + 1];
@@ -198,7 +228,7 @@ export function needleLeaf(tree: Tree, node: number): boolean {
 export function strainSkin(tree: Tree, node: number): TreeSkin | null {
   const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
   const own = strain > 0 ? tree.strains[strain] : undefined;
-  return own && own.skin !== undefined ? own.skin : tree.skin;
+  return own?.skin !== undefined ? own.skin : tree.skin;
 }
 
 /**
@@ -218,14 +248,31 @@ export function strainYear(tree: Tree, node: number, year: YearLike): YearLike {
   return tree.strainYears[at(tree.strainOf, node)] ?? year;
 }
 
-function barkTone(tree: Tree, frame: TreeFrameLike, node: number): string {
+/** The bark colour of wood this thick: the trunk's, a limb's or a twig's. */
+export function trunkTone(trunk: readonly string[], radius: number): string | undefined {
+  if (radius > 0.2) return trunk[0];
+  return radius > 0.07 ? trunk[1] : trunk[2];
+}
+
+/** A birch's bark: white with the odd dark patch on anything thicker than a twig. */
+function birchTone(trunk: readonly string[], radius: number, hash: number): string | undefined {
+  if (hash < 18 && radius > 0.05) return trunk[2];
+  return radius > 0.05 ? trunk[0] : trunk[1];
+}
+
+/** The bark colours an internode's strain wears: its own bark, else its colours' trunk. */
+function barkOf(tree: Tree, node: number): readonly string[] {
   const strain = tree.strainOf && node < tree.model.count ? at(tree.strainOf, node) : 0;
-  const trunk = (strain > 0 ? tree.strains[strain]?.bark : undefined) ?? strainColors(tree, node).trunk;
+  return (strain > 0 ? tree.strains[strain]?.bark : undefined) ?? strainColors(tree, node).trunk;
+}
+
+function barkTone(tree: Tree, frame: TreeFrameLike, node: number): string {
+  const trunk = barkOf(tree, node);
   const isRoot = node >= tree.model.count;
   const radius = isRoot ? 1 : at(frame.radius, node);
   const hash = hash32(node * 2654435761) % 100;
-  if (tree.model.species.id === "birch") return (hash < 18 && radius > 0.05 ? trunk[2] : radius > 0.05 ? trunk[0] : trunk[1]) ?? "#6b4a33";
-  return (radius > 0.2 ? trunk[0] : radius > 0.07 ? trunk[1] : trunk[2]) ?? "#6b4a33";
+  if (tree.model.species.id === "birch") return birchTone(trunk, radius, hash) ?? "#6b4a33";
+  return trunkTone(trunk, radius) ?? "#6b4a33";
 }
 
 export function paintWood(tree: Tree, frame: TreeFrameLike, dead: boolean): void {

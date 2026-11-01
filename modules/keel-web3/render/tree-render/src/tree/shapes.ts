@@ -29,7 +29,7 @@ export function bladeGeometry(
   fold = 0.1,
   bend = 0,
 ): GeometryLike {
-  return bladeFrom(lit, outline, fold, bend, CRISP_BLADE);
+  return bladeFrom(lit, outline, { fold, bend }, CRISP_BLADE);
 }
 
 /** A blade's tone: its midrib's brightness, how much darker its margin and its foot go. */
@@ -43,14 +43,19 @@ const SOFT_BLADE: BladeTone = [1.08, 0.2, 0.08];
 
 /** The broad leaf blade with a soft margin (the `clumps` look). */
 export function softBladeGeometry(lit: LitLike): GeometryLike {
-  return bladeFrom(lit, LEAF_OUTLINE, 0.1, 0, SOFT_BLADE);
+  return bladeFrom(lit, LEAF_OUTLINE, { fold: 0.1, bend: 0 }, SOFT_BLADE);
+}
+
+/** How a blade curves: `fold` along its midrib, `bend` arching it along its length. */
+interface BladeCurve {
+  readonly fold: number;
+  readonly bend: number;
 }
 
 function bladeFrom(
   lit: LitLike,
   outline: readonly (readonly [number, number])[],
-  fold: number,
-  bend: number,
+  { fold, bend }: BladeCurve,
   [mid, margin, foot]: BladeTone,
 ): GeometryLike {
   const widest = Math.max(...outline.map(([x]) => x));
@@ -136,16 +141,26 @@ export function sprayGeometry(lit: LitLike): GeometryLike {
   return geometry;
 }
 
-function needleStrip(
-  positions: number[],
-  colors: number[],
-  from: V3,
-  to: V3,
-  across: V3,
-  width: number,
-  tone: (t: number) => V3,
-  bend = 0,
-): void {
+/** The vertex positions and colours a sprig's strips go into. */
+interface Strips {
+  readonly positions: number[];
+  readonly colors: number[];
+}
+
+/** One strip from `from` to `to`, `width` wide either side of `across`, toned along its length, bent down by `bend`. */
+interface Strip {
+  readonly from: V3;
+  readonly to: V3;
+  readonly across: V3;
+  readonly width: number;
+  readonly tone: (t: number) => V3;
+  readonly bend?: number;
+}
+
+function needleStrip(out: Strips, strip: Strip): void {
+  const { positions, colors } = out;
+  const { from, to, across, width, tone } = strip;
+  const bend = strip.bend ?? 0;
   // A needle keeps its width to near the end, then closes to a sharp point.
   const stops = bend > 0 ? [0, 0.45, 0.8, 1] : [0, 0.8, 1];
   const point = (t: number): [number, number, number] => [
@@ -180,21 +195,14 @@ function needleStrip(
 }
 
 /** One needle, round from every side: two thin strips crossed along its length. */
-function needle(
-  positions: number[],
-  colors: number[],
-  from: V3,
-  to: V3,
-  width: number,
-  tone: (t: number) => V3,
-  bend = 0,
-): void {
+function needle(out: Strips, spec: Omit<Strip, "across">): void {
+  const { from, to } = spec;
   const along = norm3(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
   let across: V3 = norm3(...cross3(along, UP));
   if (isZero(across)) across = [1, 0, 0];
   const other = norm3(...cross3(along, across));
-  needleStrip(positions, colors, from, to, across, width, tone, bend);
-  needleStrip(positions, colors, from, to, other, width, tone, bend);
+  needleStrip(out, { ...spec, across });
+  needleStrip(out, { ...spec, across: other });
 }
 
 /** A conifer's needle sprig. */
@@ -206,89 +214,122 @@ export type NeedleKind = "pine" | "spruce" | "redwood";
  * of its triangles.
  */
 export function lightSprig(lit: LitLike, kind: string, count: number): GeometryLike {
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const shade = (t: number): V3 => { const v = 0.8 + 0.34 * t;
-  return [v, v, v]; };
+  const strips: Strips = { positions: [], colors: [] };
+  const shade = (t: number): V3 => {
+    const v = 0.8 + 0.34 * t;
+    return [v, v, v];
+  };
   const twig = (): V3 => [0.62, 0.6, 0.58];
   const pine = kind === "pine";
   const out = pine ? 0.32 : 0.24;
   const rise = pine ? 0.62 : 0.3;
   const width = (pine ? 0.075 : 0.1) * Math.sqrt(10 / count);
-  needleStrip(positions, colors, [0, 0, 0], [0, 1, 0], [1, 0, 0], 0.025, twig);
+  needleStrip(strips, { from: [0, 0, 0], to: [0, 1, 0], across: [1, 0, 0], width: 0.025, tone: twig });
   for (let index = 0; index < count; index += 1) {
     const t = 0.06 + (index / count) * 0.84;
     const angle = index * 2.39996;
     const dx = Math.cos(angle);
     const dz = Math.sin(angle);
-    needleStrip(positions, colors, [0, t, 0], [dx * out, t + rise, dz * out], [-dz, 0.1, dx], width, shade);
+    needleStrip(strips, {
+      from: [0, t, 0],
+      to: [dx * out, t + rise, dz * out],
+      across: [-dz, 0.1, dx],
+      width,
+      tone: shade,
+    });
   }
+  return stripGeometry(lit, strips);
+}
+
+/** The strips as one geometry with vertex colours. */
+function stripGeometry(lit: LitLike, strips: Strips): GeometryLike {
   const geometry = new lit.Geometry();
-  geometry.setAttribute("position", new lit.Attribute(new Float32Array(positions), 3));
-  geometry.setAttribute("color", new lit.Attribute(new Float32Array(colors), 3));
+  geometry.setAttribute("position", new lit.Attribute(new Float32Array(strips.positions), 3));
+  geometry.setAttribute("color", new lit.Attribute(new Float32Array(strips.colors), 3));
   geometry.computeVertexNormals();
   return geometry;
 }
 
-/** The needles of one conifer sprig. */
-export function needleGeometry(lit: LitLike, kind: NeedleKind): GeometryLike {
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const grey = (low: number, high: number) => (t: number): V3 => { const v = low + (high - low) * t;
-  return [v, v, v]; };
-  // The shoot itself, a thin brown-dark line the needles grow from.
-  const twig = (length: number, tone: V3 = [0.62, 0.6, 0.58]): void => {
-    needleStrip(positions, colors, [0, 0, 0], [0, length, 0], [1, 0, 0], 0.02, () => tone);
-    needleStrip(positions, colors, [0, 0, 0], [0, length, 0], [0, 0, 1], 0.02, () => tone);
+/** A grey that brightens along a needle, from `low` at its foot to `high` at its tip. */
+const grey =
+  (low: number, high: number) =>
+  (t: number): V3 => {
+    const v = low + (high - low) * t;
+    return [v, v, v];
   };
-  if (kind === "pine") {
-    // A shoot lined with bundles of long needles swept forward, a tuft at its tip.
-    twig(1.0);
-    for (let bundle = 0; bundle < 5; bundle += 1) {
-      const t = 0.12 + bundle * 0.2;
-      for (let index = 0; index < 3; index += 1) {
-        const angle = bundle * 2.39996 + (index / 3) * TAU;
-        const out = 0.3 + 0.05 * index;
-        const tip: V3 = [Math.cos(angle) * out, t + 0.62, Math.sin(angle) * out];
-        needle(positions, colors, [0, t, 0], tip, 0.014, grey(0.78, 1.16), 0.06);
-      }
-    }
-  } else if (kind === "spruce") {
-    // A brown shoot bristling with short stiff needles all round, ending in a
-    // star of needles round a tan bud, as on a blue spruce's branch tips.
-    twig(1.0, [0.78, 0.52, 0.36]);
-    const wax = (s: number): V3 => [0.78 + 0.24 * s, 0.82 + 0.24 * s, 0.84 + 0.26 * s];
-    const count = 30;
-    for (let index = 0; index < count; index += 1) {
-      const t = 0.04 + (index / count) * 0.86;
-      const angle = index * 2.39996;
-      const out = 0.24;
-      const tip: V3 = [Math.cos(angle) * out, t + 0.2, Math.sin(angle) * out];
-      needle(positions, colors, [0, t, 0], tip, 0.016, wax);
-    }
-    for (let index = 0; index < 12; index += 1) {
-      const angle = (index / 12) * TAU + 0.2;
-      const lift = index % 2 === 0 ? 0.24 : 0.08;
-      const tip: V3 = [Math.cos(angle) * 0.24, 1.0 + lift, Math.sin(angle) * 0.24];
-      needle(positions, colors, [0, 0.96, 0], tip, 0.016, wax);
-    }
-    needleStrip(positions, colors, [0, 0.94, 0], [0, 1.08, 0], [1, 0, 0], 0.05, () => [1.25, 0.95, 0.62]);
-    needleStrip(positions, colors, [0, 0.94, 0], [0, 1.08, 0], [0, 0, 1], 0.05, () => [1.25, 0.95, 0.62]);
-  } else {
-    twig(1.1);
-    const pairs = 9;
-    for (let index = 0; index < pairs; index += 1) {
-      const t = 0.08 + (index / pairs) * 0.92;
-      const out = 0.24 * Math.sin(Math.PI * (0.2 + 0.8 * (1 - t))) + 0.06;
-      for (const side of [-1, 1])
-        needleStrip(positions, colors, [0, t, 0], [side * out, t + out * 0.35, 0], [0, 0.4, 1], 0.035, grey(0.8, 1.12));
+
+/** The shoot itself, a thin brown-dark line the needles grow from. */
+function twig(out: Strips, length: number, tone: V3 = [0.62, 0.6, 0.58]): void {
+  needleStrip(out, { from: [0, 0, 0], to: [0, length, 0], across: [1, 0, 0], width: 0.02, tone: () => tone });
+  needleStrip(out, { from: [0, 0, 0], to: [0, length, 0], across: [0, 0, 1], width: 0.02, tone: () => tone });
+}
+
+/** A shoot lined with bundles of long needles swept forward, a tuft at its tip. */
+function pineSprig(out: Strips): void {
+  twig(out, 1.0);
+  for (let bundle = 0; bundle < 5; bundle += 1) {
+    const t = 0.12 + bundle * 0.2;
+    for (let index = 0; index < 3; index += 1) {
+      const angle = bundle * 2.39996 + (index / 3) * TAU;
+      const reach = 0.3 + 0.05 * index;
+      const tip: V3 = [Math.cos(angle) * reach, t + 0.62, Math.sin(angle) * reach];
+      needle(out, { from: [0, t, 0], to: tip, width: 0.014, tone: grey(0.78, 1.16), bend: 0.06 });
     }
   }
-  const geometry = new lit.Geometry();
-  geometry.setAttribute("position", new lit.Attribute(new Float32Array(positions), 3));
-  geometry.setAttribute("color", new lit.Attribute(new Float32Array(colors), 3));
-  geometry.computeVertexNormals();
-  return geometry;
+}
+
+/**
+ * A brown shoot bristling with short stiff needles all round, ending in a
+ * star of needles round a tan bud, as on a blue spruce's branch tips.
+ */
+function spruceSprig(out: Strips): void {
+  twig(out, 1.0, [0.78, 0.52, 0.36]);
+  const wax = (s: number): V3 => [0.78 + 0.24 * s, 0.82 + 0.24 * s, 0.84 + 0.26 * s];
+  const count = 30;
+  for (let index = 0; index < count; index += 1) {
+    const t = 0.04 + (index / count) * 0.86;
+    const angle = index * 2.39996;
+    const reach = 0.24;
+    const tip: V3 = [Math.cos(angle) * reach, t + 0.2, Math.sin(angle) * reach];
+    needle(out, { from: [0, t, 0], to: tip, width: 0.016, tone: wax });
+  }
+  for (let index = 0; index < 12; index += 1) {
+    const angle = (index / 12) * TAU + 0.2;
+    const lift = index % 2 === 0 ? 0.24 : 0.08;
+    const tip: V3 = [Math.cos(angle) * 0.24, 1.0 + lift, Math.sin(angle) * 0.24];
+    needle(out, { from: [0, 0.96, 0], to: tip, width: 0.016, tone: wax });
+  }
+  const bud = (): V3 => [1.25, 0.95, 0.62];
+  needleStrip(out, { from: [0, 0.94, 0], to: [0, 1.08, 0], across: [1, 0, 0], width: 0.05, tone: bud });
+  needleStrip(out, { from: [0, 0.94, 0], to: [0, 1.08, 0], across: [0, 0, 1], width: 0.05, tone: bud });
+}
+
+/** A redwood's flat spray: short needles in pairs either side of the shoot, longest in the middle. */
+function redwoodSprig(out: Strips): void {
+  twig(out, 1.1);
+  const pairs = 9;
+  for (let index = 0; index < pairs; index += 1) {
+    const t = 0.08 + (index / pairs) * 0.92;
+    const reach = 0.24 * Math.sin(Math.PI * (0.2 + 0.8 * (1 - t))) + 0.06;
+    for (const side of [-1, 1]) {
+      needleStrip(out, {
+        from: [0, t, 0],
+        to: [side * reach, t + reach * 0.35, 0],
+        across: [0, 0.4, 1],
+        width: 0.035,
+        tone: grey(0.8, 1.12),
+      });
+    }
+  }
+}
+
+/** The needles of one conifer sprig. */
+export function needleGeometry(lit: LitLike, kind: NeedleKind): GeometryLike {
+  const strips: Strips = { positions: [], colors: [] };
+  if (kind === "pine") pineSprig(strips);
+  else if (kind === "spruce") spruceSprig(strips);
+  else redwoodSprig(strips);
+  return stripGeometry(lit, strips);
 }
 
 export const NEEDLE_KINDS: Readonly<Record<string, NeedleKind>> = { pine: "pine", spruce: "spruce", redwood: "redwood" };

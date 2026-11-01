@@ -84,6 +84,13 @@ export interface TreeMotion {
   readonly strainYears?: readonly (YearLike | undefined)[];
 }
 
+/** One frame's input: the grown frame, the year and what moves the tree. */
+export interface Tick {
+  readonly frame: TreeFrameLike;
+  readonly year: YearLike;
+  readonly motion: TreeMotion;
+}
+
 export interface TreeMeshes {
   readonly wood: InstancedLike;
   readonly leaves: InstancedLike | null;
@@ -156,7 +163,12 @@ export interface OrnamentSet {
  * How a blossom set draws as sprays: a big crown keeps every other slot at twice the size (fewer, readable sprays); a
  * small one keeps all.
  */
-export function sprayPlan(tree: Pick<Tree, "features" | "smooth">, spec: OrnamentSpecLike, slots: SlotsLike, own: boolean): { spray: boolean; thin: number; grow: number } {
+export function sprayPlan(
+  tree: Pick<Tree, "features" | "smooth">,
+  spec: OrnamentSpecLike,
+  slots: SlotsLike,
+  own: boolean,
+): { spray: boolean; thin: number; grow: number } {
   const spray = tree.features.sprays && tree.smooth && own && spec.kind === "blossom";
   if (!spray) return { spray, thin: 1, grow: 1 };
   return slots.count > 900 ? { spray, thin: 2, grow: 2 } : { spray, thin: 1, grow: 1.5 };
@@ -226,12 +238,29 @@ export interface Tree {
 
 const DEFAULT_LIMITS: Required<TreeLimits> = { litter: 1800, flowerLitter: 600, fruitLitter: 320, falling: 64 };
 
-export function makeMesh(tree: Pick<Tree, "lit" | "group">, count: number, roughness: number, shadows: boolean, geometry: GeometryLike, sheet = false): InstancedLike {
+/**
+ * How a part's mesh is lit: its roughness, whether it casts shadows, and whether it is a sheet seen from both
+ * sides.
+ */
+export interface MeshLook {
+  readonly roughness: number;
+  readonly shadows: boolean;
+  readonly sheet?: boolean;
+}
+
+export function makeMesh(
+  tree: Pick<Tree, "lit" | "group">,
+  geometry: GeometryLike,
+  count: number,
+  look: MeshLook,
+): InstancedLike {
   const lit = tree.lit;
+  const { roughness, shadows } = look;
   const vertexColors = Boolean(geometry.attributes.color);
   // Blades are single sheets, seen from both sides.
-  const side = sheet ? "both" : "front";
-  const mesh = new lit.Instances(geometry, new lit.LitMaterial({ color: "#ffffff", roughness, side, vertexColors }), Math.max(1, count));
+  const side = look.sheet === true ? "both" : "front";
+  const material = new lit.LitMaterial({ color: "#ffffff", roughness, side, vertexColors });
+  const mesh = new lit.Instances(geometry, material, Math.max(1, count));
   mesh.instanceMatrix.setUsage("dynamic");
   mesh.setColorAt(0, new lit.Color("#ffffff"));
   mesh.count = count;
@@ -247,8 +276,14 @@ export function makeMesh(tree: Pick<Tree, "lit" | "group">, count: number, rough
 export const ornamentState = (set: OrnamentSet, year: YearLike): { open: number; fallen: number } =>
   set.name === "fruit" ? { open: year.fruit, fallen: year.fruitDrop } : { open: year.bloom, fallen: year.petals };
 
-// Needles clothe a conifer's limbs most of the way in; other evergreens keep leaves near the tips.
-export const leafTipLimit = (tree: Tree): number => (tree.needles ? 40 : tree.model.species.evergreen ? 7 : 2.6);
+/** How far in from the tips foliage reaches: needles clothe a conifer's limbs most of the way in; other evergreens keep
+ * leaves near the tips, and everything else only at them. */
+export function tipLimitOf(needles: boolean, evergreen: boolean): number {
+  if (needles) return 40;
+  return evergreen ? 7 : 2.6;
+}
+
+export const leafTipLimit = (tree: Tree): number => tipLimitOf(tree.needles, tree.model.species.evergreen);
 
 /** Is node a living, leafy twig right now? Outer twigs carry the foliage. */
 export function leafyNode(frame: TreeFrameLike, node: number, tipLimit: number): boolean {
@@ -260,15 +295,24 @@ export function leafyNode(frame: TreeFrameLike, node: number, tipLimit: number):
   );
 }
 
+/** Does the strain this internode belongs to bear flowers and fruit at all? */
+function strainBears(tree: Tree, node: number): boolean {
+  return !(tree.strainOf && tree.strains[at(tree.strainOf, node)]?.bears === false);
+}
+
+/**
+ * Does this node bear a set's flowers or fruit right now? A minor kind's own set (strain 0 or more) ignores whether
+ * the node's strain bears.
+ */
 export function bearingNode(
   tree: Tree,
   frame: TreeFrameLike,
-  spec: OrnamentSpecLike,
+  set: Pick<OrnamentSet, "spec" | "strain">,
   node: number,
-  own = false,
 ): boolean {
+  const { spec } = set;
   if (frame.cycle < spec.from || at(frame.fall, node) > 0 || at(frame.dead, node) >= 0.2) return false;
-  if (tree.strainOf && tree.strains[at(tree.strainOf, node)]?.bears === false && !own) return false;
+  if (!strainBears(tree, node) && set.strain < 0) return false;
   if (spec.on === "tip") return leafyNode(frame, node, tree.model.species.evergreen ? 7 : 2.6);
   // Spurs form on wood a couple of years old (half a growth cycle), so a tree in full bloom reads as a cloud.
   return at(frame.grow, node) >= 1 && at(frame.tips, node) <= 9 && frame.cycle - at(tree.model.birth, node) > 0.5;
@@ -277,10 +321,11 @@ export function bearingNode(
 
 // ---------------------------------------------------------------- assembly
 
-function paintAll(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
+function paintAll(tree: Tree, tick: Tick): void {
+  const { frame, year, motion } = tick;
   const dead = motion.dead === true;
   paintWood(tree, frame, dead);
-  if (tree.meshes.leaves) paintLeaves(tree, tree.meshes.leaves, frame, year, motion.snow ?? 0);
+  if (tree.meshes.leaves) paintLeaves(tree, tree.meshes.leaves, tick);
   for (const set of [tree.flowers, tree.fruits]) if (set) paintOrnaments(tree, set, year);
   for (const set of tree.kinds) paintOrnaments(tree, set, kindYear(tree, set, year));
   paintLitter(tree, year);
@@ -288,27 +333,30 @@ function paintAll(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: Tree
 
 function paintKeyOf(year: YearLike, motion: TreeMotion): string {
   const values = [year.leaf, year.color, year.flush, year.drop, year.petals, year.fruit, motion.snow ?? 0];
-  return values.map((value) => Math.round(value * 60)).join(":") + (year.withered ? ":withered" : "") + (motion.dead === true ? ":dead" : "");
+  const tags = (year.withered ? ":withered" : "") + (motion.dead === true ? ":dead" : "");
+  return values.map((value) => Math.round(value * 60)).join(":") + tags;
 }
 
-function update(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
+function update(tree: Tree, tick: Tick): void {
+  const { frame, year, motion } = tick;
   tree.strainYears = motion.strainYears ?? [];
   tree.lastYear = year;
   tree.lastMotion = motion;
   tree.still = motion.field === 0;
   forgetEaten(tree, year);
-  const key = [year, ...tree.strainYears.filter((own): own is YearLike => own !== undefined)].map((own) => paintKeyOf(own, motion)).join("|");
+  const years = [year, ...tree.strainYears.filter((own): own is YearLike => own !== undefined)];
+  const key = years.map((own) => paintKeyOf(own, motion)).join("|");
   if (frame !== tree.lastFrame || key !== tree.paintKey) {
-    paintAll(tree, frame, year, motion);
+    paintAll(tree, tick);
     tree.paintKey = key;
     tree.lastFrame = frame;
   }
   const { meshes } = tree;
   poseWood(tree, frame, motion);
-  if (meshes.leaves) poseLeaves(tree, meshes.leaves, frame, year, motion);
-  for (const set of [tree.flowers, tree.fruits]) if (set) poseOrnaments(tree, set, frame, year, motion);
-  for (const set of tree.kinds) poseOrnaments(tree, set, frame, kindYear(tree, set, year), motion);
-  poseLitter(tree, frame, year, motion);
+  if (meshes.leaves) poseLeaves(tree, meshes.leaves, tick);
+  for (const set of [tree.flowers, tree.fruits]) if (set) poseOrnaments(tree, set, tick);
+  for (const set of tree.kinds) poseOrnaments(tree, set, { ...tick, year: kindYear(tree, set, year) });
+  poseLitter(tree, tick);
   if (meshes.snow) poseSnow(tree, meshes.snow, frame, motion);
   if (meshes.falling && meshes.fallingLeaves) {
     spawnFallers(tree, frame, year, motion);
@@ -348,13 +396,8 @@ function shapesFor(
 const hasOrnaments = (features: TreeFeatures): boolean => features.flowers || features.fruit;
 
 function woodMesh(build: Build, shape: GeometryLike, groundY: number): InstancedLike {
-  const wood = makeMesh(
-    build,
-    build.model.count + build.model.roots.length * ROOT_SEGMENTS,
-    0.86,
-    build.features.shadows,
-    shape,
-  );
+  const count = build.model.count + build.model.roots.length * ROOT_SEGMENTS;
+  const wood = makeMesh(build, shape, count, { roughness: 0.86, shadows: build.features.shadows });
   if (build.smooth && build.features.bark) {
     wood.material.dispose();
     wood.material = barkMaterial(build.lit, groundY, build.features.rootSink, build.features.rootBreak);
@@ -378,60 +421,119 @@ function glowPetals(mesh: InstancedLike, colors: TreeColors): void {
 const sprayShape = (build: Build, options: TreeRenderOptions): GeometryLike | null =>
   build.smooth && !options.shapes?.leaf ? treeShapes(build.lit).spray : null;
 
+type PartShapes = ReturnType<typeof shapesFor>;
+
+/** A part's mesh when its feature is on, else null. */
+const on = <T>(flag: boolean, make: () => T): T | null => (flag ? make() : null);
+
+/** The litter, snow and faller meshes: what lies under the tree and what falls to it. */
+function groundMeshes(build: Build, shapes: PartShapes): Pick<TreeMeshes, "leafLitter" | "litter" | "snow" | "falling" | "fallingLeaves"> {
+  const { model, features, limits } = build;
+  const leafShape = shapes.blade;
+  const shadows = features.shadows;
+  const litterCount = limits.litter + limits.flowerLitter + limits.fruitLitter;
+  return {
+    leafLitter: on(features.litter && features.leaves, () =>
+      makeMesh(build, leafShape, limits.litter, { roughness: 0.92, shadows: false, sheet: build.smooth }),
+    ),
+    litter: on(features.litter && hasOrnaments(features), () =>
+      makeMesh(build, shapes.leaf, litterCount, { roughness: 0.92, shadows: false }),
+    ),
+    snow: on(features.snow, () => makeMesh(build, shapes.leaf, model.count, { roughness: 0.55, shadows: false })),
+    falling: on(features.fallers, () => makeMesh(build, shapes.leaf, limits.falling, { roughness: 0.78, shadows })),
+    fallingLeaves: on(features.fallers, () =>
+      makeMesh(build, leafShape, limits.falling, { roughness: 0.78, shadows, sheet: build.smooth }),
+    ),
+  };
+}
+
+/** Does this tree get a shard mesh: an old tree's roots can break a planter it stands in (`rootBreak`, smooth form). */
+function breaksPlanter(build: Build, options: TreeRenderOptions): boolean {
+  const { features, model } = build;
+  if (!features.rootBreak || !features.roots || !build.smooth) return false;
+  return options.ground?.lip !== undefined && !model.species.palm;
+}
+
+/** The tree's own flowers and fruit, and the minor kinds' sets. */
+function ornamentSets(
+  build: Build,
+  options: TreeRenderOptions,
+  shapes: PartShapes,
+): { flowers: OrnamentSet | null; fruits: OrnamentSet | null; kinds: OrnamentSet[] } {
+  const { limits } = build;
+  const spray = sprayShape(build, options);
+  const flowerShape = build.smooth ? shapes.leaf : shapes.wood;
+  const fruitShape = build.smooth ? shapes.bud : shapes.wood;
+  const flowers = ornamentSet(build, "flowers", {
+    shape: flowerShape,
+    spray,
+    litterStart: limits.litter,
+    litterLimit: limits.flowerLitter,
+  });
+  if (flowers?.spray === true) glowPetals(flowers.mesh, options.colors);
+  const fruits = ornamentSet(build, "fruit", {
+    shape: fruitShape,
+    litterStart: limits.litter + limits.flowerLitter,
+    litterLimit: limits.fruitLitter,
+  });
+  const kinds = (options.kinds ?? [])
+    .flatMap((kind) => [
+      kindSet(build, kind, "flowers", { shape: flowerShape, spray }),
+      kindSet(build, kind, "fruit", { shape: fruitShape }),
+    ])
+    .filter((set): set is OrnamentSet => set !== null);
+  return { flowers, fruits, kinds };
+}
+
 function buildMeshes(
   build: Build,
   options: TreeRenderOptions,
 ): { meshes: TreeMeshes; flowers: OrnamentSet | null; fruits: OrnamentSet | null; kinds: OrnamentSet[] } {
-  const { model, features, limits } = build;
+  const { model, features } = build;
   const shapes = shapesFor(build, options);
-  const leafShape = shapes.blade;
   const shadows = features.shadows;
-  const on = <T>(flag: boolean, make: () => T): T | null => (flag ? make() : null);
   const wood = woodMesh(build, shapes.wood, options.ground?.y ?? 0);
   const meshes: TreeMeshes = {
     wood,
-    leaves: on(features.leaves, () => makeMesh(build, model.leaves.count, 0.78, shadows, leafShape, build.smooth)),
+    leaves: on(features.leaves, () =>
+      makeMesh(build, shapes.blade, model.leaves.count, { roughness: 0.78, shadows, sheet: build.smooth }),
+    ),
     flowers: null,
     fruit: null,
-    leafLitter: on(features.litter && features.leaves, () =>
-      makeMesh(build, limits.litter, 0.92, false, leafShape, build.smooth),
-    ),
-    litter: on(features.litter && hasOrnaments(features), () =>
-      makeMesh(build, limits.litter + limits.flowerLitter + limits.fruitLitter, 0.92, false, shapes.leaf),
-    ),
-    snow: on(features.snow, () => makeMesh(build, model.count, 0.55, false, shapes.leaf)),
-    falling: on(features.fallers, () => makeMesh(build, limits.falling, 0.78, shadows, shapes.leaf)),
-    fallingLeaves: on(features.fallers, () => makeMesh(build, limits.falling, 0.78, shadows, leafShape, build.smooth)),
-    shards: on(
-      features.rootBreak && features.roots && build.smooth && options.ground?.lip !== undefined && !model.species.palm,
-      () => makeMesh(build, model.roots.length * ROOT_SHARDS, 0.95, shadows, treeShapes(build.lit).box),
+    ...groundMeshes(build, shapes),
+    shards: on(breaksPlanter(build, options), () =>
+      makeMesh(build, treeShapes(build.lit).box, model.roots.length * ROOT_SHARDS, { roughness: 0.95, shadows }),
     ),
   };
   meshes.snow?.material.color.set("#f4f8ff");
-  const spray = sprayShape(build, options);
-  const flowers = ornamentSet(
-    build,
-    "flowers",
-    build.smooth ? shapes.leaf : shapes.wood,
-    limits.litter,
-    limits.flowerLitter,
-    spray,
-  );
-  if (flowers?.spray === true) glowPetals(flowers.mesh, options.colors);
-  const fruits = ornamentSet(
-    build,
-    "fruit",
-    build.smooth ? shapes.bud : shapes.wood,
-    limits.litter + limits.flowerLitter,
-    limits.fruitLitter,
-  );
-  const kinds = (options.kinds ?? [])
-    .flatMap((kind) => [
-      kindSet(build, kind, "flowers", build.smooth ? shapes.leaf : shapes.wood, spray),
-      kindSet(build, kind, "fruit", build.smooth ? shapes.bud : shapes.wood),
-    ])
-    .filter((set): set is OrnamentSet => set !== null);
+  const { flowers, fruits, kinds } = ornamentSets(build, options, shapes);
   return { meshes: { ...meshes, flowers: flowers?.mesh ?? null, fruit: fruits?.mesh ?? null }, flowers, fruits, kinds };
+}
+
+/** How the tree's leaves draw: blades (the smooth form), needle sprigs for a conifer, leaflets down a palm's fronds. */
+function leafHabit(build: Build, options: TreeRenderOptions): Pick<Tree, "blades" | "needles" | "fronds"> {
+  const { model, smooth } = build;
+  return {
+    blades: smooth,
+    needles: smooth && !options.shapes?.blade && NEEDLE_KINDS[model.species.id] !== undefined,
+    fronds: smooth && !options.shapes?.blade ? frondLayout(model) : null,
+  };
+}
+
+/** What the options settle about the tree's habit and look before any mesh is built. */
+function treeHabit(
+  build: Build,
+  options: TreeRenderOptions,
+): Pick<Tree, "ground" | "blades" | "needles" | "fronds" | "skin" | "strains" | "strainOf" | "blooms" | "seed"> {
+  return {
+    ground: options.ground ?? { y: 0, radius: 4.4 },
+    ...leafHabit(build, options),
+    skin: options.skin ?? null,
+    strains: options.strains ?? [],
+    strainOf: options.strainOf ?? null,
+    blooms: (options.blooms ?? []).filter((bloom) => bloom.share > 0 && bloom.colors.length > 0),
+    seed: options.seed ?? 1,
+  };
 }
 
 /** One grown tree as live instanced meshes. Build once per model; call `update` every frame. */
@@ -442,6 +544,7 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
   const group = new lit.Group();
   const build: Build = { lit, group, model, features, limits, smooth };
   const { meshes, flowers, fruits, kinds } = buildMeshes(build, options);
+  const habit = treeHabit(build, options);
   const tree: Tree = {
     lit,
     model,
@@ -454,15 +557,8 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     fruits,
     kinds,
     limits,
-    ground: options.ground ?? { y: 0, radius: 4.4 },
-    blades: smooth,
-    needles: smooth && !options.shapes?.blade && NEEDLE_KINDS[model.species.id] !== undefined,
-    fronds: smooth && !options.shapes?.blade ? frondLayout(model) : null,
-    skin: options.skin ?? null,
-    strains: options.strains ?? [],
-    strainOf: options.strainOf ?? null,
+    ...habit,
     strainYears: [],
-    blooms: (options.blooms ?? []).filter((bloom) => bloom.share > 0 && bloom.colors.length > 0),
     leafStride: Math.max(1, Math.ceil(model.leaves.count / limits.litter)),
     hidden: new Map(),
     hiddenSlots: { leaf: new Set(), flowers: new Set(), fruit: new Set() },
@@ -470,7 +566,7 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     lastYear: null,
     lastMotion: null,
     fallers: [],
-    random: seededRandom((options.seed ?? 1) ^ 0x51f7),
+    random: seededRandom(habit.seed ^ 0x51f7),
     a: new lit.Color(),
     b: new lit.Color(),
     c: new lit.Color(),
@@ -479,15 +575,22 @@ export function createTreeRender(lit: LitLike, model: TreeModelLike, options: Tr
     paintKey: "",
     lastFrame: null,
     still: false,
-    seed: options.seed ?? 1,
     breaks: { trunk: -1, plans: [] },
   };
   return {
-    group, features, meshes, fallers: tree.fallers, kinds: kinds.map((set) => set.mesh),
-    update: (frame, year, motion) => { update(tree, frame, year, motion); },
+    group,
+    features,
+    meshes,
+    fallers: tree.fallers,
+    kinds: kinds.map((set) => set.mesh),
+    update: (frame, year, motion) => {
+      update(tree, { frame, year, motion });
+    },
     fruit: () => ripeFruit(tree),
     eat: (key) => eatFruit(tree, key),
-    repaint: () => { tree.paintKey = ""; },
+    repaint: () => {
+      tree.paintKey = "";
+    },
     dispose: () => {
       for (const mesh of [...(Object.values(meshes) as (InstancedLike | null)[]), ...kinds.map((set) => set.mesh)]) {
         if (!mesh) continue;

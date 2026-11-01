@@ -8,13 +8,20 @@ import { leafFlutter, sway } from "../wind.js";
 import { UP, clearSlot, cross3, isZero, norm3, writeBlade, writeVoxel } from "../instances.js";
 import type { V3 } from "../instances.js";
 import { leafTipLimit, leafyNode } from "./tree.js";
-import type { Tree, TreeMotion } from "./tree.js";
+import type { Tick, Tree } from "./tree.js";
 import { clumpOf, needleLeaf, strainAt, strainColors, strainDrop, strainSkin, strainYear } from "./wood.js";
 
 // ---------------------------------------------------------------- leaves
 
+/** The leaf being posed: how big it draws and how far its strand swings. Set per leaf, read by the pose it takes. */
+interface LeafFit {
+  size: number;
+  swing: number;
+}
+
 interface LeafPass {
   readonly array: Float32Array;
+  readonly frame: TreeFrameLike;
   readonly height: number;
   readonly size: number;
   readonly spread: number;
@@ -24,19 +31,25 @@ interface LeafPass {
   readonly field: number;
   readonly dir: number;
   readonly elapsed: number;
+  /** A seedling shows every leaf; otherwise only the outer twigs (to `tipLimit`) carry them. */
+  readonly seedling: boolean;
+  readonly tipLimit: number;
+  readonly leaf: LeafFit;
 }
 
 /**
- * The sway field's offset for a leaf at (x, y, z), into `tree.offset`. A host
+ * The sway field's offset for a leaf at `p`, into `tree.offset`. A host
  * that moves the tree itself (`field: 0`) gets none at all: the wood is already
  * where keel/tree-mechanics put it, and the field's idle breathing would only
  * float the leaves off their twigs (and cost a sway per leaf per frame).
  */
-function drift(tree: Tree, pass: LeafPass, x: number, y: number, z: number): void {
-  if (tree.still) { tree.offset.x = 0;
-  tree.offset.z = 0;
-  return; }
-  sway(tree.offset, x, y, z, pass.elapsed, pass.field, pass.height, pass.dir);
+function drift(tree: Tree, pass: LeafPass, p: V3): void {
+  if (tree.still) {
+    tree.offset.x = 0;
+    tree.offset.z = 0;
+    return;
+  }
+  sway(tree.offset, p[0], p[1], p[2], pass.elapsed, pass.field, pass.height, pass.dir);
 }
 
 /** How far downwind a point is, so a gust reaches it in turn. */
@@ -46,22 +59,17 @@ const downwind = (pass: LeafPass, x: number, z: number): number => x * Math.cos(
  * A blade grows from its twig: the stalk sits on the twig and the blade points out along its slot, so no leaf hangs in
  * the air.
  */
-function poseBlade(
-  tree: Tree,
-  frame: TreeFrameLike,
-  index: number,
-  pass: LeafPass,
-  leafSize: number,
-  swing: number,
-): void {
+function poseBlade(tree: Tree, pass: LeafPass, index: number): void {
   if (tree.fronds) {
-    poseLeaflet(tree, tree.fronds, frame, index, pass, leafSize, swing);
+    poseLeaflet(tree, tree.fronds, pass, index);
     return;
   }
   if (needleLeaf(tree, at(tree.model.leaves.node, index))) {
-    poseSprig(tree, frame, index, pass, leafSize, swing);
+    poseSprig(tree, pass, index);
     return;
   }
+  const { frame } = pass;
+  const { size: leafSize, swing } = pass.leaf;
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const dx = at(slots.dx, index);
@@ -80,7 +88,7 @@ function poseBlade(
   const x = at(frame.x, node) + n[0] * out + (dx / scale) * clear;
   const y = at(frame.y, node) + n[1] * out - strainDrop(tree, node, index);
   const z = at(frame.z, node) + n[2] * out + (dz / scale) * clear;
-  drift(tree, pass, x, y, z);
+  drift(tree, pass, [x, y, z]);
   // A blade is thinner than a leaf lump, so it is drawn longer to fill the crown as fully.
   const motion = leafFlutter(
     pass.elapsed,
@@ -166,30 +174,30 @@ export function frondLayout(model: TreeModelLike): FrondLayout | null {
   return layout;
 }
 
+/** A frond's own axes: along it, across it and down from it (up when it points straight up). */
+function frondAxes(tip: V3, base: V3): { fw: V3; side: V3; down: V3 } {
+  let fw: V3 = norm3(tip[0] - base[0], tip[1] - base[1], tip[2] - base[2]);
+  if (isZero(fw)) fw = UP;
+  let side: V3 = norm3(...cross3(fw, UP));
+  if (isZero(side)) side = [1, 0, 0];
+  const down: V3 = norm3(...cross3(fw, side));
+  return { fw, side, down };
+}
+
 /**
  * One leaflet off its rachis: angled toward the frond's tip, dropping into a V, the outer ones drooping most, all of
  * them shivering in the wind.
  */
-function poseLeaflet(
-  tree: Tree,
-  fronds: FrondLayout,
-  frame: TreeFrameLike,
-  index: number,
-  pass: LeafPass,
-  leafSize: number,
-  swing: number,
-): void {
+function poseLeaflet(tree: Tree, fronds: FrondLayout, pass: LeafPass, index: number): void {
+  const { frame } = pass;
+  const { size: leafSize, swing } = pass.leaf;
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const tip: V3 = [at(frame.x, node), at(frame.y, node), at(frame.z, node)];
   const base: V3 = [at(frame.baseX, node), at(frame.baseY, node), at(frame.baseZ, node)];
   const t = at(fronds.along, index);
   const p: V3 = [base[0] + (tip[0] - base[0]) * t, base[1] + (tip[1] - base[1]) * t, base[2] + (tip[2] - base[2]) * t];
-  let fw: V3 = norm3(tip[0] - base[0], tip[1] - base[1], tip[2] - base[2]);
-  if (isZero(fw)) fw = UP;
-  let side: V3 = norm3(...cross3(fw, UP));
-  if (isZero(side)) side = [1, 0, 0];
-  const down: V3 = norm3(...cross3(fw, side));
+  const { fw, side, down } = frondAxes(tip, base);
   const s = at(fronds.out, index);
   const sign = at(fronds.side, index);
   const rank = at(slots.rank, index);
@@ -208,7 +216,7 @@ function poseLeaflet(
   const profile = Math.sin(Math.PI * (0.08 + 0.88 * s)) ** 0.7;
   const grown = clamp(leafSize / Math.max(pass.size, 1e-6), 0, 1.4);
   const length = frond * 0.3 * (0.25 + 0.75 * profile) * grown * (0.85 + 0.3 * at(slots.size, index));
-  drift(tree, pass, p[0], p[1], p[2]);
+  drift(tree, pass, p);
   writeBlade(
     pass.array,
     index,
@@ -244,18 +252,13 @@ export function sprigPlace(frame: TreeFrameLike, slots: TreeModelLike["leaves"],
 }
 
 /** A sprig is stiff: it only rocks a little in the wind and turns on its twig, it does not droop like a leaf. */
-function poseSprig(
-  tree: Tree,
-  frame: TreeFrameLike,
-  index: number,
-  pass: LeafPass,
-  leafSize: number,
-  swing: number,
-): void {
+function poseSprig(tree: Tree, pass: LeafPass, index: number): void {
+  const { frame } = pass;
+  const { size: leafSize, swing } = pass.leaf;
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const { p, n } = sprigPlace(frame, slots, index);
-  drift(tree, pass, p[0], p[1], p[2]);
+  drift(tree, pass, p);
   const motion = leafFlutter(
     pass.elapsed,
     pass.wind,
@@ -278,21 +281,16 @@ function poseSprig(
   );
 }
 
-function poseLump(
-  tree: Tree,
-  frame: TreeFrameLike,
-  index: number,
-  pass: LeafPass,
-  leafSize: number,
-  swing: number,
-): void {
+function poseLump(tree: Tree, pass: LeafPass, index: number): void {
+  const { frame } = pass;
+  const { size: leafSize, swing } = pass.leaf;
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const rank = at(slots.rank, index);
   const x = at(frame.x, node) + at(slots.dx, index) * pass.spread;
   const y = at(frame.y, node) + at(slots.dy, index) * pass.spread - strainDrop(tree, node, index);
   const z = at(frame.z, node) + at(slots.dz, index) * pass.spread;
-  drift(tree, pass, x, y, z);
+  drift(tree, pass, [x, y, z]);
   const flutter = pass.wind * 0.012 * Math.sin(pass.elapsed * 6.3 + rank * 40);
   const fx = flutter * Math.cos(pass.dir);
   const fz = flutter * Math.sin(pass.dir);
@@ -307,11 +305,15 @@ function poseLump(
   );
 }
 
-function leafShows(tree: Tree, frame: TreeFrameLike, year: YearLike, index: number, leafy: boolean): boolean {
+/** Does this leaf show: on a leafy twig (or any twig of a seedling), grown, not yet dropped, and not falling? */
+function leafShows(tree: Tree, pass: LeafPass, year: YearLike, index: number): boolean {
+  const { frame } = pass;
   const slots = tree.model.leaves;
+  const node = at(slots.node, index);
+  const leafy = pass.seedling || leafyNode(frame, node, pass.tipLimit);
   return (
     leafy &&
-    at(frame.grow, at(slots.node, index)) > 0 &&
+    at(frame.grow, node) > 0 &&
     at(slots.rank, index) >= year.drop &&
     !tree.hiddenSlots.leaf.has(index)
   );
@@ -327,12 +329,14 @@ function youngLeaf(tree: Tree, frame: TreeFrameLike): number {
   return 1 + 0.9 * clamp(1 - (frame.visible - 4) / 90, 0, 1);
 }
 
-function leafPass(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): LeafPass {
+function leafPass(tree: Tree, mesh: InstancedLike, tick: Tick): LeafPass {
+  const { frame, year, motion } = tick;
   const bare = year.leaf <= 0;
   // A grand tree is bigger than life but has the same twigs, so each clump fills more of its crown.
   const grand = Math.max(1, frame.scale ?? 1) ** 0.75;
   return {
     array: mesh.instanceMatrix.array,
+    frame,
     height: Math.max(frame.height, 0.5),
     bare,
     size: tree.colors.leafScale * youngLeaf(tree, frame) * (tree.skin?.leafSize ?? 1) * grand,
@@ -341,6 +345,9 @@ function leafPass(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: Y
     dir: motion.windDir ?? 0,
     elapsed: motion.elapsed,
     field: tree.features.sway ? motion.wind * (motion.field ?? 1) : 0,
+    seedling: frame.visible <= 4,
+    tipLimit: leafTipLimit(tree),
+    leaf: { size: 0, swing: 0 },
   };
 }
 
@@ -356,42 +363,46 @@ const floweringOf = (tree: Tree, year: YearLike): number =>
 const leafHush = (tree: Tree, node: number, flowering: number): number =>
   flowering > 0 && strainColors(tree, node).blossom === true ? 1 - 0.55 * flowering : 1;
 
-export function poseLeaves(
-  tree: Tree,
-  mesh: InstancedLike,
-  frame: TreeFrameLike,
-  year: YearLike,
-  motion: TreeMotion,
-): void {
+/** How big one leaf draws: a closed winter bud, or a leaf grown by its year, its twig and its strain's bloom. */
+function leafSizeOf(tree: Tree, pass: LeafPass, index: number, own: { year: YearLike; flowering: number }): number {
+  const slots = tree.model.leaves;
+  const node = at(slots.node, index);
+  if (own.year.leaf <= 0) return pass.size * 0.24;
+  return (
+    pass.size *
+    leafHush(tree, node, own.flowering) *
+    at(slots.size, index) *
+    (0.2 + 0.8 * own.year.leaf) *
+    (0.45 + 0.55 * at(pass.frame.grow, node))
+  );
+}
+
+export function poseLeaves(tree: Tree, mesh: InstancedLike, tick: Tick): void {
+  const { year, motion } = tick;
   const { model } = tree;
   const slots = model.leaves;
-  const seedling = frame.visible <= 4;
-  const tipLimit = leafTipLimit(tree);
-  const bare = year.leaf <= 0;
-  if (motion.dead === true) { for (let index = 0; index < slots.count; index += 1) clearSlot(mesh.instanceMatrix.array, index);
-  mesh.instanceMatrix.needsUpdate = true;
-  return; }
-  const pass = leafPass(tree, mesh, frame, year, motion);
+  if (motion.dead === true) {
+    for (let index = 0; index < slots.count; index += 1) clearSlot(mesh.instanceMatrix.array, index);
+    mesh.instanceMatrix.needsUpdate = true;
+    return;
+  }
+  const pass = leafPass(tree, mesh, tick);
   const flowering = floweringOf(tree, year);
   for (let index = 0; index < slots.count; index += 1) {
     const node = at(slots.node, index);
     // In winter only a few closed buds show; the rest of the twig is bare.
     const own = strainYear(tree, node, year);
     const resting = own.leaf <= 0;
-    if (!leafShows(tree, frame, own, index, seedling || leafyNode(frame, node, tipLimit)) || (resting && index % 4 !== 0)) { clearSlot(pass.array, index);
-    continue; }
-    const leafSize = resting
-      ? pass.size * 0.24
-      : pass.size *
-        leafHush(tree, node, flowering) *
-        at(slots.size, index) *
-        (0.2 + 0.8 * own.leaf) *
-        (0.45 + 0.55 * at(frame.grow, node));
+    if (!leafShows(tree, pass, own, index) || (resting && index % 4 !== 0)) {
+      clearSlot(pass.array, index);
+      continue;
+    }
+    pass.leaf.size = leafSizeOf(tree, pass, index, { year: own, flowering });
     // Hanging strands swing from their twig: the lower the leaf, the wider the swing.
-    const swing =
+    pass.leaf.swing =
       Math.max(0, -at(slots.dy, index)) * pass.wind * 0.35 * Math.sin(pass.elapsed * 1.4 + at(model.phase, node));
-    if (tree.blades) poseBlade(tree, frame, index, pass, leafSize, swing);
-    else poseLump(tree, frame, index, pass, leafSize, swing);
+    if (tree.blades) poseBlade(tree, pass, index);
+    else poseLump(tree, pass, index);
   }
   mesh.instanceMatrix.needsUpdate = true;
 }
@@ -422,8 +433,10 @@ export function crownShade(frame: TreeFrameLike, slots: SlotsLike, jitter?: (ind
       sum[2] + at(frame.z, node) / live.length,
     ];
   }, [0, 0, 0]);
-  const outward = (index: number): number => { const p = place(index);
-  return Math.hypot(p[0] - centre[0], p[2] - centre[2], (p[1] - centre[1]) * 1.3); };
+  const outward = (index: number): number => {
+    const p = place(index);
+    return Math.hypot(p[0] - centre[0], p[2] - centre[2], (p[1] - centre[1]) * 1.3);
+  };
   const heights = live.map((index) => at(frame.y, at(slots.node, index)));
   const low = Math.min(...heights);
   const high = Math.max(...heights);
@@ -443,20 +456,23 @@ function skinLeafColor(tree: Tree, skin: TreeSkin, frame: TreeFrameLike, index: 
   const slots = tree.model.leaves;
   const rank = at(slots.rank, index);
   const dead = at(frame.dead, at(slots.node, index));
-  tree.a.set(skin.leaves[at(slots.tone, index) % 3] ?? "#ffffff").offsetHSL(((rank * 7.3) % 1 - 0.5) * 0.04, 0, ((rank * 3.1) % 1 - 0.5) * 0.1);
+  tree.a
+    .set(skin.leaves[at(slots.tone, index) % 3] ?? "#ffffff")
+    .offsetHSL(((rank * 7.3) % 1 - 0.5) * 0.04, 0, ((rank * 3.1) % 1 - 0.5) * 0.1);
   if (dead > 0.05) tree.a.lerp(tree.b.set("#6e6a66"), clamp(dead * 3, 0, 0.8));
   return tree.a;
 }
 
+/** One leaf's place in the season: its tone, its rank, and the rank it turns by (its own, or its clump's). */
+interface LeafTurn {
+  readonly tone: number;
+  readonly rank: number;
+  readonly turnRank: number;
+}
+
 /** Spring flush and the autumn turn: old needles of an evergreen never turn. */
-function seasonLeafColor(
-  tree: Tree,
-  year: YearLike,
-  tone: number,
-  rank: number,
-  colors: TreeColors,
-  turnRank: number,
-): ColorLike {
+function seasonLeafColor(tree: Tree, year: YearLike, colors: TreeColors, leaf: LeafTurn): ColorLike {
+  const { tone, rank, turnRank } = leaf;
   const { model, a, b } = tree;
   a.set(colors.leaves[tone] ?? "#6c9a54");
   if (year.flush > 0)
@@ -474,20 +490,21 @@ function seasonLeafColor(
  * A hybrid's minor kind under the tree's skin keeps a share of its own leaf colour (`clumps`), so an oak limb on an
  * ember cherry still reads as its own section.
  */
-function skinnedLeafColor(
-  tree: Tree,
-  skin: TreeSkin,
-  frame: TreeFrameLike,
-  year: YearLike,
-  index: number,
-  colors: TreeColors,
-): ColorLike {
+/** What an internode's strain wears for its leaves: its skin, its colours and its own year. */
+interface StrainWear {
+  readonly skin: TreeSkin;
+  readonly colors: TreeColors;
+  readonly year: YearLike;
+}
+
+function skinnedLeafColor(tree: Tree, wear: StrainWear, frame: TreeFrameLike, index: number): ColorLike {
+  const { skin, colors, year } = wear;
   const slots = tree.model.leaves;
   const node = at(slots.node, index);
   const kind = tree.features.clumps && year.leaf > 0 ? strainAt(tree, node) : undefined;
   if (kind?.species === undefined || kind.colors === undefined) return skinLeafColor(tree, skin, frame, index);
   const rank = at(slots.rank, index);
-  tree.c.copy(seasonLeafColor(tree, year, clumpOf(tree, node) % 3, rank, colors, rank));
+  tree.c.copy(seasonLeafColor(tree, year, colors, { tone: clumpOf(tree, node) % 3, rank, turnRank: rank }));
   return skinLeafColor(tree, skin, frame, index).lerp(tree.c, 0.45);
 }
 
@@ -498,27 +515,34 @@ function skinnedLeafColor(
 function leafSeasonColor(tree: Tree, year: YearLike, index: number, colors: TreeColors): ColorLike {
   const slots = tree.model.leaves;
   const rank = at(slots.rank, index);
-  if (!tree.features.clumps) return seasonLeafColor(tree, year, at(slots.tone, index), rank, colors, rank);
+  if (!tree.features.clumps) {
+    return seasonLeafColor(tree, year, colors, { tone: at(slots.tone, index), rank, turnRank: rank });
+  }
   const clump = clumpOf(tree, at(slots.node, index));
-  return seasonLeafColor(
-    tree,
-    year,
-    index % 11 === 0 ? 2 : clump % 3,
+  return seasonLeafColor(tree, year, colors, {
+    tone: index % 11 === 0 ? 2 : clump % 3,
     rank,
-    colors,
-    (((clump >>> 8) % 1000) / 1000) * 0.7 + rank * 0.3,
-  );
+    turnRank: (((clump >>> 8) % 1000) / 1000) * 0.7 + rank * 0.3,
+  });
+}
+
+/** What a repaint of the leaves goes by: the frame, the tree's year and the snow on it. */
+interface LeafPaint {
+  readonly frame: TreeFrameLike;
+  readonly year: YearLike;
+  readonly snow: number;
 }
 
 /** One leaf's colour for the year: bud, flush, turn, withered, dying, snow on needles. */
-function leafColor(tree: Tree, frame: TreeFrameLike, year: YearLike, index: number, snow: number): ColorLike {
+function leafColor(tree: Tree, paint: LeafPaint, index: number): ColorLike {
+  const { frame, snow } = paint;
   const { model, a, b } = tree;
   const slots = model.leaves;
   const node = at(slots.node, index);
   const skin = strainSkin(tree, node);
   const colors = strainColors(tree, node);
-  year = strainYear(tree, node, year);
-  if (skin) return skinnedLeafColor(tree, skin, frame, year, index, colors);
+  const year = strainYear(tree, node, paint.year);
+  if (skin) return skinnedLeafColor(tree, { skin, colors, year }, frame, index);
   if (year.leaf <= 0) return a.set(colors.trunk[2] ?? "#9a6946").lerp(b.set(colors.leaves[0] ?? "#6c9a54"), 0.25);
   leafSeasonColor(tree, year, index, colors);
   const dead = at(frame.dead, node);
@@ -528,7 +552,9 @@ function leafColor(tree: Tree, frame: TreeFrameLike, year: YearLike, index: numb
   return a;
 }
 
-export function paintLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, year: YearLike, snow: number): void {
+export function paintLeaves(tree: Tree, mesh: InstancedLike, tick: Tick): void {
+  const { frame, year } = tick;
+  const paint: LeafPaint = { frame, year, snow: tick.motion.snow ?? 0 };
   const slots = tree.model.leaves;
   const jitter = tree.features.clumps
     ? (index: number): number => (clumpOf(tree, at(slots.node, index)) % 1000) / 1000
@@ -538,7 +564,7 @@ export function paintLeaves(tree: Tree, mesh: InstancedLike, frame: TreeFrameLik
       ? crownShade(frame, slots, jitter)
       : null;
   for (let index = 0; index < slots.count; index += 1) {
-    const color = leafColor(tree, frame, year, index, snow);
+    const color = leafColor(tree, paint, index);
     if (shade && year.leaf > 0 && !strainSkin(tree, at(slots.node, index))) color.multiplyScalar(at(shade, index));
     mesh.setColorAt(index, color);
   }

@@ -4,19 +4,22 @@ import type { InstancedLike, SlotsLike, TreeFrameLike, YearLike } from "../input
 import { TAU, at, clamp } from "../math.js";
 import { clearSlot, writeBlade, writeBox, writeSlab, writeVoxel } from "../instances.js";
 import { bearingNode, leafTipLimit, leafyNode, ornamentState } from "./tree.js";
-import type { Faller, OrnamentSet, Tree, TreeMotion } from "./tree.js";
+import type { Faller, OrnamentSet, Tick, Tree, TreeMotion } from "./tree.js";
 import { eatenSlot, ornamentColor, stillOrSway } from "./ornaments.js";
+import type { Air } from "./ornaments.js";
 
 // ---------------------------------------------------------------- litter
 
+/** Which slot of which set fell, and how far its kind scatters (fruit drops close; leaves and petals blow about). */
+export interface Fallen {
+  readonly slots: SlotsLike;
+  readonly index: number;
+  readonly scale: number;
+}
+
 /** Where a fallen leaf from `index` lies: under its twig, scattered by the drop, kept on the ground. */
-export function litterSpot(
-  tree: Tree,
-  frame: TreeFrameLike,
-  slots: SlotsLike,
-  index: number,
-  scatterScale: number,
-): { x: number; z: number } {
+export function litterSpot(tree: Tree, frame: TreeFrameLike, fallen: Fallen): { x: number; z: number } {
+  const { slots, index, scale: scatterScale } = fallen;
   const node = at(slots.node, index);
   const scatter = (1.4 + at(slots.size, index) * 1.6) * scatterScale;
   let x = at(frame.x, node) + at(slots.dx, index) * scatter + (at(slots.rank, index) - 0.5) * 0.9 * scatterScale;
@@ -31,13 +34,8 @@ export function litterSpot(
   return { x, z };
 }
 
-function poseLeafLitter(
-  tree: Tree,
-  mesh: InstancedLike,
-  frame: TreeFrameLike,
-  year: YearLike,
-  motion: TreeMotion,
-): void {
+function poseLeafLitter(tree: Tree, mesh: InstancedLike, tick: Tick): void {
+  const { frame, year, motion } = tick;
   const { model, leafStride, ground } = tree;
   const array = mesh.instanceMatrix.array;
   // Only twigs that carry leaves this year drop them: a sapling has few, and an
@@ -56,7 +54,7 @@ function poseLeafLitter(
       clearSlot(array, slot);
       continue;
     }
-    const spot = litterSpot(tree, frame, model.leaves, index, 1);
+    const spot = litterSpot(tree, frame, { slots: model.leaves, index, scale: 1 });
     const lie = at(model.leaves.rank, index) * 31;
     const y = ground.y + 0.015 + (slot % 3) * 0.006;
     const size = tree.colors.leafScale * at(model.leaves.size, index);
@@ -86,14 +84,8 @@ export function soundBearer(set: OrnamentSet, frame: TreeFrameLike, index: numbe
 }
 
 /** Dropped flowers and fruit under the tree: petals until the leaves are out, fruit until spring. */
-function poseOrnamentLitter(
-  tree: Tree,
-  set: OrnamentSet,
-  frame: TreeFrameLike,
-  year: YearLike,
-  motion: TreeMotion,
-  array: Float32Array,
-): void {
+function poseOrnamentLitter(tree: Tree, set: OrnamentSet, tick: Tick, array: Float32Array): void {
+  const { frame, year, motion } = tick;
   const { fallen } = ornamentState(set, year);
   const look = set.look;
   const lying = ornamentsLying(set, year, motion);
@@ -109,7 +101,7 @@ function poseOrnamentLitter(
       clearSlot(array, target);
       continue;
     }
-    const spot = litterSpot(tree, frame, set.slots, index, set.name === "fruit" ? 0.45 : 1);
+    const spot = litterSpot(tree, frame, { slots: set.slots, index, scale: set.name === "fruit" ? 0.45 : 1 });
     const unit = tree.colors.leafScale * at(set.slots.size, index);
     const flat = set.name === "fruit" ? 1 : 0.2;
     writeBox(
@@ -126,12 +118,12 @@ function poseOrnamentLitter(
   }
 }
 
-export function poseLitter(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
+export function poseLitter(tree: Tree, tick: Tick): void {
   const { leafLitter, litter } = tree.meshes;
-  if (leafLitter) poseLeafLitter(tree, leafLitter, frame, year, motion);
+  if (leafLitter) poseLeafLitter(tree, leafLitter, tick);
   if (!litter) return;
   const array = litter.instanceMatrix.array;
-  for (const set of [tree.flowers, tree.fruits]) if (set) poseOrnamentLitter(tree, set, frame, year, motion, array);
+  for (const set of [tree.flowers, tree.fruits]) if (set) poseOrnamentLitter(tree, set, tick, array);
   litter.instanceMatrix.needsUpdate = true;
 }
 
@@ -161,7 +153,9 @@ function paintOrnamentLitter(tree: Tree, mesh: InstancedLike): void {
     for (let slot = 0; slot < set.litterLimit; slot += 1) {
       if (set.spec.kind === "blossom") a.set(colors.spring[slot % colors.spring.length] ?? "#f6bacb");
       else a.set(palette[slot % palette.length] ?? "#ffffff").lerp(b.set("#6b5038"), set.name === "fruit" ? 0.15 : 0.35);
-      if (tree.skin) a.lerp(b.set(tree.skin.leaves[(slot + 1) % tree.skin.leaves.length] ?? "#ffffff"), 0.82).multiplyScalar(0.85);
+      if (tree.skin) {
+        a.lerp(b.set(tree.skin.leaves[(slot + 1) % tree.skin.leaves.length] ?? "#ffffff"), 0.82).multiplyScalar(0.85);
+      }
       mesh.setColorAt(set.litterStart + slot, a);
     }
   }
@@ -178,19 +172,22 @@ export function poseSnow(tree: Tree, mesh: InstancedLike, frame: TreeFrameLike, 
   const array = mesh.instanceMatrix.array;
   const height = Math.max(frame.height, 0.5);
   const wind = tree.features.sway ? motion.wind : 0;
+  const air: Air = { motion, wind, height };
   for (let node = 0; node < tree.model.count; node += 1) {
     const radius = at(frame.radius, node);
     const dx = at(frame.x, node) - at(frame.baseX, node);
     const dy = at(frame.y, node) - at(frame.baseY, node);
     const dz = at(frame.z, node) - at(frame.baseZ, node);
     const level = Math.hypot(dx, dz);
-    if (at(frame.grow, node) < 1 || radius < 0.035 || at(frame.rot, node) > 0.5 || level < Math.abs(dy) * 0.7) { clearSlot(array, node);
-    continue; }
+    if (at(frame.grow, node) < 1 || radius < 0.035 || at(frame.rot, node) > 0.5 || level < Math.abs(dy) * 0.7) {
+      clearSlot(array, node);
+      continue;
+    }
     const depth = (0.03 + radius * 0.35) * cover;
     const mx = (at(frame.x, node) + at(frame.baseX, node)) / 2;
     const my = (at(frame.y, node) + at(frame.baseY, node)) / 2;
     const mz = (at(frame.z, node) + at(frame.baseZ, node)) / 2;
-    stillOrSway(tree, mx, my, mz, motion, at(frame.fall, node) > 0 ? 0 : wind, height);
+    stillOrSway(tree, [mx, my, mz], air, at(frame.fall, node) > 0 ? 0 : wind);
     writeSlab(
       array,
       node,
@@ -233,7 +230,10 @@ function fallSource(tree: Tree, frame: TreeFrameLike, year: YearLike, kind: Fall
       ok: (index) => leafyNode(frame, at(leaves.node, index), tipLimit),
       key: (index) => `leaf:${String(index)}`,
       shape: (index) => [at(leaves.size, index), at(leaves.size, index), at(leaves.size, index)],
-      color: (index) => (tree.skin ? tree.skin.leaves[at(leaves.tone, index) % 3] : tree.colors.autumn[at(leaves.tone, index)]) ?? "#cf6b4e",
+      color: (index) => {
+        const tone = at(leaves.tone, index);
+        return (tree.skin ? tree.skin.leaves[tone % 3] : tree.colors.autumn[tone]) ?? "#cf6b4e";
+      },
     };
   }
   const set = kind === "fruit" ? tree.fruits : tree.flowers;
@@ -243,7 +243,7 @@ function fallSource(tree: Tree, frame: TreeFrameLike, year: YearLike, kind: Fall
     slots: set.slots,
     front: fallen,
     fall: set.look.fall,
-    ok: (index) => at(set.slots.rank, index) < open && bearingNode(tree, frame, set.spec, at(set.slots.node, index)),
+    ok: (index) => at(set.slots.rank, index) < open && bearingNode(tree, frame, set, at(set.slots.node, index)),
     key: (index) => `${set.name}:${String(index)}`,
     shape: (index) => [
       set.look.size[0] * at(set.slots.size, index),
@@ -309,8 +309,11 @@ function fallFront(tree: Tree, year: YearLike, kind: Faller["kind"]): number {
   return set ? ornamentState(set, year).fallen : 1;
 }
 
-function moveFaller(tree: Tree, faller: Faller, elapsed: number, delta: number, wind: number, dir = 0): void {
+function moveFaller(tree: Tree, faller: Faller, motion: TreeMotion): void {
   if (faller.landed) return;
+  const { elapsed, wind } = motion;
+  const delta = motion.delta ?? 0;
+  const dir = motion.windDir ?? 0;
   // Heavy fruit drops nearly straight; leaves and petals flutter and drift downwind.
   const drift = faller.speed > 1.5 ? 0.15 : 1;
   const flutter = Math.sin(elapsed * 2.4 + faller.phase);
@@ -323,10 +326,23 @@ function moveFaller(tree: Tree, faller: Faller, elapsed: number, delta: number, 
   faller.y -= delta * faller.speed * (drift < 1 ? 1 : 0.7 + 0.3 * Math.abs(flutter));
   const limit = tree.ground.radius + 1;
   const reach = Math.hypot(faller.x, faller.z);
-  if (reach > limit) { faller.x *= limit / reach;
-  faller.z *= limit / reach; }
-  if (faller.y <= tree.ground.y + 0.02) { faller.y = tree.ground.y + 0.02;
-  faller.landed = true; }
+  if (reach > limit) {
+    faller.x *= limit / reach;
+    faller.z *= limit / reach;
+  }
+  if (faller.y <= tree.ground.y + 0.02) {
+    faller.y = tree.ground.y + 0.02;
+    faller.landed = true;
+  }
+}
+
+/** Which kind falls next, by a roll over the rates: leaves first, then flowers, then fruit. */
+function pickKind(roll: number, rates: Record<Faller["kind"], number>): Faller["kind"] {
+  let pick = roll - rates.leaf;
+  if (pick < 0) return "leaf";
+  pick -= rates.flowers;
+  if (pick < 0) return "flowers";
+  return "fruit";
 }
 
 export function spawnFallers(tree: Tree, frame: TreeFrameLike, year: YearLike, motion: TreeMotion): void {
@@ -335,8 +351,7 @@ export function spawnFallers(tree: Tree, frame: TreeFrameLike, year: YearLike, m
   tree.spawnClock += (motion.delta ?? 0) * total * (1 + motion.wind * 2);
   while (tree.spawnClock >= 1 && total > 0) {
     tree.spawnClock -= 1;
-    let pick = tree.random() * total;
-    const kind: Faller["kind"] = (pick -= rates.leaf) < 0 ? "leaf" : (pick -= rates.flowers) < 0 ? "flowers" : "fruit";
+    const kind = pickKind(tree.random() * total, rates);
     const faller = spawnFaller(tree, frame, year, kind);
     if (faller === null) continue;
     if (tree.fallers.length >= tree.limits.falling) tree.fallers.shift();
@@ -349,7 +364,17 @@ export function spawnFallers(tree: Tree, frame: TreeFrameLike, year: YearLike, m
   }
 }
 
-function drawFaller(tree: Tree, faller: Faller, slot: number, mesh: InstancedLike, elapsed: number): void {
+/** The two faller meshes a frame draws into (blades for falling leaves, boxes for the rest), and the moment. */
+interface FallDraw {
+  readonly tree: Tree;
+  readonly falling: InstancedLike;
+  readonly fallingLeaves: InstancedLike;
+  readonly elapsed: number;
+}
+
+function drawFaller(draw: FallDraw, faller: Faller, slot: number): void {
+  const { tree, elapsed } = draw;
+  const mesh = tree.blades && faller.kind === "leaf" ? draw.fallingLeaves : draw.falling;
   const spin = faller.landed ? faller.phase : elapsed * (faller.speed > 1.5 ? 0.6 : 2.2) + faller.phase;
   const [sx, sy, sz] = faller.size;
   const array = mesh.instanceMatrix.array;
@@ -376,13 +401,14 @@ export function drawFallers(
 ): void {
   const array = falling.instanceMatrix.array;
   const leafArray = fallingLeaves.instanceMatrix.array;
+  const draw: FallDraw = { tree, falling, fallingLeaves, elapsed: motion.elapsed };
   for (let slot = 0; slot < tree.limits.falling; slot += 1) {
     const faller = tree.fallers[slot];
     clearSlot(array, slot);
     clearSlot(leafArray, slot);
     if (faller === undefined) continue;
-    moveFaller(tree, faller, motion.elapsed, motion.delta ?? 0, motion.wind, motion.windDir);
-    drawFaller(tree, faller, slot, tree.blades && faller.kind === "leaf" ? fallingLeaves : falling, motion.elapsed);
+    moveFaller(tree, faller, motion);
+    drawFaller(draw, faller, slot);
   }
   for (const mesh of [falling, fallingLeaves]) {
     mesh.instanceMatrix.needsUpdate = true;

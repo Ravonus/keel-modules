@@ -2,7 +2,7 @@
 
 import type { InstancedLike, MaterialLike, NodeLike } from "../inputs.js";
 import { TAU } from "../math.js";
-import type { CardRow, ForestLitLike, ForestOptions, RendererLike, Vector4Like } from "./forest.js";
+import type { CardRow, ForestLitLike, RendererLike, Vector4Like } from "./forest.js";
 
 // ---------------------------------------------------------------- impostor cards (the sprite ladder)
 
@@ -77,15 +77,17 @@ export interface Cards {
   idle: number;
 }
 
-export function createCards(
-  lit: ForestLitLike,
-  baked: readonly CardRow[],
-  count: number,
-  options: ForestOptions,
-  lod: Vector4Like,
-): Cards {
-  const frames = options.frames ?? 8;
-  const cell = options.cell ?? 160;
+/** How the cards are drawn: views round each tree, the pixel size of one, and the distance they take over at. */
+export interface CardSheet {
+  readonly frames?: number | undefined;
+  readonly cell?: number | undefined;
+  readonly lod: Vector4Like;
+}
+
+export function createCards(lit: ForestLitLike, baked: readonly CardRow[], count: number, sheet: CardSheet): Cards {
+  const { lod } = sheet;
+  const frames = sheet.frames ?? 8;
+  const cell = sheet.cell ?? 160;
   const target = new lit.RenderTarget(frames * cell, baked.length * cell, { depthBuffer: true });
   const boxes = Array.from({ length: MAX_VARIANTS }, (_, i) => {
     const box = baked[i]?.box;
@@ -145,22 +147,27 @@ export function bakeCards(lit: ForestLitLike, renderer: RendererLike, cards: Car
   cards.target.viewport.set(0, 0, cards.frames * cards.cell, baked.length * cards.cell);
   renderer.setRenderTarget(cards.target);
   renderer.clear(true, true, false);
-  baked.forEach((variant, row) => { bakeRow(lit, renderer, cards, scene, key, variant, row); });
+  const stage: BakeStage = { lit, renderer, cards, scene, light: key };
+  baked.forEach((variant, row) => {
+    bakeRow(stage, variant, row);
+  });
   cards.target.scissorTest = false;
   renderer.setRenderTarget(previous);
   renderer.setClearColor(clear, alpha);
   renderer.autoClear = autoClear;
 }
 
-function bakeRow(
-  lit: ForestLitLike,
-  renderer: RendererLike,
-  cards: Cards,
-  scene: NodeLike,
-  light: NodeLike,
-  variant: CardRow,
-  row: number,
-): void {
+/** The lit stage every row is baked on: the scene, its key light and the atlas target. */
+interface BakeStage {
+  readonly lit: ForestLitLike;
+  readonly renderer: RendererLike;
+  readonly cards: Cards;
+  readonly scene: NodeLike;
+  readonly light: NodeLike;
+}
+
+function bakeRow(stage: BakeStage, variant: CardRow, row: number): void {
+  const { lit, renderer, cards, scene, light } = stage;
   const { half, height, base } = variant.box;
   const mesh = new lit.Mesh(variant.geometry, variant.material);
   scene.add(mesh);

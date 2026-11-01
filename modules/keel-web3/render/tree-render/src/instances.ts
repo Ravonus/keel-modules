@@ -1,5 +1,6 @@
 // Instance matrices, column-major and written in place: boxes, slabs, voxels, segments and leaf blades.
 
+import { at } from "./math.js";
 import type { Flutter } from "./wind.js";
 
 // ---------------------------------------------------------------- instance matrices (column-major, written in place)
@@ -10,11 +11,11 @@ export function writeColumns(array: Float32Array, index: number, columns: readon
   array[offset + 15] = 1;
 }
 
-export function writeOrigin(array: Float32Array, index: number, x: number, y: number, z: number): void {
+export function writeOrigin(array: Float32Array, index: number, origin: readonly [number, number, number]): void {
   const offset = index * 16;
-  array[offset + 12] = x;
-  array[offset + 13] = y;
-  array[offset + 14] = z;
+  array[offset + 12] = origin[0];
+  array[offset + 13] = origin[1];
+  array[offset + 14] = origin[2];
   array[offset + 15] = 1;
 }
 
@@ -40,7 +41,7 @@ export function writeBox(
   const c = Math.cos(yaw);
   const s = Math.sin(yaw);
   writeColumns(array, index, [c * sx, 0, -s * sx, 0, 0, sy, 0, 0, s * sz, 0, c * sz, 0]);
-  writeOrigin(array, index, x, y, z);
+  writeOrigin(array, index, [x, y, z]);
 }
 
 /**
@@ -90,7 +91,7 @@ export function writeSlab(
     0,
   ]);
   const lift = radius + depth / 2;
-  writeOrigin(array, index, x + nx * lift, y + ny * lift, z + nz * lift);
+  writeOrigin(array, index, [x + nx * lift, y + ny * lift, z + nz * lift]);
 }
 
 /** A cube `size` wide, flattened by `flat`, turned `yaw`. */
@@ -150,7 +151,7 @@ export function writeSegment(
       0,
     ]);
   }
-  writeOrigin(array, index, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+  writeOrigin(array, index, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
 }
 
 export const UP: readonly [number, number, number] = [0, 1, 0];
@@ -166,6 +167,80 @@ export const cross3 = (a: V3, b: V3): [number, number, number] => [
 ];
 export const isZero = (v: V3): boolean => v[0] === 0 && v[1] === 0 && v[2] === 0;
 
+// A blade's frame, x then y then z, as scalars in one scratch: writeBlade runs for every leaf every frame, so it
+// allocates nothing.
+const AXES = new Float64Array(9);
+
+/** The blade's y axis: its heading, drooped from there toward the ground, more so the heavier the rank. */
+function bladeUp(n: V3, droop: number): void {
+  let yx = n[0];
+  let yy = n[1] - droop;
+  let yz = n[2];
+  const l2 = Math.hypot(yx, yy, yz);
+  if (l2 > 1e-6) {
+    yx /= l2;
+    yy /= l2;
+    yz /= l2;
+  } else {
+    yx = 0;
+    yy = 1;
+    yz = 0;
+  }
+  AXES[3] = yx;
+  AXES[4] = yy;
+  AXES[5] = yz;
+}
+
+/** The blade's x axis: up × y, normalised. */
+function bladeSide(): void {
+  const yx = at(AXES, 3);
+  const yz = at(AXES, 5);
+  let xx = yz;
+  let xz = -yx;
+  const l2 = Math.hypot(xx, xz);
+  if (l2 > 1e-6) {
+    xx /= l2;
+    xz /= l2;
+  } else {
+    xx = 1;
+    xz = 0;
+  }
+  AXES[0] = xx;
+  AXES[2] = xz;
+}
+
+/** The blade's z axis: x × y (x has no y part), normalised. */
+function bladeFace(): void {
+  const xx = at(AXES, 0);
+  const xz = at(AXES, 2);
+  const yx = at(AXES, 3);
+  const yy = at(AXES, 4);
+  const yz = at(AXES, 5);
+  let zx = -xz * yy;
+  let zy = xz * yx - xx * yz;
+  let zz = xx * yy;
+  const l2 = Math.hypot(zx, zy, zz);
+  if (l2 > 1e-6) {
+    zx /= l2;
+    zy /= l2;
+    zz /= l2;
+  } else {
+    zx = 0;
+    zy = 0;
+    zz = 0;
+  }
+  AXES[6] = zx;
+  AXES[7] = zy;
+  AXES[8] = zz;
+}
+
+/** The blade's axes into AXES: y from its heading and droop, then x and z square to it. */
+function bladeAxes(n: V3, droop: number): void {
+  bladeUp(n, droop);
+  bladeSide();
+  bladeFace();
+}
+
 /**
  * One leaf blade at its stalk, pointing along (nx, ny, nz), drooped, twisted and nodded by `motion`; `long` draws it
  * that much longer than wide.
@@ -179,45 +254,23 @@ export function writeBlade(
   motion: Flutter,
   long = 1,
 ): void {
-  // Leaves droop from their heading toward the ground, more so the heavier the rank. Scalar
-  // locals throughout: this runs for every leaf every frame, so it allocates nothing.
-  let yx = n[0];
-  let yy = n[1] - motion.droop;
-  let yz = n[2];
-  let l2 = Math.hypot(yx, yy, yz);
-  if (l2 > 1e-6) { yx /= l2; yy /= l2; yz /= l2; } else { yx = 0;
-  yy = 1;
-  yz = 0; }
-  // x = up × y, normalised.
-  let xx = yz;
-  let xz = -yx;
-  l2 = Math.hypot(xx, xz);
-  if (l2 > 1e-6) { xx /= l2; xz /= l2; } else { xx = 1;
-  xz = 0; }
-  // z = x × y (x has no y part), normalised.
-  let zx = -xz * yy;
-  let zy = xz * yx - xx * yz;
-  let zz = xx * yy;
-  l2 = Math.hypot(zx, zy, zz);
-  if (l2 > 1e-6) { zx /= l2; zy /= l2; zz /= l2; } else { zx = 0;
-  zy = 0;
-  zz = 0; }
+  bladeAxes(n, motion.droop);
   const c = Math.cos(motion.twist);
   const s = Math.sin(motion.twist);
   const w = size * 1.05;
   const l = size * long * (1 + motion.nod * 0.15);
   const o = index * 16;
-  array[o] = (xx * c + zx * s) * w;
-  array[o + 1] = zy * s * w;
-  array[o + 2] = (xz * c + zz * s) * w;
+  array[o] = (at(AXES, 0) * c + at(AXES, 6) * s) * w;
+  array[o + 1] = at(AXES, 7) * s * w;
+  array[o + 2] = (at(AXES, 2) * c + at(AXES, 8) * s) * w;
   array[o + 3] = 0;
-  array[o + 4] = yx * l;
-  array[o + 5] = yy * l;
-  array[o + 6] = yz * l;
+  array[o + 4] = at(AXES, 3) * l;
+  array[o + 5] = at(AXES, 4) * l;
+  array[o + 6] = at(AXES, 5) * l;
   array[o + 7] = 0;
-  array[o + 8] = (zx * c - xx * s) * w;
-  array[o + 9] = zy * c * w;
-  array[o + 10] = (zz * c - xz * s) * w;
+  array[o + 8] = (at(AXES, 6) * c - at(AXES, 0) * s) * w;
+  array[o + 9] = at(AXES, 7) * c * w;
+  array[o + 10] = (at(AXES, 8) * c - at(AXES, 2) * s) * w;
   array[o + 11] = 0;
   array[o + 12] = p[0];
   array[o + 13] = p[1];

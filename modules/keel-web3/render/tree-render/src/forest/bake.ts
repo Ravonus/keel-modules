@@ -63,8 +63,11 @@ varying vec3 vSeason;
 varying float vViewDepth;
 varying float vLodDistance;
 uniform vec2 uLodIn;
+// Whole pixels the dither is moved by this frame: 0 holds it still (the pixel look); a temporal resolve (lit-finish's
+// TAA) moves it each frame so a fade averages to real cover instead of a stipple.
+uniform vec2 uDither;
 float forestBayer(vec2 p) {
-  vec2 q = mod(floor(p), 4.0);
+  vec2 q = mod(floor(p + uDither), 4.0);
   float m = mod(q.x + q.y * 4.0, 16.0);
   return fract(m * 0.4375 + floor(m * 0.25) * 0.3125);
 }
@@ -510,6 +513,7 @@ export function seasonUniforms(lit: LitLike, colors: TreeColors): Record<string,
     uBloom: { value: linear(lit, colors.spring[1]) },
     uLod: { value: { x: 0, y: 0, z: 0, w: 0 } },
     uLodIn: { value: { x: 0, y: 0 } },
+    uDither: { value: { x: 0, y: 0 } },
   };
 }
 

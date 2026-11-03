@@ -212,7 +212,7 @@ export interface LitStageLook {
   readonly kind: "pixel" | "realism";
   /** voxel-dither's input (the pixel look, or realism's grade), or null to draw the lit picture straight. */
   readonly dither: (PixelLook & { readonly limit?: { readonly levels: number; readonly colours: number } }) | null;
-  /** keel/lit's tone mapping, or null to keep the host's. */
+  /** keel/lit's tone mapping for a host without lit-finish, or null to keep the host's. */
   readonly toneMapping: "neutral" | "agx" | "aces-filmic" | null;
   readonly exposure: number;
   /** Ambient occlusion strength for a post that draws it (0 off). */
@@ -220,6 +220,8 @@ export interface LitStageLook {
   /** Multiplies the generators' detail (plant fields, a forest's baked leaves, ground cover). */
   readonly density: number;
   readonly trees: TreeLook;
+  /** lit-finish's input (`createLitFinish`: AO, haze, tone map, grade), or null for the pixel look. */
+  readonly finish: { readonly exposure: number; readonly tonemap: ResolvedRealism["tonemap"]; readonly ao: number } | null;
 }
 
 const TONE: Readonly<Record<ResolvedRealism["tonemap"], LitStageLook["toneMapping"]>> = { neutral: "neutral", agx: "agx", aces: "aces-filmic" };
@@ -228,16 +230,17 @@ const TONE: Readonly<Record<ResolvedRealism["tonemap"], LitStageLook["toneMappin
  * What a keel/lit stage sets for a resolved look.
  *
  * @param look From resolveLook.
- * @returns The dither input, tone mapping, exposure, AO, density and tree switches.
+ * @returns The dither input, tone mapping, exposure, AO, density, tree switches and lit-finish's input.
  */
 export function stageOfLook(look: ResolvedLook): LitStageLook {
   if (look.kind === "pixel") {
     const capped = look.limit.levels || look.limit.colours ? { ...look.pixel, limit: look.limit } : look.pixel;
-    return { kind: "pixel", dither: capped, toneMapping: null, exposure: 1, ao: 0, density: 1, trees: {} };
+    return { kind: "pixel", dither: capped, toneMapping: null, exposure: 1, ao: 0, density: 1, trees: {}, finish: null };
   }
   const r = look.realism;
   return {
     kind: "realism", dither: r.grade, toneMapping: TONE[r.tonemap], exposure: r.exposure, ao: r.ao, density: r.density,
     trees: { form: "smooth", features: { sprays: false, clumps: false, rootSink: false } },
+    finish: { exposure: r.exposure, tonemap: r.tonemap, ao: r.ao },
   };
 }

@@ -10,7 +10,8 @@ import { LOOK_TARGETS, resolveLook, stageOfLook } from "keel://module/look.js";
 const recipe = { format: "keel-look@1", pixel: { style: "pixel", outline: 1 }, realism: { ao: 0.8 }, prefer: "realism" };
 const stage = stageOfLook(resolveLook(recipe, LOOK_TARGETS.lit));
 if (stage.dither) look = createVoxelDither(lit, renderer, stage.dither);
-if (stage.toneMapping) renderer.toneMapping = stage.toneMapping;
+if (stage.finish) finish = createLitFinish(lit, renderer, stage.finish); // AO, haze, tone map, grade
+else if (stage.toneMapping) renderer.toneMapping = stage.toneMapping;
 createTreeRender(lit, { ...stage.trees, model, frame });
 createForest(lit, { variants, places, maxLeaves: 1600 * stage.density });
 ```
@@ -28,7 +29,8 @@ createForest(lit, { variants, places, maxLeaves: 1600 * stage.density });
   game drawing meshes through keel/bake (`meshStyleOfLook`) and a grove drawing
   this stage wear one recipe the same way.
 - **Stage.** `stageOfLook` says what a stage sets: voxel-dither's input (or
-  none), the tone mapping, exposure, AO for a post that draws it, a density for
+  none), lit-finish's input for realism (exposure, tone map, AO), the tone
+  mapping for a host without lit-finish, a density for
   the generators' detail, and one tree's tree-render options (realism draws
   real blades and bark, without sprays, clumps or rootSink).
 

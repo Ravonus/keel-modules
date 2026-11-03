@@ -130,7 +130,9 @@ merged geometry and drawn instanced.
   season turns.
 - **Dithered hand-off.** The near and far versions cross-fade through
   complementary Bayer dither, and trees near the lens dissolve the same way.
-  There are no alpha sorting problems.
+  There are no alpha sorting problems. `update({ dither: [x, y] })` moves that dither by
+  whole pixels each frame (lit-finish's `ditherOffset()`), so a temporal
+  resolve averages a fade to real cover; left out, it holds still.
 - **Placement.** `forestPlaces` scatters trees by dart throwing, keeping
   `gap` between them, gathering them into groves with `clump`, and skipping
   any spot where `height` returns `null` (water, a road, a slope).

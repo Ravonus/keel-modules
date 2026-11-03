@@ -11,18 +11,18 @@ export default [
       const recipe = { format: "keel-look@1", pixel: { style: "chunky", outline: 0.5 } };
       const big = stageOfLook(resolveLook(recipe, LOOK_TARGETS.native));
       const gb = stageOfLook(resolveLook(recipe, LOOK_TARGETS["game-boy"]));
-      return [big.dither, big.toneMapping, big.trees, gb.dither];
+      return [big.dither, big.toneMapping, big.trees, big.finish, gb.dither];
     },
-    expect: [{ style: "chunky", outline: 0.5 }, null, {}, { style: "chunky", outline: 0.5, screen: "bayer2", limit: { levels: 2, colours: 4 } }],
+    expect: [{ style: "chunky", outline: 0.5 }, null, {}, null, { style: "chunky", outline: 0.5, screen: "bayer2", limit: { levels: 2, colours: 4 } }],
   },
   {
     name: "realism draws straight (or through its grade), denser, with real blades and bark",
     run: ({ resolveLook, stageOfLook, LOOK_TARGETS }) => {
       const plain = stageOfLook(resolveLook({ format: "keel-look@1", realism: { tonemap: "aces", density: 3 } }, LOOK_TARGETS.lit));
       const graded = stageOfLook(resolveLook({ format: "keel-look@1", realism: { grade: { screen: "bayer8", amount: 0.2 } } }, LOOK_TARGETS.lit));
-      return [plain.dither, plain.toneMapping, plain.density, plain.trees, graded.dither, graded.toneMapping];
+      return [plain.dither, plain.toneMapping, plain.density, plain.trees, plain.finish, graded.dither, graded.toneMapping];
     },
-    expect: [null, "aces-filmic", 3, { form: "smooth", features: { sprays: false, clumps: false, rootSink: false } }, { screen: "bayer8", amount: 0.2 }, "neutral"],
+    expect: [null, "aces-filmic", 3, { form: "smooth", features: { sprays: false, clumps: false, rootSink: false } }, { exposure: 1, tonemap: "aces", ao: 0.7 }, { screen: "bayer8", amount: 0.2 }, "neutral"],
   },
   {
     name: "anything that isn't a keel-look@1 recipe is refused by name",

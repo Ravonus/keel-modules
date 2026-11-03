@@ -119,6 +119,8 @@ export interface ForestUpdate {
     readonly near: number;
     readonly far: number;
   } | null;
+  /** Whole pixels to move the fades' dither by this frame (lit-finish's `ditherOffset()`); default still. */
+  readonly dither?: readonly [number, number];
 }
 
 export interface Forest {
@@ -581,6 +583,8 @@ function updateForest(state: ForestState, input: ForestUpdate): void {
     setYear(tree.uniforms, yearOf(input, v), tree.variant.model, tree.variant.colors);
     (tree.uniforms.uTime as { value: number }).value = input.elapsed;
     (tree.uniforms.uWind as { value: number }).value = input.wind;
+    const shift = tree.uniforms.uDither?.value as { x: number; y: number } | undefined;
+    if (shift) [shift.x, shift.y] = input.dither ?? [0, 0];
   });
   const renderer = input.renderer ?? null;
   const c = input.camera.position;

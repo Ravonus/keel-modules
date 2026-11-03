@@ -1,0 +1,210 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "lit-finish",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "The finish a lit full-colour keel/lit stage needs to read as real: ambient occlusion from depth, aerial haze lit toward the sun, sunlight through leaves, colour muted and varied across the world, TAA, bloom, a filmic tone map (AgX, PBR Neutral, ACES) and a light grade. The realism look's counterpart to voxel-dither.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
+  "inputs": [
+    {
+      "key": "tonemap",
+      "label": "Tone map",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "agx",
+          "label": "AgX"
+        },
+        {
+          "value": "neutral",
+          "label": "PBR Neutral"
+        },
+        {
+          "value": "aces",
+          "label": "ACES"
+        }
+      ],
+      "default": "agx"
+    },
+    {
+      "key": "exposure",
+      "label": "Exposure",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 16,
+      "step": 0.05,
+      "control": "slider",
+      "default": 1
+    },
+    {
+      "key": "ao",
+      "label": "Ambient occlusion",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "control": "slider",
+      "default": 0.8
+    },
+    {
+      "key": "aoRadius",
+      "label": "AO radius",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0.05,
+      "max": 8,
+      "step": 0.05,
+      "unit": "m",
+      "default": 1.2
+    },
+    {
+      "key": "hazeDensity",
+      "label": "Haze",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 0.5,
+      "step": 0.001,
+      "control": "slider",
+      "help": "Air per metre; 0 draws none.",
+      "default": 0.012
+    },
+    {
+      "key": "hazeGlow",
+      "label": "Haze glow",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "default": 0.9
+    },
+    {
+      "key": "saturation",
+      "label": "Saturation",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 2,
+      "step": 0.01,
+      "default": 1.05
+    },
+    {
+      "key": "contrast",
+      "label": "Contrast",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0.5,
+      "max": 2,
+      "step": 0.01,
+      "default": 1.18
+    },
+    {
+      "key": "warmth",
+      "label": "Warm lights, cool shadows",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.25
+    },
+    {
+      "key": "vignette",
+      "label": "Vignette",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.3
+    },
+    {
+      "key": "translucency",
+      "label": "Light through leaves",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "control": "slider",
+      "default": 0.8
+    },
+    {
+      "key": "variation",
+      "label": "Colour variation",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "control": "slider",
+      "default": 0.5
+    },
+    {
+      "key": "mute",
+      "label": "Mute colours",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 0.2
+    },
+    {
+      "key": "bloom",
+      "label": "Bloom",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "control": "slider",
+      "default": 0.12
+    },
+    {
+      "key": "bloomThreshold",
+      "label": "Bloom threshold",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 8,
+      "step": 0.05,
+      "default": 1
+    },
+    {
+      "key": "taa",
+      "label": "Temporal antialiasing",
+      "type": "boolean",
+      "required": false,
+      "default": true
+    },
+    {
+      "key": "taaBlend",
+      "label": "TAA new-frame share",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0.02,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.1
+    }
+  ]
+}

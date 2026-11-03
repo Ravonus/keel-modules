@@ -233,13 +233,29 @@ function formFields(value: Bag, base: DitherSettings): Pick<DitherSettings, "scr
  * any other member given overrides it. Anything missing or malformed falls
  * back to the preset, then to the defaults.
  *
+ * `limit: { levels, colours }` caps the finished look for a small target (a
+ * look recipe's resolved limit; 0 is no limit): the preset's own tone steps
+ * and palette are cut to fit, never raised.
+ *
  * @param input Plain settings object (usually `KEEL_INPUTS["voxel-dither"]`), or undefined.
  */
 export function ditherSettings(input?: unknown): DitherSettings {
   if (input === null || typeof input !== "object") return DEFAULT_DITHER_SETTINGS;
   const value = input as Bag;
   const base = presetOf(oneOf(value.style, STYLE_IDS, DEFAULT_DITHER_SETTINGS.style));
-  return { ...base, ...toneFields(value, base), ...formFields(value, base), ...signalFields(value, base) };
+  const look = { ...base, ...toneFields(value, base), ...formFields(value, base), ...signalFields(value, base) };
+  return limited(look, value.limit);
+}
+
+function limited(look: DitherSettings, limit: unknown): DitherSettings {
+  if (limit === null || typeof limit !== "object") return look;
+  const levels = Math.round(bounded((limit as Bag).levels, 0, 16, 0));
+  const colours = Math.round(bounded((limit as Bag).colours, 0, 1 << 24, 0));
+  return {
+    ...look,
+    levels: levels >= 2 ? Math.min(look.levels, levels) : look.levels,
+    palette: colours >= 2 ? look.palette.slice(0, colours) : look.palette,
+  };
 }
 
 // ---------------------------------------------------------------- grid

@@ -18,6 +18,16 @@ export default [
     expect: [['#ff0000', '#00ff00', '#0000ff', '#ffffff'], 3, [], 1, 2, true],
   },
   {
+    name: 'a target limit caps the finished look, never raises it',
+    run: ({ ditherSettings }) => {
+      const chunky = ditherSettings({ style: 'chunky', limit: { levels: 2, colours: 4 } });
+      const pixel = ditherSettings({ style: 'pixel', limit: { levels: 6, colours: 256 } });
+      const none = ditherSettings({ style: 'blossom', limit: { levels: 0, colours: 0 } });
+      return [chunky.palette.length, chunky.levels, pixel.levels, none.palette.length, ditherSettings({ style: 'blossom' }).palette.length];
+    },
+    expect: [4, 2, 5, 16, 16],
+  },
+  {
     name: 'a style is a preset and a setting beside it overrides it',
     run: ({ ditherSettings }) => {
       const chunky = ditherSettings({ style: 'chunky' });

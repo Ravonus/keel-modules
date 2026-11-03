@@ -1,0 +1,414 @@
+[
+ {
+  "name": "realism where it can light",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "realism": {
+    "ao": 0.9
+   },
+   "prefer": "realism"
+  },
+  "target": {
+   "lit": true,
+   "paletteLimit": 0,
+   "screen": 0
+  },
+  "expect": {
+   "kind": "realism",
+   "realism": {
+    "exposure": 1,
+    "tonemap": "neutral",
+    "ao": 0.9,
+    "density": 2,
+    "grade": null
+   }
+  }
+ },
+ {
+  "name": "pixel where it can't",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "realism": {
+    "ao": 0.9
+   },
+   "prefer": "realism"
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 0,
+   "screen": 0
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "limit": {
+    "levels": 0,
+    "colours": 0
+   }
+  }
+ },
+ {
+  "name": "pixel when preferred",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "realism": {
+    "ao": 0.9
+   },
+   "prefer": "pixel"
+  },
+  "target": {
+   "lit": true,
+   "paletteLimit": 0,
+   "screen": 0
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "limit": {
+    "levels": 0,
+    "colours": 0
+   }
+  }
+ },
+ {
+  "name": "realism only, lit",
+  "recipe": {
+   "format": "keel-look@1",
+   "realism": {
+    "exposure": 1.3,
+    "tonemap": "agx",
+    "grade": {
+     "screen": "bayer4",
+     "amount": 0.3
+    }
+   }
+  },
+  "target": {
+   "lit": true,
+   "paletteLimit": 0,
+   "screen": 0
+  },
+  "expect": {
+   "kind": "realism",
+   "realism": {
+    "exposure": 1.3,
+    "tonemap": "agx",
+    "ao": 0.7,
+    "density": 2,
+    "grade": {
+     "screen": "bayer4",
+     "amount": 0.3
+    }
+   }
+  }
+ },
+ {
+  "name": "realism only, small",
+  "recipe": {
+   "format": "keel-look@1",
+   "realism": {}
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 4,
+   "screen": 2
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "screen": "bayer2"
+   },
+   "limit": {
+    "levels": 2,
+    "colours": 4
+   }
+  }
+ },
+ {
+  "name": "empty recipe",
+  "recipe": {
+   "format": "keel-look@1"
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 0,
+   "screen": 0
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {},
+   "limit": {
+    "levels": 0,
+    "colours": 0
+   }
+  }
+ },
+ {
+  "name": "16-bit narrows the screen",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "realism": {
+    "ao": 0.9
+   },
+   "prefer": "realism"
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 256,
+   "screen": 4
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer4",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "limit": {
+    "levels": 6,
+    "colours": 256
+   }
+  }
+ },
+ {
+  "name": "8-bit narrows levels and screen",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "realism": {
+    "ao": 0.9
+   },
+   "prefer": "realism"
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 16,
+   "screen": 2
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer2",
+    "levels": 2,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "limit": {
+    "levels": 2,
+    "colours": 16
+   }
+  }
+ },
+ {
+  "name": "game boy keeps four colours",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer8",
+    "levels": 6,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999",
+     "#cccccc",
+     "#ffffff"
+    ]
+   },
+   "realism": {
+    "ao": 0.9
+   },
+   "prefer": "realism"
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 4,
+   "screen": 2
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "style": "pixel",
+    "screen": "bayer2",
+    "levels": 2,
+    "outline": 1,
+    "palette": [
+     "#000000",
+     "#333333",
+     "#666666",
+     "#999999"
+    ]
+   },
+   "limit": {
+    "levels": 2,
+    "colours": 4
+   }
+  }
+ },
+ {
+  "name": "a screen the target takes stays",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "screen": "bayer2",
+    "outline": 0.4
+   }
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 256,
+   "screen": 4
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "screen": "bayer2",
+    "outline": 0.4
+   },
+   "limit": {
+    "levels": 6,
+    "colours": 256
+   }
+  }
+ },
+ {
+  "name": "a pattern screen becomes the target's bayer",
+  "recipe": {
+   "format": "keel-look@1",
+   "pixel": {
+    "style": "halftone",
+    "screen": "halftone"
+   }
+  },
+  "target": {
+   "lit": false,
+   "paletteLimit": 16,
+   "screen": 2
+  },
+  "expect": {
+   "kind": "pixel",
+   "pixel": {
+    "style": "halftone",
+    "screen": "bayer2"
+   },
+   "limit": {
+    "levels": 2,
+    "colours": 16
+   }
+  }
+ }
+]

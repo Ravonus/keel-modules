@@ -1,0 +1,16 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "look",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "One look recipe (keel-look@1) for every keel/lit stage: the dithered pixel look or the lit full-colour realism look, picked and capped per target, and what a stage sets to draw it. Twin of keel-engine core's resolveLook. Pure.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "prefer", "label": "Look", "type": "select", "required": false, "options": [
+      { "value": "pixel", "label": "Pixel art" },
+      { "value": "realism", "label": "Realism" }
+    ], "default": "pixel", "help": "Where a target can draw both. A small or retro target always draws the pixel look." }
+  ]
+}

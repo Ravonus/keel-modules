@@ -59,7 +59,9 @@ renderer.render(stage, camera);
   turns them into a recipe and a palette.
 
 The bust's frame is metres, the origin at the pit of the throat, y up, z out of the chest. The head's frame has its
-origin between the eyes' centres. `PARTS` names each part's material.
+origin between the eyes' centres. `PARTS` names each part's material, and each mesh carries its part's name
+(`skin`, `chest`, `eye`, `cap`, `under`, `hair`, `chemise`, `dress`, `gown`, `chain`, `hand`, `card`), so
+`render/guides` and the like can tell the parts apart.
 
 ## Shading
 
@@ -94,6 +96,15 @@ to 25 from other work:
   returns at once.
 - Drawing, hero, before any post: a median of 1.9 ms on the GPU (95th percentile 4.1 ms) with the shadow map
   redrawn every frame. The GPU was shared, so runs vary.
+
+## Known issues
+
+- The hair's locks and the chain are wound against their normals: 99.7 % of the hair's 154,880 triangles and all
+  1,920 of the chain's (seed 7, face A, hero), where every other part is at most 0.4 %. The fragment shader turns
+  the normal over when `gl_FrontFacing` is false, so on the side of a lock the camera sees, the normal points into
+  the lock and the hair is shaded from inside. The fix is to reverse the index order in `src/hair.ts` and in the
+  chain (`src/parts.ts`), which changes the pinned mesh hash. `render/guides` orients normals by the triangle itself
+  and is not affected.
 
 ## Credits
 

@@ -13,6 +13,7 @@ interface V3Like { set(x: number, y: number, z: number): unknown }
 interface ColorLike { r: number; g: number; b: number }
 interface NodeLike {
   add(...nodes: unknown[]): void;
+  name: string;
   matrixAutoUpdate: boolean;
   matrixWorldNeedsUpdate: boolean;
   matrix: { copy(m: unknown): unknown };
@@ -204,6 +205,8 @@ function addPart(built: Built, part: Part, palette: Palette): void {
     side: "both",
   });
   const mesh = new lit.Mesh(geometry, material);
+  // (The part's name, so render/guides and anything else can tell the parts apart: skin, chest, cap, hair...)
+  mesh.name = part.name;
   mesh.frustumCulled = false;
   built.group.add(mesh);
   const depth = new lit.CustomMaterial({

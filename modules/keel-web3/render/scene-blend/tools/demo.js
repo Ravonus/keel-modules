@@ -88,10 +88,16 @@ function torusKnot() {
 
 const a = sphereField();
 const b = torusKnot();
-const finish = finishModule.createLitFinish(lit, renderer, { tonemap: "agx", ao: 0.7, hazeDensity: 0.01 });
-finish.setSun([4, 7, 5], "#fff2dc");
-const blend = createSceneBlend(lit, renderer, finish, { seed: 7 });
-const post = createSectionPost(lit, renderer, finishModule, { seed: 7, tear: Number(query.get("tear") ?? 1), fibre: 0.8 });
+const look = { tonemap: "agx", ao: 0.7, hazeDensity: 0.01 };
+const finish = finishModule.createLitFinish(lit, renderer, look);
+// The less visible scene of a hand-over goes through a second finish at quality's blendScale, without AO, bloom or TAA.
+const scaled = finishModule.createLitFinish(lit, renderer, { ...look, ao: 0, bloom: 0, taa: false });
+for (const f of [finish, scaled]) f.setSun([4, 7, 5], "#fff2dc");
+const blendScale = Number(query.get("scale") ?? 0.75);
+const blend = createSceneBlend(lit, renderer, { main: finish, scaled }, { seed: 7, scale: blendScale });
+const post = createSectionPost(lit, renderer, finishModule, {
+  seed: 7, tear: Number(query.get("tear") ?? 0), grain: Number(query.get("grain") ?? 0.02),
+});
 const mode = query.get("mode") ?? "noise";
 
 function resize() {
@@ -118,30 +124,43 @@ let current = "a";
 function frame(time, state) {
   a.at(time);
   b.at(time);
-  post.render(() => { current = blend.draw(shotA, shotB, state.t, { mode, darken: 0 }); }, {
-    progress: state.overlay, position: state.overlay - 1,
+  post.render(() => { current = blend.draw(shotA, shotB, state.t, { mode, darken: 0 }); }, { progress: state.overlay });
+}
+
+/**
+ * Times frames of several setups in turn, blocks of 30 after 5 to settle, until each has `count`, so whatever else the
+ * GPU is doing falls on all of them alike. Each frame is timed to the GPU's finish: a one-pixel read waits for it.
+ */
+function bench(count, setups) {
+  const gl = renderer.getContext();
+  const pixel = new Uint8Array(4);
+  const times = setups.map(() => []);
+  while (times.some((list) => list.length < count)) {
+    setups.forEach((setup, i) => {
+      blend.setSettings({ ...blend.settings, scale: setup.scale });
+      for (let f = 0; f < 35; f += 1) {
+        const start = performance.now();
+        frame(f / 60, setup);
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        if (f >= 5 && times[i].length < count) times[i].push(performance.now() - start);
+      }
+    });
+  }
+  return setups.map((setup, i) => {
+    const sorted = times[i].sort((x, y) => x - y);
+    const at = (q) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
+    return { ...setup, frames: sorted.length, median: at(0.5), p95: at(0.95), min: sorted[0], max: sorted.at(-1) };
   });
 }
 
-/** Times `count` frames, each to the GPU's finish (a one-pixel read waits for it), after 30 to warm up. */
-function bench(count, state) {
-  const gl = renderer.getContext();
-  const pixel = new Uint8Array(4);
-  const times = [];
-  for (let i = 0; i < count + 30; i += 1) {
-    const start = performance.now();
-    frame(i / 60, state);
-    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-    if (i >= 30) times.push(performance.now() - start);
-  }
-  times.sort((x, y) => x - y);
-  const at = (q) => times[Math.min(times.length - 1, Math.floor(q * times.length))];
-  return { frames: count, median: at(0.5), p95: at(0.95), min: times[0], max: times.at(-1) };
-}
-
 if (query.has("bench")) {
-  const state = { t: holdT ?? 0.5, overlay: holdOverlay ?? 0 };
-  window.benchResult = bench(Number(query.get("bench")) || 300, state);
+  window.benchResult = bench(Number(query.get("bench")) || 300, [
+    { name: "one scene", t: 0, overlay: 0, scale: blendScale },
+    { name: "blend, scale 1", t: 0.5, overlay: 0, scale: 1 },
+    { name: "blend, scale 0.75", t: 0.5, overlay: 0, scale: 0.75 },
+    { name: "blend, scale 0.5", t: 0.5, overlay: 0, scale: 0.5 },
+    { name: "blend, scale 0.75, panel", t: 0.5, overlay: 0.5, scale: 0.75 },
+  ]);
 } else if (still) {
   frame(Number(query.get("time") ?? 0), stateAt(0));
   frame(Number(query.get("time") ?? 0), stateAt(0));

@@ -4,17 +4,140 @@
   "version": "0.1.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "A hand-over between two keel/lit scenes on one renderer: each finished into its own half-float target, the incoming arriving as luma-edge line work and filling in through a seeded noise threshold or a radial reveal with a glowing seam.",
+  "summary": "A hand-over between two keel/lit scenes on one renderer: each finished into its own half-float target (the less visible one at a lower scale through a second finish), the incoming arriving as thin luma-edge line work and filling in through a seeded noise threshold or a radial reveal with a faint glow along its boundary.",
   "category": "render",
-  "owner": { "org": "keel-web3", "group": "graphics" },
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
   "inputs": [
-    { "key": "seed", "label": "Noise seed", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 2147483647, "step": 1, "default": 1 },
-    { "key": "lineColour", "label": "Line colour", "type": "color", "required": false, "swatches": ["#f7f7ee", "#ffffff", "#292919"], "default": "#f7f7ee" },
-    { "key": "seamColour", "label": "Seam colour", "type": "color", "required": false, "swatches": ["#fff1cc", "#ffffff", "#ffd27a"], "default": "#fff1cc" },
-    { "key": "glow", "label": "Seam glow", "type": "number", "required": false, "min": 0, "max": 4, "step": 0.05, "control": "slider", "default": 1.4 },
-    { "key": "seam", "label": "Seam width", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 0.05, "step": 0.001, "help": "A share of the frame's height.", "default": 0.003 },
-    { "key": "edge", "label": "Line threshold", "type": "number", "required": false, "placement": "advanced", "min": 0.01, "max": 1, "step": 0.01, "help": "The luma step that makes a line; lower draws more.", "default": 0.12 },
-    { "key": "noiseScale", "label": "Noise scale", "type": "number", "required": false, "placement": "advanced", "min": 0.25, "max": 8, "step": 0.05, "default": 0.6 },
-    { "key": "pull", "label": "Pointer pull", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.01, "help": "How far the pointer pulls a radial reveal's centre.", "default": 0.1 }
+    {
+      "key": "seed",
+      "label": "Noise seed",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 2147483647,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "key": "lineColour",
+      "label": "Line colour",
+      "type": "color",
+      "required": false,
+      "swatches": [
+        "#f7f7ee",
+        "#ffffff",
+        "#292919"
+      ],
+      "default": "#f7f7ee"
+    },
+    {
+      "key": "lines",
+      "label": "Line strength",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "control": "slider",
+      "default": 0.55
+    },
+    {
+      "key": "seamColour",
+      "label": "Seam colour",
+      "type": "color",
+      "required": false,
+      "swatches": [
+        "#fff1cc",
+        "#ffffff",
+        "#ffd27a"
+      ],
+      "default": "#fff1cc"
+    },
+    {
+      "key": "glow",
+      "label": "Seam glow",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 4,
+      "step": 0.05,
+      "control": "slider",
+      "default": 0.25
+    },
+    {
+      "key": "seam",
+      "label": "Seam width",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 0.3,
+      "step": 0.005,
+      "help": "A share of the noise's range.",
+      "default": 0.05
+    },
+    {
+      "key": "soft",
+      "label": "Boundary softness",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 0.3,
+      "step": 0.005,
+      "help": "A share of the noise's range.",
+      "default": 0.06
+    },
+    {
+      "key": "edge",
+      "label": "Line threshold",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0.01,
+      "max": 1,
+      "step": 0.01,
+      "help": "The luma step that makes a line; lower draws more.",
+      "default": 0.05
+    },
+    {
+      "key": "noiseScale",
+      "label": "Noise scale",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0.25,
+      "max": 8,
+      "step": 0.05,
+      "default": 0.6
+    },
+    {
+      "key": "pull",
+      "label": "Pointer pull",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "help": "How far the pointer pulls a radial reveal's centre.",
+      "default": 0.1
+    },
+    {
+      "key": "scale",
+      "label": "Blend scale",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0.25,
+      "max": 1,
+      "step": 0.05,
+      "help": "The less visible scene's scale (quality's blendScale); needs a scaled finish.",
+      "default": 1
+    }
   ]
 }

@@ -18,11 +18,12 @@
  */
 
 export {
-  DEFAULT_BLEND_SETTINGS, blendSettings, blendLines, blendFill, currentAt, radialCentre, farthestCorner, displayColour,
+  DEFAULT_BLEND_SETTINGS, blendSettings, blendLines, blendFill, currentAt, minorAt, radialCentre, farthestCorner,
+  displayColour,
 } from "./settings.js";
 export type { BlendSettings, Point } from "./settings.js";
 export { NOISE_SIZE, latticeHash, noiseTexels } from "./noise.js";
 export { BLEND_GLSL, BLEND_VERTEX_GLSL } from "./blend.glsl.js";
 export type { FinishLike, LitLike } from "./lit.js";
 export { createSceneBlend } from "./blend.js";
-export type { DrawOptions, SceneBlend, Shot } from "./blend.js";
+export type { DrawOptions, Finishes, SceneBlend, Shot } from "./blend.js";

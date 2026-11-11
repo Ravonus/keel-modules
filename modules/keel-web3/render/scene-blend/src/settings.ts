@@ -7,29 +7,41 @@ export interface BlendSettings {
   readonly seed: number;
   /** The line work's colour, "#rrggbb". */
   readonly lineColour: string;
-  /** The seam's glow colour, "#rrggbb". */
-  readonly seamColour: string;
-  /** How bright the seam glows, 0 to 4. */
-  readonly glow: number;
-  /** The seam's width, as a share of the frame's height, 0 to 0.05. */
-  readonly seam: number;
+  /** How strong the line work is, 0 to 1. */
+  readonly lines: number;
   /** The luma step that makes a line, 0.01 to 1: lower draws more lines. */
   readonly edge: number;
+  /** How soft the reveal's boundary is, as a share of the noise's range, 0 to 0.3. */
+  readonly soft: number;
+  /** The seam's glow colour, "#rrggbb". */
+  readonly seamColour: string;
+  /** How bright the seam glows along the boundary, 0 (none) to 4. */
+  readonly glow: number;
+  /** The seam's width, as a share of the noise's range, 0 to 0.3. */
+  readonly seam: number;
   /** How many times the noise repeats down the frame's height, 0.25 to 8. */
   readonly noiseScale: number;
   /** How far the pointer pulls a radial reveal's centre, 0 to 1. */
   readonly pull: number;
+  /**
+   * The scale the less visible scene is drawn at, 0.25 to 1 (quality's `blendScale`). It takes a scaled finish, or no
+   * finish; with only the main finish both scenes are drawn whole.
+   */
+  readonly scale: number;
 }
 
 export const DEFAULT_BLEND_SETTINGS: BlendSettings = {
   seed: 1,
   lineColour: "#f7f7ee",
+  lines: 0.55,
+  edge: 0.05,
+  soft: 0.06,
   seamColour: "#fff1cc",
-  glow: 1.4,
-  seam: 0.003,
-  edge: 0.12,
+  glow: 0.25,
+  seam: 0.05,
   noiseScale: 0.6,
   pull: 0.1,
+  scale: 1,
 };
 
 const HEX = /^#[0-9a-f]{6}$/iu;
@@ -53,12 +65,15 @@ export function blendSettings(input?: unknown): BlendSettings {
   return {
     seed: Math.trunc(bounded(v.seed, d.seed, 0, 0x7fffffff)),
     lineColour: hex(v.lineColour, d.lineColour),
+    lines: bounded(v.lines, d.lines, 0, 1),
+    edge: bounded(v.edge, d.edge, 0.01, 1),
+    soft: bounded(v.soft, d.soft, 0, 0.3),
     seamColour: hex(v.seamColour, d.seamColour),
     glow: bounded(v.glow, d.glow, 0, 4),
-    seam: bounded(v.seam, d.seam, 0, 0.05),
-    edge: bounded(v.edge, d.edge, 0.01, 1),
+    seam: bounded(v.seam, d.seam, 0, 0.3),
     noiseScale: bounded(v.noiseScale, d.noiseScale, 0.25, 8),
     pull: bounded(v.pull, d.pull, 0, 1),
+    scale: bounded(v.scale, d.scale, 0.25, 1),
   };
 }
 
@@ -85,6 +100,11 @@ export function blendLines(t: number): [number, number] {
 /** How far the incoming's fill has come at `t`, 0..1: it starts at 0.25 and covers everything at 1. */
 export function blendFill(t: number): number {
   return clamp01((t - 0.25) / 0.75);
+}
+
+/** The less visible scene at `t`, where a lower scale shows least: the incoming ("b") before 0.5, then the outgoing. */
+export function minorAt(t: number): "a" | "b" {
+  return t < 0.5 ? "b" : "a";
 }
 
 /** The current scene at `t`: the outgoing ("a") before the switch at 0.5, the incoming ("b") from it. */

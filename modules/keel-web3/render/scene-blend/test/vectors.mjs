@@ -57,11 +57,11 @@ export default [
   {
     name: "unsafe settings fall back to the defaults and stay bounded",
     run: ({ blendSettings, DEFAULT_BLEND_SETTINGS }) => {
-      const wild = blendSettings({ seed: -4, lineColour: "white", seamColour: "#FFAA00", glow: 9, seam: -1, edge: 0, noiseScale: "big", pull: 2 });
+      const wild = blendSettings({ seed: -4, lineColour: "white", seamColour: "#FFAA00", glow: 9, seam: -1, edge: 0, noiseScale: "big", pull: 2, lines: 3, soft: -1, scale: 0 });
       return [wild, blendSettings() === DEFAULT_BLEND_SETTINGS, blendSettings({ seed: 12.7 }).seed];
     },
     expect: [
-      { seed: 0, lineColour: "#f7f7ee", seamColour: "#ffaa00", glow: 4, seam: 0, edge: 0.01, noiseScale: 0.6, pull: 1 },
+      { seed: 0, lineColour: "#f7f7ee", lines: 1, edge: 0.01, soft: 0, seamColour: "#ffaa00", glow: 4, seam: 0, noiseScale: 0.6, pull: 1, scale: 0.25 },
       true,
       12,
     ],
@@ -99,7 +99,7 @@ export default [
     expect: [262144, 3446277849, true, true, [0, 255], [0, 255], [255, 255], true],
   },
   {
-    name: "outside the overlap one scene goes straight to the host's target; inside, both through the finish, then the pass",
+    name: "outside the overlap one scene goes straight to the host's target; inside, both through the finish (the less visible into the second target), then the pass",
     run: ({ createSceneBlend }) => {
       const log = [];
       const lit = fakeLit(log);
@@ -114,9 +114,38 @@ export default [
       [
         "finish A -> canvas",
         "taa false", "dress A", "dress B", "finish A -> target0", "finish B -> target1", "blend pass -> canvas",
-        "finish A -> target0", "finish B -> target1", "blend pass -> canvas",
+        "finish A -> target1", "finish B -> target0", "blend pass -> canvas",
         "taa true", "finish B -> canvas",
       ],
+    ],
+  },
+  {
+    name: "a scaled finish draws the less visible scene into a target at the scale; without one the scale is not used",
+    run: ({ createSceneBlend, minorAt }) => {
+      const log = [];
+      const lit = fakeLit(log);
+      const renderer = fakeRenderer(log);
+      const main = { render: (s) => log.push(`main ${s.name} -> ${renderer.getRenderTarget().name}`) };
+      const sizes = [];
+      const scaled = { render: (s) => log.push(`scaled ${s.name} -> ${renderer.getRenderTarget().name}`), setSize: (...a) => sizes.push(a) };
+      const blend = createSceneBlend(lit, renderer, { main, scaled }, { scale: 0.5 });
+      blend.setSize(1440, 900, 2);
+      blend.draw(sceneA, sceneB, 0.2);
+      blend.draw(sceneA, sceneB, 0.8);
+      const u = lit.materials[0].uniforms;
+      const texelA = u.uTexelA.value;
+      blend.setSettings({ scale: 0.75 });
+      const plainLit = fakeLit([]);
+      createSceneBlend(plainLit, fakeRenderer([]), main, { scale: 0.5 }).setSize(1440, 900, 2);
+      return [log, lit.targets.map((t) => t.size), sizes, texelA, minorAt(0.49), minorAt(0.5), plainLit.targets.map((t) => t.size)];
+    },
+    expect: [
+      ["main A -> target0", "scaled B -> target1", "blend pass -> canvas", "scaled A -> target1", "main B -> target0", "blend pass -> canvas"],
+      [[2880, 1800], [2160, 1350]],
+      [[1440, 900, 1], [1440, 900, 1.5]],
+      [1 / 1440, 1 / 900],
+      "b", "a",
+      [[2880, 1800], [2880, 1800]],
     ],
   },
   {

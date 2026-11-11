@@ -4,17 +4,19 @@ A hand-over between two keel/lit scenes on one renderer. While a page scrolls
 from one scene to the next it draws both, each through the same finish into its
 own half-float target, and blends them in one pass. The incoming scene arrives
 as white line work over the outgoing one and fills in through a seeded noise
-threshold (or out from a point, radially) with a glowing seam along the
-boundary; the outgoing scene takes on line work of its own as it goes.
+threshold (or out from a point, radially) behind a soft boundary with at most a
+faint glow along it; the outgoing scene takes on thin lines of its own as it goes.
 
 ## Injected dependencies
 
 - `lit`: the keel/lit namespace (`RenderTarget`, `DataTexture`,
   `CustomMaterial`, `plane`, `Mesh`, `Stage`, `OrthoCamera`).
 - `renderer`: the keel/lit renderer that owns the canvas.
-- `finish` (optional): the finish both scenes are drawn through, lit-finish's
+- `finish` (optional): the finish scenes are drawn through, lit-finish's
   `createLitFinish` result or anything with `render(scene, camera)` that draws
-  onto the renderer's current target. Null draws scenes plain.
+  onto the renderer's current target. Null draws scenes plain. Or
+  `{ main, scaled }`: a second finish for the less visible scene, drawn at the
+  `scale` setting (quality's `blendScale`) into a smaller target.
 
 ## Usage
 
@@ -24,7 +26,9 @@ import { createLitFinish } from "keel://module/lit-finish.js";
 import { createSceneBlend } from "keel://module/scene-blend.js";
 
 const finish = createLitFinish(lit, renderer);
-const blend = createSceneBlend(lit, renderer, finish, { seed: 7 });
+// optional: the less visible scene at a lower scale, without AO, bloom or TAA
+const scaled = createLitFinish(lit, renderer, { ao: 0, bloom: 0, taa: false });
+const blend = createSceneBlend(lit, renderer, { main: finish, scaled }, { seed: 7, scale: levers.blendScale });
 finish.setSize(width, height, renderer.getPixelRatio());
 blend.setSize(width, height, renderer.getPixelRatio());
 
@@ -56,9 +60,11 @@ function that draws a scene onto the renderer's current target itself.
 | 1 | 0 | 1 | all |
 
 `blendLines(t)` and `blendFill(t)` give these; `draw`'s `lines: { in, out }`
-overrides the line work from a host's own tracks. Lines are luma edges of the
-finished picture (a Sobel one pixel apart) in `lineColour`; the outgoing also
-darkens toward black as it takes its lines, so it leaves as a drawing on black.
+overrides the line work from a host's own tracks. Lines are thin luma edges of
+the finished picture (a Roberts cross one pixel apart) in `lineColour` at
+`lines` strength, fading where the fill has come in; the outgoing also darkens
+toward black as it takes its lines, so it leaves as a drawing on black. Only the
+moving boundary glows, and only by `glow`; island outlines carry no seam.
 
 - `noise`: each pixel fills when the reveal passes its noise value.
 - `radial`: the reveal runs out from `centre` (the frame's centre by default),
@@ -72,12 +78,15 @@ darkens toward black as it takes its lines, so it leaves as a drawing on black.
 |---|---|---|
 | `seed` | 1 | the noise texture's seed |
 | `lineColour` | `#f7f7ee` | the line work |
-| `seamColour` | `#fff1cc` | the seam's glow |
-| `glow` | 1.4 | how bright the seam is, 0..4 |
-| `seam` | 0.003 | the seam's width as a share of the frame's height, 0..0.05 |
-| `edge` | 0.12 | the luma step that makes a line; lower draws more |
+| `lines` | 0.55 | how strong the line work is, 0..1 |
+| `edge` | 0.05 | the luma step that makes a line; lower draws more |
+| `soft` | 0.06 | how soft the reveal's boundary is, a share of the noise's range, 0..0.3 |
+| `seamColour` | `#fff1cc` | the boundary's glow |
+| `glow` | 0.25 | how bright the boundary glows, 0 (none)..4 |
+| `seam` | 0.05 | the glow's width, a share of the noise's range, 0..0.3 |
 | `noiseScale` | 0.6 | noise repeats down the frame's height |
 | `pull` | 0.1 | how far the pointer pulls a radial centre |
+| `scale` | 1 | the less visible scene's scale, 0.25..1; used with a scaled finish (or none) |
 
 Colours are display values: the blend works on finished, tone-mapped pictures.
 
@@ -89,13 +98,15 @@ seed gives the same bytes on every engine and a capture of a hand-over repeats.
 
 ## Cost
 
-Two targets of the canvas's size (half float, no depth with a finish), the
-scene drawn twice through the finish, and one pass of 18 texture reads a pixel
-(two Sobels). A finish's TAA cannot keep one history for two scenes, so while
-0 < t < 1 the blend turns the finish's TAA off and turns it back on, reset, once
-the overlap ends; it also dresses both scenes every 30 blend frames, as the
-finish does for the one scene it draws.
+Two half-float targets (no depth with a finish): one of the canvas's size for
+the more visible scene, one at `scale` for the less visible one (the incoming
+before the switch, the outgoing after), so at 1440x900 DPR 2 and scale 0.75 they
+take 41 MB and 23 MB. Both scenes are drawn, then one pass of 9 texture reads a
+pixel. A finish's TAA cannot keep one history for two scenes, so while
+0 < t < 1 the blend turns TAA off on its finishes and back on, reset, once the
+overlap ends; it also dresses both scenes every 30 blend frames, as the finish
+does for the one scene it draws.
 
-Not here: drawing the outgoing scene at a lower scale (quality's `blendScale`).
-A shared finish has one size, so that needs a finish that can draw into part of
-its targets.
+A scaled finish keeps its own targets at the lower size; at scale 0.75 that is
+roughly 0.56 of the main finish's memory. Without a scaled finish both scenes go
+through the main finish whole and `scale` is not used.

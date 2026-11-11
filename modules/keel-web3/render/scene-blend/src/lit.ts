@@ -66,6 +66,7 @@ export interface LitLike {
  */
 export interface FinishLike {
   render(scene: unknown, camera: unknown): void;
+  setSize?(cssWidth: number, cssHeight: number, devicePixelRatio: number): void;
   readonly settings?: { readonly taa?: boolean };
   setSettings?(input: unknown): unknown;
   dress?(root: unknown): void;

@@ -1,0 +1,13 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "band",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A seeded generative band in eight styles on plain Web Audio: chords, bass, drums and a lead from one seed, layered by an energy dial, played live or rendered offline. No audio library.",
+  "category": "audio",
+  "owner": {
+    "org": "keel-web3",
+    "group": "sound"
+  }
+}

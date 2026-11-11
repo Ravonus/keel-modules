@@ -83,14 +83,15 @@ The colours are a `Palette`. The output is linear and unclamped: tone-map it, or
 
 ## Budgets
 
-Measured on an M4 Max in headless Chrome (ANGLE on Metal) at 1440×900, DPR 2, with a 1-minute load average of 7 to 9
-from other work:
+Measured on an M4 Max in headless Chrome (ANGLE on Metal) at 1440×900, DPR 2, with a 1-minute load average of 13
+to 16 from other work:
 
-- Size: 16.7 KB brotli (48.5 KB minified).
-- Generation, hero detail: 282 to 296 ms the first time a recipe is built (about 171k vertices, 335k triangles), mid
-  about 240 ms, far about 100 ms. A cached recipe returns at once.
-- Drawing, hero, before any post: a median of 1 to 4 ms on the GPU with the shadow map redrawn every frame, less with
-  it kept. The GPU was shared, so these runs varied a lot.
+- Size: 17.6 KB brotli (51.2 KB minified).
+- Generation, hero detail: 370 to 510 ms, median about 400, the first time a recipe is built (about 169k vertices,
+  331k triangles). Under that load the earlier build of this module took 360 to 455 ms side by side, and 282 to
+  296 ms at a load of 7, so at a quiet load this one is expected near 280 to 300 ms. A cached recipe returns at once.
+- Drawing, hero, before any post: a median of 1.3 ms on the GPU (95th percentile 1.5 ms) with the shadow map
+  redrawn every frame. The GPU was shared, so runs vary.
 
 ## Credits
 

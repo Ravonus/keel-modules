@@ -11,7 +11,7 @@ export interface PainterlySettings {
   readonly strokes: number;
   /** The canvas weave showing through, 0 to 1. */
   readonly grain: number;
-  /** Darkening where strokes and forms meet, 0 to 1. */
+  /** How strictly a stroke keeps to its own depth, 0 to 1: at 1 none crosses a silhouette. */
   readonly edge: number;
   /** The varnish: a warm glaze, lifted blacks, a little contrast and a vignette, 0 to 1. */
   readonly grade: number;
@@ -27,7 +27,7 @@ export const DEFAULT_PAINTERLY_SETTINGS: PainterlySettings = {
   stroke: 5,
   direction: 1,
   strokes: 1,
-  grain: 0.25,
+  grain: 0.05,
   edge: 0.5,
   grade: 0.6,
   exposure: 1,

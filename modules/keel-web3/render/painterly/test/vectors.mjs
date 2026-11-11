@@ -82,8 +82,8 @@ export default [
     run: ({ TENSOR_GLSL, KUWAHARA_GLSL, STROKE_GLSL, GRADE_GLSL, PREP_GLSL }) => [
       TENSOR_GLSL.includes("uniform float uDirection") && TENSOR_GLSL.includes("formTensor") && TENSOR_GLSL.includes("curve"),
       KUWAHARA_GLSL.includes("uniform float uRadius") && KUWAHARA_GLSL.includes("float eighth("),
-      ["sampler2D tTile", "sampler2D tPrep", "vec4 uCoarse", "vec4 uFine", "float uStrokes"].every((u) => STROKE_GLSL.includes(`uniform ${u}`)),
-      GRADE_GLSL.includes("uniform sampler2D tGrain") && ["uGrain", "uEdge", "uGrade", "uView"].every((u) => GRADE_GLSL.includes(`uniform float ${u}`)),
+      ["sampler2D tTile", "sampler2D tPrep", "vec4 uCoarse", "vec4 uFine", "float uStrokes", "float uEdge"].every((u) => STROKE_GLSL.includes(`uniform ${u}`)),
+      GRADE_GLSL.includes("uniform sampler2D tGrain") && ["uGrain", "uGrade", "uView"].every((u) => GRADE_GLSL.includes(`uniform float ${u}`)),
       PREP_GLSL.includes("uniform float uExposure"),
     ],
     expect: [true, true, true, true, true],

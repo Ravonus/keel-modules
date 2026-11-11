@@ -33,9 +33,13 @@ export interface CameraLike {
   readonly projectionMatrix: MatrixLike;
 }
 export interface RendererLike {
+  autoClear: boolean;
   getRenderTarget(): RenderTargetLike | null;
   setRenderTarget(target: RenderTargetLike | null): void;
   render(scene: unknown, camera: unknown): void;
+  clear(color?: boolean, depth?: boolean, stencil?: boolean): void;
+  /** Forgets the cached GL state, after something else drew with the raw context. */
+  resetState(): void;
 }
 export interface DisposableLike {
   dispose(): void;

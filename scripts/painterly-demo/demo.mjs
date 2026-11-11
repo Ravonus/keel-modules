@@ -19,7 +19,7 @@ const { values } = parseArgs({ options: {
   out: { type: "string", default: "painterly-demo" }, width: { type: "string", default: "1440" }, height: { type: "string", default: "900" },
   dpr: { type: "string", default: "2" }, frames: { type: "string", default: "300" }, seed: { type: "string", default: "52" },
   compare: { type: "string" }, variants: { type: "string", default: "raw,smooth,stroked,flow" },
-  interleave: { type: "string", default: "0" },
+  interleave: { type: "string", default: "0" }, backdrop: { type: "string", default: "scene" },
 } });
 const dirs = (dir) => (existsSync(dir) ? readdirSync(dir).map((name) => join(dir, name)) : []);
 
@@ -43,7 +43,7 @@ const stats = (samples) => {
   return { frames: sorted.length, median: quantile(sorted, 0.5), p95: quantile(sorted, 0.95), min: sorted[0], max: sorted.at(-1) };
 };
 
-const shot = { width: Number(values.width), height: Number(values.height), dpr: Number(values.dpr), seed: Number(values.seed) };
+const shot = { width: Number(values.width), height: Number(values.height), dpr: Number(values.dpr), seed: Number(values.seed), backdrop: values.backdrop };
 const frames = Number(values.frames);
 const variants = values.variants.split(",");
 const out = resolve(values.out);

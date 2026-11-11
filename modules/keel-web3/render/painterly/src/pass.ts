@@ -18,8 +18,12 @@ export interface Painterly {
   setSettings(input?: unknown): PainterlySettings;
   /** The canvas's CSS size and pixel ratio (the renderer's). */
   setSize(cssWidth: number, cssHeight: number, devicePixelRatio: number): void;
-  /** Draws the scene through the camera, painted, onto whatever target the renderer had. */
-  render(scene: unknown, camera: CameraLike): void;
+  /**
+   * Draws the scene through the camera, painted, onto whatever target the renderer had. `backdrop`, if given, draws
+   * into the cleared frame first with the painter's target bound (a plate-painter plate, say), and the scene draws
+   * over it; the painter resets the renderer's state after it, so the backdrop may use the raw context.
+   */
+  render(scene: unknown, camera: CameraLike, backdrop?: () => void): void;
   /**
    * What the canvas shows: the painting (default); the lit frame tone mapped and nothing else, for comparing; or,
    * for checking, the flow as colour (the hue its direction, red across and cyan up, the saturation how oriented),
@@ -76,7 +80,7 @@ function createUniforms(): Record<string, Uniform> {
     uSize: vec2(), uPaintSize: vec2(), uTexel: vec2(), uDir: vec2(1, 0),
     uExposure: number(1), uDirection: number(1), uRadius: number(5), uLayer: vec4(), uCoarse: vec4(), uFine: vec4(),
     uTileCells: number(STROKE_CELLS), uStrokes: number(1), uGrainSize: number(GRAIN_SIZE),
-    uGrain: number(0.25), uEdge: number(0.5), uGrade: number(0.6), uView: number(0),
+    uGrain: number(0.05), uEdge: number(0.5), uGrade: number(0.6), uView: number(0),
   };
 }
 
@@ -288,10 +292,25 @@ export function createPainterly(lit: LitLike, renderer: RendererLike, input?: un
       size = [px(cssWidth), px(cssHeight)];
       sizeTargets(chain.targets, uniforms, size, settings);
     },
-    render(scene, camera) {
+    render(scene, camera, backdrop) {
       const previous = renderer.getRenderTarget();
       renderer.setRenderTarget(chain.targets.world);
-      renderer.render(scene, camera);
+      if (backdrop) {
+        // (The reset makes keel/lit forget where it was drawing, so the world target is bound again, by way of the
+        // canvas so that it is really bound; the backdrop may have written depth, so the scene's depth starts clean.)
+        const was = renderer.autoClear;
+        renderer.clear();
+        backdrop();
+        renderer.resetState();
+        renderer.setRenderTarget(null);
+        renderer.setRenderTarget(chain.targets.world);
+        renderer.clear(false, true, false);
+        renderer.autoClear = false;
+        renderer.render(scene, camera);
+        renderer.autoClear = was;
+      } else {
+        renderer.render(scene, camera);
+      }
       writeCamera(uniforms, camera);
       drawChain(chain, settings, raw, previous);
     },

@@ -6,6 +6,7 @@ import { meshTop } from "../../modules/keel-web3/render/lit-portrait/src/index.t
 import { faceAt, meshOf, personOf, poseMesh, skeletonOf } from "../../modules/keel-web3/generative/people/src/index.ts";
 import type { Person, PersonMesh } from "../../modules/keel-web3/generative/people/src/index.ts";
 import { SMOOTH_SETTINGS, STROKED_SETTINGS, createPainterly, hash32, unit } from "../../modules/keel-web3/render/painterly/src/index.ts";
+import { LAKE_VALLEY, createPlatePainter, planPlate } from "../../modules/keel-web3/generative/plate-painter/src/index.ts";
 import type { Painterly, PainterlySettings } from "../../modules/keel-web3/render/painterly/src/index.ts";
 
 type Vec = readonly [number, number, number];
@@ -13,7 +14,7 @@ type Vec = readonly [number, number, number];
 type Node3 = any;
 type Matrix = any;
 type Variant = "raw" | "smooth" | "stroked" | "flow" | "detail" | "depth";
-interface Shot { width: number; height: number; dpr: number; seed: number }
+interface Shot { width: number; height: number; dpr: number; seed: number; backdrop?: string }
 interface Timing { gpu: number[]; sync: number[]; raf: number[] }
 
 const ACTION = "wave";
@@ -166,7 +167,15 @@ function card(p: Person): Node3 {
   return group;
 }
 
-interface Scene { renderer: Node3; stage: Node3; camera: Node3; paint: Painterly; info: Record<string, unknown> }
+interface Scene { renderer: Node3; stage: Node3; camera: Node3; paint: Painterly; info: Record<string, unknown>; backdrop?: () => void }
+
+/** A plate-painter plate at seed 0, covering the frame: the painted backdrop the painter will usually run over. */
+function plate(renderer: Node3, shot: Shot): () => void {
+  const painter = createPlatePainter(renderer.getContext());
+  const size = { width: Math.round(shot.width * shot.dpr), height: Math.round(shot.height * shot.dpr) };
+  const painted = painter.paint(planPlate(LAKE_VALLEY, { seed: 0 }), size);
+  return () => { painter.draw(painted, size); };
+}
 
 function build(shot: Shot): Scene {
   const canvas = document.createElement("canvas");
@@ -178,7 +187,8 @@ function build(shot: Shot): Scene {
   renderer.shadowMap.type = "pcf-soft";
   renderer.toneMapping = "none";
   const stage = new lit.Stage();
-  stage.fog = new lit.Fog("#b7b9b6", 12, 110);
+  const onPlate = shot.backdrop === "plate";
+  if (!onPlate) stage.fog = new lit.Fog("#b7b9b6", 12, 110);
   const camera = new lit.PerspectiveCamera(30, shot.width / shot.height, 0.3, 90);
   camera.position.set(0.3, 1.5, 2.7);
   camera.lookAt(-0.1, 1.35, 0);
@@ -193,7 +203,8 @@ function build(shot: Shot): Scene {
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.015;
   const fill = new lit.SunLight("#b9c9e2", 0.55);
   fill.position.set(-2.4, 1.6, 1.2);
-  stage.add(sun, sun.target, fill, fill.target, new lit.SkyLight("#a4b8cc", "#5c4a38", 0.85), land(), lake(), sky());
+  stage.add(sun, sun.target, fill, fill.target, new lit.SkyLight("#a4b8cc", "#5c4a38", 0.85));
+  if (!onPlate) stage.add(land(), lake(), sky());
   const p = personOf(shot.seed, "mild");
   const mesh = meshOf(p, 0.016);
   const bodies = createSkinBodies(lit);
@@ -208,8 +219,8 @@ function build(shot: Shot): Scene {
   stage.add(cap(mesh, bones), card(p));
   const paint = createPainterly(lit, renderer, STROKED_SETTINGS);
   paint.setSize(shot.width, shot.height, shot.dpr);
-  const info = { seed: shot.seed, vertices: mesh.position.length / 3, top: meshTop(mesh.position), head: mesh.face.head, eyes: mesh.face.eyes, outfit: p.outfit };
-  return { renderer, stage, camera, paint, info };
+  const info = { seed: shot.seed, backdrop: shot.backdrop ?? "scene", vertices: mesh.position.length / 3, top: meshTop(mesh.position), head: mesh.face.head, eyes: mesh.face.eyes, outfit: p.outfit };
+  return { renderer, stage, camera, paint, info, ...(onPlate ? { backdrop: plate(renderer, shot) } : {}) };
 }
 
 /** A variant by name, or "set:key=value,key=value" for any settings over the stroked ones. */
@@ -230,7 +241,7 @@ function show(scene: Scene, variant: string): void {
   const view = views.find((v) => v === variant);
   paint.setView(view ?? "painted");
   paint.setSettings(settingsOf(variant));
-  paint.render(scene.stage, scene.camera);
+  paint.render(scene.stage, scene.camera, scene.backdrop);
 }
 
 /**

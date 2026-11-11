@@ -146,7 +146,7 @@ void main() {
     // (Fine where the surface turns away steeply, a silhouette or the side of an arm; where it is curved small, a
     // hand or a nose; and where it is flesh, which a painter keeps smooth.)
     fine = max(fine, max(trf / (trf + 0.012), curve / (curve + 0.012)));
-    fine = max(fine, 0.6 * skin(colourAt(uv)));
+    fine = max(fine, 0.5 * skin(colourAt(uv)));
   }
   gl_FragColor = vec4(J, fine);
 }
@@ -260,7 +260,7 @@ void main() {
   // picture is flat the stroke takes an angle of its own, more so in the sky than on a surface, whose flow is its
   // neighbours'; where it is oriented it follows the flow.)
   float oriented = A * smoothstep(0.0, 0.1, J.x + J.y);
-  float turn = (tile.w - 0.5) * mix(0.5, 1.0, step(0.999, share)) * (1.0 - oriented);
+  float turn = (tile.w - 0.5) * mix(0.3, 0.5, step(0.999, share)) * (1.0 - oriented);
   dir = vec2(dir.x * cos(turn) - dir.y * sin(turn), dir.x * sin(turn) + dir.y * cos(turn));
   gl_FragColor = vec4(dir, oriented, smoothstep(0.15, 0.7, J.w));
 }
@@ -276,13 +276,15 @@ uniform sampler2D tFine;
 uniform vec2 uPaintSize;
 uniform float uTileCells;
 uniform float uStrokes;
+uniform float uEdge;
 // Each layer: its cell in painted pixels, cells across and down, and a shift into the tile.
 uniform vec4 uCoarse;
 uniform vec4 uFine;
-// One stroke's cover at a point in its own frame: soft along its length, a brush profile across.
+// One stroke's cover at a point in its own frame: soft along its length and softer across, so a stroke blends in
+// as colour rather than sitting on the picture as a mark.
 float cover(float u, float v, float reach, float wide) {
-  float along = smoothstep(reach, reach - wide * 0.6, abs(u) + abs(v) * 0.2);
-  float across = smoothstep(wide, wide * 0.55, abs(v));
+  float along = smoothstep(reach, reach - wide * 0.8, abs(u) + abs(v) * 0.2);
+  float across = smoothstep(wide, wide * 0.35, abs(v));
   return along * across;
 }
 // One layer of strokes, a stroke a cell, over what is there: the stroke on top wins. A stroke counts only where
@@ -303,26 +305,25 @@ void layer(vec2 p, vec3 base, float depth, sampler2D table, vec4 how, vec3 gate,
       vec2 d = p - (q + tile.xy) * cell;
       float u = dot(d, flow.xy);
       float v = dot(d, vec2(-flow.y, flow.x));
-      // (Longer where the picture is oriented, a dab where it is flat; smaller where it is fine.)
-      float scale = mix(1.0, 0.35, flow.w);
-      float reach = cell * scale * (0.8 + 0.9 * tile.z) * mix(0.75, 1.0, flow.z);
-      float wide = cell * scale * (0.18 + 0.2 * (1.0 - tile.z));
+      // (Large and long where the picture is plain, a sky or water; small and short where it is fine, a face or a
+      // hand; and each its own length within that.)
+      float scale = mix(1.0, 0.45, flow.w);
+      float reach = cell * scale * (0.9 + 1.3 * tile.z) * mix(0.85, 1.0, flow.z);
+      float wide = cell * scale * (0.3 + 0.2 * (1.0 - tile.z));
       float c = cover(u, v, reach, wide);
       float order = tile.w + gate.z;
-      if (c > 0.4 && order > state.x) {
+      if (c > 0.15 && order > state.x) {
         vec4 own = texture2D(table, slot + vec2(0.5, 0.0));
-        if (abs(own.a - depth) > 0.04) continue;
+        if (abs(own.a - depth) > mix(0.08, 0.01, uEdge)) continue;
         c *= 1.0 - smoothstep(0.1, 0.3, distance(own.rgb, base));
-        if (c <= 0.4) continue;
+        if (c <= 0.15) continue;
         state = vec3(order, c, flow.w);
-        // (A loaded brush dragged through the picture: the stroke's own colour where the picture is plain, and the
-        // picture's own colour showing through where it has detail worth keeping, with the stroke's shape over it.)
-        vec3 col = mix(own.rgb, base, 0.3 + 0.5 * flow.w) * (0.97 + 0.06 * tile.w);
-        // (Bristles: a few lines along the stroke, their phase the stroke's own.)
-        float bristle = 0.95 + 0.05 * cos(v / wide * 9.0 + tile.w * 40.0);
-        // (Paint stands thicker where there is something to paint.)
+        // (The stroke carries the colour under its centre, a shade lighter or darker than its neighbours: a value
+        // jitter of a few percent, the stroke's own, and a faint bristle. No rim, no outline.)
+        vec3 col = own.rgb * (0.975 + 0.05 * tile.w) * (0.99 + 0.01 * cos(v / wide * 9.0 + tile.w * 40.0));
+        // (Paint stands a little thicker where there is something to paint.)
         float height = (1.0 - (v * v) / (wide * wide)) * smoothstep(reach, reach * 0.7, abs(u)) * (0.15 + 0.85 * flow.w);
-        best = vec4(col * bristle, max(height, 0.0));
+        best = vec4(col, max(height, 0.0));
       }
     }
   }
@@ -334,13 +335,13 @@ void main() {
   vec4 best = vec4(base, 0.0);
   // (Which stroke is on top, how far inside it this point is, and how fine the picture is under it.)
   vec3 state = vec3(-1.0, 0.0, 0.0);
-  // Broad strokes where the picture is plain, finer ones where it is fine; the finest passages, a face, a hand, keep
-  // the smoothed base with the lightest of strokes over it.
+  // Broad strokes where the picture is plain, finer ones where it is fine; a face, a hand, an arm take light
+  // strokes over the smoothed base, enough to match the rest of the picture's handling.
   layer(p, base, depth, tCoarse, uCoarse, vec3(0.0, 0.7, 0.0), best, state);
   layer(p, base, depth, tFine, uFine, vec3(0.3, 1.0, 1.0), best, state);
-  // (The stroke on top fades in over its own edge, so no stroke ends in a stair; strokes sink into the base where
-  // the picture is fine, as thin paint does, and stand on it where it is plain.)
-  float on = uStrokes * smoothstep(0.4, 0.6, state.y) * mix(1.0, 0.3, state.z);
+  // (The stroke on top fades in softly over its own edge, so it blends in as colour; strokes sink part way into the
+  // base where the picture is fine, as thin paint does.)
+  float on = uStrokes * smoothstep(0.15, 0.85, state.y) * mix(1.0, 0.6, state.z);
   gl_FragColor = vec4(mix(base, best.rgb, on), best.a * on);
 }
 `;
@@ -360,7 +361,6 @@ uniform vec2 uSize;
 uniform vec2 uPaintSize;
 uniform float uGrainSize;
 uniform float uGrain;
-uniform float uEdge;
 uniform float uGrade;
 uniform float uView;
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
@@ -400,15 +400,10 @@ void main() {
   vec4 u = texture2D(tPainted, uv + vec2(0.0, px.y));
   vec4 d = texture2D(tPainted, uv - vec2(0.0, px.y));
   vec3 c = here.rgb;
-  // Edges: where the paint changes sharply, and along silhouettes (a step in depth), the paint darkens as strokes meet.
-  float contrast = abs(luma(r.rgb) - luma(l.rgb)) + abs(luma(u.rgb) - luma(d.rgb));
-  float jump = abs(texture2D(tPrep, uv + vec2(px.x, 0.0)).a - texture2D(tPrep, uv - vec2(px.x, 0.0)).a)
-    + abs(texture2D(tPrep, uv + vec2(0.0, px.y)).a - texture2D(tPrep, uv - vec2(0.0, px.y)).a);
-  float silhouette = smoothstep(0.02, 0.1, jump);
-  c *= 1.0 - uEdge * (0.3 * smoothstep(0.12, 0.5, contrast) + 0.3 * silhouette);
-  // Impasto: the strokes' height lit from the upper left.
+  // No line and no darkening along a silhouette, and no rim on any stroke: a silhouette is kept by the strokes
+  // staying at their own depth. Impasto: the strokes' height lit from the upper left, faintly.
   float relief = (l.a - r.a) * 0.7 + (u.a - d.a) * 0.7;
-  c *= 1.0 + relief * 0.2;
+  c *= 1.0 + relief * 0.04;
   // Canvas: the weave's relief, lit the same way, and its threads showing only where the paint is thin: under no
   // stroke, away from the fine passages the painter worked over, and in the thin patches of the picture.
   // (A thread and a half of canvas to the frame pixel.)
@@ -418,7 +413,7 @@ void main() {
   float weave = (texture2D(tGrain, g - vec2(gpx.x, 0.0)).x - texture2D(tGrain, g + vec2(gpx.x, 0.0)).x)
     + (texture2D(tGrain, g + vec2(0.0, gpx.y)).x - texture2D(tGrain, g - vec2(0.0, gpx.y)).x);
   float thin = (1.0 - min(here.a * 2.0, 1.0)) * (1.0 - texture2D(tTensor, uv).w) * smoothstep(0.35, 0.75, patches(gl_FragCoord.xy));
-  c *= 1.0 + uGrain * thin * (weave * 0.35 + (h - 0.5) * 0.1);
+  c *= 1.0 + uGrain * thin * (weave * 0.2 + (h - 0.5) * 0.05);
   // Varnish: a warm glaze, blacks lifted toward umber, a little contrast, a vignette.
   float lum = luma(c);
   vec3 varnished = c * vec3(1.05, 0.985, 0.88);

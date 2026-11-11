@@ -343,6 +343,74 @@
           "name": "typescript",
           "version": "5.9.3"
         },
+        "recipeDigest": "0x7777c7362cf19d14e4912c2952de463e5936fb5c81cd8499728ee97c5110ee99",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 1574,
+          "digest": "0x46db786f2a1a7d2d7bea530d71f4d504d9ffbe3cea08fd764cb8b5f211fb8033"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x8c4941d2192565a39e8f2d8c34f31f38248ea636372212bb75581fd78cf99a1a",
+              "byteLength": 7855
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/**\n * camera-rail: a camera on keyed tracks, scrubbed by position. MIT.\n *\n * `at(position, frame)` samples the camera's eye, target, fov and roll from\n * its tracks through the `tracks` module's sampler (passed in), turns the\n * view by the pointer's pan and tilt, and returns the view. A baked flight\n * rides a Catmull-Rom path by a keyed `along`. `applyView` puts a view on a\n * keel/lit camera, which is injected: the maths never touches a renderer.\n */\n/** An [x, y, z] in world units. */\nexport type Vec3 = readonly [number, number, number];\n/** What a sampled property holds: the `tracks` module's Value. */\nexport type Value = number | readonly number[] | string;\n/** The `tracks` module's `sampleTracks`, or anything of its shape: values by target, then property. */\nexport type Sampler\u003cT\u003e = (tracks: T, position: number, time?: number) =\u003e Readonly\u003cRecord\u003cstring, Readonly\u003cRecord\u003cstring, Value\u003e\u003e\u003e\u003e;\n/** A Catmull-Rom path the eye, and the target when given, ride by the keyed `along` (0..1). */\nexport interface RailPath {\n    readonly eye: readonly Vec3[];\n    readonly target?: readonly Vec3[];\n}\n/** How a rail is set up. */\nexport interface RailOptions\u003cT\u003e {\n    /** The tracks, in the `tracks` module's format. */\n    readonly tracks: T;\n    /** The target name the camera's tracks use. Defaults to \"camera\". */\n    readonly name?: string;\n    /** The pointer's pan scale: the pointer at a side edge turns the view by 0.1 rad times this. Defaults to 0. */\n    readonly pan?: number;\n    /** The pointer's tilt scale, the same for the top and bottom edges. Defaults to 0. */\n    readonly tilt?: number;\n    /** The fov in degrees when no track keys one. Defaults to 30. */\n    readonly fov?: number;\n    /** A path for a baked flight, ridden by the keyed `along`. */\n    readonly path?: RailPath;\n}\n/** What the page knows this frame. */\nexport interface Frame {\n    /** The pointer, each axis in -1..1 with y up; null or left out when it is away. */\n    readonly pointer?: {\n        readonly x: number;\n        readonly y: number;\n    } | null;\n    /** Scroll velocity, 0 at rest. See {@link pointerStrength}. */\n    readonly velocity?: number;\n    /** The clock, for tracks driven by time. */\n    readonly time?: number;\n}\n/** The camera this frame: eye and target in world units, fov in degrees, roll in radians round the view axis. */\nexport interface View {\n    readonly eye: Vec3;\n    readonly target: Vec3;\n    readonly fov: number;\n    readonly roll: number;\n}\n/** A rail: {@link createCameraRail}. */\nexport interface CameraRail {\n    /** The view at `position`. Call once a frame: the pointer's smoothing steps on each call. */\n    at(position: number, frame?: Frame): View;\n}\n/** The parts of a keel/lit camera {@link applyView} touches. Pass the stage's PerspectiveCamera. */\nexport interface RailCamera {\n    readonly position: {\n        set(x: number, y: number, z: number): unknown;\n    };\n    lookAt(x: number, y: number, z: number): unknown;\n    rotateZ(angle: number): unknown;\n    fov: number;\n    updateProjectionMatrix(): unknown;\n}\n/**\n * The pointer's hold on the view: 1 at rest, `0.05 + max(0, 0.2 - |v| * 10)` while scrolling, so it\n * floors at 0.05 from |v| = 0.02 up.\n *\n * @param velocity The scroll velocity, 0 at rest.\n * @returns The strength, 0.05..1.\n */\nexport declare function pointerStrength(velocity: number): number;\n/**\n * A point along a Catmull-Rom spline through `points`, the ends held.\n *\n * @param points The points the spline passes through, in order.\n * @param u How far along, 0 at the first point and 1 at the last; clamped.\n * @returns The point there.\n */\nexport declare function catmullRom(points: readonly Vec3[], u: number): Vec3;\n/**\n * Turns the view from `eye` to `target`: `pan` radians round the up axis, positive to the right,\n * then `tilt` round the view's right axis, positive upward. The distance to the target is kept.\n *\n * @param eye Where the camera stands.\n * @param target What it looks at before the turn.\n * @param pan The turn round the up axis, radians.\n * @param tilt The turn up or down, radians.\n * @returns What it looks at after the turn.\n */\nexport declare function turnView(eye: Vec3, target: Vec3, pan: number, tilt: number): Vec3;\n/**\n * Puts a view on a keel/lit camera: stands it at the eye, aims it at the target, rolls it, and sets\n * the fov when it changed.\n *\n * @param camera The camera, injected.\n * @param view The view to apply.\n */\nexport declare function applyView(camera: RailCamera, view: View): void;\n/**\n * Builds a rail on keyed tracks. The camera's tracks key `eye`, `target` (vectors), `fov` (degrees),\n * `roll` (radians) and `along` (0..1 on the path); each is optional.\n *\n * @param sample The `tracks` module's `sampleTracks`.\n * @param options The tracks, the pointer scales, the default fov and the path.\n * @returns The rail.\n */\nexport declare function createCameraRail\u003cT\u003e(sample: Sampler\u003cT\u003e, options: RailOptions\u003cT\u003e): CameraRail;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x9ceb2c4544aa9166238ac205e9ec1ba79326b1b311e17e6652af1124f8139700",
+          "byteLength": 5094
+        }
+      },
+      "id": "camera-rail",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "A camera on keyed tracks: eye, target, fov and roll scrubbed by position, pointer pan and tilt, a Catmull-Rom flight.",
+      "publisher": "keel-web3",
+      "category": "render",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "graphics",
+        "member": null
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": "https://github.com/keel-web3/camera-rail",
+      "githubPath": "modules/keel-web3/render/camera-rail/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/render/camera-rail/src/index.ts",
+          "sha256": "0x8c4941d2192565a39e8f2d8c34f31f38248ea636372212bb75581fd78cf99a1a"
+        }
+      ],
+      "outputDigest": "0x46db786f2a1a7d2d7bea530d71f4d504d9ffbe3cea08fd764cb8b5f211fb8033",
+      "receiptDigest": "0x406c3eb166cd2771e35abba148738488a572361e1fb25891e31c75b7879d4335",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "ZnVuY3Rpb24gdCh0KXtyZXR1cm4gMD09PXQ/MTouMDUrTWF0aC5tYXgoMCwuMi0xMCpNYXRoLmFicyh0KSl9ZnVuY3Rpb24gZSh0LGUpe2xldCBhPXQubGVuZ3RoLTEscj1NYXRoLm1pbihNYXRoLm1heChlLDApLDEpKmEsbj1NYXRoLm1pbihNYXRoLmZsb29yKHIpLGEtMSksbz1yLW4sbD1lPT50W01hdGgubWluKE1hdGgubWF4KGUsMCksYSldPz9bMCwwLDBdLFtpLGgscyxNXT1bbChuLTEpLGwobiksbChuKzEpLGwobisyKV0sZj10PT4uNSooMipoW3RdKyhzW3RdLWlbdF0pKm8rKDIqaVt0XS01KmhbdF0rNCpzW3RdLU1bdF0pKm8qbysoMypoW3RdLWlbdF0tMypzW3RdK01bdF0pKm8qbypvKTtyZXR1cm5bZigwKSxmKDEpLGYoMildfWZ1bmN0aW9uIGEodCxlLGEscil7bGV0IG49ZVswXS10WzBdLG89ZVsxXS10WzFdLGw9ZVsyXS10WzJdLGk9bipNYXRoLmNvcyhhKS1sKk1hdGguc2luKGEpLGg9bipNYXRoLnNpbihhKStsKk1hdGguY29zKGEpLHM9TWF0aC5zcXJ0KGkqaStoKmgpO2lmKDA9PT1zKXJldHVyblt0WzBdK2ksdFsxXStvLHRbMl0raF07bGV0IE09TWF0aC5zcXJ0KHMqcytvKm8pLGY9TWF0aC5hdGFuMihvLHMpK3IscD1NYXRoLmNvcyhmKSpNL3M7cmV0dXJuW3RbMF0raSpwLHRbMV0rTWF0aC5zaW4oZikqTSx0WzJdK2gqcF19ZnVuY3Rpb24gcih0LGUpe3QucG9zaXRpb24uc2V0KGUuZXllWzBdLGUuZXllWzFdLGUuZXllWzJdKSx0Lmxvb2tBdChlLnRhcmdldFswXSxlLnRhcmdldFsxXSxlLnRhcmdldFsyXSksMCE9PWUucm9sbCYmdC5yb3RhdGVaKGUucm9sbCksdC5mb3YhPT1lLmZvdiYmKHQuZm92PWUuZm92LHQudXBkYXRlUHJvamVjdGlvbk1hdHJpeCgpKX12YXIgbj0odCxlKT0+Im51bWJlciI9PXR5cGVvZiB0P3Q6ZSxvPXQ9PiJvYmplY3QiPT10eXBlb2YgdCYmMz09PXQubGVuZ3RoP1t0WzBdPz8wLHRbMV0/PzAsdFsyXT8/MF06dm9pZCAwO2Z1bmN0aW9uIGwocixsKXtsZXR7dHJhY2tzOmksbmFtZTpoPSJjYW1lcmEiLHBhbjpzPTAsdGlsdDpNPTAsZm92OmY9MzAscGF0aDpwfT1sLHU9e3N0cmVuZ3RoOjEscGFuOjAsdGlsdDowfTtyZXR1cm57YXQobCxjPXt9KXtsZXQgZz1yKGksbCxjLnRpbWUpW2hdPz97fSxbbSx5XT0odD0+e2xldCBhPW4odC5hbG9uZywwKTtyZXR1cm5bbyh0LmV5ZSk/PyhwP2UocC5leWUsYSk6WzAsMCw1XSksbyh0LnRhcmdldCk/PyhwPy50YXJnZXQ/ZShwLnRhcmdldCxhKTpbMCwwLDBdKV19KShnKTtyZXR1cm4oZT0+e2xldCBhPWUucG9pbnRlcj8/e3g6MCx5OjB9O3Uuc3RyZW5ndGgrPS4xKih0KGUudmVsb2NpdHk/PzApLXUuc3RyZW5ndGgpO2xldCByPS41KnUuc3RyZW5ndGg7dS5wYW4rPSguMSphLngqcy11LnBhbikqcix1LnRpbHQrPSguMSphLnkqTS11LnRpbHQpKnJ9KShjKSx7ZXllOm0sdGFyZ2V0OjA9PT11LnBhbiYmMD09PXUudGlsdD95OmEobSx5LHUucGFuLHUudGlsdCksZm92Om4oZy5mb3YsZikscm9sbDpuKGcucm9sbCwwKX19fX1leHBvcnR7ciBhcyBhcHBseVZpZXcsZSBhcyBjYXRtdWxsUm9tLGwgYXMgY3JlYXRlQ2FtZXJhUmFpbCx0IGFzIHBvaW50ZXJTdHJlbmd0aCxhIGFzIHR1cm5WaWV3fTs=",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
         "recipeDigest": "0xc03543b36f5fac7d65a439ae21b6984a38963f23b31c4a9a0ed951ab1e99cba0",
         "output": {
           "algorithm": "sha256",
@@ -3965,6 +4033,74 @@
       "runtime": {
         "encoding": "base64",
         "data": "ZnVuY3Rpb24gdCgpe2xldCB0PWdsb2JhbFRoaXMuX19LRUVMX1RIVU1CTkFJTF9fO2lmKCJrZWVsLXRodW1ibmFpbC1jYXB0dXJlQDEiIT09dD8ucHJvdG9jb2wpdGhyb3cgbmV3IEVycm9yKCJUaGlzIGFydHdvcmsgaXMgbm90IHJ1bm5pbmcgaW4gYSB0aHVtYm5haWwtYXdhcmUgS2VlbCB2aWV3ZXIuIik7cmV0dXJuIHR9ZnVuY3Rpb24gYShhPSJoZXJvIil7dCgpLmluaXQoYSl9ZnVuY3Rpb24gbihhPSJoZXJvIil7dCgpLnJlYWR5KGEpfWZ1bmN0aW9uIGUoYT0iaGVybyIpe3QoKS5zdG9wKGEpfWZ1bmN0aW9uIGkoYSxuPSJoZXJvIil7dCgpLmFmdGVyKGEsbil9YXN5bmMgZnVuY3Rpb24gcih0LG49e30pe2Eobi5sYWJlbCk7bGV0IGU9YXdhaXQgdCgpO3JldHVybiBpKG4uZGVsYXlNcz8/MCxuLmxhYmVsKSxlfXZhciBvPU9iamVjdC5mcmVlemUoe2luaXQ6YSxzbmFwc2hvdDpuLHJlYWR5Om4sc3RvcDplLGFmdGVyOmksYWZ0ZXJJbml0OnJ9KSxsPW87ZXhwb3J0e2wgYXMgZGVmYXVsdCxvIGFzIHRodW1ibmFpbCxpIGFzIHRodW1ibmFpbEFmdGVyLHIgYXMgdGh1bWJuYWlsQWZ0ZXJJbml0LGEgYXMgdGh1bWJuYWlsSW5pdCxuIGFzIHRodW1ibmFpbFJlYWR5LGUgYXMgdGh1bWJuYWlsU3RvcH07",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0xdaec73e047a2e8699ad557c7b5befcade51f14e4b7cb938c5221ed5530c5d1fc",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 1099,
+          "digest": "0x6d24b2aabc9829f4efd349b230414782f0082892699a93a0b35278534a5406fe"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0xac5598eb06bef2c253b4639938279a121b5cb3f14dcb233eff0babd48b993eea",
+              "byteLength": 5225
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/**\n * tracks: keyed tracks sampled at a position. MIT.\n *\n * A track keys one property of one target. Each key is `[position, value,\n * handles?]`: the position in the sequence's own units (a scrolled page uses\n * one unit per viewport), the value there, and the cubic-bezier handle pair\n * that eases the way from this key to the next, (.5, 0, .5, 1) when left out.\n * Values are numbers, vectors (arrays of numbers) or `#rrggbb` colours. Before\n * the first key and after the last the track holds. A clip's progress is a\n * number track like any other. Pure arithmetic: no DOM, no renderer, nothing\n * injected. The host samples and applies.\n */\n/** A cubic-bezier handle pair, `[x1, y1, x2, y2]`, as CSS `cubic-bezier()` takes it. */\nexport type Handles = readonly [number, number, number, number];\n/** What a key holds: a number, a vector or a `#rrggbb` colour. One track keeps to one kind. */\nexport type Value = number | readonly number[] | string;\n/** One key: the position, the value there, and the handles easing the way to the next key. */\nexport type Key = readonly [position: number, value: Value, handles?: Handles];\n/** One property of one target, keyed. `drive` says what samples it: scroll position (the default) or the clock. */\nexport interface Track {\n    readonly target: string;\n    readonly property: string;\n    readonly keys: readonly Key[];\n    readonly drive?: \"scrub\" | \"time\";\n}\n/** Sampled values by target, then property. */\nexport type Sampled = Record\u003cstring, Record\u003cstring, Value\u003e\u003e;\n/** The handles a key gets when it names none: a symmetric ease in and out. */\nexport declare const EASE: Handles;\n/**\n * The eased share of a segment: the bezier's y where its x is `u`.\n *\n * @param handles The segment's handle pair; x1 and x2 in 0..1 so the curve is a function of x.\n * @param u How far along the segment, 0..1; clamped.\n * @returns The eased share, 0 at the start and 1 at the end.\n */\nexport declare function ease(handles: Handles, u: number): number;\n/**\n * Mixes two values of one kind: numbers, vectors element by element, colours channel by channel.\n * Values of different kinds step from `a` to `b` at t = 1.\n *\n * @param a The value at t = 0.\n * @param b The value at t = 1.\n * @param t The share of `b`; may leave 0..1 when an ease overshoots.\n * @returns The mixed value, of the kind `a` and `b` share.\n */\nexport declare function mix(a: Value, b: Value, t: number): Value;\n/**\n * The value of one track at `at`: held before the first key and after the last, eased between.\n *\n * @param keys The track's keys in position order.\n * @param at The position to sample.\n * @returns The value there.\n * @throws RangeError when the track has no key.\n */\nexport declare function sampleTrack(keys: readonly Key[], at: number): Value;\n/**\n * Samples every track: scrub tracks at `position`, time tracks at `time`. Without a `time`, time\n * tracks are left out.\n *\n * @param tracks The tracks, as the motion spec lists them.\n * @param position The scroll position in sequence units; may be below 0 or past the last key.\n * @param time The clock, for tracks with `drive: \"time\"`.\n * @returns Values by target, then property.\n */\nexport declare function sampleTracks(tracks: readonly Track[], position: number, time?: number): Sampled;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x11c3f71cfcc62070b70a27b59f09bd1924f5d2bea8e05943468a4c64ea0994ba",
+          "byteLength": 3362
+        }
+      },
+      "id": "tracks",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "Keyed tracks sampled at a position: cubic-bezier handles per key, numbers, vectors and colours, holds at both ends.",
+      "publisher": "keel-web3",
+      "category": "timing",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "runtime",
+        "member": null
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": "https://github.com/keel-web3/tracks",
+      "githubPath": "modules/keel-web3/timing/tracks/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/timing/tracks/src/index.ts",
+          "sha256": "0xac5598eb06bef2c253b4639938279a121b5cb3f14dcb233eff0babd48b993eea"
+        }
+      ],
+      "outputDigest": "0x6d24b2aabc9829f4efd349b230414782f0082892699a93a0b35278534a5406fe",
+      "receiptDigest": "0x9c58752d1529aa46e6cac0ab0db71db616126bac81e984e896bd148d465e5de7",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIGU9Wy41LDAsLjUsMV0sdD0oZSx0LHIpPT4oKCgxLTMqdCszKmUpKnIrKDMqdC02KmUpKSpyKzMqZSkqcjtmdW5jdGlvbiByKGUscil7aWYocjw9MClyZXR1cm4gMDtpZihyPj0xKXJldHVybiAxO2xldFtuLG8sYSxpXT1lLGY9MCxsPTEscz0uNTtmb3IobGV0IGU9MDtlPDMyO2UrPTEpe3M9KGYrbCkvMjtsZXQgZT10KG4sYSxzKTtpZihlPT09cilicmVhaztlPHI/Zj1zOmw9c31yZXR1cm4gdChvLGkscyl9dmFyIG49KGUsdCk9PnBhcnNlSW50KGUuc2xpY2UoMSsyKnQsMysyKnQpLDE2KTtmdW5jdGlvbiBvKGUsdCxyKXtyZXR1cm4ibnVtYmVyIj09dHlwZW9mIGUmJiJudW1iZXIiPT10eXBlb2YgdD9lKyh0LWUpKnI6InN0cmluZyI9PXR5cGVvZiBlJiYic3RyaW5nIj09dHlwZW9mIHQ/ZnVuY3Rpb24oZSx0LHIpe2xldCBvPSIjIjtmb3IobGV0IGE9MDthPDM7YSs9MSl7bGV0IGk9bihlLGEpLGY9TWF0aC5taW4oMjU1LE1hdGgubWF4KDAsTWF0aC5yb3VuZChpKyhuKHQsYSktaSkqcikpKTtvKz0oZjwxNj8iMCI6IiIpK2YudG9TdHJpbmcoMTYpfXJldHVybiBvfShlLHQscik6Im9iamVjdCI9PXR5cGVvZiBlJiYib2JqZWN0Ij09dHlwZW9mIHQ/ZS5tYXAoKGUsbik9PmUrKCh0W25dPz9lKS1lKSpyKTpyPDE/ZTp0fWZ1bmN0aW9uIGEodCxuKXtsZXQgYT10WzBdO2lmKHZvaWQgMD09PWEpdGhyb3cgbmV3IFJhbmdlRXJyb3IoIkEgdHJhY2sgbmVlZHMgYXQgbGVhc3Qgb25lIGtleS4iKTtsZXQgaT0wO2ZvcihsZXQgZT10WzFdO3ZvaWQgMCE9PWUmJmVbMF08PW47ZT10W2krMV0paSs9MTtsZXQgZj10W2ldPz9hLGw9dFtpKzFdO3JldHVybiB2b2lkIDA9PT1sfHxuPD1mWzBdP2ZbMV06byhmWzFdLGxbMV0scihmWzJdPz9lLChuLWZbMF0pLyhsWzBdLWZbMF0pKSl9ZnVuY3Rpb24gaShlLHQscil7bGV0IG49e307Zm9yKGxldCBvIG9mIGUpe2xldCBlPSJ0aW1lIj09PW8uZHJpdmU/cjp0O3ZvaWQgMCE9PWUmJigobltvLnRhcmdldF0/Pz17fSlbby5wcm9wZXJ0eV09YShvLmtleXMsZSkpfXJldHVybiBufWV4cG9ydHtlIGFzIEVBU0UsciBhcyBlYXNlLG8gYXMgbWl4LGEgYXMgc2FtcGxlVHJhY2ssaSBhcyBzYW1wbGVUcmFja3N9Ow==",
         "format": "esm",
         "entry": "src/index.ts"
       }

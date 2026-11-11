@@ -1,0 +1,25 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "motes",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Dust, light motes and sparkles for keel/lit: one instanced quad, seeded placement, closed-form drift, turbulence and blink on the host's clock.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
+  "inputs": [
+    { "key": "count", "label": "Motes", "type": "number", "required": false, "min": 0, "max": 4096, "step": 1, "control": "slider", "default": 300 },
+    { "key": "colors", "label": "Colours", "type": "palette", "required": false, "minItems": 1, "maxItems": 8, "help": "Each mote takes one, seeded.", "default": ["#ffbe26"] },
+    { "key": "size", "label": "Size", "type": "number", "required": false, "min": 0, "max": 1, "step": 0.001, "help": "World units, or pixels when attenuation is off.", "default": 0.07 },
+    { "key": "opacity", "label": "Opacity", "type": "number", "required": false, "min": 0, "max": 1, "step": 0.01, "control": "slider", "default": 0.88 },
+    { "key": "intensity", "label": "Intensity", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 8, "step": 0.05, "help": "Over 1 reaches a bloom threshold of 1.", "default": 1 },
+    { "key": "turbulence", "label": "Turbulence", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.005, "unit": "world units", "default": 0.03 },
+    { "key": "blink", "label": "Blink depth", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.05, "default": 1 },
+    { "key": "sparkle", "label": "Sparkles", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.01, "help": "The share of motes drawn as four-pointed sparkles.", "default": 0 },
+    { "key": "attenuate", "label": "Size attenuation", "type": "boolean", "required": false, "placement": "advanced", "default": true },
+    { "key": "seed", "label": "Seed", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 2147483647, "step": 1, "default": 1 }
+  ]
+}

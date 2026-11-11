@@ -11,7 +11,7 @@ const hashOf = (...arrays) => {
 const far = (exports, seed, face = 'A', hand = 'pinch') => exports.buildBust({ seed, face, hand, detail: exports.DETAIL.far });
 
 /** What the far busts of three seeds, both faces, hash to: every vertex, normal and index to its last bit. It moves with any change to a shape, and must then come out the same on every Node: a hash that differs between two is a Math.sin or a Math.pow back in the geometry. */
-const MESH_HASH = 3394282829;
+const MESH_HASH = 1708943343;
 
 export default [
   {
@@ -27,7 +27,7 @@ export default [
     name: 'a seed decides the face within small shares of the mean, the same every time, and seeds differ',
     run: ({ featuresOf }) => {
       const all = Array.from({ length: 64 }, (_, seed) => featuresOf(seed));
-      const within = all.every((f) => f.eyes >= 0.0285 && f.eyes <= 0.03 && f.nose >= 0.9 && f.nose <= 0.96 && f.jaw >= 0.95 && f.jaw <= 1.03);
+      const within = all.every((f) => f.eyes >= 0.027 && f.eyes <= 0.0285 && f.nose >= 0.9 && f.nose <= 0.96 && f.jaw >= 0.95 && f.jaw <= 1.03);
       return [within, JSON.stringify(featuresOf(7)) === JSON.stringify(featuresOf(7)), JSON.stringify(featuresOf(7)) === JSON.stringify(featuresOf(8))];
     },
     expect: [true, true, false],
@@ -79,13 +79,20 @@ export default [
     expect: MESH_HASH,
   },
   {
-    name: 'the pinch closes: the thumb\'s tip meets the index finger\'s pad, the card between them',
+    name: 'the pinch closes: the thumb\'s tip lies on the card\'s face, the index finger behind it',
     run: (exports) => {
       const bust = far(exports, 1, 'A', 'pinch');
-      const [index, , , , thumb] = bust.nails;
-      const pad = index.from.map((v, i) => v + (index.to[i] - v) * 0.7);
-      const gap = Math.hypot(...thumb.to.map((v, i) => v - pad[i]));
-      return gap < 0.025;
+      const thumb = bust.nails[4];
+      const hand = bust.parts.find((p) => p.name === 'hand');
+      // The hand's vertex nearest the thumb's tip, in the bust's frame, then in the card's (its rows take a point in).
+      let best = Infinity, at = [0, 0, 0];
+      for (let i = 0; i < hand.rest.length; i += 3) {
+        const d = Math.hypot(hand.rest[i] - thumb.to[0], hand.rest[i + 1] - thumb.to[1], hand.rest[i + 2] - thumb.to[2]);
+        if (d < best) { best = d; at = [hand.position[i], hand.position[i + 1], hand.position[i + 2]]; }
+      }
+      const m = bust.card.turn, q = at.map((v, i) => v - bust.card.at[i]);
+      const local = [0, 1, 2].map((r) => m[r * 3] * q[0] + m[r * 3 + 1] * q[1] + m[r * 3 + 2] * q[2]);
+      return Math.abs(local[0]) < 0.06 && Math.abs(local[1]) < 0.038 && Math.abs(local[2]) < 0.015;
     },
     expect: true,
   },

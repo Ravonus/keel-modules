@@ -10,27 +10,34 @@ import type { Node, V3 } from "./sdf.js";
 export interface HandPose {
   readonly bend: readonly (readonly [number, number, number])[];
   readonly spread: readonly number[];
-  /** The thumb's tip: a finger (0 index, 1 middle) and a share along its last bone, or null for the thumb's rest. */
-  readonly thumbTo: readonly [number, number] | null;
+  /**
+   * The thumb's tip: a finger (0 index, 1 middle), a bone of it (0 next the knuckle, 2 the last) and a share along
+   * that bone, or null for the thumb's rest.
+   */
+  readonly thumbTo: readonly [number, number, number] | null;
+  /** How far the thumb turns across to face the fingers, 0 at rest to 1. */
+  readonly opposed: number;
 }
 
 /** Index raised, the thumb ringed with the middle finger, the others curled. */
 export const POINT: HandPose = {
-  bend: [[4, 6, 4], [62, 88, 55], [74, 92, 55], [82, 92, 50]], spread: [4, 0, -4, -9], thumbTo: [1, 0.85],
+  bend: [[4, 6, 4], [62, 88, 55], [74, 92, 55], [82, 92, 50]], spread: [4, 0, -4, -9], thumbTo: [1, 2, 0.85],
+  opposed: 0,
 };
 
-/** A card shown by its edge: pressed by the thumb's pad to the index and middle behind it; the others curled. */
+/** A card held up by its corner: the index raised behind it, the thumb's pad pressing it there; the others curled. */
 export const PINCH: HandPose = {
-  bend: [[12, 16, 8], [10, 14, 6], [60, 80, 45], [70, 86, 45]], spread: [2, -2, -5, -10], thumbTo: [0, 0.7],
+  bend: [[6, 10, 6], [64, 88, 50], [70, 92, 50], [76, 94, 48]], spread: [3, -2, -6, -12], thumbTo: [0, 0, 0.5],
+  opposed: 1,
 };
 
 const KNUCKLES: readonly V3[] = [
   [0.027, 0.093, 0.001], [0.008, 0.097, 0.0], [-0.011, 0.093, -0.001], [-0.027, 0.084, -0.002],
 ];
 const BONES: readonly (readonly [number, number, number])[] = [
-  [0.045, 0.027, 0.022], [0.049, 0.03, 0.023], [0.046, 0.029, 0.022], [0.036, 0.021, 0.02],
+  [0.045, 0.027, 0.022], [0.049, 0.03, 0.023], [0.042, 0.026, 0.021], [0.032, 0.019, 0.017],
 ];
-const RADII: readonly number[] = [0.0077, 0.0079, 0.0074, 0.0065];
+const RADII: readonly number[] = [0.0072, 0.0074, 0.0069, 0.006];
 
 export interface Finger {
   /** Joints from the knuckle to the tip. */
@@ -63,26 +70,34 @@ export function finger(i: number, pose: HandPose): Finger {
   return { joints, radius: RADII[i] ?? 0.008, back: [ss * s, cs * s, -c] };
 }
 
+/** The thumb's base and its knuckle: opposed, its long bone swings up toward the index to meet it. */
+function thumbRoot(opposed: number): [V3, V3] {
+  const base: V3 = [0.022, 0.024, 0.006];
+  const swing: V3 = [0.62 - 0.3 * opposed, 0.6 + 0.22 * opposed, 0.5];
+  return [base, add(base, swing, 0.042 / Math.sqrt(swing[0] * swing[0] + swing[1] * swing[1] + swing[2] * swing[2]))];
+}
+
 /** The thumb's joints: its base fixed, its two outer bones bent to reach the target. */
 export function thumb(pose: HandPose, fingers: readonly Finger[]): Finger {
-  const base: V3 = [0.022, 0.024, 0.006];
-  const knuckle = add(base, [0.62, 0.6, 0.5], 0.042 / Math.sqrt(0.62 * 0.62 + 0.6 * 0.6 + 0.5 * 0.5));
+  const o = pose.opposed;
+  const [base, knuckle] = thumbRoot(o);
   const [la, lb] = [0.031, 0.027];
   let target: V3 = add(knuckle, [0.2, 0.75, 0.62], 0.05);
   if (pose.thumbTo) {
-    const f = fingers[pose.thumbTo[0]];
-    const a = f?.joints[2] ?? knuckle;
-    const b = f?.joints[3] ?? knuckle;
-    const t = pose.thumbTo[1];
+    const [which, bone, t] = pose.thumbTo;
+    const f = fingers[which];
+    const a = f?.joints[bone] ?? knuckle;
+    const b = f?.joints[bone + 1] ?? knuckle;
     const pad: V3 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
     // The thumb's pad meets the finger's from in front of the palm, a card's thickness apart.
-    target = add(pad, [0, 0, 1], (f?.radius ?? 0.008) * 0.78 + 0.0098);
+    target = add(add(pad, [0, 0, 1], (f?.radius ?? 0.008) * 0.78 + 0.0098), [1, 0, 0], 0.005 * o);
   }
   const d: V3 = [target[0] - knuckle[0], target[1] - knuckle[1], target[2] - knuckle[2]];
   const dist = Math.min(la + lb - 1e-4, Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]));
   const u: V3 = [d[0] / dist, d[1] / dist, d[2] / dist];
-  // The bend lies away from the palm's centre line: the middle joint pushed out along +x and back.
-  const side: V3 = [0.8, -0.2, -0.55];
+  // The bend lies away from the palm's centre line: the middle joint pushed out along +x, and back or, opposed,
+  // forward, so the pad faces what it presses.
+  const side: V3 = [0.8 - 0.3 * o, -0.2, -0.55 + 1.3 * o];
   const k = side[0] * u[0] + side[1] * u[1] + side[2] * u[2];
   const perp: V3 = [side[0] - u[0] * k, side[1] - u[1] * k, side[2] - u[2] * k];
   const pl = Math.sqrt(perp[0] * perp[0] + perp[1] * perp[1] + perp[2] * perp[2]) || 1;
@@ -97,11 +112,11 @@ export function thumb(pose: HandPose, fingers: readonly Finger[]): Finger {
 function fingerShape(f: Finger, thumbish: boolean): Node {
   const [a, b, c, d] = f.joints as [V3, V3, V3, V3];
   const r = f.radius;
-  const taper = thumbish ? [1.15, 1.0, 0.88, 0.76] : [1.0, 0.88, 0.78, 0.68];
+  const taper = thumbish ? [1.15, 1.0, 0.88, 0.76] : [1.0, 0.86, 0.76, 0.64];
   const [ra, rb, rc, rd] = taper.map((t) => t * r) as [number, number, number, number];
   // The pad: a little more flesh on the palm's side of the last bone.
   const pad = add([(c[0] + d[0]) / 2, (c[1] + d[1]) / 2, (c[2] + d[2]) / 2], f.back, -rd * 0.35);
-  return blend(0.004, cone(a, b, ra, rb), cone(b, c, rb, rc), cone(c, d, rc, rd), sphere(pad, rd * 0.9));
+  return blend(0.005, cone(a, b, ra, rb), cone(b, c, rb, rc), cone(c, d, rc, rd), sphere(pad, rd * 0.9));
 }
 
 /** The palm and the heel of the hand, and the wrist going back into the sleeve. */

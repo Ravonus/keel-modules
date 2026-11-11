@@ -21,12 +21,17 @@ export const ARMS: Arms = {
 
 /** The neck and the shoulders' slope, which the skin and cloth share. */
 export function neckShape(): Node {
-  return blend(0.02,
-    cone([0, -0.02, -0.052], [0, 0.1, -0.05], 0.042, 0.036),
-    ...[1, -1].map((s) => capsule([s * 0.048, 0.14, -0.072], [s * 0.011, 0.0, -0.014], 0.0095)),
-    ...[1, -1].map((s) => capsule([s * 0.018, -0.004, -0.014], [s * 0.15, 0.014, -0.05], 0.0085)),
-    ...[1, -1].map((s) => cone([s * 0.034, 0.045, -0.08], [s * 0.16, -0.008, -0.062], 0.021, 0.026)),
+  return blend(0.026,
+    cone([0, -0.02, -0.054], [0, 0.1, -0.052], 0.038, 0.032),
+    ...[1, -1].map((s) => capsule([s * 0.044, 0.14, -0.072], [s * 0.011, 0.0, -0.016], 0.0085)),
+    ...[1, -1].map((s) => capsule([s * 0.018, -0.006, -0.016], [s * 0.13, 0.004, -0.05], 0.0065)),
+    ...[1, -1].map((s) => slope(s, 0)),
   );
+}
+
+/** The slope from the neck down to a shoulder, grown by `grow`: the cloth rests on it too. */
+function slope(side: number, grow: number): Node {
+  return cone([side * 0.03, 0.045, -0.09], [side * 0.12, -0.008, -0.08], 0.018 + grow, 0.02 + grow);
 }
 
 /** The torso and arms, grown by `grow`. */
@@ -37,6 +42,7 @@ export function torso(arms: Arms, grow: number): Node {
     ellipsoid([0, -0.38, -0.06], [0.125 + g, 0.17 + g, 0.085 + g]),
     ...[1, -1].map((s) => ellipsoid([s * 0.068, -0.14, -0.005], [0.058 + g, 0.055 + g, 0.05 + g])),
     ...[1, -1].map((s) => ellipsoid([s * 0.165, -0.05, -0.058], [0.05 + g, 0.06 + g, 0.055 + g])),
+    ...[1, -1].map((s) => ellipsoid([s * 0.09, -0.032, -0.042], [0.065 + g, 0.036 + g, 0.04 + g])),
     cone(arms.shoulder, arms.elbow, 0.044 + g, 0.036 + g),
     cone([-arms.shoulder[0], arms.shoulder[1], arms.shoulder[2]], arms.hanging, 0.044 + g, 0.036 + g),
   );
@@ -88,7 +94,7 @@ export function dressShape(arms: Arms): Node {
 
 /** The over-gown: velvet over the shoulders and arms, open down the front, with wide sleeves. */
 export function gownShape(arms: Arms): Node {
-  const body = bump(torso(arms, 0.02), folds(0.004, 4.5), 0.0045);
+  const body = bump(blend(0.03, torso(arms, 0.02), slope(1, 0.012), slope(-1, 0.012)), folds(0.004, 4.5), 0.0045);
   const opening: Node = blend(0.02,
     box([0, -0.25, 0.1], [0.128, 0.24, 0.18], 0.01),
     ellipsoid([0, 0.08, 0.02], [0.13, 0.13, 0.14]),
@@ -102,13 +108,14 @@ export function gownShape(arms: Arms): Node {
   return blend(0.02, carve(0.012, body, opening), ...sleeves);
 }
 
-/** The chain's path: from behind the neck, round over the collarbones, low on the chest in front. */
+/** The chain's path: a closed loop from the nape, round over the collarbones, low on the chest in front. */
 export function chainPath(n: number): V3[] {
   const out: V3[] = [];
   for (let i = 0; i <= n; i += 1) {
-    const a = ((i / n) * 2 - 1) * 2.6;
+    const a = ((i / n) * 2 - 1) * Math.PI;
     const c = cosine(a);
-    out.push([0.075 * sine(a), -0.036 * c * c - 0.012 * c + 0.014, 0.09 * c - 0.05]);
+    const back = Math.min(0, c);
+    out.push([0.075 * sine(a), -0.036 * c * c - 0.012 * c + 0.014 + 0.03 * back * back, 0.09 * c - 0.05 + 0.04 * back]);
   }
   return out;
 }

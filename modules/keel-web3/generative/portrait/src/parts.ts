@@ -133,15 +133,24 @@ export function cardPart(kind: number, pose: Placing): Part {
 /** A fine chain laid on the body: a thin tube along `path`, pressed onto the surface of `body`. */
 export function chainPart(kind: number, path: readonly V3[], body: Node): Part {
   const f = compile(body, [0, 0, 0, 1], 1) ?? (() => 1);
-  const lie = path.map((q) => {
-    let p: [number, number, number] = [q[0], q[1], q[2]];
-    for (let k = 0; k < 6; k += 1) {
+  const onto = (q: V3, steps: number): V3 => {
+    let p: V3 = q;
+    for (let k = 0; k < steps; k += 1) {
       const d = f(p[0], p[1], p[2]) - 0.0016;
       const g = gradient(f, p, 0.001);
       p = [p[0] - g[0] * d, p[1] - g[1] * d, p[2] - g[2] * d];
     }
     return p;
-  });
+  };
+  let lie = path.map((q) => onto(q, 6));
+  // Laid onto a creased surface the path kinks, so ease it along itself and lay it down again.
+  for (let pass = 0; pass < 4; pass += 1) {
+    lie = lie.map((p, i) => {
+      const a = lie[Math.max(0, i - 1)] ?? p;
+      const b = lie[Math.min(lie.length - 1, i + 1)] ?? p;
+      return onto([(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4, (a[2] + 2 * p[2] + b[2]) / 4], 3);
+    });
+  }
   const sides = 6;
   const position: number[] = [];
   const normal: number[] = [];

@@ -45,13 +45,14 @@ sitter.shadows(renderer);                     // before a frame, when the bust o
 renderer.render(stage, camera);
 ```
 
-- `face: "A"` turns the head 14° to her right, tilts it 10° toward that shoulder and pitches it 6° down, so it sits in
+- `face: "A"` turns the head 22° to her right, tilts it 10° toward that shoulder and pitches it 6° down, so it sits in
   three-quarter view with its eyes free to look back at `face({ at })`. `"B"` turns the head 24° away and pitches it
   20° down, and the cap sits 1 cm lower so its cuff shades the eyes. Both share the cap's crown, the hair behind and
   the bounding box.
-- `hand: "pinch"` shows the card by its lower edge: the card square to the palm, the thumb's pad pressing it to the
-  index and middle fingers behind it (the thumb reaches by two-bone reach, so the pinch always closes); `"point"`
-  floats it over a raised index finger.
+- `hand: "pinch"` holds the card up by its lower corner: the card square to the palm, the index raised behind it,
+  the thumb turned across to press its pad on the card's face over the index (the thumb reaches by two-bone reach,
+  so the pinch always closes), the other fingers curled into the palm; `"point"` floats it over a raised index
+  finger.
 - `DETAIL.hero`, `.mid`, `.far` set the cell sizes, the eye's rings and the hair's locks, segments and sides.
 - Busts are cached by `digestOf(recipe)`: the same recipe is built once.
 - `portraitSettings(KEEL_INPUTS.portrait)` normalises the settings in `keel.module.json` and `sitterOf(settings)`
@@ -68,9 +69,9 @@ One program with a `PART` define for each material, all sharing one set of unifo
   (12-tap soft lookups), and a cool fill (`#c9d6d9`) at about half the key from sky and ground. `light()` changes
   both. Flesh takes the key's shadow with an edge six times as wide as everything else, so no hard shadow crosses
   the face.
-- Skin: wrapped diffuse, a reddened band where light crosses under the skin at the terminator, half-tones running
+- Skin: wrapped diffuse, the neck darkened just under the jaw's plane so the jaw meets it in a soft shade, a reddened band where light crosses under the skin at the terminator, half-tones running
   cool and lights warm, a faint mottle. A warm flush on the cheeks, the nose, the chin and the ears; lips, brows,
-  the lash lines and the fold of the upper lid are painted from where each point lies on the head at rest, so they
+  the lash lines, the fold of the upper lid and the nails (a pink bed, a pale free edge) are painted from where each point lies on the head at rest, so they
   stay put when the head turns.
 - Eyes: iris, pupil and fibres per pixel, turned toward `face({ at })`. The almond opening is painted to the same
   two arcs the lids are cut by: outside it the lid's skin is drawn, under the upper lid the eye lies in its shadow
@@ -83,14 +84,15 @@ The colours are a `Palette`. The output is linear and unclamped: tone-map it, or
 
 ## Budgets
 
-Measured on an M4 Max in headless Chrome (ANGLE on Metal) at 1440×900, DPR 2, with a 1-minute load average of 13
-to 16 from other work:
+Measured on an M4 Max in headless Chrome (ANGLE on Metal) at 1440×900, DPR 2, with a 1-minute load average of 15
+to 25 from other work:
 
-- Size: 17.6 KB brotli (51.2 KB minified).
-- Generation, hero detail: 370 to 510 ms, median about 400, the first time a recipe is built (about 169k vertices,
-  331k triangles). Under that load the earlier build of this module took 360 to 455 ms side by side, and 282 to
-  296 ms at a load of 7, so at a quiet load this one is expected near 280 to 300 ms. A cached recipe returns at once.
-- Drawing, hero, before any post: a median of 1.3 ms on the GPU (95th percentile 1.5 ms) with the shadow map
+- Size: 17.6 KB brotli (51.1 KB minified).
+- Generation, hero detail: 400 to 535 ms, median about 440, the first time a recipe is built (about 171k vertices,
+  335k triangles). Under the same load the previous build took 400 to 500 ms side by side, and the first build of
+  this module 282 to 296 ms at a load of 7, so at a quiet load this one is expected near 300 ms. A cached recipe
+  returns at once.
+- Drawing, hero, before any post: a median of 1.9 ms on the GPU (95th percentile 4.1 ms) with the shadow map
   redrawn every frame. The GPU was shared, so runs vary.
 
 ## Credits

@@ -50,7 +50,7 @@ const HEAD_AT: V3 = [0, 0.185, 0.035];
 /** Where the head's frame sits for each face version: A frontal, B turned and pitched down about the skull. */
 export function headPose(face: "A" | "B"): Pose {
   const pivot: V3 = face === "A" ? [0, -0.07, -0.05] : [0, 0.0, -0.05];
-  const r = face === "A" ? turn(deg(6), deg(-14), deg(10)) : turn(deg(20), deg(-24), deg(-3));
+  const r = face === "A" ? turn(deg(6), deg(-22), deg(10)) : turn(deg(20), deg(-24), deg(-3));
   const [px, py, pz] = rotOut(r, -pivot[0], -pivot[1], -pivot[2]);
   return { turn: r, at: [px + pivot[0] + HEAD_AT[0], py + pivot[1] + HEAD_AT[1], pz + pivot[2] + HEAD_AT[2]] };
 }
@@ -67,9 +67,9 @@ function restOf(position: Float32Array, pose: Pose): Float32Array {
 
 function skin(f: Features, pose: Pose, detail: Detail): Part[] {
   // One field for the face and the chest, so the two meshes, at their own cell sizes, lie on the same surface.
-  const all = blend(0.012, frame(pose.turn, pose.at, headShape(f)), neckShape(), torso(ARMS, -0.0006));
+  const all = blend(0.018, frame(pose.turn, pose.at, headShape(f)), neckShape(), torso(ARMS, -0.0006));
   const h = surface(all, { lo: [-0.105, 0.072, -0.045], hi: [0.105, 0.236, 0.13], cell: detail.face, reach: 0.014 });
-  const b = surface(all, { lo: [-0.18, -0.105, -0.075], hi: [0.18, 0.092, 0.1], cell: detail.body, reach: 0.02 });
+  const b = surface(all, { lo: [-0.18, -0.105, -0.115], hi: [0.18, 0.092, 0.1], cell: detail.body, reach: 0.02 });
   return [
     { name: "skin", kind: PARTS.skin, ...h, rest: restOf(h.position, pose) },
     { name: "chest", kind: PARTS.skin, ...b, rest: restOf(b.position, pose) },
@@ -138,7 +138,7 @@ export interface Bust {
 /** What a seed decides of the face, each a small share either side of the mean. */
 export function featuresOf(seed: number): Features {
   return {
-    eyes: pick(seed, 1, 0.0285, 0.03), nose: pick(seed, 2, 0.9, 0.96), lips: pick(seed, 3, 0.94, 1.06),
+    eyes: pick(seed, 1, 0.027, 0.0285), nose: pick(seed, 2, 0.9, 0.96), lips: pick(seed, 3, 0.94, 1.06),
     jaw: pick(seed, 4, 0.95, 1.03), chin: pick(seed, 5, 0.97, 1.03), cheeks: pick(seed, 6, 0.96, 1.04),
   };
 }
@@ -152,18 +152,18 @@ const unit3 = (v: readonly number[]): V3 => {
 };
 
 /**
- * The card shown by its lower edge: square to the palm, pressed by the thumb against the index's and the middle's
- * pads, running on up past the fingertips and gripped a little in from a corner. In the hand's frame.
+ * The card held up by its lower corner: square to the palm, pressed by the thumb's pad against the index's first
+ * bone, running on up and across toward the thumb, the index rising behind it. In the hand's frame.
  */
 function pinched(index: Finger): Pose {
-  const [a, b] = [index.joints[2] ?? [0, 0, 0], index.joints[3] ?? [0, 0, 0]];
+  const [a, b] = [index.joints[0] ?? [0, 0, 0], index.joints[1] ?? [0, 0, 0]];
   const z: V3 = [0, 0, 1];
   const y = unit3([b[0] - a[0], b[1] - a[1], 0]);
   const x: V3 = [y[1], -y[0], 0];
-  const grip = [0, 1, 2].map((i) => (a[i] ?? 0) + ((b[i] ?? 0) - (a[i] ?? 0)) * 0.7);
+  const grip = [0, 1, 2].map((i) => (a[i] ?? 0) + ((b[i] ?? 0) - (a[i] ?? 0)) * 0.5);
   const front = (grip[2] ?? 0) + index.radius * 0.78 + CARD[2] / 2 + 0.0004;
-  const [up, over] = [CARD[1] / 2 - 0.012, CARD[0] / 2 - 0.026];
-  const at: V3 = [(grip[0] ?? 0) + y[0] * up - x[0] * over, (grip[1] ?? 0) + y[1] * up - x[1] * over, front];
+  const [up, over] = [CARD[1] / 2 - 0.03, CARD[0] / 2 - 0.016];
+  const at: V3 = [(grip[0] ?? 0) + y[0] * up + x[0] * over, (grip[1] ?? 0) + y[1] * up + x[1] * over, front];
   return { turn: [...x, ...y, ...z] as unknown as M3, at };
 }
 
@@ -224,7 +224,7 @@ export function buildBust(recipe: BustRecipe): Bust {
     cloth("chemise", PARTS.chemise, chemiseShape(ARMS), d),
     cloth("dress", PARTS.dress, dressShape(ARMS), d),
     cloth("gown", PARTS.gown, gownShape(ARMS), d),
-    chainPart(PARTS.gold, chainPath(160), blend(0.012, neckShape(), torso(ARMS, 0))),
+    chainPart(PARTS.gold, chainPath(160), blend(0.018, neckShape(), torso(ARMS, -0.0006))),
     ...hand.parts,
   ];
   const bust: Bust = { parts, pose, eyes, cap: capFrame(recipe.face), card: hand.card, nails: hand.nails };

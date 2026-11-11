@@ -2,7 +2,7 @@
 // terminator and a warm subsurface tint in flesh, cool half-tones, and each part's own surface painted per pixel.
 // Every part draws with this one program, `PART` chosen by a define. Output is linear light.
 
-import { ALMOND, MOUTH } from "./head.js";
+import { ALMOND, MOUTH, UNDER_JAW, UNDER_JAW_AT } from "./head.js";
 
 export const VERTEX_GLSL = /* glsl */ `
 attribute float aOpen;
@@ -20,7 +20,8 @@ void main() {
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vRest = aRest;
-  vFlow = vec4(normalize(mat3(modelMatrix) * (aFlow.xyz + vec3(0.0, 1e-6, 0.0))), aFlow.w);
+  // Left unnormalised, so a mesh without flow (the mass under the locks) keeps a zero one.
+  vFlow = vec4(mat3(modelMatrix) * aFlow.xyz, aFlow.w);
   vOpen = aOpen;
   vShadowAt = uShadowMatrix * world;
   gl_Position = projectionMatrix * viewMatrix * world;
@@ -138,9 +139,9 @@ vec3 skinAlbedo(vec3 r, out float gloss) {
   base *= 0.97 + 0.06 * mottle;
   base = mix(base, uBlushTone, clamp(blush * 0.7, 0.0, 0.75));
   // Lips.
-  float upper = min(ellipse(vec2(ax, r.y), vec2(0.0085, MOUTH + 0.0031), vec2(0.0118, 0.0025)),
-                    ellipse(r.xy, vec2(0.0, MOUTH + 0.0021), vec2(0.0045, 0.0025)));
-  float lower = ellipse(r.xy, vec2(0.0, MOUTH - 0.0032), vec2(0.0138, 0.004));
+  float upper = min(ellipse(vec2(ax, r.y), vec2(0.0076, MOUTH + 0.003), vec2(0.0106, 0.0024)),
+                    ellipse(r.xy, vec2(0.0, MOUTH + 0.002), vec2(0.0042, 0.0024)));
+  float lower = ellipse(r.xy, vec2(0.0, MOUTH - 0.0031), vec2(0.0124, 0.0038));
   float lip = (1.0 - smoothstep(0.45, 1.1, min(upper, lower))) * front;
   // The lips' colour runs out softly toward the corners.
   base = mix(base, uLipTone, lip * (0.85 - 0.35 * smoothstep(0.006, 0.016, ax)));
@@ -233,7 +234,7 @@ vec3 shadeEye(vec3 n, vec3 v, float shadow) {
   float g;
   vec3 albedo = skinAlbedo(vRest, g);
   vec2 lash = lashes(vRest);
-  albedo = mix(albedo, uBrowTone * 0.3, lash.x) * (1.0 - 0.3 * lash.y * vec3(0.8, 1.0, 1.0));
+  albedo = mix(albedo, uBrowTone * 0.3, lash.x) * (1.0 - 0.2 * lash.y * vec3(0.8, 1.0, 1.0));
   vec3 lidOut = shadeSkin(albedo, 0.3, n, v, shadow, 0.8);
   return mix(eyeOut, lidOut, covered);
 }
@@ -307,10 +308,10 @@ vec3 shadeCap(vec3 n, vec3 v, float shadow) {
 
 vec3 shadeHair(vec3 n, vec3 v, float shadow) {
   if (dot(vFlow.xyz, vFlow.xyz) < 0.5) {
-    // The mass under the locks: hair too, streaked down its fall, a little darker than the locks over it.
+    // The mass under the locks: hair too, streaked down its fall, deep in the locks' shade so it reads as depth.
     float fall = noise(vec2((vWorld.x + vWorld.z) * 260.0, vWorld.y * 22.0)) * 0.6 + noise(vec2((vWorld.x - vWorld.z) * 90.0, vWorld.y * 9.0)) * 0.4;
-    vec3 under = mix(uHairTones[0] * 0.8, uHairTones[1], 0.1 + 0.35 * fall);
-    return diffuse(under, n, shadow, 0.45 + 0.3 * fall, 0.4);
+    vec3 under = uHairTones[0] * (0.4 + 0.45 * fall);
+    return diffuse(under, n, shadow * 0.5, 0.25 + 0.2 * fall, 0.3);
   }
   vec3 t = normalize(vFlow.xyz);
   float tone = vRest.z;
@@ -398,8 +399,8 @@ uniform vec4 uTips[5];   // each finger's last joint and tip, in the hand's fram
 uniform vec4 uTipEnds[5];
 uniform vec3 uBacks[5];  // the back of each last bone
 
-float nails(vec3 r) {
-  float best = 0.0;
+vec2 nails(vec3 r) {
+  vec2 best = vec2(0.0);
   for (int i = 0; i < 5; i++) {
     vec3 a = uTips[i].xyz;
     vec3 b = uTipEnds[i].xyz;
@@ -407,8 +408,8 @@ float nails(vec3 r) {
     float t = clamp(dot(r - a, ab) / dot(ab, ab), 0.0, 1.0);
     vec3 off = r - (a + ab * t);
     float back = dot(normalize(off), uBacks[i]);
-    float on = smoothstep(0.38, 0.5, t) * smoothstep(0.55, 0.75, back) * step(length(off), uTips[i].w * 1.6);
-    best = max(best, on);
+    float on = smoothstep(0.36, 0.46, t) * smoothstep(0.5, 0.68, back) * step(length(off), uTips[i].w * 1.6);
+    if (on > best.x) best = vec2(on, t);
   }
   return best;
 }
@@ -433,12 +434,18 @@ void main() {
   float gloss;
   vec3 albedo = skinAlbedo(vRest, gloss);
   vec2 lash = lashes(vRest);
-  albedo = mix(albedo, uBrowTone * 0.3, lash.x) * (1.0 - 0.3 * lash.y * vec3(0.8, 1.0, 1.0));
-  col = shadeSkin(albedo, gloss, n, v, shadow, vOpen);
+  albedo = mix(albedo, uBrowTone * 0.3, lash.x) * (1.0 - 0.2 * lash.y * vec3(0.8, 1.0, 1.0));
+  // Just under the jaw the neck lies in its shade, softer and deeper than the key's shadow map draws it.
+  float jaw = dot(vRest, vec3(${UNDER_JAW.map((v) => v.toFixed(2)).join(", ")})) - ${UNDER_JAW_AT.toFixed(4)};
+  float tuck = smoothstep(-0.003, 0.005, jaw) * (1.0 - smoothstep(0.008, 0.045, jaw));
+  col = shadeSkin(albedo, gloss, n, v, shadow * (1.0 - 0.75 * tuck), vOpen * (1.0 - 0.45 * tuck));
 #elif PART == 1
-  float nail = nails(vRest);
-  vec3 albedo = mix(uSkinTone * vec3(1.0, 0.97, 0.95), uSkinTone * vec3(1.0, 0.84, 0.82), nail);
-  col = shadeSkin(albedo, 0.25 + nail * 0.45, n, v, shadow, vOpen);
+  vec2 nail = nails(vRest);
+  // The nail's bed pink, its free edge pale, a fine dark line where it meets the skin.
+  vec3 bed = mix(uSkinTone * vec3(1.0, 0.8, 0.78), vec3(0.96, 0.92, 0.88), smoothstep(0.9, 1.0, nail.y));
+  vec3 albedo = mix(uSkinTone * vec3(1.0, 0.97, 0.95), bed, nail.x);
+  albedo *= 1.0 - 0.12 * nail.x * (1.0 - nail.x) * 4.0;
+  col = shadeSkin(albedo, 0.25 + nail.x * 0.55, n, v, shadow, vOpen);
 #elif PART == 2
   col = shadeEye(n, v, shadow);
 #elif PART == 3

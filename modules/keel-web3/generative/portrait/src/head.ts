@@ -25,24 +25,24 @@ export const EYE_Z = 0.0056;
  * the eye's centre a little toward the nose, the lower's dipping `down` below it a little outward, each of radius
  * `upR` and `downR`; `shift` is how far the peaks sit off the centre. The shader paints the same opening.
  */
-export const ALMOND = { up: 0.0048, upR: 0.021, down: -0.0053, downR: 0.02, shift: 0.0016 } as const;
+export const ALMOND = { up: 0.0028, upR: 0.022, down: -0.0074, downR: 0.022, shift: 0.0016 } as const;
 /** How far the eye's corners turn up, outward. */
 export const CANTHUS = deg(4);
 
 const mirror = (f: (s: number) => Node): Node[] => [f(1), f(-1)];
 
 /** How square the face's oval runs below the eyes, 0 an ellipse to 1 a fourth-power curve. */
-const JAW_SQUARE = 0.35;
+const JAW_SQUARE = 0.22;
 /** The height of the mouth's line, the lips' meeting (the shader paints the lips from it). */
-export const MOUTH = -0.0632;
+export const MOUTH = -0.056;
 
 /**
  * The face's oval: an ellipsoid whose width and depth change with height, as quadratics through the chin, the
  * cheekbones and the temples, so the face is one smooth form with nothing melted on to crease it.
  */
 function egg(p: Features): Prim {
-  const [cy, up, down, cz] = [-0.005, 0.108, 0.101, -0.045];
-  const [x0, top, chin] = [0.067 * p.cheeks, 0.058, 0.033 * p.jaw];
+  const [cy, up, down, cz] = [-0.005, 0.108, 0.09, -0.045];
+  const [x0, top, chin] = [0.064 * p.cheeks, 0.058, 0.025 * p.jaw];
   const [z0, z1, z2] = [0.07, 0.0025, -0.0125];
   const f = (x: number, y: number, z: number): number => {
     const ry = y > cy ? up : down;
@@ -65,19 +65,19 @@ function egg(p: Features): Prim {
 }
 
 function masses(p: Features): Node {
-  return cut(0.014, blend(0.02,
+  return cut(0.02, blend(0.02,
     egg(p),
     ellipsoid([0, 0.026, -0.068], [0.071, 0.094, 0.092]),
-    ellipsoid([0, MOUTH + 0.003, -0.007], [0.027, 0.024, 0.026]),
-    ellipsoid([0, -0.091 * p.chin, 0.0085], [0.02, 0.012, 0.011]),
+    ellipsoid([0, MOUTH + 0.003, -0.007], [0.027, 0.024, 0.0245]),
+    ellipsoid([0, -0.078 * p.chin, 0.004], [0.0135, 0.012, 0.011]),
     ...mirror((s) => ellipsoid([s * 0.03 * p.cheeks, -0.03, 0.003], [0.021, 0.02, 0.016])),
     ...mirror((s) => ellipsoid([s * 0.04, -0.016, -0.004], [0.02, 0.013, 0.02])),
   ), half(UNDER_JAW, UNDER_JAW_AT * p.chin));
 }
 
 /** Under the jaw: a plane from below the chin back to the jaw's angle under the ear; the face is cut along it. */
-const UNDER_JAW: V3 = [0, -0.884, -0.468];
-const UNDER_JAW_AT = 0.094;
+export const UNDER_JAW: V3 = [0, -0.8, -0.6];
+export const UNDER_JAW_AT = 0.077;
 
 function brows(): Node[] {
   return mirror((s) => ellipsoid([s * 0.026, 0.0135, 0.01], [0.024, 0.008, 0.011], turn(0, s * deg(20), 0)));
@@ -112,16 +112,16 @@ function opening(s: number): Prim {
 /** An eye's lids: the shell of a ball over the eye with the almond cut through it, its corners tilted up outward. */
 function lids(s: number, p: Features): Node {
   const at: V3 = [s * p.eyes, 0, EYE_Z];
-  return frame(turn(0, 0, s * CANTHUS), at, carve(0.0008, sphere([0, 0, 0], EYE + 0.0011), opening(s)));
+  return frame(turn(0, 0, s * CANTHUS), at, carve(0.0008, sphere([0, 0, 0], EYE + 0.0008), opening(s)));
 }
 
 function lips(p: Features): Node[] {
   const f = p.lips;
   return [
     ...mirror((s) =>
-      ellipsoid([s * 0.009, MOUTH + 0.0037, 0.016], [0.0128, 0.003 * f, 0.0045], turn(0, s * deg(16), -s * deg(7)))),
-    ellipsoid([0, MOUTH + 0.0022, 0.0188], [0.0045, 0.003 * f, 0.0032]),
-    ellipsoid([0, MOUTH - 0.0036, 0.0146], [0.0155, 0.0042 * f, 0.005]),
+      ellipsoid([s * 0.008, MOUTH + 0.0035, 0.0145], [0.0115, 0.0028 * f, 0.004], turn(0, s * deg(18), -s * deg(6)))),
+    ellipsoid([0, MOUTH + 0.0021, 0.017], [0.0042, 0.0028 * f, 0.003]),
+    ellipsoid([0, MOUTH - 0.0034, 0.0132], [0.0138, 0.0038 * f, 0.0045]),
   ];
 }
 
@@ -140,21 +140,23 @@ const MENTOLABIAL_Z = 0.0118;
 
 /** The head as one shape, in its own frame. */
 export function headShape(p: Features): Node {
-  const sockets = mirror((s) => ellipsoid([s * p.eyes, 0.0015, 0.012], [0.015, 0.0105, 0.0085]));
+  const sockets = mirror((s) => ellipsoid([s * p.eyes, -0.0005, 0.012], [0.015, 0.0112, 0.0085]));
   let face: Node = blend(0.006, masses(p), ...brows());
   face = blend(0.006, face, nose(p));
-  face = carve(0.006, face, ...sockets);
+  // Beside the bridge the face falls back to the eyes' inner corners, so a turned head's far eye shows past it.
+  const hollows = mirror((s) => ellipsoid([s * 0.016, -0.001, 0.0272], [0.0085, 0.008, 0.0095]));
+  face = carve(0.007, face, ...sockets, ...hollows);
   face = blend(0.005, face, lids(1, p), lids(-1, p));
   face = blend(0.006, face, ...lips(p));
   // The mouth's line is a thin disc round the teeth's curve, so it dies out softly at the corners.
   const tip = NOSE_TIP * p.nose;
   face = carve(0.001, face,
-    ellipsoid([0, MOUTH, 0.004], [0.0195 * p.lips, 0.0006, 0.019]),
+    ellipsoid([0, MOUTH, 0.004], [0.0172 * p.lips, 0.0006, 0.0175]),
     ...mirror((s) => ellipsoid([s * 0.0058, tip - 0.0095, 0.0225], [0.0024, 0.0013, 0.0036], turn(0, s * deg(20), 0))),
   );
   face = carve(0.003, face,
     ellipsoid([0, (tip - 0.012 + MOUTH + 0.006) / 2, PHILTRUM_Z], [0.0026, 0.0055, 0.0012]),
-    ellipsoid([0, MOUTH - 0.0135, MENTOLABIAL_Z], [0.012, 0.004, 0.0045]),
+    ellipsoid([0, MOUTH - 0.0135, MENTOLABIAL_Z], [0.0085, 0.0038, 0.004]),
   );
   return blend(0.004, face, ...ears());
 }

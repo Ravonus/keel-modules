@@ -37,7 +37,11 @@ vec2 flowOf(vec4 J, out float anisotropy) {
   float l1 = 0.5 * (E + G + D);
   float l2 = 0.5 * (E + G - D);
   anisotropy = (l1 + l2) > 1e-7 ? (l1 - l2) / (l1 + l2) : 0.0;
-  vec2 t = vec2(l1 - E, -F);
+  // (The minor eigenvector in its two forms: one shrinks to nothing when the x gradient dominates, the other when
+  // the y gradient does; the longer is the well-conditioned one, so a vertical arm reads vertical and not as noise.)
+  vec2 ta = vec2(l1 - E, -F);
+  vec2 tb = vec2(-F, l1 - G);
+  vec2 t = dot(ta, ta) > dot(tb, tb) ? ta : tb;
   return dot(t, t) > 1e-14 ? normalize(t) : vec2(0.0, 1.0);
 }
 `;
@@ -76,13 +80,15 @@ uniform vec2 uPaintSize;
 uniform vec2 uTexel;
 uniform float uDirection;
 vec3 colourAt(vec2 uv) { return texture2D(tPrep, uv).rgb; }
-// The surface's normal from its neighbours' depths, from the nearer side of each pair so edges stay clean.
-vec3 normalAt(vec2 uv, vec3 p) {
-  vec3 r = viewAt(uv + vec2(uTexel.x, 0.0)) - p;
-  vec3 l = p - viewAt(uv - vec2(uTexel.x, 0.0));
-  vec3 u = viewAt(uv + vec2(0.0, uTexel.y)) - p;
-  vec3 d = p - viewAt(uv - vec2(0.0, uTexel.y));
-  return normalize(cross(abs(r.z) < abs(l.z) ? r : l, abs(u.z) < abs(d.z) ? u : d));
+// How much a colour is flesh: red to orange in hue, neither grey nor vivid. (A dark skin and a light one both lie
+// here; a red cap or a khaki ground do not.)
+float skin(vec3 c) {
+  if (c.r <= c.g || c.g <= c.b) return 0.0;
+  float mx = c.r;
+  float sat = (mx - c.b) / max(mx, 1e-3);
+  float hue = (c.g - c.b) / max(c.r - c.b, 1e-3);
+  return smoothstep(0.08, 0.2, hue) * (1.0 - smoothstep(0.6, 0.8, hue)) * smoothstep(0.15, 0.3, sat)
+    * (1.0 - smoothstep(0.65, 0.8, sat));
 }
 // Sobel of the colour: how it changes across and up, as a tensor.
 vec3 colourTensor(vec2 uv) {
@@ -100,37 +106,49 @@ vec3 colourTensor(vec2 uv) {
   vec3 gy = (a - g) + 2.0 * (b - h) + (c - i);
   return vec3(dot(gx, gx), dot(gy, gy), dot(gx, gy)) / 64.0;
 }
-// How the form changes across and up: the normal's and the depth's gradients, as a tensor; and the silhouette.
-vec3 formTensor(vec2 uv, vec3 p, out float edge) {
-  vec2 x = vec2(uTexel.x, 0.0);
-  vec2 y = vec2(0.0, uTexel.y);
-  vec3 pr = viewAt(uv + x);
-  vec3 pl = viewAt(uv - x);
-  vec3 pu = viewAt(uv + y);
-  vec3 pd = viewAt(uv - y);
-  vec3 nx = normalAt(uv + x, pr) - normalAt(uv - x, pl);
-  vec3 ny = normalAt(uv + y, pu) - normalAt(uv - y, pd);
+// How the form changes across and up: the depth's gradient, as a tensor, over two painted pixels each way. (The
+// flow then runs along the lines of equal depth: around a cheek, along an arm. A normal rebuilt from depth and
+// differenced again is too noisy for this at a frame's depth precision, and a mesh's facets step it besides.)
+// Writes how curved the surface is: the gradient's change over six pixels, which a hand or a nose has and a torso
+// has not.
+vec3 formTensor(vec2 uv, vec3 p, out float curve) {
+  vec2 x = vec2(uTexel.x * 2.0, 0.0);
+  vec2 y = vec2(0.0, uTexel.y * 2.0);
   // (Depth as a share of the distance, so a far slope counts as a near one.)
-  float k = 4.0 / max(-p.z, 1e-3);
-  vec3 gx = vec3(nx.xy, (pr.z - pl.z) * k);
-  vec3 gy = vec3(ny.xy, (pu.z - pd.z) * k);
-  edge = smoothstep(0.3, 1.2, abs(pr.z - pl.z) * k + abs(pu.z - pd.z) * k);
-  return vec3(dot(gx, gx), dot(gy, gy), dot(gx, gy));
+  float k = 2.0 / max(-p.z, 1e-3);
+  float zl = viewDepth(texture2D(tDepth, uv - x).x);
+  float zr = viewDepth(texture2D(tDepth, uv + x).x);
+  float zd = viewDepth(texture2D(tDepth, uv - y).x);
+  float zu = viewDepth(texture2D(tDepth, uv + y).x);
+  float zx = (zr - zl) * k;
+  float zy = (zu - zd) * k;
+  float z = -p.z;
+  curve = (abs(zr + zl - 2.0 * z) + abs(zu + zd - 2.0 * z)) * k * 4.0;
+  return vec3(zx * zx, zy * zy, zx * zy);
 }
+// The tensor, and in the alpha how fine the picture is there: where the colour has detail, and where the form is
+// small (a face, a hand, a finger: the normal turns fast), 0 in the sky and on open ground up to 1.
 void main() {
   vec2 uv = gl_FragCoord.xy / uPaintSize;
   vec3 tc = colourTensor(uv);
+  float trc = tc.x + tc.y;
   // (A cloth's weave is not detail; an edge is: the small gradients fall away here.)
-  vec3 J = tc / (tc.x + tc.y + 0.03);
-  float edge = 0.0;
+  vec3 J = tc / (trc + 0.03);
+  float fine = trc / (trc + 0.01);
   float depth = texture2D(tDepth, uv).x;
-  if (uDirection > 0.0 && depth < 0.99999) {
+  if (depth < 0.99999) {
     vec3 p = viewAt(uv);
-    vec3 tf = formTensor(uv, p, edge);
-    vec3 Jf = tf / (tf.x + tf.y + 0.02);
+    float curve;
+    vec3 tf = formTensor(uv, p, curve);
+    float trf = tf.x + tf.y;
+    vec3 Jf = tf / (trf + 0.02);
     J = mix(J, Jf, uDirection);
+    // (Fine where the surface turns away steeply, a silhouette or the side of an arm; where it is curved small, a
+    // hand or a nose; and where it is flesh, which a painter keeps smooth.)
+    fine = max(fine, max(trf / (trf + 0.012), curve / (curve + 0.012)));
+    fine = max(fine, 0.6 * skin(colourAt(uv)));
   }
-  gl_FragColor = vec4(J, edge);
+  gl_FragColor = vec4(J, fine);
 }
 `;
 
@@ -141,7 +159,8 @@ uniform vec2 uPaintSize;
 uniform vec2 uDir;
 void main() {
   vec2 uv = gl_FragCoord.xy / uPaintSize;
-  vec2 delta = uDir * 2.0 / uPaintSize;
+  // (Three painted pixels a step: a form's sides reach their orientation across its flat front.)
+  vec2 delta = uDir * 3.0 / uPaintSize;
   vec4 sum = texture2D(tBlur, uv) * 0.2270270270;
   sum += (texture2D(tBlur, uv + delta * 1.3846153846) + texture2D(tBlur, uv - delta * 1.3846153846)) * 0.3162162162;
   sum += (texture2D(tBlur, uv + delta * 3.2307692308) + texture2D(tBlur, uv - delta * 3.2307692308)) * 0.0702702703;
@@ -178,10 +197,13 @@ void gather(vec3 m, vec3 s, float w, inout vec3 painted, inout float total) {
 void main() {
   vec2 uv = gl_FragCoord.xy / uPaintSize;
   float A;
-  vec2 t = flowOf(texture2D(tTensor, uv), A);
-  // (An ellipse along the flow: longer along it the more oriented the picture is there.)
-  float a = uRadius * clamp(1.0 + A, 0.1, 2.0);
-  float b = uRadius * clamp(1.0 / (1.0 + A), 0.1, 2.0);
+  vec4 J = texture2D(tTensor, uv);
+  vec2 t = flowOf(J, A);
+  // (An ellipse along the flow: longer along it the more oriented the picture is there; and a smaller brush
+  // where the picture is fine, so an eye keeps its eye.)
+  float radius = uRadius * mix(1.0, 0.5, J.w);
+  float a = radius * clamp(1.0 + A, 0.1, 2.0);
+  float b = radius * clamp(1.0 / (1.0 + A), 0.1, 2.0);
   mat2 SR = mat2(t.x / a, -t.y / b, t.y / a, t.x / b);
   float ex = min(ceil(sqrt(a * a * t.x * t.x + b * b * t.y * t.y)), float(MAXR));
   float ey = min(ceil(sqrt(a * a * t.y * t.y + b * b * t.x * t.x)), float(MAXR));
@@ -229,11 +251,18 @@ void main() {
   vec2 q = vec2(colour ? at.x - uLayer.y : at.x, at.y);
   vec4 tile = texture2D(tTile, (q + vec2(0.5 + uLayer.w)) / uTileCells);
   vec2 cuv = (q + tile.xy) * uLayer.x / uPaintSize;
-  if (colour) { gl_FragColor = vec4(texture2D(tPaint, cuv).rgb, texture2D(tPrep, cuv).a); return; }
+  float share = texture2D(tPrep, cuv).a;
+  if (colour) { gl_FragColor = vec4(texture2D(tPaint, cuv).rgb, share); return; }
   vec4 J = texture2D(tTensor, cuv);
   float A;
   vec2 dir = flowOf(J, A);
-  gl_FragColor = vec4(dir, A, J.x + J.y);
+  // (A sky's faint gradient is oriented but not a structure: the orientation counts by how much is there. Where the
+  // picture is flat the stroke takes an angle of its own, more so in the sky than on a surface, whose flow is its
+  // neighbours'; where it is oriented it follows the flow.)
+  float oriented = A * smoothstep(0.0, 0.1, J.x + J.y);
+  float turn = (tile.w - 0.5) * mix(0.5, 1.0, step(0.999, share)) * (1.0 - oriented);
+  dir = vec2(dir.x * cos(turn) - dir.y * sin(turn), dir.x * sin(turn) + dir.y * cos(turn));
+  gl_FragColor = vec4(dir, oriented, smoothstep(0.15, 0.7, J.w));
 }
 `;
 
@@ -257,9 +286,10 @@ float cover(float u, float v, float reach, float wide) {
   return along * across;
 }
 // One layer of strokes, a stroke a cell, over what is there: the stroke on top wins. A stroke counts only where
-// the picture has the least detail asked at its centre, and only on its own surface (a stroke laid in the sky at
-// the hat's edge does not cross onto the hat); the lift puts the whole layer above another.
-void layer(vec2 p, vec3 base, float depth, sampler2D table, vec4 how, vec2 gate, inout vec4 best, inout vec3 state) {
+// the picture is as fine as the layer asks at its centre (gate.x up to gate.y), and only on its own surface and
+// its own colour: a stroke laid in the sky at the hat's edge does not cross onto the hat, and one on the bank does
+// not cross onto the water. The lift (gate.z) puts the whole layer above another.
+void layer(vec2 p, vec3 base, float depth, sampler2D table, vec4 how, vec3 gate, inout vec4 best, inout vec3 state) {
   float cell = how.x;
   vec2 cells = floor(p / cell);
   for (int j = -2; j <= 2; j++) {
@@ -268,19 +298,22 @@ void layer(vec2 p, vec3 base, float depth, sampler2D table, vec4 how, vec2 gate,
       if (q.x < 0.0 || q.y < 0.0 || q.x >= how.y || q.y >= how.z) continue;
       vec2 slot = (q + 0.5) / vec2(how.y * 2.0, how.z);
       vec4 flow = texture2D(table, slot);
-      if (flow.w < gate.x) continue;
+      if (flow.w < gate.x || flow.w > gate.y) continue;
       vec4 tile = texture2D(tTile, (q + vec2(0.5 + how.w)) / uTileCells);
       vec2 d = p - (q + tile.xy) * cell;
       float u = dot(d, flow.xy);
       float v = dot(d, vec2(-flow.y, flow.x));
-      // (Longer where the picture is oriented, a dab where it is flat.)
-      float reach = cell * (0.7 + 1.1 * tile.z) * mix(0.5, 1.0, flow.z);
-      float wide = cell * (0.26 + 0.22 * (1.0 - tile.z));
+      // (Longer where the picture is oriented, a dab where it is flat; smaller where it is fine.)
+      float scale = mix(1.0, 0.35, flow.w);
+      float reach = cell * scale * (0.8 + 0.9 * tile.z) * mix(0.75, 1.0, flow.z);
+      float wide = cell * scale * (0.18 + 0.2 * (1.0 - tile.z));
       float c = cover(u, v, reach, wide);
-      float order = tile.w + gate.y;
+      float order = tile.w + gate.z;
       if (c > 0.4 && order > state.x) {
         vec4 own = texture2D(table, slot + vec2(0.5, 0.0));
         if (abs(own.a - depth) > 0.04) continue;
+        c *= 1.0 - smoothstep(0.1, 0.3, distance(own.rgb, base));
+        if (c <= 0.4) continue;
         state = vec3(order, c, flow.w);
         // (A loaded brush dragged through the picture: the stroke's own colour where the picture is plain, and the
         // picture's own colour showing through where it has detail worth keeping, with the stroke's shape over it.)
@@ -299,14 +332,15 @@ void main() {
   vec3 base = texture2D(tPaint, p / uPaintSize).rgb;
   float depth = texture2D(tPrep, p / uPaintSize).a;
   vec4 best = vec4(base, 0.0);
-  // (Which stroke is on top, how far inside it this point is, and how much detail it was laid over.)
+  // (Which stroke is on top, how far inside it this point is, and how fine the picture is under it.)
   vec3 state = vec3(-1.0, 0.0, 0.0);
-  // Broad strokes everywhere, then finer ones where there is detail to keep.
-  layer(p, base, depth, tCoarse, uCoarse, vec2(0.0, 0.0), best, state);
-  layer(p, base, depth, tFine, uFine, vec2(0.5, 1.0), best, state);
-  // (The stroke on top fades in over its own edge, so no stroke ends in a stair; and strokes over plain passages
-  // sink part way into the base, as thin paint does.)
-  float on = uStrokes * smoothstep(0.4, 0.6, state.y) * (0.6 + 0.4 * state.z);
+  // Broad strokes where the picture is plain, finer ones where it is fine; the finest passages, a face, a hand, keep
+  // the smoothed base with the lightest of strokes over it.
+  layer(p, base, depth, tCoarse, uCoarse, vec3(0.0, 0.7, 0.0), best, state);
+  layer(p, base, depth, tFine, uFine, vec3(0.3, 1.0, 1.0), best, state);
+  // (The stroke on top fades in over its own edge, so no stroke ends in a stair; strokes sink into the base where
+  // the picture is fine, as thin paint does, and stand on it where it is plain.)
+  float on = uStrokes * smoothstep(0.4, 0.6, state.y) * mix(1.0, 0.3, state.z);
   gl_FragColor = vec4(mix(base, best.rgb, on), best.a * on);
 }
 `;
@@ -314,9 +348,14 @@ void main() {
 export const GRADE_GLSL = /* glsl */ `
 precision highp float;
 ${TONE_GLSL}
+${FLOW_GLSL}
+${VIEW_GLSL}
 uniform sampler2D tPainted;
+uniform sampler2D tPrep;
 uniform sampler2D tTensor;
 uniform sampler2D tGrain;
+uniform sampler2D tTile;
+uniform float uTileCells;
 uniform vec2 uSize;
 uniform vec2 uPaintSize;
 uniform float uGrainSize;
@@ -326,9 +365,34 @@ uniform float uGrade;
 uniform float uView;
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+// Where the paint lies thick and where thin, in patches the size of a few strokes, from the seed's tile.
+float patches(vec2 p) {
+  vec2 at = p / 96.0;
+  vec2 cell = floor(at);
+  vec2 f = at - cell;
+  f = f * f * (3.0 - 2.0 * f);
+  vec2 s = vec2(1.0 / uTileCells);
+  float a = texture2D(tTile, (cell + 0.5) * s).w;
+  float b = texture2D(tTile, (cell + vec2(1.5, 0.5)) * s).w;
+  float c = texture2D(tTile, (cell + vec2(0.5, 1.5)) * s).w;
+  float d = texture2D(tTile, (cell + 1.5) * s).w;
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+// The flow as colour, for checking: the hue is the direction (red across, cyan up), the saturation how oriented.
+vec3 flowColour(vec2 uv) {
+  float A;
+  vec2 t = flowOf(texture2D(tTensor, uv), A);
+  float hue = atan(t.y, t.x) / 3.14159265;
+  hue = fract(hue + 1.0);
+  vec3 rgb = clamp(abs(fract(hue + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+  return mix(vec3(1.0), rgb, 0.2 + 0.8 * A);
+}
 void main() {
   vec2 uv = gl_FragCoord.xy / uSize;
-  if (uView > 0.5) { gl_FragColor = vec4(toned(uv), 1.0); return; }
+  if (uView > 0.5 && uView < 1.5) { gl_FragColor = vec4(toned(uv), 1.0); return; }
+  if (uView > 1.5 && uView < 2.5) { gl_FragColor = vec4(flowColour(uv), 1.0); return; }
+  if (uView > 3.5) { float z = viewDepth(texture2D(tDepth, uv).x); gl_FragColor = vec4(fract(z * 100.0), fract(z * 1000.0), texture2D(tDepth, uv).x < 0.99999 ? 0.3 : 1.0, 1.0); return; }
+  if (uView > 2.5) { gl_FragColor = vec4(texture2D(tTensor, uv).w, texture2D(tPainted, uv).a, texture2D(tPrep, uv).a, 1.0); return; }
   vec2 px = 1.0 / uPaintSize;
   vec4 here = texture2D(tPainted, uv);
   vec4 r = texture2D(tPainted, uv + vec2(px.x, 0.0));
@@ -336,22 +400,25 @@ void main() {
   vec4 u = texture2D(tPainted, uv + vec2(0.0, px.y));
   vec4 d = texture2D(tPainted, uv - vec2(0.0, px.y));
   vec3 c = here.rgb;
-  // Edges: where the paint changes sharply, and along silhouettes, the paint darkens as strokes meet.
+  // Edges: where the paint changes sharply, and along silhouettes (a step in depth), the paint darkens as strokes meet.
   float contrast = abs(luma(r.rgb) - luma(l.rgb)) + abs(luma(u.rgb) - luma(d.rgb));
-  float silhouette = texture2D(tTensor, uv).w;
+  float jump = abs(texture2D(tPrep, uv + vec2(px.x, 0.0)).a - texture2D(tPrep, uv - vec2(px.x, 0.0)).a)
+    + abs(texture2D(tPrep, uv + vec2(0.0, px.y)).a - texture2D(tPrep, uv - vec2(0.0, px.y)).a);
+  float silhouette = smoothstep(0.02, 0.1, jump);
   c *= 1.0 - uEdge * (0.3 * smoothstep(0.12, 0.5, contrast) + 0.3 * silhouette);
   // Impasto: the strokes' height lit from the upper left.
   float relief = (l.a - r.a) * 0.7 + (u.a - d.a) * 0.7;
   c *= 1.0 + relief * 0.2;
-  // Canvas: the weave's relief, lit the same way, and its threads showing where the paint is thin.
+  // Canvas: the weave's relief, lit the same way, and its threads showing only where the paint is thin: under no
+  // stroke, away from the fine passages the painter worked over, and in the thin patches of the picture.
   // (A thread and a half of canvas to the frame pixel.)
   vec2 g = gl_FragCoord.xy / (uGrainSize * 1.5);
   vec2 gpx = vec2(1.0 / uGrainSize);
   float h = texture2D(tGrain, g).x;
   float weave = (texture2D(tGrain, g - vec2(gpx.x, 0.0)).x - texture2D(tGrain, g + vec2(gpx.x, 0.0)).x)
     + (texture2D(tGrain, g + vec2(0.0, gpx.y)).x - texture2D(tGrain, g - vec2(0.0, gpx.y)).x);
-  float thin = 1.0 - here.a * 0.7;
-  c *= 1.0 + uGrain * thin * (weave * 0.25 + (h - 0.5) * 0.08);
+  float thin = (1.0 - min(here.a * 2.0, 1.0)) * (1.0 - texture2D(tTensor, uv).w) * smoothstep(0.35, 0.75, patches(gl_FragCoord.xy));
+  c *= 1.0 + uGrain * thin * (weave * 0.35 + (h - 0.5) * 0.1);
   // Varnish: a warm glaze, blacks lifted toward umber, a little contrast, a vignette.
   float lum = luma(c);
   vec3 varnished = c * vec3(1.05, 0.985, 0.88);

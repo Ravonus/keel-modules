@@ -12,14 +12,17 @@ type Vec = readonly [number, number, number];
 // (keel-lit is untyped here, as in people-sheet: a node or a matrix is whatever lit hands back.)
 type Node3 = any;
 type Matrix = any;
-type Variant = "raw" | "smooth" | "stroked";
+type Variant = "raw" | "smooth" | "stroked" | "flow" | "detail" | "depth";
 interface Shot { width: number; height: number; dpr: number; seed: number }
 interface Timing { gpu: number[]; sync: number[]; raf: number[] }
 
 const ACTION = "wave";
 const YAW = 0.22;
 const HEAD_BONE = 4;
-const SETTINGS: Readonly<Record<Exclude<Variant, "raw">, PainterlySettings>> = { smooth: SMOOTH_SETTINGS, stroked: STROKED_SETTINGS };
+const SETTINGS: Readonly<Record<Variant, PainterlySettings>> = {
+  raw: STROKED_SETTINGS, smooth: SMOOTH_SETTINGS, stroked: STROKED_SETTINGS, flow: STROKED_SETTINGS, detail: STROKED_SETTINGS,
+  depth: STROKED_SETTINGS,
+};
 
 const unitOf = (v: Vec): Vec => {
   const n = Math.hypot(v[0], v[1], v[2]) || 1;
@@ -209,13 +212,24 @@ function build(shot: Shot): Scene {
   return { renderer, stage, camera, paint, info };
 }
 
-function show(scene: Scene, variant: Variant): void {
-  const { paint } = scene;
-  if (variant === "raw") paint.setView("raw");
-  else {
-    paint.setView("painted");
-    paint.setSettings(SETTINGS[variant]);
+/** A variant by name, or "set:key=value,key=value" for any settings over the stroked ones. */
+function settingsOf(variant: string): PainterlySettings {
+  if (!variant.startsWith("set:")) return SETTINGS[variant as Variant];
+  const over: Record<string, number> = {};
+  for (const pair of variant.slice(4).split(",")) {
+    const [key, value] = pair.split("=");
+    if (key && value) over[key] = Number(value);
   }
+  return { ...STROKED_SETTINGS, ...over };
+}
+
+function show(scene: Scene, variant: string): void {
+  const { paint } = scene;
+  // (The checking views show the stroked variant's flow and fineness.)
+  const views = ["raw", "flow", "detail", "depth"] as const;
+  const view = views.find((v) => v === variant);
+  paint.setView(view ?? "painted");
+  paint.setSettings(settingsOf(variant));
   paint.render(scene.stage, scene.camera);
 }
 
@@ -224,7 +238,7 @@ function show(scene: Scene, variant: Variant): void {
  * has none); `sync` is a frame drawn and then one pixel read back, which waits for it (CPU and GPU together); `raf`
  * the interval between frames the page was given.
  */
-async function time(scene: Scene, variant: Variant, frames: number): Promise<Timing> {
+async function time(scene: Scene, variant: string, frames: number): Promise<Timing> {
   const gl: WebGL2RenderingContext = scene.renderer.getContext();
   const ext = gl.getExtension("EXT_disjoint_timer_query_webgl2");
   const pixel = new Uint8Array(4);
@@ -282,8 +296,8 @@ const api = {
   ready: false,
   scene: null as Scene | null,
   build(shot: Shot): Record<string, unknown> { api.scene = build(shot); api.ready = true; return api.scene.info; },
-  still(variant: Variant): string { show(api.scene!, variant); return api.scene!.renderer.domElement.toDataURL("image/png"); },
-  time(variant: Variant, frames: number): Promise<Timing> { return time(api.scene!, variant, frames); },
+  still(variant: string): string { show(api.scene!, variant); return api.scene!.renderer.domElement.toDataURL("image/png"); },
+  time(variant: string, frames: number): Promise<Timing> { return time(api.scene!, variant, frames); },
   sheet,
 };
 (globalThis as unknown as { painterly: typeof api }).painterly = api;

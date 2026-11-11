@@ -18,7 +18,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const { values } = parseArgs({ options: {
   out: { type: "string", default: "painterly-demo" }, width: { type: "string", default: "1440" }, height: { type: "string", default: "900" },
   dpr: { type: "string", default: "2" }, frames: { type: "string", default: "300" }, seed: { type: "string", default: "52" },
-  compare: { type: "string" }, variants: { type: "string", default: "raw,smooth,stroked" },
+  compare: { type: "string" }, variants: { type: "string", default: "raw,smooth,stroked,flow" },
+  interleave: { type: "string", default: "0" },
 } });
 const dirs = (dir) => (existsSync(dir) ? readdirSync(dir).map((name) => join(dir, name)) : []);
 
@@ -71,22 +72,54 @@ try {
     });
     const result = { shot, frames, load: loadavg(), gpu, builtMs: Math.round(built), variants: {} };
     const stills = [];
+    const timed = variants.filter((variant) => !["flow", "detail", "depth"].includes(variant));
+    const ms = (s) => (s ? `median ${s.median.toFixed(2)} ms, p95 ${s.p95.toFixed(2)} ms` : "none");
     for (const variant of variants) {
       const still = await page.evaluate((v) => globalThis.painterly.still(v), variant);
       stills.push(still);
-      writeFileSync(join(out, `${variant}.png`), png(still));
-      const timing = await page.evaluate(([v, n]) => globalThis.painterly.time(v, n), [variant, frames]);
-      result.variants[variant] = { gpu: timing.gpu.length ? stats(timing.gpu) : null, sync: stats(timing.sync), raf: stats(timing.raf) };
-      const { gpu, sync, raf } = result.variants[variant];
-      const ms = (s) => (s ? `median ${s.median.toFixed(2)} ms, p95 ${s.p95.toFixed(2)} ms` : "none");
-      console.log(`${variant}: gpu ${ms(gpu)}; sync ${ms(sync)}; raf ${ms(raf)}`);
+      writeFileSync(join(out, `${variant.replace(/[:=,]/g, "_")}.png`), png(still));
+    }
+    const runs = Number(values.interleave);
+    if (runs > 0) {
+      // Interleaved: each variant a block of `frames` frames in turn, `runs` times over, so a busy GPU's noise falls
+      // evenly on all of them; what is reported is the median over the runs of each run's median and p95.
+      /** @type {Record<string, { gpu: ReturnType<typeof stats> | null, sync: ReturnType<typeof stats> }[]>} */
+      const blocks = {};
+      for (let run = 0; run < runs; run += 1) {
+        for (const variant of timed) {
+          const timing = await page.evaluate(([v, n]) => globalThis.painterly.time(v, n), [variant, frames]);
+          (blocks[variant] ??= []).push({ gpu: timing.gpu.length ? stats(timing.gpu) : null, sync: stats(timing.sync) });
+        }
+      }
+      /** @param {number[]} list */
+      const median = (list) => quantile([...list].sort((a, b) => a - b), 0.5);
+      result.interleaved = { blockFrames: frames, runs };
+      for (const variant of timed) {
+        const its = blocks[variant] ?? [];
+        /** @param {"gpu" | "sync"} kind @param {"median" | "p95"} stat */
+        const over = (kind, stat) => median(its.map((block) => block[kind]?.[stat]).filter((n) => n !== undefined));
+        result.variants[variant] = {
+          runs: its,
+          gpu: its[0]?.gpu ? { median: over("gpu", "median"), p95: over("gpu", "p95") } : null,
+          sync: { median: over("sync", "median"), p95: over("sync", "p95") },
+        };
+        const { gpu, sync } = result.variants[variant];
+        console.log(`${variant}: over ${runs} runs of ${frames}, gpu ${ms(gpu)}; sync ${ms(sync)}`);
+      }
+    } else {
+      for (const variant of timed) {
+        const timing = await page.evaluate(([v, n]) => globalThis.painterly.time(v, n), [variant, frames]);
+        result.variants[variant] = { gpu: timing.gpu.length ? stats(timing.gpu) : null, sync: stats(timing.sync), raf: stats(timing.raf) };
+        const { gpu, sync, raf } = result.variants[variant];
+        console.log(`${variant}: gpu ${ms(gpu)}; sync ${ms(sync)}; raf ${ms(raf)}`);
+      }
     }
     let compare = null;
     if (values.compare) {
       const type = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" }[extname(values.compare).toLowerCase()] ?? "image/png";
       compare = `data:${type};base64,${readFileSync(values.compare).toString("base64")}`;
     }
-    const sheet = await page.evaluate(([s, c, w, h]) => globalThis.painterly.sheet(s, c, w, h), [stills, compare, shot.width, shot.height]);
+    const sheet = await page.evaluate(([s, c, w, h]) => globalThis.painterly.sheet(s, c, w, h), [stills.slice(0, 3), compare, shot.width, shot.height]);
     writeFileSync(join(out, "sheet.png"), png(sheet));
     result.problems = problems;
     writeFileSync(join(out, "timings.json"), JSON.stringify(result, null, 2));

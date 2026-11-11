@@ -20,8 +20,12 @@ export interface Painterly {
   setSize(cssWidth: number, cssHeight: number, devicePixelRatio: number): void;
   /** Draws the scene through the camera, painted, onto whatever target the renderer had. */
   render(scene: unknown, camera: CameraLike): void;
-  /** What the canvas shows: the painting (default), or the lit frame tone mapped and nothing else, for comparing. */
-  setView(view: "painted" | "raw"): void;
+  /**
+   * What the canvas shows: the painting (default); the lit frame tone mapped and nothing else, for comparing; or,
+   * for checking, the flow as colour (the hue its direction, red across and cyan up, the saturation how oriented),
+   * or how fine the picture is (red), the strokes' height (green) and the depth (blue).
+   */
+  setView(view: "painted" | "raw" | "flow" | "detail" | "depth"): void;
   dispose(): void;
 }
 
@@ -37,6 +41,8 @@ const PASSES = {
 
 /** The broad layer's cell, in brushes; the fine layer's is one brush. */
 const COARSE = 3;
+/** What the finish draws, as the shader reads it. */
+const VIEWS = { painted: 0, raw: 1, flow: 2, detail: 3, depth: 4 } as const;
 type PassName = keyof typeof PASSES;
 
 function createPass(
@@ -104,13 +110,14 @@ function createTargets(lit: LitLike): Targets {
   const depthTexture = new lit.DepthTexture(1, 1);
   const target = (options: Readonly<Record<string, unknown>>): RenderTargetLike => new lit.RenderTarget(1, 1, options);
   return {
-    // (No multisampling: the paint smooths what it draws, and at half size it takes four frame pixels a painted one.)
+    // (No multisampling: the paint smooths what it draws, and at half size it takes four frame pixels a painted one.
+    // Half floats throughout: eight bits a channel would band a sky once the varnish stretches it.)
     world: target({ ...linear, type: "half", depthBuffer: true, depthTexture }),
-    prep: target(linear),
+    prep: target({ ...linear, type: "half" }),
     tensor: [target({ ...linear, type: "half" }), target({ ...linear, type: "half" })],
-    paint: target(linear),
+    paint: target({ ...linear, type: "half" }),
     tables: [target({ ...linear, ...nearest, type: "half" }), target({ ...linear, ...nearest, type: "half" })],
-    strokes: target(linear),
+    strokes: target({ ...linear, type: "half" }),
   };
 }
 
@@ -180,7 +187,7 @@ function pass(chain: Chain, name: PassName, target: RenderTargetLike | null): vo
   chain.renderer.render(chain.passes[name].scene, chain.quad);
 }
 
-/** The tensor of the tone-mapped frame, blurred across and down, left in `tensor[0]`. */
+/** The tensor of the frame, blurred across then down through `tensor[1]`, left in `tensor[0]`. */
 function drawTensor(chain: Chain): void {
   const { targets, uniforms } = chain;
   pass(chain, "tensor", targets.tensor[0]);
@@ -290,7 +297,7 @@ export function createPainterly(lit: LitLike, renderer: RendererLike, input?: un
     },
     setView(view) {
       raw = view === "raw";
-      set(uniforms, "uView", raw ? 1 : 0);
+      set(uniforms, "uView", VIEWS[view]);
     },
     dispose() { disposeChain(chain, tiles); },
   };

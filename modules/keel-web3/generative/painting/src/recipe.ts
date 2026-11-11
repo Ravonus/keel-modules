@@ -17,6 +17,10 @@ export interface Selection {
   readonly feather?: number;
   /** Layer pixels the selection reaches past its ids, under the layers in front: no gaps at their edges. */
   readonly grow?: number;
+  /** A spot the selection keeps to: its centre on the guides as shares of their width and height, and its radius as a
+   *  share of the height; it moves with the warp. For what the ids do not split: lips, a cheek, an iris. */
+  readonly at?: readonly [number, number];
+  readonly radius?: number;
 }
 
 export interface PassRecipe {
@@ -112,6 +116,9 @@ function fail(where: string, what: string): never {
 function checkSelection(v: unknown, where: string): void {
   if (!isObject(v) || !Array.isArray(v.id) || !v.id.every((s) => typeof s === "string")) {
     fail(where, "needs a selection { id: [names] }");
+  }
+  if (v.at !== undefined && (!isPair(v.at) || !(typeof v.radius === "number" && v.radius > 0))) {
+    fail(where, "takes a spot as at [x, y] with a radius above 0");
   }
 }
 

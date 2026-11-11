@@ -119,6 +119,32 @@ export default [
     expect: [[0, 1, 0, 1], [0, 1, 0, 1]],
   },
   {
+    name: "a spot keeps a pass to a disc of its ids: fewer strokes than the whole, the plan pinned",
+    run: ({ planPainting, readRecipe }) => {
+      const spot = { id: ["skin.*"], at: [0.5, 0.375], radius: 0.1 };
+      const recipe = { ...RECIPE, layers: [{ ...RECIPE.layers[2], passes: [{ pass: "form", colour: "ramp(skin, light, 4)", select: spot }] }] };
+      const plan = planPainting(readRecipe(recipe), GUIDES);
+      const strokes = plan.layers[0].steps[0].strokes;
+      const whole = planPainting(readRecipe({ ...recipe, layers: [{ ...recipe.layers[0],
+        passes: [{ pass: "form", colour: "ramp(skin, light, 4)" }] }] }), GUIDES);
+      return [strokes.length > 0, strokes.length < whole.layers[0].steps[0].strokes.length, plan.digest];
+    },
+    expect: [true, true, "7e9c35b8cabca590"],
+  },
+  {
+    name: "render/guides' passes read as guides: table colours to indices, the line's alpha to red",
+    run: ({ guidesOf }) => {
+      const px = (rgba) => ({ width: 3, height: 1, data: Uint8Array.from(rgba) });
+      const g = guidesOf({
+        table: [{ id: 1, name: "cap", colour: [50, 94, 200] }, { id: 2, name: "skin", colour: [188, 200, 50] }],
+        passes: { id: px([188, 200, 50, 255, 0, 0, 0, 0, 50, 94, 200, 255]), light: px([9, 9, 9, 255, 0, 0, 0, 0, 1, 1, 1, 255]),
+          line: px([255, 0, 0, 255, 0, 40, 0, 40, 0, 0, 0, 0]) },
+      });
+      return [g.ids, [...g.id.data].filter((_, i) => i % 4 === 0), [...g.line.data].filter((_, i) => i % 4 === 0)];
+    },
+    expect: [["none", "cap", "skin"], [2, 0, 1], [255, 40, 0]],
+  },
+  {
     name: "a bad recipe throws with where and what",
     run: ({ readRecipe, planPainting, colourRule }) => [
       throws(() => readRecipe({ ...RECIPE, format: "keel-painting@2" })),
@@ -126,6 +152,7 @@ export default [
       throws(() => readRecipe({ ...RECIPE, layers: [] })),
       throws(() => colourRule("ramp(skin, depth, 4)", RECIPE.palettes)),
       throws(() => colourRule("#12345", RECIPE.palettes)),
+      throws(() => readRecipe({ ...RECIPE, layers: [{ ...RECIPE.layers[0], select: { id: ["hair"], at: [0.5, 0.5] } }] })),
       throws(() => planPainting(readRecipe({ ...RECIPE, layers: [{ ...RECIPE.layers[0], select: { id: ["lip"] } }] }),
         GUIDES)),
     ],
@@ -135,6 +162,7 @@ export default [
       "TypeError: painting: layers is a list of layers.",
       "TypeError: painting: a ramp reads the light guide, not \"depth\".",
       "TypeError: painting: \"#12345\" is not #rrggbb.",
+      "TypeError: painting: layers[0].select takes a spot as at [x, y] with a radius above 0.",
       "TypeError: painting: a layer selects no pixels of the guides.",
     ],
   },

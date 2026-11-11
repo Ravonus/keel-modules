@@ -19,6 +19,8 @@ export interface SelectionPlan {
   readonly flags: Uint8Array;
   readonly feather: number;
   readonly grow: number;
+  /** A spot in frame pixels, x, y and radius, or null. */
+  readonly spot: readonly [number, number, number] | null;
 }
 
 export type Step =
@@ -49,7 +51,10 @@ export interface PaintingPlan {
 }
 
 function selectionOf(guides: Guides, s: Selection): SelectionPlan {
-  return { flags: idFlags(guides.ids, s.id, s.not ?? []), feather: s.feather ?? 1.5, grow: s.grow ?? 0 };
+  const { width, height } = guides.id;
+  const spot: [number, number, number] | null = s.at ? [s.at[0] * width, s.at[1] * height, (s.radius ?? 0) * height]
+    : null;
+  return { flags: idFlags(guides.ids, s.id, s.not ?? []), feather: s.feather ?? 1.5, grow: s.grow ?? 0, spot };
 }
 
 /** The layer's box: its ids' box, grown by `margin` and then to the canvas's shape. Whole guide pixels. */
@@ -72,7 +77,8 @@ function underOf(ctx: PassContext, guides: Guides, pass: PassRecipe): Step {
   const rule = colourRule(pass.colour ?? "", ctx.palettes);
   if (rule.kind !== "ramp") throw new TypeError("painting: an underpainting takes a ramp.");
   if (rule.palette.length > 8) throw new TypeError("painting: an underpainting's palette has at most 8 entries.");
-  const select = pass.select ? selectionOf(guides, pass.select) : { flags: ctx.flags, feather: 0, grow: ctx.grow };
+  const select = pass.select ? selectionOf(guides, pass.select)
+    : { flags: ctx.flags, feather: 0, grow: ctx.grow, spot: ctx.spot };
   return {
     kind: "under", palette: rule.palette, shift: rule.shift / (rule.steps - 1), levels: ctx.levels,
     soften: (pass.size?.[0] ?? 0.01) * ctx.frame.res[1], opacity: pass.opacity ?? 1, select,
@@ -88,7 +94,7 @@ function stepOf(ctx: PassContext, guides: Guides, pass: PassRecipe, key: number)
   }
   if (pass.pass === "under") return underOf(ctx, guides, pass);
   const own = pass.select ? selectionOf(guides, pass.select) : null;
-  const local = own ? { ...ctx, flags: own.flags, grow: own.grow } : ctx;
+  const local = own ? { ...ctx, flags: own.flags, grow: own.grow, spot: own.spot } : ctx;
   return { kind: "strokes", pass: pass.pass, strokes: planStrokes(local, pass, key) };
 }
 
@@ -127,7 +133,8 @@ function planLayer(shared: Shared, layer: LayerRecipe): LayerPlan {
   const frame = layerFrame(shared.stats, select.flags, layer.res, margin);
   const under = layerGuides(guides, shared.warp, frame, LAYER_STEP);
   const ctx: PassContext = {
-    guides, stats: shared.stats, warp: shared.warp, frame, flags: select.flags, grow: select.grow, layer: under,
+    guides, stats: shared.stats, warp: shared.warp, frame, flags: select.flags, grow: select.grow, spot: select.spot,
+    layer: under,
     levels: levelsOf(under, select.flags), seed: recipe.seed, palettes: recipe.palettes,
   };
   const name = textHash(layer.name);
@@ -144,12 +151,13 @@ const MEDIA = ["oil", "glaze", "scumble"];
 /** Every number of a layer, in a fixed order, for the digest. */
 function layerNumbers(layer: LayerPlan): Float32Array {
   const out: number[] = [...layer.box, ...layer.res, layer.opacity, ...layer.select.flags, layer.select.feather,
-    layer.select.grow,
+    layer.select.grow, ...(layer.select.spot ?? []),
     textHash(layer.blend + JSON.stringify(layer.ops))];
   for (const step of layer.steps) {
-    if (step.kind === "glaze") out.push(-1, ...step.tint, step.opacity, ...(step.select?.flags ?? []));
+    if (step.kind === "glaze") out.push(-1, ...step.tint, step.opacity, ...(step.select?.flags ?? []), ...(step.select?.spot ?? []));
     else if (step.kind === "under") {
-      out.push(-2, ...step.palette.flat(), step.shift, ...step.levels, step.soften, step.opacity, ...step.select.flags);
+      out.push(-2, ...step.palette.flat(), step.shift, ...step.levels, step.soften, step.opacity, ...step.select.flags,
+        ...(step.select.spot ?? []));
     }
     else {
       for (const s of step.strokes) {

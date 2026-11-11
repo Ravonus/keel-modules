@@ -148,3 +148,42 @@ export function principal(a: number, b: number, c: number): [number, number] {
   const l = Math.sqrt(v[0] * v[0] + v[1] * v[1]);
   return l > 0 ? [v[0] / l, v[1] / l] : [1, 0];
 }
+
+/** What render/guides' `render` returns: passes as RGBA8 rows from the top, and the table naming each id's colour. */
+export interface GuideSet {
+  readonly passes: { readonly id?: GuideImage; readonly light?: GuideImage; readonly line?: GuideImage;
+    readonly depth?: GuideImage; readonly normal?: GuideImage; readonly block?: GuideImage };
+  readonly table: readonly { readonly id: number; readonly name: string; readonly colour: readonly number[] }[];
+}
+
+function mapped(image: GuideImage, value: (data: GuideImage["data"], i: number) => number): GuideImage {
+  const data = new Uint8Array(image.data.length);
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = value(image.data, i);
+    data[i + 3] = 255;
+  }
+  return { width: image.width, height: image.height, data };
+}
+
+/**
+ * render/guides' passes as the painter reads them: the id pass's table colours to indices in red, with `ids` from
+ * the table, and the line pass's strongest line (its alpha) in red. Light and the rest pass through.
+ *
+ * @returns Guides for `planPainting` and `paint`.
+ */
+export function guidesOf(set: GuideSet): Guides {
+  const { id, light, line } = set.passes;
+  if (!id || !light) throw new TypeError("painting: a guide set needs its id and light passes.");
+  const index = new Map<number, number>();
+  const ids = ["none"];
+  for (const t of set.table) {
+    index.set(((t.colour[0] ?? 0) << 16) | ((t.colour[1] ?? 0) << 8) | (t.colour[2] ?? 0), t.id);
+    ids[t.id] = t.name;
+  }
+  const decode = (d: GuideImage["data"], i: number): number =>
+    (d[i + 3] ?? 0) === 0 ? 0 : index.get(((d[i] ?? 0) << 16) | ((d[i + 1] ?? 0) << 8) | (d[i + 2] ?? 0)) ?? 0;
+  return {
+    ...set.passes, ids: Array.from(ids, (n) => n || "none"), id: mapped(id, decode), light,
+    ...(line ? { line: mapped(line, (d, i) => d[i + 3] ?? 0) } : {}),
+  };
+}

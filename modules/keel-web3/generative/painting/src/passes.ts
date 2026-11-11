@@ -6,7 +6,7 @@ import { clamp, hash32, unit } from "./exact.js";
 import { axisOf, principal, type Guides, type IdStats } from "./guide.js";
 import { fieldAt, type LayerGuides } from "./layer.js";
 import type { Follow, Medium, PassRecipe, Tip } from "./recipe.js";
-import type { Warp } from "./warp.js";
+import { warpPoint, type Warp } from "./warp.js";
 
 /** A stroke as render/brush takes it: path in canvas pixels, size half the tip's width. */
 export interface PlannedStroke {
@@ -42,6 +42,8 @@ export interface PassContext {
   readonly flags: Uint8Array;
   /** Layer pixels the pass may reach past those ids. */
   readonly grow: number;
+  /** A spot the pass keeps to, in guide pixels (x, y, radius), or null. */
+  readonly spot: readonly [number, number, number] | null;
   /** The light guide's bytes that map to 0 and 1 for this layer. */
   readonly levels: readonly [number, number];
   readonly seed: number;
@@ -141,8 +143,17 @@ function flowAt(ctx: PassContext, follow: Follow, q: readonly [number, number], 
 
 const AROUND = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
+/** Whether a canvas point lies in the pass's spot: on the guides, so the spot moves with the warp as the ids do. */
+function inSpot(ctx: PassContext, q: readonly [number, number]): boolean {
+  const [x, y, r] = ctx.spot ?? [0, 0, 0];
+  const p = toGuide(ctx.frame, q);
+  const g = warpPoint(ctx.warp, p[0], p[1]);
+  return (g[0] - x) * (g[0] - x) + (g[1] - y) * (g[1] - y) <= r * r;
+}
+
 /** Whether a canvas point lies on an id the pass may paint, or within its grow of one. */
 function inside(ctx: PassContext, q: readonly [number, number]): boolean {
+  if (ctx.spot && !inSpot(ctx, q)) return false;
   const reach = ctx.grow > 0 ? AROUND : AROUND.slice(0, 1);
   const { layer, grow } = ctx;
   return reach.some(([x, y]) => ctx.flags[fieldAt(layer, layer.id, q[0] + x * grow, q[1] + y * grow)] === 1);

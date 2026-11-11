@@ -34,6 +34,12 @@ vec2 guidePoint() {
   vec2 q = vec2(gl_FragCoord.x, uCanvas.y - gl_FragCoord.y);
   return uBox.xy + q / uCanvas * uBox.zw;
 }
+uniform vec4 uSpot;
+// 1 inside the selection's spot (x, y, radius in guide pixels, read through the warp; w 1 when there is one), or
+// everywhere without one.
+float spotted() {
+  return uSpot.w < .5 ? 1. : step(length(warped(guidePoint()) - uSpot.xy), uSpot.z);
+}
 `;
 
 /** 1 where the id under the pixel is selected. */
@@ -45,7 +51,7 @@ void main() {
   vec2 s = warped(guidePoint());
   ivec2 at = clamp(ivec2(floor(s)), ivec2(0), ivec2(uGuide) - 1);
   int id = int(texelFetch(uId, at, 0).r * 255. + .5);
-  outColor = vec4(texelFetch(uFlags, ivec2(id, 0), 0).r, 0., 0., 1.);
+  outColor = vec4(texelFetch(uFlags, ivec2(id, 0), 0).r * spotted(), 0., 0., 1.);
 }`;
 
 /**
@@ -66,7 +72,7 @@ void main() {
   vec2 s = warped(guidePoint());
   ivec2 at = clamp(ivec2(floor(s)), ivec2(0), ivec2(uGuide) - 1);
   int id = int(texelFetch(uId, at, 0).r * 255. + .5);
-  float m = texelFetch(uFlags, ivec2(id, 0), 0).r;
+  float m = texelFetch(uFlags, ivec2(id, 0), 0).r * spotted();
   float l = texture(uLight, s / uGuide).r * 255.;
   float v = sqrt(clamp((l - uLevels.x) / max(uLevels.y - uLevels.x, 1.), 0., 1.));
   float t = clamp(1. - v + uShift, 0., 1.) * float(uCount - 1);

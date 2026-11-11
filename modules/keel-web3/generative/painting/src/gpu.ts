@@ -183,13 +183,16 @@ function upload(kit: Kit, plan: PaintingPlan, guides: Guides): Shared {
   };
 }
 
+const spotOf = (s: SelectionPlan): number[] => (s.spot ? [...s.spot, 1] : [0, 0, 0, 0]);
+
 /** A selection's mask at a layer's size, feathered. The caller drops it. */
 function maskOf(kit: Kit, shared: Shared, layer: LayerPlan, select: SelectionPlan): Target {
   const { gl } = kit;
   const flags = flagTexture(gl, select.flags);
   const a = target(gl, layer.res);
   const b = target(gl, layer.res);
-  run(kit, "mask", a, { uWarp: shared.warp, uId: shared.id, uFlags: flags, uGuide: shared.guide, uBox: layer.box });
+  run(kit, "mask", a, { uWarp: shared.warp, uId: shared.id, uFlags: flags, uGuide: shared.guide, uBox: layer.box,
+    uSpot: spotOf(select) });
   if (select.grow > 0) {
     run(kit, "blur", b, { uSource: a.texture, uDir: [1, 0], uSigma: select.grow, uLift: 0 });
     run(kit, "blur", a, { uSource: b.texture, uDir: [0, 1], uSigma: select.grow, uLift: 0.3 });
@@ -214,6 +217,7 @@ function underpaint(kit: Kit, shared: Shared, layer: LayerPlan, step: Step & { k
   const b = target(gl, layer.res);
   run(kit, "under", a, {
     uWarp: shared.warp, uId: shared.id, uFlags: flags, uLight: shared.light, uGuide: shared.guide, uBox: layer.box,
+    uSpot: spotOf(step.select),
     uPalette: step.palette.flat(), uCount: step.palette.length, uLevels: step.levels, uShift: step.shift,
   });
   run(kit, "blur", b, { uSource: a.texture, uDir: [1, 0], uSigma: step.soften, uLift: 0 });

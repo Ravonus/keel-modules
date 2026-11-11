@@ -74,9 +74,10 @@ to 8 points and its size is above 0, or `packStrokes` throws.
 ## Budgets
 
 - Code: 17,433 B min, 6,028 B brotli (E 8–10 KB in the spec).
-- Paint: the 06 figure's 15 k strokes over nine canvases, 0.5–1.6 Mpx each,
-  in about 45 ms of GPU at four sub-batches on an M4 Max under load
-  (`generative/painting`'s trial).
+- Paint: the 06 figure's 15.7 k strokes over eight canvases of 0.07–1.2 Mpx,
+  0.9–6 ms a layer and about 24 ms in all on the GPU at four sub-batches
+  (M4 Max, Chrome on Metal, median of 7 at load 9; `generative/painting`'s
+  trial).
 - Memory: two RGBA16F targets and a snapshot a canvas, about 24 bytes a pixel
   while it is painted.
 

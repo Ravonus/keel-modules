@@ -14,8 +14,8 @@ export type {
 } from "./recipe.js";
 export { along, colourRule, rampColour, rgb } from "./colour.js";
 export type { ColourRule, Rgb } from "./colour.js";
-export { axisOf, boxOf, idFlags, idStats, matches, principal, redAt } from "./guide.js";
-export type { GuideImage, Guides, IdStats } from "./guide.js";
+export { axisOf, boxOf, guidesOf, idFlags, idStats, matches, principal, redAt } from "./guide.js";
+export type { GuideImage, GuideSet, Guides, IdStats } from "./guide.js";
 export { WARP_CELLS, handlePoint, planWarp, warpPoint } from "./warp.js";
 export type { Warp } from "./warp.js";
 export { PRESETS, expandPasses } from "./presets.js";

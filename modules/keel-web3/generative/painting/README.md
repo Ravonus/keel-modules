@@ -9,10 +9,11 @@ painter masks, blends, bleeds and grades the layers into a frame.
 
 ```js
 import { createBrush, packStrokes } from "keel://module/brush.js";
-import { createPainting, planPainting, readRecipe } from "keel://module/painting.js";
+import { createPainting, guidesOf, planPainting, readRecipe } from "keel://module/painting.js";
 
 const recipe = readRecipe(await (await fetch("figure.paint.json")).json());
-const plan = planPainting(recipe, { ids, id, light, line });   // RGBA8 ImageData-like, rows from the top
+const guides = guidesOf(set);              // render/guides' render(): table colours to ids, the line's alpha
+const plan = planPainting(recipe, guides);
 const painting = createPainting(createBrush(gl, recipe.seed), packStrokes);
 const painted = painting.paint(plan, guides, { backdrop: plateTexture });
 // painted.layers: one texture a layer with its box on the guides; painted.frame: the composite
@@ -32,7 +33,8 @@ painting.release(painted);
 ```
 
 - **Selections.** `id` lists part names, a trailing `*` a prefix; `not`
-  leaves names out; `grow` reaches past the parts by that many layer pixels
+  leaves names out; `at` and `radius` keep to a spot on the guides (moving
+  with the warp) for what the ids do not split, lips or an iris; `grow` reaches past the parts by that many layer pixels
   (so a layer meets its neighbour with no gap), `feather` softens the mask.
   A pass may carry its own selection inside its layer's.
 - **Warps.** Handles are `id:name` (the part's centre) or `id:name.top`,
@@ -89,16 +91,17 @@ throws when planned.
 
 ## Budgets
 
-- Code: 28,841 B min, 9,755 B brotli (E 7–9 KB in the spec).
-- The 06 figure (nine layers, 15 k strokes, guides 2880 × 1800): plan about
-  95 ms on the CPU and paint about 45 ms on the GPU at load 13 on an M4 Max,
-  against E 5–10 ms and 8–20 ms at 512² guides. The plan's time goes to
-  reading the guides under each layer and to tracing strokes; smaller guides
-  and fewer strokes are the levers.
-- A recipe: about 4 KB, 1.1 KB brotli, for the figure.
+- Code: 30,295 B min, 10,294 B brotli (E 7–9 KB in the spec).
+- The 06 figure (eight layers, 15.7 k strokes, render/guides' passes at
+  2880 × 1800): plan 45 ms on the CPU, then paint and compose 28 ms on the
+  GPU, 73 ms in all (M4 Max, Chrome on Metal, median of 7 at load 9), against
+  the spec's E of 5–10 ms and 8–20 ms at 512² guides. The plan's time goes to
+  the ids' sums over the full-size guides, reading the guides under each
+  layer and tracing strokes; smaller guides and fewer strokes are the levers.
+- A recipe: 4,341 B, 1,266 B brotli, for the figure.
 
 ## Where it comes from
 
 The integer hash and unit are painterly's; the digest is plate-painter's.
 Guides follow the spec's interface (id index in red, an `ids` table, light
-and line in red), so render/guides' passes plug straight in.
+and line in red); `guidesOf` reads render/guides' sets into it.

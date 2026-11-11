@@ -1,0 +1,21 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "butterflies",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A small flock of glowing butterflies for keel/lit: two wings from a Shape beating in the vertex shader, a seeded wander as sums of sines, edges lit over a bloom threshold.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
+  "inputs": [
+    { "key": "count", "label": "Butterflies", "type": "number", "required": false, "min": 0, "max": 50, "step": 1, "control": "slider", "default": 4 },
+    { "key": "scale", "label": "Wingspan", "type": "number", "required": false, "min": 0, "max": 2, "step": 0.005, "unit": "world units", "default": 0.06 },
+    { "key": "flapHz", "label": "Wingbeats", "type": "number", "required": false, "min": 0, "max": 20, "step": 0.5, "unit": "Hz", "default": 6 },
+    { "key": "speed", "label": "Wander speed", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 4, "step": 0.05, "unit": "rad/s", "default": 0.3 },
+    { "key": "glow", "label": "Edge glow", "type": "number", "required": false, "min": 0, "max": 4, "step": 0.05, "control": "slider", "help": "Over about 1 the wing edges reach a bloom threshold of 1.", "default": 1.5 },
+    { "key": "seed", "label": "Seed", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 2147483647, "step": 1, "default": 1 }
+  ]
+}

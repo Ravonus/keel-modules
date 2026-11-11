@@ -6,7 +6,7 @@
  * craquelure, over canvas showing in the thin, dark passages. MIT.
  *
  *   renderer.toneMapping = "none";                     // the painter tone maps
- *   const paint = createPainterly(lit, renderer, { stroke: 4, crackle: 0.25 });
+ *   const paint = createPainterly(lit, renderer, { stroke: 4, crackle: 0.15 });
  *   paint.setSize(cssWidth, cssHeight, renderer.getPixelRatio());
  *   renderer.setAnimationLoop(() => paint.render(scene, camera));
  *

@@ -58,6 +58,20 @@ vec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.05
 vec3 toned(vec2 uv) { return srgb(aces(texture2D(tColor, uv).rgb * uExposure)); }
 `;
 
+// Flesh, by its colour: a warm hue of middling saturation.
+const SKIN_GLSL = /* glsl */ `
+// How much a colour is flesh: red to orange in hue, neither grey nor vivid. (A dark skin and a light one both lie
+// here, a pale one only just off grey; a red cap or a khaki ground do not.)
+float skin(vec3 c) {
+  if (c.r <= c.g || c.g <= c.b) return 0.0;
+  float mx = c.r;
+  float sat = (mx - c.b) / max(mx, 1e-3);
+  float hue = (c.g - c.b) / max(c.r - c.b, 1e-3);
+  return smoothstep(0.08, 0.2, hue) * (1.0 - smoothstep(0.6, 0.8, hue)) * smoothstep(0.04, 0.1, sat)
+    * (1.0 - smoothstep(0.65, 0.8, sat));
+}
+`;
+
 export const PREP_GLSL = /* glsl */ `
 precision highp float;
 ${TONE_GLSL}
@@ -80,16 +94,7 @@ uniform vec2 uPaintSize;
 uniform vec2 uTexel;
 uniform float uDirection;
 vec3 colourAt(vec2 uv) { return texture2D(tPrep, uv).rgb; }
-// How much a colour is flesh: red to orange in hue, neither grey nor vivid. (A dark skin and a light one both lie
-// here; a red cap or a khaki ground do not.)
-float skin(vec3 c) {
-  if (c.r <= c.g || c.g <= c.b) return 0.0;
-  float mx = c.r;
-  float sat = (mx - c.b) / max(mx, 1e-3);
-  float hue = (c.g - c.b) / max(c.r - c.b, 1e-3);
-  return smoothstep(0.08, 0.2, hue) * (1.0 - smoothstep(0.6, 0.8, hue)) * smoothstep(0.15, 0.3, sat)
-    * (1.0 - smoothstep(0.65, 0.8, sat));
-}
+${SKIN_GLSL}
 // Sobel of the colour: how it changes across and up, as a tensor.
 vec3 colourTensor(vec2 uv) {
   vec2 x = vec2(uTexel.x, 0.0);
@@ -259,7 +264,8 @@ void main() {
   // painter keeps smooth and whole; the blend then only softens it along its form.)
   float kept = smoothstep(0.35, 0.8, fine);
   vec3 here = mix(texture2D(tRough, uv).rgb, drawn.rgb, kept);
-  vec2 stride = t * uTexel * (uRadius * mix(2.0, 0.3, fine) / float(TAPS));
+  // (The blend reaches two brushes where the picture is plain and nothing at all where it is fine.)
+  vec2 stride = t * uTexel * (uRadius * 2.0 * (1.0 - smoothstep(0.0, 0.8, fine)) / float(TAPS));
   vec3 sum = here;
   float total = 1.0;
   for (int i = 1; i <= TAPS; i++) {
@@ -276,12 +282,17 @@ void main() {
       total += w;
     }
   }
-  vec3 blended = sum / total;
-  // (And there the local contrast comes back a little, so the features stay at least as crisp as drawn.)
-  vec3 near = texture2D(tPrep, uv + vec2(uTexel.x, 0.0)).rgb + texture2D(tPrep, uv - vec2(uTexel.x, 0.0)).rgb
-    + texture2D(tPrep, uv + vec2(0.0, uTexel.y)).rgb + texture2D(tPrep, uv - vec2(0.0, uTexel.y)).rgb;
-  vec3 crisp = blended + (drawn.rgb - near * 0.25) * 0.5;
-  gl_FragColor = vec4(mix(blended, crisp, smoothstep(0.5, 0.9, fine)), 0.0);
+  vec3 painted = sum / total;
+  vec4 l = texture2D(tPrep, uv - vec2(uTexel.x, 0.0));
+  vec4 r = texture2D(tPrep, uv + vec2(uTexel.x, 0.0));
+  vec4 d = texture2D(tPrep, uv - vec2(0.0, uTexel.y));
+  vec4 u = texture2D(tPrep, uv + vec2(0.0, uTexel.y));
+  vec3 near = (l.rgb + r.rgb + u.rgb + d.rgb) * 0.25;
+  // (A silhouette against what is far behind, the backdrop or the sky, is softened a little: there the paint takes
+  // the mean of both sides, so what is behind bleeds into the edge of what is before it, as paint laid wet into wet
+  // does. A step within the figure, hair over a cheek, is not a silhouette here and stays crisp.)
+  float silhouette = smoothstep(0.15, 0.4, abs(l.a - r.a) + abs(u.a - d.a));
+  gl_FragColor = vec4(mix(painted, mix(painted, near, 0.6), silhouette), 0.0);
 }
 `;
 
@@ -418,6 +429,7 @@ uniform float uGrain;
 uniform float uGrade;
 uniform float uCrackle;
 uniform float uView;
+${SKIN_GLSL}
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 // Where the paint lies thick and where thin, in patches the size of a few strokes, from the seed's tile.
@@ -455,6 +467,13 @@ void main() {
   vec4 u = texture2D(tPainted, uv + vec2(0.0, px.y));
   vec4 d = texture2D(tPainted, uv - vec2(0.0, px.y));
   vec3 c = here.rgb;
+  // Where the picture is fine, the frame's own detail at the frame's size goes back over the paint, which was
+  // worked at the paint's size: a face keeps every line it was drawn with. Not across a silhouette, which the
+  // glaze softened.
+  float jump = abs(texture2D(tPrep, uv - vec2(px.x, 0.0)).a - texture2D(tPrep, uv + vec2(px.x, 0.0)).a)
+    + abs(texture2D(tPrep, uv - vec2(0.0, px.y)).a - texture2D(tPrep, uv + vec2(0.0, px.y)).a);
+  vec3 detail = toned(uv) - texture2D(tPrep, uv).rgb;
+  c += detail * smoothstep(0.4, 0.8, texture2D(tTensor, uv).w) * (1.0 - smoothstep(0.15, 0.4, jump));
   // No line and no darkening along a silhouette, and no rim on any stroke: a silhouette is kept by the strokes
   // staying at their own depth. Impasto: the strokes' height lit from the upper left, faintly.
   float relief = (l.a - r.a) * 0.7 + (u.a - d.a) * 0.7;
@@ -479,12 +498,17 @@ void main() {
   vec2 q = uv - 0.5;
   varnished *= 1.0 - 0.45 * dot(q, q) * 1.6;
   c = mix(c, varnished, uGrade);
-  // Craquelure: the varnish's net of fine cracks, each a dark thread with its upper-left lip catching the light.
+  // Craquelure: the varnish's net of hairline cracks, each a dark thread with its upper-left lip catching the
+  // light. It shows in the darks and where the paint is worked (the glaze changes over a pixel), and hardly at all
+  // in the lights, on flesh and in a flat sky, where the old varnish has worn smooth.
   vec2 k = gl_FragCoord.xy / uCrackSize;
   float crack = texture2D(tCrack, k).x;
   float lip = texture2D(tCrack, k + vec2(-1.0, 1.0) / uCrackSize).x - crack;
-  c *= 1.0 - uCrackle * crack * 0.3;
-  c += uCrackle * max(lip, 0.0) * 0.06;
+  float worked = smoothstep(0.015, 0.06, abs(luma(l.rgb) - luma(r.rgb)) + abs(luma(u.rgb) - luma(d.rgb)));
+  float cracked = (1.0 - smoothstep(0.55, 0.85, lum)) * (1.0 - skin(texture2D(tPrep, uv).rgb))
+    * max(smoothstep(0.5, 0.2, lum), worked);
+  c *= 1.0 - uCrackle * cracked * crack * 0.1;
+  c += uCrackle * cracked * max(lip, 0.0) * 0.02;
   gl_FragColor = vec4(clamp(c, 0.0, 1.0) + (ign(gl_FragCoord.xy) - 0.5) / 255.0, 1.0);
 }
 `;

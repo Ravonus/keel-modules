@@ -11,7 +11,7 @@ frame's colour and depth and knows nothing of what was drawn.
 import { createPainterly, STROKED_SETTINGS } from "keel://module/painterly.js";
 
 renderer.toneMapping = "none"; // the painter tone maps
-const paint = createPainterly(lit, renderer, { stroke: 4, crackle: 0.25 });
+const paint = createPainterly(lit, renderer, { stroke: 4, crackle: 0.15 });
 paint.setSize(innerWidth, innerHeight, renderer.getPixelRatio());
 renderer.setAnimationLoop(() => paint.render(scene, camera));
 paint.render(scene, camera, () => plates.draw(plate, size)); // a backdrop drawn first, the scene over it
@@ -47,8 +47,10 @@ paint.setView("flow");               // for checking: the flow as colour (hue it
   values is found, and only on the same surface, so nothing blends across a
   silhouette. The blend reaches a brush or two where the picture is plain and
   hardly at all where it is fine, and there the local contrast is brought back
-  a little, so a face stays as crisp as it was drawn. `GLAZE_SETTINGS` (the
-  default) stops here.
+  a little, so a face stays as crisp as it was drawn. At a silhouette the
+  paint takes the mean of both sides, so what is behind bleeds a little into
+  the edge of what is before it, wet into wet. `GLAZE_SETTINGS` (the default)
+  stops here.
 - **The strokes.** `strokes` lays strokes over the glaze, and is meant low: a
   few, not a surface of them. Two layers, one stroke a cell: broad strokes
   (three brushes a cell) where the picture is plain, fine ones (one brush)
@@ -62,9 +64,11 @@ paint.setView("flow");               // for checking: the flow as colour (hue it
   `STROKED_SETTINGS` lays a few.
 - **The finish.** No line and no darkening along a silhouette. The varnish
   (`grade`): a warm glaze, blacks lifted toward umber, a little contrast and a
-  vignette. Its craquelure (`crackle`): a net of fine cracks between islands
-  with a finer net inside, bent so no crack runs straight, each a dark thread
-  whose upper-left lip catches the light. The canvas (`grain`): its weave
+  vignette. Its craquelure (`crackle`): a net of hairline cracks between
+  islands with a finer net inside, bent so no crack runs straight and the
+  islands larger here and smaller there, each a dark thread whose upper-left
+  lip catches the light; it shows in the darks and where the paint is worked,
+  and hardly at all in the lights, on flesh and in a flat sky. The canvas (`grain`): its weave
   showing only where the paint is thin and dark: under no stroke, away from
   the fine passages, in the thin patches the seed lays out, and in the dark
   passages where a painter's ground is thinnest. The passes work in half

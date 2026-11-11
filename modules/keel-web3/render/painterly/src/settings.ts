@@ -32,7 +32,7 @@ export const DEFAULT_PAINTERLY_SETTINGS: PainterlySettings = {
   grain: 0.2,
   edge: 0.5,
   grade: 0.6,
-  crackle: 0.25,
+  crackle: 0.15,
   exposure: 1,
   resolution: 0.5,
   seed: 1,
@@ -174,23 +174,34 @@ interface Points {
   readonly y: Float64Array;
   /** A value a cell, 0 up to 1. */
   readonly v: Float64Array;
+  /** Whether the cell keeps its point (1) or goes without, so its neighbours' cells grow (0). */
+  readonly kept: Uint8Array;
+  /** How many cells each way a search for the nearest points looks: 1 when every cell has its point. */
+  readonly reach: number;
 }
 
-function pointsOf(net: Net): Points {
+/**
+ * A net's points. `thinned`, if given, is a field over the tile, 0 up to 1: where it is low a cell is likelier to go
+ * without its point, so the cells there run larger; the search then looks two cells each way.
+ */
+function pointsOf(net: Net, thinned?: (x: number, y: number) => number): Points {
   const { cells, seed } = net;
   const cell = net.size / cells;
   const x = new Float64Array(cells * cells);
   const y = new Float64Array(cells * cells);
   const v = new Float64Array(cells * cells);
+  const kept = new Uint8Array(cells * cells);
   for (let j = 0; j < cells; j += 1) {
     for (let i = 0; i < cells; i += 1) {
       const at = j * cells + i;
       x[at] = (i + unit(hash32(i, j, seed))) * cell;
       y[at] = (j + unit(hash32(i, j, seed ^ 0x9e3779b9))) * cell;
       v[at] = unit(hash32(i, j, seed));
+      const drop = thinned ? 0.6 * (1 - thinned((i + 0.5) * cell, (j + 0.5) * cell)) : 0;
+      kept[at] = unit(hash32(i, j, seed ^ 0x7f4a7c15)) < drop ? 0 : 1;
     }
   }
-  return { x, y, v };
+  return { x, y, v, kept, reach: thinned ? 2 : 1 };
 }
 
 /** Value noise: the net's values, smooth between its cells, wrapping, 0 up to 1; (x, y) within the tile. */
@@ -225,35 +236,29 @@ function border(x: number, y: number, net: Net, p: Points): { edge: number; id: 
   let d2 = Infinity;
   let i1 = 0;
   let i2 = 0;
-  for (let j = -1; j <= 1; j += 1) {
-    for (let i = -1; i <= 1; i += 1) {
+  for (let j = -p.reach; j <= p.reach; j += 1) {
+    for (let i = -p.reach; i <= p.reach; i += 1) {
       const gx = cx + i;
       const gy = cy + j;
       const wx = ((gx % net.cells) + net.cells) % net.cells;
       const wy = ((gy % net.cells) + net.cells) % net.cells;
       const id = wy * net.cells + wx;
+      if (p.kept[id] === 0) continue;
       // (A cell past the tile's edge is the wrapped cell's point, a whole tile over.)
       const dx = (p.x[id] ?? 0) + (gx - wx) * cell - x;
       const dy = (p.y[id] ?? 0) + (gy - wy) * cell - y;
       const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < d1) {
-        d2 = d1;
-        i2 = i1;
-        d1 = d;
-        i1 = id;
-      } else if (d < d2) {
-        d2 = d;
-        i2 = id;
-      }
+      if (d < d1) [d1, d2, i1, i2] = [d, d1, id, i1];
+      else if (d < d2) [d2, i2] = [d, id];
     }
   }
   return { edge: d2 - d1, id: hash32(Math.min(i1, i2), Math.max(i1, i2), net.seed ^ 0x27d4eb2f) };
 }
 
 /**
- * The craquelure of an old varnish: a net of fine cracks between islands, with a finer net inside it, both bent a
- * little so no crack runs straight and some of the finer ones left out. One byte a texel, 0 off a crack up to 255
- * in one, rows bottom first.
+ * The craquelure of an old varnish: a net of fine cracks between islands, with a finer net inside it, both bent so
+ * no crack runs straight, the islands running larger here and smaller there by a slow field over the tile, and some
+ * of the finer cracks left out. One byte a texel, 0 off a crack up to 255 in one, rows bottom first.
  *
  * @param seed Which net.
  * @param size Texels across and down (the tile is square and repeats).
@@ -261,19 +266,24 @@ function border(x: number, y: number, net: Net, p: Points): { edge: number; id: 
  */
 export function crackTile(seed: number, size = CRACK_SIZE): Uint8Array {
   const out = new Uint8Array(size * size);
-  const coarse = Math.max(1, Math.round(size / 40));
-  const bendX: Net = { cells: Math.max(1, Math.round(size / 48)), size, seed: seed ^ 0x165667b1 };
+  const coarse = Math.max(1, Math.round(size / 36));
+  const slow: Net = { cells: Math.max(1, Math.round(size / 128)), size, seed: seed ^ 0x3c6ef372 };
+  const bendX: Net = { cells: Math.max(1, Math.round(size / 64)), size, seed: seed ^ 0x165667b1 };
   const bendY: Net = { ...bendX, seed: seed ^ 0xd3a2646c };
   const islands: Net = { cells: coarse, size, seed };
   const finer: Net = { cells: coarse * 2, size, seed: seed ^ 0x5bd1e995 };
-  const nets = [bendX, bendY, islands, finer].map((net) => [net, pointsOf(net)] as const);
-  const [bx, by, big, small] = nets as [typeof nets[0], typeof nets[0], typeof nets[0], typeof nets[0]];
+  const field = pointsOf(slow);
+  const bx = pointsOf(bendX);
+  const by = pointsOf(bendY);
+  const big = pointsOf(islands, (x, y) => lattice(x, y, slow, field));
+  const small = pointsOf(finer);
+  const sway = size / 40;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const wx = x + (lattice(x, y, bx[0], bx[1]) - 0.5) * 9;
-      const wy = y + (lattice(x, y, by[0], by[1]) - 0.5) * 9;
-      const island = border(wx, wy, big[0], big[1]);
-      const inner = border(wx, wy, small[0], small[1]);
+      const wx = x + (lattice(x, y, bendX, bx) - 0.5) * sway;
+      const wy = y + (lattice(x, y, bendY, by) - 0.5) * sway;
+      const island = border(wx, wy, islands, big);
+      const inner = border(wx, wy, finer, small);
       let depth = Math.max(0, 1 - island.edge / 1.1) * (unit(island.id) < 0.1 ? 0 : 1);
       depth += 0.55 * Math.max(0, 1 - inner.edge / 0.8) * (unit(inner.id) < 0.35 ? 0 : 1);
       out[y * size + x] = Math.round(255 * Math.min(1, depth));

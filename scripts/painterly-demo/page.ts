@@ -349,10 +349,11 @@ async function sheet(stills: readonly string[], compare: string | null, w: numbe
 }
 
 /**
- * How crisp a still is within a box (CSS pixels): the mean absolute gradient of its luminance there. The glaze over a
- * face is held to at least the raw render's.
+ * How crisp a still is within a box (CSS pixels): the mean absolute gradient of its luminance there, and the same
+ * over the luminance's spread, which a tone curve or a vignette does not move. The glaze over a face is held to at
+ * least the raw render's.
  */
-async function crispness(still: string, box: readonly [number, number, number, number], dpr: number): Promise<number> {
+async function crispness(still: string, box: readonly [number, number, number, number], dpr: number): Promise<{ gradient: number; sharpness: number }> {
   const img = new Image();
   await new Promise<void>((done) => { img.onload = () => { done(); }; img.src = still; });
   const [bx, by, bw, bh] = box.map((v) => Math.round(v * dpr)) as [number, number, number, number];
@@ -364,13 +365,21 @@ async function crispness(still: string, box: readonly [number, number, number, n
   const { data } = ctx.getImageData(0, 0, bw, bh);
   const lum = (i: number): number => (data[i * 4]! * 0.2126 + data[i * 4 + 1]! * 0.7152 + data[i * 4 + 2]! * 0.0722) / 255;
   let sum = 0;
+  let total = 0;
+  let squares = 0;
   for (let y = 1; y < bh - 1; y += 1) {
     for (let x = 1; x < bw - 1; x += 1) {
       const i = y * bw + x;
+      const l = lum(i);
+      total += l;
+      squares += l * l;
       sum += Math.abs(lum(i + 1) - lum(i - 1)) + Math.abs(lum(i + bw) - lum(i - bw));
     }
   }
-  return sum / ((bw - 2) * (bh - 2));
+  const count = (bw - 2) * (bh - 2);
+  const mean = total / count;
+  const spread = Math.sqrt(Math.max(squares / count - mean * mean, 1e-12));
+  return { gradient: sum / count, sharpness: sum / count / spread };
 }
 
 const api = {

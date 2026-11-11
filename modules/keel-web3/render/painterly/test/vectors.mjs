@@ -116,6 +116,6 @@ export default [
       return [tile.length, cracked / tile.length > 0.02 && cracked / tile.length < 0.2, differ > tile.length / 20, high > 230,
         reaches > 4 && meets / reaches > 0.8, crackTile(1).every((v, i) => v === tile[i]), small.length, digest(tile), digest(other), digest(small)];
     },
-    expect: [1048576, true, true, true, true, true, 4096, 955314173, 929187343, 3682445679],
+    expect: [1048576, true, true, true, true, true, 4096, 1126869626, 2760042990, 2452614935],
   },
 ];

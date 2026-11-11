@@ -124,14 +124,16 @@ try {
     if (values.face) {
       // (--face x,y,w,h in CSS pixels: how crisp each still is there, as a share of the raw render's.)
       const box = values.face.split(",").map(Number);
-      /** @type {Record<string, number>} */
+      /** @type {Record<string, {gradient: number, sharpness: number}>} */
       const crisp = {};
       for (const [i, variant] of variants.entries()) {
         crisp[variant] = await page.evaluate(([s, b, d]) => globalThis.painterly.crispness(s, b, d), [stills[i], box, shot.dpr]);
       }
-      const raw = crisp.raw ?? 1;
-      result.crispness = Object.fromEntries(Object.entries(crisp).map(([variant, value]) => [variant, Number((value / raw).toFixed(3))]));
-      console.log(`crispness in the face box, as a share of raw: ${Object.entries(result.crispness).map(([v, r]) => `${v} ${r}`).join(", ")}`);
+      const raw = crisp.raw ?? { gradient: 1, sharpness: 1 };
+      result.crispness = Object.fromEntries(Object.entries(crisp).map(([variant, value]) => [variant, {
+        gradient: Number((value.gradient / raw.gradient).toFixed(3)), sharpness: Number((value.sharpness / raw.sharpness).toFixed(3)),
+      }]));
+      console.log(`in the face box, as a share of raw: ${Object.entries(result.crispness).map(([v, r]) => `${v} gradient ${r.gradient} sharpness ${r.sharpness}`).join("; ")}`);
     }
     const sheet = await page.evaluate(([s, c, w, h]) => globalThis.painterly.sheet(s, c, w, h), [stills.slice(0, 3), compare, shot.width, shot.height]);
     writeFileSync(join(out, "sheet.png"), png(sheet));

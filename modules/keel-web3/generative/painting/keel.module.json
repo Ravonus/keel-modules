@@ -1,0 +1,13 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "painting",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Painted layers over guides: a keel-painting@1 recipe (palettes, anchor and pin warps, layers of passes on ID selections) and its guide passes (id, light, line) planned in exact arithmetic with a digest, then painted with render/brush: underpainting, block-in, form, detail, accent, blend and glaze passes coloured by ramps of the light, presets for skin, hair locks, cloth and velvet, each layer masked, blended, edge-bled and graded.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" },
+  "inputs": [
+    { "key": "seed", "label": "Seed", "type": "number", "required": false, "min": 0, "max": 999999, "step": 1, "help": "Where every stroke lies in its cell, its size and its colour's wander; the recipe's own seed unless set.", "default": 1 }
+  ]
+}

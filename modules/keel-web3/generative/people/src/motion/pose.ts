@@ -2,6 +2,7 @@
 
 import { FRONT, SIDE, TAU, UP, add, mix, scale, sub } from "../vec.js";
 import type { Vec } from "../vec.js";
+import { hashed } from "../roll.js";
 import type { Person } from "../body/person.js";
 import { skeletonOf } from "./skeleton.js";
 import { MOTIONS } from "./motions.js";
@@ -87,29 +88,22 @@ function hairFlow(p: Person, s: Skeleton): PersonBody["grain"]["pelt"]["flow"] {
 
 /** How far shut a lid is, `since` seconds into a blink: down in a blink, up a little slower, then open. */
 function shutBy(since: number): number {
+  if (since < 0) return 0;
   if (since < 0.07) return since / 0.07;
   return since < 0.2 ? 1 - (since - 0.07) / 0.13 : 0;
 }
 
-/**
- * A blink's own number, 0 to 1. This is Math.sin and not the roll's exact `hashed`: it runs many times a frame for
- * everyone in sight, and a blink a hair early on one engine is drawing, not who they are.
- */
-const beat = (seed: number, n: number): number => {
-  const v = Math.sin(seed * 12.9898 + n * 78.233) * 43758.5453;
-  return v - Math.floor(v);
-};
+/** How long a slot of time is, in seconds: one blink falls in each. */
+const BLINK_SLOT = 4;
 
 /** A blink every few seconds, each person on their own beat: the lid down fast and up a little slower. */
 function lidAt(p: Person, t: number): number {
-  // (Each gap its own length, two to six seconds: nobody blinks like a clock.)
-  let since = t + p.seed * 1.37;
-  let n = 0;
-  for (let gap = 2 + 4 * beat(p.seed, n); since > gap && n < 400; gap = 2 + 4 * beat(p.seed, n)) {
-    since -= gap;
-    n += 1;
-  }
-  return mix(p.face.lid, 1, shutBy(since));
+  // (One blink somewhere in the first half of each slot, so two are two to six seconds apart and nobody blinks like a
+  // clock. Only this slot's is asked for, so a blink costs the same at any hour and for any seed.)
+  const since = t + ((p.seed * 1.37) % BLINK_SLOT);
+  const slot = Math.floor(since / BLINK_SLOT);
+  const starts = slot * BLINK_SLOT + (BLINK_SLOT / 2) * hashed(p.seed, slot);
+  return mix(p.face.lid, 1, shutBy(since - starts));
 }
 
 /** Where they are looking: mostly ahead, glancing off now and then, a slow wander and never a stare. */

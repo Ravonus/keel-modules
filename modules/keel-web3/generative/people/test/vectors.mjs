@@ -195,6 +195,31 @@ export default [
     expect: WHOLE_HASH,
   },
   {
+    name: 'everyone blinks, whatever their seed and however late it is: two to six seconds apart, no two in step',
+    run: ({ personOf, faceAt }) => {
+      const blinksOf = (seed, from) => {
+        const p = personOf(seed), starts = [];
+        let was = false, shut = 0;
+        for (let i = 0; i < 7200; i += 1) {
+          const is = faceAt(p, from + i / 120).lid > p.face.lid + 1e-9;
+          if (is && !was) starts.push(i / 120);
+          if (is) shut += 1;
+          was = is;
+        }
+        return { first: starts[0], gaps: starts.slice(1).map((s, i) => s - starts[i]), shut: shut / 7200 };
+      };
+      const seeds = [3, 4, 200, 1300, 50000, 2 ** 31 - 1, -9];
+      const all = seeds.flatMap((seed) => [0, 86400, 1e7].map((from) => blinksOf(seed, from)));
+      return [
+        all.every(({ gaps }) => gaps.length >= 9 && gaps.every((g) => g > 1.97 && g < 6.03)),
+        all.every(({ shut }) => shut > 0.02 && shut < 0.1),
+        new Set(all.flatMap(({ gaps }) => gaps.map((g) => g.toFixed(1)))).size > 20,
+        new Set(seeds.map((seed) => String(blinksOf(seed, 0).first))).size === seeds.length,
+      ];
+    },
+    expect: [true, true, true, true],
+  },
+  {
     name: 'a child has the same face as a boy or a girl, with neutral lips, and a teen nothing fuller than that',
     run: ({ personOf, faceOf, faceFor }) => {
       const steady = () => { let n = 0; return () => { n = (n + 0.137) % 1; return n; }; };

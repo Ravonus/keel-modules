@@ -35,8 +35,8 @@ const sdkRoot = path.resolve(workspaceRoot, "../keel-sdk");
 const cli = path.join(sdkRoot, "packages/builder/dist/cli.js");
 const catalogRepository = "https://github.com/Ravonus/keel-modules";
 
-const EXPECTED_MODULES = 43;
-const EXPECTED_VECTORS = 446;
+const EXPECTED_MODULES = 44;
+const EXPECTED_VECTORS = 453;
 
 async function directoryExists(target) {
   try {

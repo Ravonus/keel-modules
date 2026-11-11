@@ -1,0 +1,29 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "portrait",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A seeded waist-up portrait bust at hero detail: head, hands, knit cap, hair locks and layered cloth sculpted from signed distances and meshed when generated, with a soft portrait shading path for keel/lit.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" },
+  "inputs": [
+    { "key": "seed", "label": "Seed", "type": "number", "required": false, "min": 0, "max": 2147483647, "step": 1, "help": "Decides the face's proportions and the hair's locks.", "default": 7 },
+    { "key": "face", "label": "Face", "type": "select", "required": false, "options": [
+      { "value": "A", "label": "Frontal, eyes to camera" },
+      { "value": "B", "label": "Turned and looking down" }
+    ], "default": "A" },
+    { "key": "hand", "label": "Hand", "type": "select", "required": false, "options": [
+      { "value": "pinch", "label": "Card pinched" },
+      { "value": "point", "label": "Card over a raised finger" }
+    ], "default": "pinch" },
+    { "key": "detail", "label": "Detail", "type": "select", "required": false, "placement": "advanced", "options": [
+      { "value": "hero", "label": "Hero" },
+      { "value": "mid", "label": "Mid" },
+      { "value": "far", "label": "Far" }
+    ], "default": "hero" },
+    { "key": "cap", "label": "Cap", "type": "color", "required": false, "swatches": ["#ff2f78", "#2f6bff", "#f2c14e", "#1f1f24"], "default": "#ff2f78" },
+    { "key": "hair", "label": "Hair", "type": "color", "required": false, "swatches": ["#b0562a", "#3a2418", "#d9b26f", "#1a1210"], "default": "#b0562a" },
+    { "key": "card", "label": "Card", "type": "color", "required": false, "placement": "advanced", "swatches": ["#ff2a62", "#e8e4d8", "#20242a"], "default": "#ff2a62" }
+  ]
+}

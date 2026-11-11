@@ -343,6 +343,186 @@
           "name": "typescript",
           "version": "5.9.3"
         },
+        "recipeDigest": "0x186936a57d233e01c7fd1bb3f7cee1315fb1b2dbe6dd7de86a1bcdb69153285a",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 6044,
+          "digest": "0x6c8ccddc729af770b74c9492970c486fe550df342ee14b294f4684efa64500c1"
+        },
+        "sources": [
+          {
+            "path": "src/butterflies.glsl.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x685aeabddf30fb3ab6bb331d5b7f8e23e1c9388b52a6893281ef1c58585b3d0c",
+              "byteLength": 1710
+            }
+          },
+          {
+            "path": "src/flight.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x823ca80a724abde2c526e0df56abe5a61590ecff4d1cb9d99cd47ac70bfdfa94",
+              "byteLength": 6694
+            }
+          },
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x1747a25182bc0d66d91d0e181bb3738c758a29b2923ec1820b021c578e7e1f39",
+              "byteLength": 6691
+            }
+          },
+          {
+            "path": "src/wing.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0xfe89ebb775c8ed2bdac41308dcf77c008c9426c23a8f64dc4550487516e27c12",
+              "byteLength": 4974
+            }
+          }
+        ],
+        "files": {
+          "src/butterflies.glsl.d.ts": "export declare const BUTTERFLY_VERTEX = \"\\nattribute vec2 aWing;\\nattribute float aFlap;\\nuniform float uTime, uFlapHz, uStill;\\nvarying vec2 vWing;\\nvarying float vShade;\\nvoid main() {\\n  float beat = sin(6.2831853 * uFlapHz * uTime + aFlap);\\n  // (Wings from 30 degrees under level to 70 over; still, open and a little raised.)\\n  float a = mix(0.35 + 0.87 * beat, 0.15, uStill);\\n  float b = a * 1.35;\\n  float span = position.x;\\n  float inner = min(span, 0.45);\\n  float outer = max(span - 0.45, 0.0);\\n  vec2 xy = inner * vec2(cos(a), sin(a)) + outer * vec2(cos(b), sin(b));\\n  float side = aWing.x;\\n  vec3 p = side == 0.0 ? position : vec3(xy.x * side, xy.y, position.z);\\n  // (The body rises as the wings come down.)\\n  p.y -= 0.06 * beat * (1.0 - uStill);\\n  vec3 n = side == 0.0 ? vec3(0.0, 1.0, 0.0) : vec3(-sin(a) * side, cos(a), 0.0);\\n  vec3 world = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * n);\\n  vShade = 0.6 + 0.4 * abs(world.y);\\n  vWing = aWing;\\n  gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(p, 1.0);\\n}\\n\";\nexport declare const BUTTERFLY_FRAGMENT = \"\\nuniform vec3 uUpper, uUnder, uBody;\\nuniform float uGlow, uLight;\\nvarying vec2 vWing;\\nvarying float vShade;\\nvoid main() {\\n  vec3 wing = gl_FrontFacing ? uUpper : uUnder;\\n  vec3 base = mix(uBody, wing, abs(vWing.x));\\n  float rim = smoothstep(0.55, 1.0, vWing.y);\\n  vec3 c = base * uLight * vShade + rim * uGlow * mix(base, vec3(1.0), 0.65);\\n  gl_FragColor = vec4(c, 1.0);\\n}\\n\";\n",
+          "src/flight.d.ts": "export type Vec3 = readonly [number, number, number];\n/** A sphere no butterfly enters (a face, a product): one that would is pushed to its surface. */\nexport interface KeepOut {\n    readonly centre: Vec3;\n    readonly radius: number;\n}\n/** The three colours of a butterfly, as hex. */\nexport interface ButterflyColors {\n    /** The wings' upper side, their underside, and the body. */\n    readonly upper: string;\n    readonly under: string;\n    readonly body: string;\n}\n/** How a flock looks and flies. Every field has a default (`DEFAULT_BUTTERFLIES`). */\nexport interface ButterflySettings {\n    /** How many, 0 to 50. */\n    readonly count: number;\n    /** Lays the flock: the same seed, the same flights. */\n    readonly seed: number;\n    /** The point they wander about, and how far along x, y and z they may go from it, world units. */\n    readonly centre: Vec3;\n    readonly radius: Vec3;\n    /** Wingspan, world units. */\n    readonly scale: number;\n    /** The slowest wander's rate, radians a second; the faster sines run at about 2 and 4 times it. */\n    readonly speed: number;\n    /** Wingbeats a second. */\n    readonly flapHz: number;\n    readonly colors: ButterflyColors;\n    /** Multiplies the white edge light: over about 1 it reaches a bloom threshold of 1, so the edges glow. */\n    readonly glow: number;\n    /** Multiplies the wing and body colours. */\n    readonly light: number;\n    readonly keepOut: readonly KeepOut[];\n}\nexport declare const DEFAULT_BUTTERFLIES: ButterflySettings;\n/** One butterfly's flight: three rates, amplitudes and phases an axis (x0 x1 x2 y0 ... z2), and its wingbeat phase. */\nexport interface Flight {\n    readonly rate: readonly number[];\n    readonly reach: readonly number[];\n    readonly phase: readonly number[];\n    readonly flap: number;\n}\n/** Where a butterfly is and the way it faces (a unit vector). */\nexport interface Pose {\n    readonly at: Vec3;\n    readonly front: Vec3;\n}\n/** A uniform number in [0, 1) for a seed, a butterfly and a channel: a 32-bit integer hash, exact everywhere. */\nexport declare function flightHash(seed: number, index: number, channel: number): number;\n/** Settings with every missing or out-of-range field put right. */\nexport declare function butterflySettings(partial?: Partial\u003cButterflySettings\u003e): ButterflySettings;\n/**\n * Lays a flock's flights from its settings: the same seed gives the same numbers on every engine.\n *\n * @param partial Settings; anything missing takes `DEFAULT_BUTTERFLIES`.\n * @returns One flight a butterfly.\n */\nexport declare function planFlights(partial?: Partial\u003cButterflySettings\u003e): Flight[];\n/**\n * Where a butterfly is at a time, and the way it faces.\n *\n * @param flight One of `planFlights`'s flights.\n * @param time Seconds on the host's clock.\n * @param settings The flock's settings (its centre and keep-outs).\n * @returns The pose.\n */\nexport declare function flyAt(flight: Flight, time: number, settings?: Partial\u003cButterflySettings\u003e): Pose;\n",
+          "src/index.d.ts": "/**\n * butterflies: a small flock of glowing butterflies for keel/lit (see the README). keel/lit is passed in, so this\n * module imports nothing. The time comes from the host's clock, never a wall clock.\n */\nimport type { ButterflyColors, ButterflySettings } from \"./flight.js\";\nimport type { ShapeLike } from \"./wing.js\";\nexport { BUTTERFLY_FRAGMENT, BUTTERFLY_VERTEX } from \"./butterflies.glsl.js\";\nexport { DEFAULT_BUTTERFLIES, butterflySettings, flightHash, flyAt, planFlights } from \"./flight.js\";\nexport type { ButterflyColors, ButterflySettings, Flight, KeepOut, Pose, Vec3 } from \"./flight.js\";\nexport { wingMesh, wingOutline, windingOf } from \"./wing.js\";\nexport type { ShapeLike, WingMesh, WingPoint } from \"./wing.js\";\ninterface AttributeLike {\n    readonly array: ArrayLike\u003cnumber\u003e;\n    needsUpdate: boolean;\n}\ninterface NodeLike {\n    frustumCulled: boolean;\n    visible: boolean;\n}\ninterface InstancesLike extends NodeLike {\n    count: number;\n    readonly instanceMatrix: {\n        readonly array: Float32Array;\n        needsUpdate: boolean;\n    };\n}\ninterface GeometryLike {\n    setAttribute(name: string, attribute: unknown): unknown;\n    setIndex(index: readonly number[]): unknown;\n    dispose(): void;\n}\ninterface MaterialLike {\n    dispose(): void;\n}\ninterface ColorLike {\n    readonly r: number;\n    readonly g: number;\n    readonly b: number;\n}\ninterface Vector3Like {\n    set(x: number, y: number, z: number): unknown;\n}\n/** The parts of keel/lit this module calls. Pass the keel/lit namespace itself. */\nexport interface LitLike {\n    readonly Instances: new (geometry: unknown, material: unknown, count: number) =\u003e InstancesLike;\n    readonly Geometry: new () =\u003e GeometryLike;\n    readonly Attribute: new (array: Float32Array, size: number) =\u003e AttributeLike;\n    readonly InstanceAttribute: new (array: Float32Array, size: number) =\u003e AttributeLike;\n    readonly CustomMaterial: new (parameters: Readonly\u003cRecord\u003cstring, unknown\u003e\u003e) =\u003e MaterialLike;\n    readonly Color: new (value?: string) =\u003e ColorLike;\n    readonly Vector3: new (x?: number, y?: number, z?: number) =\u003e Vector3Like;\n    readonly Shape: new () =\u003e ShapeLike;\n}\n/** One frame: the host's clock. */\nexport interface ButterflyFrame {\n    /** Seconds on the host's clock. Ignored when `still`. */\n    readonly time: number;\n    /** Reduced motion: the flock holds where it is at time 0, wings open, still glowing. */\n    readonly still?: boolean;\n}\n/** A flock in the scene. */\nexport interface Butterflies {\n    /** The instanced mesh: add it to the stage. */\n    readonly mesh: NodeLike;\n    /** Places the flock and beats its wings for the next draw. */\n    update(frame: ButterflyFrame): void;\n    /** Recolours the flock (a section's hue). */\n    setColors(colors: Partial\u003cButterflyColors\u003e): void;\n    dispose(): void;\n}\n/**\n * Makes a flock of butterflies: one instanced mesh, two wings from a Shape and a body, the wings beating in the vertex\n * shader on the host's clock; the flock wanders as sums of sines, worked out on the CPU each update.\n *\n * @param lit The keel/lit namespace.\n * @param settings The flock's settings; anything missing takes `DEFAULT_BUTTERFLIES`.\n * @returns The flock: add `mesh` to the stage.\n */\nexport declare function createButterflies(lit: LitLike, settings?: Partial\u003cButterflySettings\u003e): Butterflies;\n",
+          "src/wing.d.ts": "/** A point of a wing's outline: x out along the span (0 at the body, 1 at the tip), y forward along the body. */\nexport interface WingPoint {\n    readonly x: number;\n    readonly y: number;\n}\n/** A Shape as keel/lit makes it: the parts this module calls. */\nexport interface ShapeLike {\n    moveTo(x: number, y: number): unknown;\n    bezierCurveTo(ax: number, ay: number, bx: number, by: number, x: number, y: number): unknown;\n    getPoints(divisions?: number): readonly WingPoint[];\n}\n/**\n * The mesh. `position` is three numbers a vertex: the span out from the body (a wing's, never negative), 0, and the\n * place along the body, forward positive; a body vertex gives its own x. `wing` is two: the side (1 right, -1 left,\n * 0 the body) and the edge (0 at the root, 1 on the outline).\n */\nexport interface WingMesh {\n    readonly position: Float32Array;\n    readonly wing: Float32Array;\n    readonly index: number[];\n}\n/**\n * Draws one wing's outline on a keel/lit Shape: a forewing reaching forward to its tip, a notch, a rounder hindwing.\n *\n * @param shape A new keel/lit Shape.\n * @param divisions Points along each curve.\n * @returns The outline, without its closing repeat.\n */\nexport declare function wingOutline(shape: ShapeLike, divisions?: number): WingPoint[];\n/** Twice the outline's signed area: above 0 when it runs counter-clockwise in its own x and y. */\nexport declare function windingOf(outline: readonly WingPoint[]): number;\n/**\n * A butterfly's mesh from one wing's outline: the right wing as drawn, the left its mirror, and the body.\n *\n * @param outline One wing, as `wingOutline` gives it.\n * @returns The mesh's arrays, for a keel/lit Geometry.\n */\nexport declare function wingMesh(outline: readonly WingPoint[]): WingMesh;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x95d0bbe7d90937a5e7016592f063fd43deffab6ff6923dad50c6632ca24f59bd",
+          "byteLength": 9901
+        }
+      },
+      "inputs": {
+        "protocol": "keel-module-inputs@1",
+        "fields": [
+          {
+            "key": "count",
+            "label": "Butterflies",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 50,
+            "step": 1,
+            "control": "slider",
+            "default": 4
+          },
+          {
+            "key": "scale",
+            "label": "Wingspan",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 2,
+            "step": 0.005,
+            "unit": "world units",
+            "default": 0.06
+          },
+          {
+            "key": "flapHz",
+            "label": "Wingbeats",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 20,
+            "step": 0.5,
+            "unit": "Hz",
+            "default": 6
+          },
+          {
+            "key": "speed",
+            "label": "Wander speed",
+            "required": false,
+            "placement": "advanced",
+            "type": "number",
+            "min": 0,
+            "max": 4,
+            "step": 0.05,
+            "unit": "rad/s",
+            "default": 0.3
+          },
+          {
+            "key": "glow",
+            "label": "Edge glow",
+            "required": false,
+            "help": "Over about 1 the wing edges reach a bloom threshold of 1.",
+            "type": "number",
+            "min": 0,
+            "max": 4,
+            "step": 0.05,
+            "control": "slider",
+            "default": 1.5
+          },
+          {
+            "key": "seed",
+            "label": "Seed",
+            "required": false,
+            "placement": "advanced",
+            "type": "number",
+            "min": 0,
+            "max": 2147483647,
+            "step": 1,
+            "default": 1
+          }
+        ]
+      },
+      "id": "butterflies",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "A small flock of glowing butterflies for keel/lit: two wings from a Shape beating in the vertex shader, a seeded wander as sums of sines, edges lit over a bloom threshold.",
+      "publisher": "keel-web3",
+      "category": "render",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "graphics",
+        "member": null
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": null,
+      "githubPath": "modules/keel-web3/render/butterflies/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/render/butterflies/src/butterflies.glsl.ts",
+          "sha256": "0x685aeabddf30fb3ab6bb331d5b7f8e23e1c9388b52a6893281ef1c58585b3d0c"
+        },
+        {
+          "path": "modules/keel-web3/render/butterflies/src/flight.ts",
+          "sha256": "0x823ca80a724abde2c526e0df56abe5a61590ecff4d1cb9d99cd47ac70bfdfa94"
+        },
+        {
+          "path": "modules/keel-web3/render/butterflies/src/index.ts",
+          "sha256": "0x1747a25182bc0d66d91d0e181bb3738c758a29b2923ec1820b021c578e7e1f39"
+        },
+        {
+          "path": "modules/keel-web3/render/butterflies/src/wing.ts",
+          "sha256": "0xfe89ebb775c8ed2bdac41308dcf77c008c9426c23a8f64dc4550487516e27c12"
+        }
+      ],
+      "outputDigest": "0x6c8ccddc729af770b74c9492970c486fe550df342ee14b294f4684efa64500c1",
+      "receiptDigest": "0x2a6338862eba1bc0d9eedc5fbeb08415d28e3b844e75401af772a4a325cf1f11",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIHY9YAphdHRyaWJ1dGUgdmVjMiBhV2luZzsKYXR0cmlidXRlIGZsb2F0IGFGbGFwOwp1bmlmb3JtIGZsb2F0IHVUaW1lLCB1RmxhcEh6LCB1U3RpbGw7CnZhcnlpbmcgdmVjMiB2V2luZzsKdmFyeWluZyBmbG9hdCB2U2hhZGU7CnZvaWQgbWFpbigpIHsKICBmbG9hdCBiZWF0ID0gc2luKDYuMjgzMTg1MyAqIHVGbGFwSHogKiB1VGltZSArIGFGbGFwKTsKICAvLyAoV2luZ3MgZnJvbSAzMCBkZWdyZWVzIHVuZGVyIGxldmVsIHRvIDcwIG92ZXI7IHN0aWxsLCBvcGVuIGFuZCBhIGxpdHRsZSByYWlzZWQuKQogIGZsb2F0IGEgPSBtaXgoMC4zNSArIDAuODcgKiBiZWF0LCAwLjE1LCB1U3RpbGwpOwogIGZsb2F0IGIgPSBhICogMS4zNTsKICBmbG9hdCBzcGFuID0gcG9zaXRpb24ueDsKICBmbG9hdCBpbm5lciA9IG1pbihzcGFuLCAwLjQ1KTsKICBmbG9hdCBvdXRlciA9IG1heChzcGFuIC0gMC40NSwgMC4wKTsKICB2ZWMyIHh5ID0gaW5uZXIgKiB2ZWMyKGNvcyhhKSwgc2luKGEpKSArIG91dGVyICogdmVjMihjb3MoYiksIHNpbihiKSk7CiAgZmxvYXQgc2lkZSA9IGFXaW5nLng7CiAgdmVjMyBwID0gc2lkZSA9PSAwLjAgPyBwb3NpdGlvbiA6IHZlYzMoeHkueCAqIHNpZGUsIHh5LnksIHBvc2l0aW9uLnopOwogIC8vIChUaGUgYm9keSByaXNlcyBhcyB0aGUgd2luZ3MgY29tZSBkb3duLikKICBwLnkgLT0gMC4wNiAqIGJlYXQgKiAoMS4wIC0gdVN0aWxsKTsKICB2ZWMzIG4gPSBzaWRlID09IDAuMCA/IHZlYzMoMC4wLCAxLjAsIDAuMCkgOiB2ZWMzKC1zaW4oYSkgKiBzaWRlLCBjb3MoYSksIDAuMCk7CiAgdmVjMyB3b3JsZCA9IG5vcm1hbGl6ZShtYXQzKG1vZGVsTWF0cml4KSAqIG1hdDMoaW5zdGFuY2VNYXRyaXgpICogbik7CiAgdlNoYWRlID0gMC42ICsgMC40ICogYWJzKHdvcmxkLnkpOwogIHZXaW5nID0gYVdpbmc7CiAgZ2xfUG9zaXRpb24gPSBwcm9qZWN0aW9uTWF0cml4ICogdmlld01hdHJpeCAqIG1vZGVsTWF0cml4ICogaW5zdGFuY2VNYXRyaXggKiB2ZWM0KHAsIDEuMCk7Cn0KYCx3PWAKdW5pZm9ybSB2ZWMzIHVVcHBlciwgdVVuZGVyLCB1Qm9keTsKdW5pZm9ybSBmbG9hdCB1R2xvdywgdUxpZ2h0Owp2YXJ5aW5nIHZlYzIgdldpbmc7CnZhcnlpbmcgZmxvYXQgdlNoYWRlOwp2b2lkIG1haW4oKSB7CiAgdmVjMyB3aW5nID0gZ2xfRnJvbnRGYWNpbmcgPyB1VXBwZXIgOiB1VW5kZXI7CiAgdmVjMyBiYXNlID0gbWl4KHVCb2R5LCB3aW5nLCBhYnModldpbmcueCkpOwogIGZsb2F0IHJpbSA9IHNtb290aHN0ZXAoMC41NSwgMS4wLCB2V2luZy55KTsKICB2ZWMzIGMgPSBiYXNlICogdUxpZ2h0ICogdlNoYWRlICsgcmltICogdUdsb3cgKiBtaXgoYmFzZSwgdmVjMygxLjApLCAwLjY1KTsKICBnbF9GcmFnQ29sb3IgPSB2ZWM0KGMsIDEuMCk7Cn0KYDt2YXIgZz17Y291bnQ6NCxzZWVkOjEsY2VudHJlOlswLDAsMF0scmFkaXVzOlsxLjIsLjYsLjZdLHNjYWxlOi4wNixzcGVlZDouMyxmbGFwSHo6Nixjb2xvcnM6e3VwcGVyOiIjMmQ1ZGUwIix1bmRlcjoiIzdlYTJmZiIsYm9keToiIzFiMmY2ZSJ9LGdsb3c6MS41LGxpZ2h0OjEsa2VlcE91dDpbXX0sVD02LjI4MzE4NTMwNzE3OTU4NixVPTUwLHo9Wy42LC4yOCwuMTJdLEM9WzEsMi4xLDMuOV07ZnVuY3Rpb24gYihlLG4sdCl7bGV0IHI9TWF0aC5pbXVsKGV8MCwyNjU0NDM1NzYxKV5NYXRoLmltdWwobisxLDIyNDY4MjI1MTkpXk1hdGguaW11bCh0KzEsMzI2NjQ4OTkxNyk7cmV0dXJuIHI9TWF0aC5pbXVsKHJecj4+PjE2LDIxNDYxMjEwMDUpLHI9TWF0aC5pbXVsKHJecj4+PjE1LDIyMjE3MTMwMzUpLHJePXI+Pj4xNiwocj4+PjApLzQyOTQ5NjcyOTZ9dmFyIE89KGUsbix0KT0+TWF0aC5taW4odCxNYXRoLm1heChuLGUpKTtmdW5jdGlvbiB4KGU9e30pe2xldCBuPXsuLi5nLC4uLmV9O3JldHVybnsuLi5uLGNvdW50Ok8oTWF0aC5mbG9vcihuLmNvdW50KSwwLFUpLHNlZWQ6bi5zZWVkfDAscmFkaXVzOltNYXRoLm1heCgwLG4ucmFkaXVzWzBdKSxNYXRoLm1heCgwLG4ucmFkaXVzWzFdKSxNYXRoLm1heCgwLG4ucmFkaXVzWzJdKV0sc2NhbGU6TWF0aC5tYXgoMCxuLnNjYWxlKSxzcGVlZDpNYXRoLm1heCgwLG4uc3BlZWQpLGZsYXBIejpNYXRoLm1heCgwLG4uZmxhcEh6KSxjb2xvcnM6ey4uLmcuY29sb3JzLC4uLm4uY29sb3JzfSxnbG93Ok1hdGgubWF4KDAsbi5nbG93KSxsaWdodDpNYXRoLm1heCgwLG4ubGlnaHQpfX1mdW5jdGlvbiBrKGU9e30pe2xldCBuPXgoZSksdD1bXTtmb3IobGV0IHI9MDtyPG4uY291bnQ7cis9MSl7bGV0IG89W10sdT1bXSxpPVtdO2ZvcihsZXQgcz0wO3M8MztzKz0xKWZvcihsZXQgYT0wO2E8MzthKz0xKXtsZXQgbD1zKjMrYTtvLnB1c2gobi5zcGVlZCooQ1thXT8/MSkqKC43Ky42KmIobi5zZWVkLHIsbCkpKSx1LnB1c2goKG4ucmFkaXVzW3NdPz8wKSooelthXT8/MCkpLGkucHVzaChiKG4uc2VlZCxyLDEwK2wpKlQpfXQucHVzaCh7cmF0ZTpvLHJlYWNoOnUscGhhc2U6aSxmbGFwOmIobi5zZWVkLHIsMjApKlR9KX1yZXR1cm4gdH1mdW5jdGlvbiBQKGUsbil7Zm9yKGxldCB0IG9mIG4pe2xldCByPVtlWzBdLXQuY2VudHJlWzBdLGVbMV0tdC5jZW50cmVbMV0sZVsyXS10LmNlbnRyZVsyXV0sbz1NYXRoLmh5cG90KHJbMF0sclsxXSxyWzJdKTtpZihvPj10LnJhZGl1cyljb250aW51ZTtsZXQgdT1vPjFlLTk/W3JbMF0vbyxyWzFdL28sclsyXS9vXTpbMCwxLDBdO2ZvcihsZXQgaT0wO2k8MztpKz0xKWVbaV09KHQuY2VudHJlW2ldPz8wKSsodVtpXT8/MCkqdC5yYWRpdXN9fWZ1bmN0aW9uIFIoZSl7bGV0IG49ZVswXT8/MCx0PShlWzFdPz8wKSouNSxyPWVbMl0/PzAsbz1NYXRoLmh5cG90KG4sdCxyKTtyZXR1cm4gbz4xZS05P1tuL28sdC9vLHIvb106WzAsMCwxXX1mdW5jdGlvbiBMKGUsbix0PXt9KXtsZXQgcj10LmNlbnRyZT8/Zy5jZW50cmUsbz1bclswXSxyWzFdLHJbMl1dLHU9WzAsMCwwXTtmb3IobGV0IGk9MDtpPDk7aSs9MSl7bGV0IHM9TWF0aC5mbG9vcihpLzMpLGE9ZS5yYXRlW2ldPz8wLGw9ZS5yZWFjaFtpXT8/MCxjPWEqbisoZS5waGFzZVtpXT8/MCk7b1tzXT0ob1tzXT8/MCkrbCpNYXRoLnNpbihjKSx1W3NdPSh1W3NdPz8wKStsKmEqTWF0aC5jb3MoYyl9cmV0dXJuIFAobyx0LmtlZXBPdXQ/P1tdKSx7YXQ6byxmcm9udDpSKHUpfX12YXIgZj17eDouMDMseTowfSxCPS43MixXPS4yLFY9LjMsST0tLjQyLGg9LjAzNTtmdW5jdGlvbiBNKGUsbj04KXtlLm1vdmVUbyguMDMsLjEyKSxlLmJlemllckN1cnZlVG8oLjI1LC40NSwuNzIsLjY0LC45NiwuNTIpLGUuYmV6aWVyQ3VydmVUbygxLjAyLC4zMiwuNzgsLjEsLjU2LC4wMyksZS5iZXppZXJDdXJ2ZVRvKC44MiwtLjE1LC43NiwtLjUsLjUsLS41NiksZS5iZXppZXJDdXJ2ZVRvKC4zLC0uNjIsLjEsLS4zNiwuMDMsLS4xMik7bGV0IHQ9ZS5nZXRQb2ludHMobikubWFwKHU9Pih7eDp1LngseTp1Lnl9KSkscj10WzBdLG89dFt0Lmxlbmd0aC0xXTtyZXR1cm4gciYmbyYmdC5sZW5ndGg+MSYmci54PT09by54JiZyLnk9PT1vLnkmJnQucG9wKCksdH1mdW5jdGlvbiBBKGUpe2xldCBuPTA7Zm9yKGxldCB0PTA7dDxlLmxlbmd0aDt0Kz0xKXtsZXQgcj1lW3RdPz9mLG89ZVsodCsxKSVlLmxlbmd0aF0/P2Y7bis9ci54Km8ueS1vLngqci55fXJldHVybiBufWZ1bmN0aW9uIHAoZSxuLHQpe3JldHVybiBlLnBvc2l0aW9uLnB1c2goblswXSxuWzFdLG5bMl0pLGUud2luZy5wdXNoKHRbMF0sdFsxXSksZS5wb3NpdGlvbi5sZW5ndGgvMy0xfWZ1bmN0aW9uIFMoZSxuLHQpe2xldCByPUEobik+MD09dD4wLG89KGEsbCxjKT0+e2UuaW5kZXgucHVzaCguLi5yP1thLGMsbF06W2EsbCxjXSl9LHU9cChlLFtmLngsMCxmLnldLFt0LDBdKSxpPVtdLHM9W107Zm9yKGxldCBhIG9mIG4pe2xldCBsPWYueCsoYS54LWYueCkqQixjPWYueSsoYS55LWYueSkqQjtpLnB1c2gocChlLFtsLDAsY10sW3QsV10pKSxzLnB1c2gocChlLFthLngsMCxhLnldLFt0LDFdKSl9Zm9yKGxldCBhPTA7YTxuLmxlbmd0aDthKz0xKXtsZXQgbD0oYSsxKSVuLmxlbmd0aCxbYyx5LG0sZF09W2lbYV0/P3UsaVtsXT8/dSxzW2FdPz91LHNbbF0/P3VdO28odSxjLHkpLG8oYyxtLGQpLG8oYyxkLHkpfX1mdW5jdGlvbiBHKGUpe2xldCBuPXAoZSxbMCwwLFZdLFswLDBdKSx0PXAoZSxbMCwwLEldLFswLDBdKTtmb3IobGV0IHIgb2ZbW2gsMF0sWy1oLDBdLFswLGhdLFswLC1oXV0pe2xldCBvPXAoZSxbclswXSxyWzFdLDBdLFswLDBdKTtlLmluZGV4LnB1c2gobixvLHQpfX1mdW5jdGlvbiBGKGUpe2xldCBuPXtwb3NpdGlvbjpbXSx3aW5nOltdLGluZGV4OltdfTtyZXR1cm4gUyhuLGUsMSksUyhuLGUsLTEpLEcobikse3Bvc2l0aW9uOm5ldyBGbG9hdDMyQXJyYXkobi5wb3NpdGlvbiksd2luZzpuZXcgRmxvYXQzMkFycmF5KG4ud2luZyksaW5kZXg6bi5pbmRleH19ZnVuY3Rpb24gTihlLG4pe2xldCB0PUYoTShuZXcgZS5TaGFwZSkpLHI9bmV3IGUuR2VvbWV0cnk7cmV0dXJuIHIuc2V0QXR0cmlidXRlKCJwb3NpdGlvbiIsbmV3IGUuQXR0cmlidXRlKHQucG9zaXRpb24sMykpLHIuc2V0QXR0cmlidXRlKCJhV2luZyIsbmV3IGUuQXR0cmlidXRlKHQud2luZywyKSksci5zZXRBdHRyaWJ1dGUoImFGbGFwIixuZXcgZS5JbnN0YW5jZUF0dHJpYnV0ZShuZXcgRmxvYXQzMkFycmF5KG4ubWFwKG89Pm8uZmxhcCkpLDEpKSxyLnNldEluZGV4KHQuaW5kZXgpLHJ9ZnVuY3Rpb24gXyhlLG4pe3JldHVybnt1VGltZTp7dmFsdWU6MH0sdVN0aWxsOnt2YWx1ZTowfSx1RmxhcEh6Ont2YWx1ZTpuLmZsYXBIen0sdUdsb3c6e3ZhbHVlOm4uZ2xvd30sdUxpZ2h0Ont2YWx1ZTpuLmxpZ2h0fSx1VXBwZXI6e3ZhbHVlOm5ldyBlLlZlY3RvcjMoMSwxLDEpfSx1VW5kZXI6e3ZhbHVlOm5ldyBlLlZlY3RvcjMoMSwxLDEpfSx1Qm9keTp7dmFsdWU6bmV3IGUuVmVjdG9yMygxLDEsMSl9fX1mdW5jdGlvbiBIKGUsbix0LHIpe2xldFtvLHUsaV09dC5mcm9udCxzPU1hdGguaHlwb3QobyxpKSxbYSxsXT1zPjFlLTY/W2kvcywtby9zXTpbMSwwXSxbYyx5LG1dPVt1KmwsaSphLW8qbCwtdSphXSxkPXIvMjtlLnNldChbYSpkLDAsbCpkLDAsYypkLHkqZCxtKmQsMCxvKmQsdSpkLGkqZCwwXSxuKjE2KSxlLnNldChbdC5hdFswXSx0LmF0WzFdLHQuYXRbMl0sMV0sbioxNisxMil9dmFyIGo9e3VwcGVyOiJ1VXBwZXIiLHVuZGVyOiJ1VW5kZXIiLGJvZHk6InVCb2R5In07ZnVuY3Rpb24gUShlLG49e30pe2xldCB0PXgobikscj1rKHQpLG89TihlLHIpLHU9XyhlLHQpLGk9bmV3IGUuQ3VzdG9tTWF0ZXJpYWwoe3VuaWZvcm1zOnUsdmVydGV4U2hhZGVyOnYsZnJhZ21lbnRTaGFkZXI6dyxzaWRlOiJib3RoIn0pLHM9bmV3IGUuSW5zdGFuY2VzKG8saSxNYXRoLm1heCgxLHIubGVuZ3RoKSk7cy5jb3VudD1yLmxlbmd0aCxzLmZydXN0dW1DdWxsZWQ9ITE7bGV0IGE9ey4uLnQuY29sb3JzfSxsPXttZXNoOnMsdXBkYXRlKGMpe2xldCB5PWMuc3RpbGw9PT0hMCxtPXk/MDpjLnRpbWU7dS51VGltZS52YWx1ZT1tLHUudVN0aWxsLnZhbHVlPXk/MTowLHIuZm9yRWFjaCgoZCxFKT0+e0gocy5pbnN0YW5jZU1hdHJpeC5hcnJheSxFLEwoZCxtLHQpLHQuc2NhbGUpfSkscy5pbnN0YW5jZU1hdHJpeC5uZWVkc1VwZGF0ZT0hMH0sc2V0Q29sb3JzKGMpe09iamVjdC5hc3NpZ24oYSxjKTtmb3IobGV0IHkgb2ZbInVwcGVyIiwidW5kZXIiLCJib2R5Il0pe2xldCBtPW5ldyBlLkNvbG9yKGFbeV0pO3Vbalt5XV0udmFsdWUuc2V0KG0ucixtLmcsbS5iKX19LGRpc3Bvc2UoKXtvLmRpc3Bvc2UoKSxpLmRpc3Bvc2UoKX19O3JldHVybiBsLnNldENvbG9ycyhhKSxsLnVwZGF0ZSh7dGltZTowfSksbH1leHBvcnR7dyBhcyBCVVRURVJGTFlfRlJBR01FTlQsdiBhcyBCVVRURVJGTFlfVkVSVEVYLGcgYXMgREVGQVVMVF9CVVRURVJGTElFUyx4IGFzIGJ1dHRlcmZseVNldHRpbmdzLFEgYXMgY3JlYXRlQnV0dGVyZmxpZXMsYiBhcyBmbGlnaHRIYXNoLEwgYXMgZmx5QXQsayBhcyBwbGFuRmxpZ2h0cyxBIGFzIHdpbmRpbmdPZixGIGFzIHdpbmdNZXNoLE0gYXMgd2luZ091dGxpbmV9Owo=",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
         "recipeDigest": "0x7777c7362cf19d14e4912c2952de463e5936fb5c81cd8499728ee97c5110ee99",
         "output": {
           "algorithm": "sha256",
@@ -2450,6 +2630,216 @@
       "runtime": {
         "encoding": "base64",
         "data": "dmFyIGU9MipNYXRoLlBJLHQ9KGUsdCxhKT0+TWF0aC5taW4oYSxNYXRoLm1heCh0LGUpKSxhPWU9PntsZXQgYT10KGUsMCwxKTtyZXR1cm4gYSphKigzLTIqYSl9LGw9KGUsdCk9PltlWzBdK3RbMF0sZVsxXSt0WzFdLGVbMl0rdFsyXV0scz0oZSx0KT0+W2VbMF0tdFswXSxlWzFdLXRbMV0sZVsyXS10WzJdXSxyPShlLHQpPT5bZVswXSp0LGVbMV0qdCxlWzJdKnRdLG49ZT0+TWF0aC5oeXBvdChlWzBdLGVbMV0sZVsyXSksaT0oZSx0PVswLDAsMV0pPT57bGV0IGE9bihlKTtyZXR1cm4gYT4xZS05P3IoZSwxL2EpOnR9LG89KGUsdCk9PltlWzFdKnRbMl0tZVsyXSp0WzFdLGVbMl0qdFswXS1lWzBdKnRbMl0sZVswXSp0WzFdLWVbMV0qdFswXV07ZnVuY3Rpb24gaChlKXtsZXQgdD1lPj4+MDtyZXR1cm4oKT0+e3Q9dCsxODMxNTY1ODEzPj4+MDtsZXQgZT10O3JldHVybiBlPU1hdGguaW11bChlXmU+Pj4xNSwxfGUpLGVePWUrTWF0aC5pbXVsKGVeZT4+PjcsNjF8ZSksKChlXmU+Pj4xNCk+Pj4wKS80Mjk0OTY3Mjk2fX12YXIgdT17c2FyZGluZTp7bGFiZWw6IlNhcmRpbmUiLHBsYW46ImZpc2giLHNpemU6LjM0LHpvbmVzOlsic3VubGl0Il0sc2hhbGxvd2VzdDo3LGJlYXQ6My4yLHN3aW5nOi4xMyxzbGltOi42MixzdGF0aW9uczpbWzAsLjAzXSxbLjEsLjA3NV0sWy4zLC4xXSxbLjU1LC4wODVdLFsuNzgsLjA0NV0sWy45LC4wMl1dLHBhbGV0dGU6e2JhY2s6IiMyYzZhODYiLGZsYW5rOiIjYjljZWQ2IixiZWxseToiI2VlZjNmMiIsZmluOiIjN2Y5YmE2IixleWU6IiMwYzEwMTQifX0sc2hhcms6e2xhYmVsOiJSZWVmIHNoYXJrIixwbGFuOiJmaXNoIixzaXplOjIuMyx6b25lczpbInN1bmxpdCJdLHNoYWxsb3dlc3Q6NixiZWF0Oi45LHN3aW5nOi4xMSxzbGltOi44NixzdGF0aW9uczpbWzAsLjAxOF0sWy4wOCwuMDU1XSxbLjI0LC4xXSxbLjQyLC4wOThdLFsuNjIsLjA2Ml0sWy44LC4wMjhdLFsuODgsLjAxNV1dLHBhbGV0dGU6e2JhY2s6IiM1ZTZjNzQiLGZsYW5rOiIjN2Q4YTkwIixiZWxseToiI2U2ZThlNCIsZmluOiIjNGY1YzY0IixleWU6IiMwOTBiMGQifX0samVsbHk6e2xhYmVsOiJNb29uIGplbGx5IixwbGFuOiJqZWxseSIsc2l6ZTouNDIsem9uZXM6WyJzdW5saXQiLCJ0d2lsaWdodCJdLHNoYWxsb3dlc3Q6Mi41LGJlYXQ6LjU1LHN3aW5nOi4yLHNsaW06MSxzdGF0aW9uczpbXSxwYWxldHRlOntiZWxsOiIjY2ZlMGVlIixyaW06IiNmM2M0ZDQiLGlubmVyOiIjZTlhOGMwIixhcm06IiNlOGRjZWEiLHRlbnRhY2xlOiIjZGJlNmYyIn19fSxmPU9iamVjdC5rZXlzKHUpLHA9ZT0+e2xldCB0PXVbZV07aWYoIXQpdGhyb3cgbmV3IFJhbmdlRXJyb3IoYG1hcmluZTogbm8gc3BlY2llcyAiJHtlfSJgKTtyZXR1cm4gdH07ZnVuY3Rpb24gYyhlKXtsZXQgdD0oZS5zZWVkPz8xKT4+PjAsYT1oKDc4OTI2OTEyN150KSxsPWUuem9uZT8/InN1bmxpdCIsW3Mscl09ZS5jZW50ZXI/P1swLDBdLG49ZS5wbGVudHk/PzEsaT0uNSplLnNlYS5zZWFiZWRBdChzLHIpLG89W10sdT0oZSx0LGgpPT57KGU9PnAoZSkuem9uZXMuaW5jbHVkZXMobCkpKGUpJiZvLnB1c2goe2lkOmUsY291bnQ6TWF0aC5tYXgoMSxNYXRoLnJvdW5kKHQqbikpLGhvbWU6W3MsaSxyXSxyZWFjaDpoLHNlZWQ6TWF0aC5mbG9vcihhKCkqMioqMzIpfSl9O3JldHVybiB1KCJzYXJkaW5lIiwxNDArODAqYSgpLDEyKSx1KCJzaGFyayIsMStNYXRoLmZsb29yKDEuNiphKCkpLDE4KSx1KCJqZWxseSIsNis2KmEoKSwxNikse3NlZWQ6dCxjb21wYW5pZXM6b319ZnVuY3Rpb24gZCh0LGEpe2xldCBsPWgodC5zZWVkKSxzPVsxLC4zNSwxXS5tYXAodD0+WzAsMSwyXS5tYXAocz0+KHtyYXRlOmEqdCooLjYrLjgqbCgpKSoocysxKSxwaGFzZTpsKCkqZSx3ZWlnaHQ6MS8ocysxLjQpfSkpKSxyPVt0LnJlYWNoLC4yMip0LnJlYWNoLHQucmVhY2hdLG49KGUsdCk9PihzW2VdPz9bXSkucmVkdWNlKChlLGEpPT5lK2Eud2VpZ2h0Kk1hdGguc2luKGEucmF0ZSp0K2EucGhhc2UpLDApKihyW2VdPz8wKTtyZXR1cm4gZT0+W3QuaG9tZVswXStuKDAsZSksdC5ob21lWzFdK24oMSxlKSx0LmhvbWVbMl0rbigyLGUpXX1mdW5jdGlvbiBiKGUsYSxsLHMpe2xldCByPWUuc3VyZmFjZUF0KGFbMF0sYVsyXSxsKS5oZWlnaHQtcyxuPWUuc2VhYmVkQXQoYVswXSxhWzJdKStzO3JldHVyblthWzBdLHQoYVsxXSxuLE1hdGgubWF4KG4scikpLGFbMl1dfWZ1bmN0aW9uIG0oZSx0LGEpe2xldFtsLCxzXT10O2ZvcihsZXQgdD0wO3Q8NDt0Kz0xKXtsZXQgdD1lLnNlYWJlZEF0KGwscykrYTtpZih0PD0wKWJyZWFrO2xldCByPWUuc2VhYmVkQXQobCsxLHMpLWUuc2VhYmVkQXQobC0xLHMpLG49ZS5zZWFiZWRBdChsLHMrMSktZS5zZWFiZWRBdChsLHMtMSksaT1NYXRoLmh5cG90KHIsbikvMjtpZihpPDFlLTYpYnJlYWs7bGV0IG89TWF0aC5taW4odC9pLDE2KTtsLT1yLzIvaSpvLHMtPW4vMi9pKm99cmV0dXJuW2wsdFsxXSxzXX1mdW5jdGlvbiBNKGUpe2xldCB0PWkoWzIqZSgpLTEsMiplKCktMSwyKmUoKS0xXSk7cmV0dXJuIHIodCxNYXRoLnBvdyhlKCksLjUpKX1mdW5jdGlvbiB3KHQpe2xldCBhPWgoMjA1MDg1NTM2NV50LnNlZWQpO3JldHVybiBBcnJheS5mcm9tKHtsZW5ndGg6dC5jb3VudH0sKCk9Pih7bGFnOjIuMiphKCkscGxhY2U6TShhKSxyYXRlczpbLjMrLjUqYSgpLC4zKy41KmEoKSwuMysuNSphKCldLHBoYXNlOmEoKSplLGJ1aWxkOi44NSsuMyphKCl9KSl9ZnVuY3Rpb24geihlLHQsbyxoKXtsZXQgdT1lKGgtby5sYWcpLGY9MSsuMTYqTWF0aC5zaW4oLjIxKmgrLjIqby5waGFzZSkscD1bLjUqTWF0aC5zaW4oaCpvLnJhdGVzWzBdK28ucGhhc2UpLC4zKk1hdGguc2luKGgqby5yYXRlc1sxXSsyKm8ucGhhc2UpLC41Kk1hdGguc2luKGgqby5yYXRlc1syXSszKm8ucGhhc2UpXSxjPWwodSxsKHIoby5wbGFjZSwzLjQqZikscCkpO3JldHVybiB0LnJlZHVjZSgoZSx0KT0+e2xldCBvPXMoZSx0KGgpKSx1PW4obyk7cmV0dXJuIHU8My44P2woZSxyKGkobyksKDMuOC11KSphKDEtdS8zLjgrLjM1KSkpOmV9LGMpfXZhciBnPS4xNDtmdW5jdGlvbiB5KHQscixvLGgpe2xldHtwYXRoOnUsc2hhcmtzOmYsdDpjfT1oLGQ9cCh0LmlkKSxNPWU9PntsZXQgdD11KGUpLGE9cyhtKG8sdCxkLnNoYWxsb3dlc3QpLHQpO3JldHVybiBlPT5iKG8sbCh1KGUpLGEpLGUsMi43Mil9LFt3LHldPVtNKGMpLE0oYy1nKV0seD1mdW5jdGlvbihlLHQsYSl7bGV0W2wsLHNdPXQscj1lLnNlYWJlZEF0KGwscyksbj1lLnNlYWJlZEF0KGwrMSxzKS1yLGk9ZS5zZWFiZWRBdChsLHMrMSktcjtyZXR1cm4gZT0+W2VbMF0sTWF0aC5tYXgoZVsxXSxyK24qKGVbMF0tbCkraSooZVsyXS1zKSthKSxlWzJdXX0obyx3KGMpLGQuc2l6ZSk7cmV0dXJuIHIubWFwKChsLHIpPT57bGV0IG89eCh6KHcsZixsLGMpKSxoPWkocyhvLHgoeih5LGYsbCxjLWcpKSkpLHU9ZC5iZWF0KmUqYyooMSsxLjQqZnVuY3Rpb24oZSx0LGwpe3JldHVybiBlLnJlZHVjZSgoZSxyKT0+TWF0aC5tYXgoZSxhKDEtbihzKHQscihsKSkpLzcuNikpLDApfShmLG8sYykpO3JldHVybntpZDp0LmlkLGluZGV4OnIsYXQ6byxmcm9udDpoLHBoYXNlOnUrbC5waGFzZSxidWlsZDpsLmJ1aWxkLHNlZWQ6dC5zZWVkK3J9fSl9ZnVuY3Rpb24geCh0LGEsbCxyKXtsZXQgbj1wKHQuaWQpO3JldHVybiBsLm1hcCgobCxvKT0+e2xldCBoPWU9PmIoYSxsKGUpLGUsbi5zaXplKTtyZXR1cm57aWQ6dC5pZCxpbmRleDpvLGF0OmgociksZnJvbnQ6aShzKGgocisuMyksaChyLS4zKSkpLHBoYXNlOm4uYmVhdCplKnIrbyxidWlsZDoxLHNlZWQ6dC5zZWVkK299fSl9ZnVuY3Rpb24gayhhLGwscyxyKXtsZXQgbj1wKGEuaWQpLG89aChhLnNlZWQrNzkxOSpzKSx1PVthLmhvbWVbMF0rKDIqbygpLTEpKmEucmVhY2gsYS5ob21lWzFdKzcqKDIqbygpLTEpLGEuaG9tZVsyXSsoMipvKCktMSkqYS5yZWFjaF0sZj0uMDUrLjA1Km8oKSxjPW8oKSplLGQ9LjIrLjMqbygpLE09bi5iZWF0KiguODUrLjMqbygpKSplKnIrYyx3PVt1WzBdLHVbMV0rMi40Kk1hdGguc2luKHIqZitjKSsuMDUqTWF0aC5zaW4oTS0xKSx1WzJdXSx6PWwuZGlzcGxhY2Uod1swXSx3WzJdLHIpLGc9bShsLHcsbi5zaGFsbG93ZXN0KSx5PU1hdGguZXhwKC4xNCp0KHdbMV0sLTYwLDApKSx4PWIobCxbZ1swXSsoelswXS13WzBdKSp5LHdbMV0relsxXSp5LGdbMl0rKHpbMl0td1syXSkqeV0scixuLnNpemUpO3JldHVybntpZDphLmlkLGluZGV4OnMsYXQ6eCxmcm9udDppKFtNYXRoLnNpbihyKmYqMitjKSpkLDEsTWF0aC5jb3MocipmKjEuNitjKSpkXSkscGhhc2U6TSxidWlsZDouOCsuNDUqbygpLHNlZWQ6YS5zZWVkK3N9fWZ1bmN0aW9uIEEoZSx0KXtsZXQgYT1lLmNvbXBhbmllcy5maWx0ZXIoZT0+ImZpc2giPT09cChlLmlkKS5wbGFuJiZlLmNvdW50PjgpLGw9ZS5jb21wYW5pZXMuZmlsdGVyKGU9PiJmaXNoIj09PXAoZS5pZCkucGxhbiYmZS5jb3VudDw9OCkscz1lLmNvbXBhbmllcy5maWx0ZXIoZT0+ImplbGx5Ij09PXAoZS5pZCkucGxhbikscj1uZXcgTWFwKGEubWFwKGU9PltlLHtwYXRoOmQoZSwuMDc1KSxmaW5zOncoZSl9XSkpLG49bmV3IE1hcChsLm1hcChlPT5bZSxBcnJheS5mcm9tKHtsZW5ndGg6ZS5jb3VudH0sKGEsbCk9PigoZSxhKT0+bD0+bSh0LGEobCkscChlLmlkKS5zaGFsbG93ZXN0KSkoZSxkKHsuLi5lLHNlZWQ6ZS5zZWVkKzEwNDcyOSpsfSwuMDYpKSldKSksaT1bLi4ubi52YWx1ZXMoKV0uZmxhdCgpO3JldHVybnthdChlKXtsZXQgYT1bXSxsPWkubWFwKHQ9PntsZXRbYSxsXT1bdChlKSx0KGUtZyldO3JldHVybiB0PT50PT09ZT9hOmx9KTtmb3IobGV0W3Mse3BhdGg6bixmaW5zOml9XW9mIHIpYS5wdXNoKC4uLnkocyxpLHQse3BhdGg6bixzaGFya3M6bCx0OmV9KSk7Zm9yKGxldFtsLHNdb2YgbilhLnB1c2goLi4ueChsLHQscyxlKSk7Zm9yKGxldCBsIG9mIHMpZm9yKGxldCBzPTA7czxsLmNvdW50O3MrPTEpYS5wdXNoKGsobCx0LHMsZSkpO3JldHVybiBhfX19ZnVuY3Rpb24gUyhlLHQpe2xldCBhPWkodCksbD1vKFswLDEsMF0sYSkscz1uKGwpPjFlLTQ/aShsKTpbMSwwLDBdO3JldHVybntvOmUseDpzLHk6byhhLHMpLHo6YX19dmFyIGo9KGUsdCxhLGwpPT5bZS5vWzBdK2UueFswXSp0K2UueVswXSphK2UuelswXSpsLGUub1sxXStlLnhbMV0qdCtlLnlbMV0qYStlLnpbMV0qbCxlLm9bMl0rZS54WzJdKnQrZS55WzJdKmErZS56WzJdKmxdLHY9KGUsdCxhLGwpPT5pKHMoaihlLHQsYSxsKSxlLm8pKSxFPShlLHQsYSxsKT0+YSpsKmUqZSpNYXRoLnNpbih0LTUuMiplKTtmdW5jdGlvbiBJKGUsdCxhKXtsZXR7c2l6ZTpsLHBoYXNlOnMsc3dpbmc6cn09YSxuPXQuc3RhdGlvbnMsaT10PT5qKGUsRSh0LHMscixsKSwwLGwqKC41LXQpKSxvPVtdO2ZvcihsZXQgYT0wO2ErMTxuLmxlbmd0aDthKz0xKXtsZXRbcyxyXT1uW2FdPz9bMCwwXSxbaCx1XT1uW2ErMV0/P1swLDBdO28ucHVzaCh7YTppKHMpLGI6aShoKSxyOnIqbCxyMTp1Kmwscm9sZToiZmxhbmsiLGZsYXQ6dC5zbGltLHVwOnYoZSwxLDAsMCl9KX1mb3IobGV0IHQ9MDt0KzI8bi5sZW5ndGg7dCs9Mil7bGV0W2EsaV09blt0XT8/WzAsMF0sW2gsdV09blt0KzJdPz9bMCwwXSxmPSh0LGEpPT5qKGUsRSh0LHMscixsKSwtYSpsKi43NSxsKiguNS10KSkscD0odCxhKT0+aihlLEUodCxzLHIsbCksYSpsKi44LGwqKC41LXQpKTtvLnB1c2goe2E6cChhLGkpLGI6cChoLHUpLHI6aSpsKi42MixyMTp1KmwqLjYyLHJvbGU6ImJhY2siLGRlY2FsOiEwLG1lbHQ6Ljd9KSxvLnB1c2goe2E6ZihhLGkpLGI6ZihoLHUpLHI6aSpsKi42MixyMTp1KmwqLjYyLHJvbGU6ImJlbGx5IixkZWNhbDohMCxtZWx0Oi43fSl9cmV0dXJuIG99ZnVuY3Rpb24gUChlLHQsYSxsKXtsZXR7c2l6ZTpzLHBoYXNlOnIsc3dpbmc6bn09dCxpPWooZSxFKC45LHIsbixzKSwwLC40Ki1zKSxvPXQ9PmooZSwxLjI1KkUoMSxyLG4scyksdCpzLC1zKiguNSsuNTUqTWF0aC5hYnModCkpKSxoPXYoZSwxLDAsMCk7cmV0dXJuW3thOmksYjpvKGEpLHI6LjAzMipzLHIxOi4wMDQqcyxyb2xlOiJmaW4iLGZsYXQ6LjIyLHVwOmgsbWVsdDouNX0se2E6aSxiOm8oLWwpLHI6LjAzMipzLHIxOi4wMDQqcyxyb2xlOiJmaW4iLGZsYXQ6LjIyLHVwOmgsbWVsdDouNX1dfWZ1bmN0aW9uIEMoZSx0LGEpe2xldHtzaXplOmwscGhhc2U6cyxzd2luZzpyfT10LG49YS5zaXplPjEsaT12KGUsMSwwLDApLG89KHQsbixvLGgpPT57bGV0IHU9RSh0LHMscixsKSxmPWEuc3RhdGlvbnNbMl0/LlsxXT8/LjE7cmV0dXJue2E6aihlLHUsZipsKi43LGwqKC41LXQpKSxiOmooZSxFKHQrbyxzLHIsbCksKGYrbikqbCxsKiguNS10LW8pKSxyOmwqaCxyMTouMDA0Kmwscm9sZToiZmluIixmbGF0Oi4yLHVwOmksbWVsdDouNX19LGg9dD0+e2xldCBhPW4/LjI3Oi4yNCxpPW4/LjE5Oi4xLG89bCooLjUtYSksaD1FKGEscyxyLGwpO3JldHVybnthOmooZSxoK3QqbCouMDUsLjA1Ki1sLG8pLGI6aihlLGgrdCpsKmksLWwqaSouNixvLWwqaSouNykscjpsKihuPy4wNDouMDE4KSxyMTouMDA0Kmwscm9sZToiZmluIixmbGF0Oi4yLHVwOnYoZSwwLDEsMCksbWVsdDouNSxkZXRhaWw6Mn19O3JldHVybltuP28oLjM2LC4xMywuMDgsLjA1KTpvKC40MiwuMDUsLjA2LC4wMiksaCgxKSxoKC0xKSwuLi5uP1tvKC43LC4wMywuMDUsLjAxNildOltdXX1mdW5jdGlvbiBSKGUsdCxhKXtsZXR7c2l6ZTpsLHBoYXNlOnMsc3dpbmc6cn09dCxuPWEuc2l6ZT4xLGk9bj8uMTouMTEsbz1sKihuPy4wMDg1Oi4wMjIpLGg9KGEuc3RhdGlvbnNbMV0/LlsxXT8/LjA3KSpsKmEuc2xpbSouOTIsdT1sKiguNS1pKSxmPUUoaSxzLHIsbCkscD10PT57bGV0IGE9aihlLGYrdCpoLC4wMTIqbCx1KTtyZXR1cm57YSxiOmEscjpvLHJvbGU6ImV5ZSIsc2hhZG93OiExfX07cmV0dXJuW3AoMSkscCgtMSldfWZ1bmN0aW9uIEQoZSx0LGEsbCl7bGV0e3NpemU6cyxhbmdsZTpyLHJlYWNoOm4scGhhc2U6aX09dCxvPXQ9PntsZXQgYT0uMSpNYXRoLnNpbiguNippLTQqdCszKnIpKnQsbD0oZT0+ZSpNYXRoLmNvcyguNSppK3IpKi4xKy40MikodCkqcythKnM7cmV0dXJuIGooZSxNYXRoLmNvcyhyKSpsLC10Km4qcyxNYXRoLnNpbihyKSpsKX0saD1bMCwuMzUsLjcsMV0sdT1bXTtmb3IobGV0IGU9MDtlKzE8aC5sZW5ndGg7ZSs9MSl1LnB1c2goe2E6byhoW2VdPz8wKSxiOm8oaFtlKzFdPz8xKSxyOmwqcyooMS1lLzMqLjcpLHIxOmwqcyooMS0oZSsxKS8zKi43KSxyb2xlOmEsbWVsdDouMyxzaGFkb3c6ITEsZGV0YWlsOjF9KTtyZXR1cm4gdX1mdW5jdGlvbiBGKHQsYT17fSl7bGV0IGw9cCh0LmlkKTtyZXR1cm4iamVsbHkiPT09bC5wbGFuP2Z1bmN0aW9uKHQsYSl7bGV0IGw9YS5zaXplKnQuYnVpbGQscz1pKHQuZnJvbnQsWzAsMSwwXSkscj1TKHQuYXQscyksbj17bzp0LmF0LHg6ci54LHk6cyx6OnIueX0sbz1NYXRoLnBvdyguNSpNYXRoLnNpbih0LnBoYXNlKSsuNSwyKSxoPWwqKC41LS4wOSpvKSx1PWoobiwwLGwqKC4wNisuMDUqbyksMCksZj1be2E6dSxiOnUscjpoLHJvbGU6ImJlbGwiLGZsYXQ6LjU2Ky4xNCpvLHVwOnN9LHthOmoobiwwLC4yKi1sLDApLGI6aihuLDAsLjIqLWwsMCkscjouODIqaCxyb2xlOiJiZWxsIixjYXJ2ZTohMCxtZWx0Oi42fSx7YTpqKG4sMCwuMDMqbCwwKSxiOmoobiwwLC4wMypsLDApLHI6LjQyKmgscm9sZToiaW5uZXIiLGRlY2FsOiEwLG1lbHQ6MS40fSx7YTpqKG4saCwuMDcqLWwsMCksYjpqKG4sLTEqaCwuMDcqLWwsMCkscjouMDIqbCxyb2xlOiJyaW0iLGRlY2FsOiEwLG1lbHQ6MS40fV07Zm9yKGxldCBhPTA7YTw0O2ErPTEpZi5wdXNoKC4uLkQobix7c2l6ZTouNCpsLGFuZ2xlOmEvNCplKy42LHJlYWNoOjEuNSxwaGFzZTp0LnBoYXNlfSwiYXJtIiwuMDkpKTtmb3IobGV0IGE9MDthPDY7YSs9MSlmLnB1c2goLi4uRChuLHtzaXplOmwsYW5nbGU6YS82KmUscmVhY2g6MS4xLHBoYXNlOnQucGhhc2UrYX0sInRlbnRhY2xlIiwuMDEzKSk7cmV0dXJue2NhcHN1bGVzOmYscGFsZXR0ZTphLnBhbGV0dGUsZnJvbnQ6cyxhdDp0LmF0LGdsb3c6LjMsbWF0ZXJpYWw6e2dsb3NzOi44fX19KHQsbCk6ZnVuY3Rpb24oZSx0LGEpe2xldCBsPXQuc2l6ZSplLmJ1aWxkLHM9UyhlLmF0LGUuZnJvbnQpLHI9ITA9PT1hLnJlc3Q/MDp0LnN3aW5nLG49ZS5waGFzZSxpPXQuc2l6ZT4xLG89e3NpemU6bCxwaGFzZTpuLHN3aW5nOnJ9O3JldHVybntjYXBzdWxlczpbLi4uSShzLHQsbyksLi4uUChzLG8saT8uMjouMTEsaT8uMTouMTEpLC4uLkMocyxvLHQpLC4uLlIocyxvLHQpXSxwYWxldHRlOnQucGFsZXR0ZSxmcm9udDpzLnosYXQ6ZS5hdCxtYXRlcmlhbDppP3tnbG9zczouM306e2dsb3NzOi45LHNoZWVuOi41LGlyaWRlc2NlbmNlOi40fX19KHQsbCxhKX1leHBvcnR7dSBhcyBTUEVDSUVTLGYgYXMgU1BFQ0lFU19JRFMsYyBhcyBjYXN0Rm9yLEEgYXMgY3JlYXRlU3dpbSxtIGFzIG9mZlNoYWxsb3dzLEYgYXMgcG9zZVN3aW1tZXJ9Ow==",
+        "format": "esm",
+        "entry": "src/index.ts"
+      }
+    },
+    {
+      "types": {
+        "schema": "keel-module-types@1",
+        "compiler": {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        "recipeDigest": "0x73d5d8184b2032cd095cae29b7e7a8458da67777eb5bb14db0fbbf192a09b63a",
+        "output": {
+          "algorithm": "sha256",
+          "byteLength": 5740,
+          "digest": "0xbd39919831f10eb69ea2d522644adf9f0c39f142fea4e75cc1cc9f5d2af8d14e"
+        },
+        "sources": [
+          {
+            "path": "src/index.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x40f2725382f97453f0bc25fdf33f48f500e612069893ce0fe01edce3a772c930",
+              "byteLength": 6356
+            }
+          },
+          {
+            "path": "src/motes.glsl.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x674d73d8d523936efb765135794779ad20fdd8dae4c54ce7ec1757662352ef6b",
+              "byteLength": 3101
+            }
+          },
+          {
+            "path": "src/place.ts",
+            "integrity": {
+              "algorithm": "sha256",
+              "digest": "0x03c5be43fa3f5e1f6579157c036d2f0eecb7738bae285f2f9b8d1c71062dba34",
+              "byteLength": 6659
+            }
+          }
+        ],
+        "files": {
+          "src/index.d.ts": "/**\n * motes: dust, light motes and sparkles for keel/lit, as one instanced quad (see the README). keel/lit is passed in,\n * so this module imports nothing. The time comes from the host's clock, never a wall clock: a paused clock is a still\n * field, and any frame can be drawn on its own.\n */\nimport type { MoteDensity, MoteSettings } from \"./place.js\";\nexport { MOTE_FRAGMENT, MOTE_PATH_GLSL, MOTE_VERTEX } from \"./motes.glsl.js\";\nexport { DEFAULT_MOTES, moteHash, moteSettings, placeMotes } from \"./place.js\";\nexport type { MoteDensity, MoteField, MoteSettings, Vec3 } from \"./place.js\";\ninterface Uniform {\n    value: unknown;\n}\ninterface AttributeLike {\n    readonly array: ArrayLike\u003cnumber\u003e;\n}\ninterface NodeLike {\n    frustumCulled: boolean;\n    renderOrder: number;\n    visible: boolean;\n}\ninterface InstancesLike extends NodeLike {\n    count: number;\n}\ninterface GeometryLike {\n    setAttribute(name: string, attribute: unknown): unknown;\n    dispose(): void;\n}\ninterface MaterialLike {\n    readonly uniforms: Record\u003cstring, Uniform\u003e;\n    dispose(): void;\n}\ninterface ColorLike {\n    readonly r: number;\n    readonly g: number;\n    readonly b: number;\n}\ninterface Vector2Like {\n    set(x: number, y: number): unknown;\n}\ninterface Vector3Like {\n    set(x: number, y: number, z: number): unknown;\n}\n/** The parts of keel/lit this module calls. Pass the keel/lit namespace itself. */\nexport interface LitLike {\n    readonly Instances: new (geometry: unknown, material: unknown, count: number) =\u003e InstancesLike;\n    readonly InstanceAttribute: new (array: Float32Array, size: number) =\u003e AttributeLike;\n    readonly CustomMaterial: new (parameters: Readonly\u003cRecord\u003cstring, unknown\u003e\u003e) =\u003e MaterialLike;\n    readonly Color: new (value?: string) =\u003e ColorLike;\n    readonly Vector2: new (x?: number, y?: number) =\u003e Vector2Like;\n    readonly Vector3: new (x?: number, y?: number, z?: number) =\u003e Vector3Like;\n    plane(width: number, height: number): GeometryLike;\n}\n/** One frame: the host's clock, and the keyed field values. */\nexport interface MoteFrame {\n    /** Seconds on the host's clock. Ignored when `still`. */\n    readonly time: number;\n    /** Multiplies every mote's opacity, 0 to 1 (a keyed fade). Default 1. */\n    readonly opacity?: number;\n    /** Reduced motion: the field holds at time 0, with no blink. */\n    readonly still?: boolean;\n}\n/** A field of motes in the scene. */\nexport interface Motes {\n    /** The instanced quad: add it to the stage; move or rotate it to move the whole field. */\n    readonly mesh: NodeLike;\n    /** How many motes are drawn, up to the settings' count (a quality lever). */\n    shown: number;\n    /** The drawing buffer's size in pixels, for pixel sizes and the smallest size. Call on resize. */\n    resize(width: number, height: number): void;\n    /** Sets the clock and the keyed values for the next draw. */\n    update(frame: MoteFrame): void;\n    dispose(): void;\n}\n/**\n * Makes a field of motes: one instanced quad, every mote's drift, turbulence and blink worked out in the vertex shader\n * from the time `update` hands in. Additive, unlit, and drawn after the opaque scene without writing depth.\n *\n * @param lit The keel/lit namespace.\n * @param settings The field's settings; anything missing takes `DEFAULT_MOTES`.\n * @param density Optional: where motes are welcome, 0 to 1, to thin the field in places.\n * @returns The field: add `mesh` to the stage.\n */\nexport declare function createMotes(lit: LitLike, settings?: Partial\u003cMoteSettings\u003e, density?: MoteDensity): Motes;\n",
+          "src/motes.glsl.d.ts": "/**\n * `vec3 motePath(vec4 mote, vec4 life, float t)`: where a mote is at time t. The base place drifts with `uDrift` and\n * wraps in the box (`uBoxMin`, `uBox`), then wanders by hashed sines `uTurbulence` world units across. A mesh-instanced\n * variant (coins, confetti) can include this and orient its own geometry about the result.\n * `float moteFade(vec3 p)`: 0 at a wrapping face of the box, 1 a little inside it, so wrapping never pops.\n */\nexport declare const MOTE_PATH_GLSL = \"\\nuniform vec3 uDrift, uBoxMin, uBox;\\nuniform float uTurbulence;\\nvec3 motePath(vec4 mote, vec4 life, float t) {\\n  vec3 p = mote.xyz + uDrift * t - uBoxMin;\\n  p = uBoxMin + p - uBox * floor(p / uBox);\\n  float s = life.w * 61.0 + mote.w;\\n  vec3 a = vec3(0.37, 0.29, 0.23) * t + vec3(s, s * 1.7, s * 2.9);\\n  vec3 b = vec3(0.83, 0.71, 0.59) * t + vec3(s * 2.3, s * 3.1, s * 1.3);\\n  return p + uTurbulence * (sin(a) + 0.5 * sin(b)) / 1.5;\\n}\\nfloat moteFade(vec3 p) {\\n  vec3 f = fract((p - uBoxMin) / uBox);\\n  vec3 edge = clamp(min(f, 1.0 - f) * 16.0, 0.0, 1.0);\\n  vec3 moving = step(1e-6, abs(uDrift));\\n  vec3 fade = mix(vec3(1.0), edge, moving);\\n  return fade.x * fade.y * fade.z;\\n}\\n\";\nexport declare const MOTE_VERTEX = \"\\nattribute vec4 aMote;\\nattribute vec4 aLife;\\nattribute vec3 aColor;\\nuniform float uTime, uBlink, uOpacity, uIntensity, uMinPixels;\\nuniform vec2 uPixel;\\nvarying vec2 vUv;\\nvarying vec4 vColor;\\nvarying float vSparkle;\\n\\nuniform vec3 uDrift, uBoxMin, uBox;\\nuniform float uTurbulence;\\nvec3 motePath(vec4 mote, vec4 life, float t) {\\n  vec3 p = mote.xyz + uDrift * t - uBoxMin;\\n  p = uBoxMin + p - uBox * floor(p / uBox);\\n  float s = life.w * 61.0 + mote.w;\\n  vec3 a = vec3(0.37, 0.29, 0.23) * t + vec3(s, s * 1.7, s * 2.9);\\n  vec3 b = vec3(0.83, 0.71, 0.59) * t + vec3(s * 2.3, s * 3.1, s * 1.3);\\n  return p + uTurbulence * (sin(a) + 0.5 * sin(b)) / 1.5;\\n}\\nfloat moteFade(vec3 p) {\\n  vec3 f = fract((p - uBoxMin) / uBox);\\n  vec3 edge = clamp(min(f, 1.0 - f) * 16.0, 0.0, 1.0);\\n  vec3 moving = step(1e-6, abs(uDrift));\\n  vec3 fade = mix(vec3(1.0), edge, moving);\\n  return fade.x * fade.y * fade.z;\\n}\\n\\nvoid main() {\\n  float t = uTime;\\n  vec3 p = motePath(aMote, aLife, t);\\n  vec4 view = modelViewMatrix * vec4(p, 1.0);\\n  vec4 clip = projectionMatrix * view;\\n  // (A sparkle's rays reach past its core, so its quad is three times as wide.)\\n  float reach = mix(1.0, 3.0, aLife.z);\\n#ifdef ATTENUATE\\n  float pixels = aLife.y * projectionMatrix[1][1] / max(clip.w, 1e-4) / uPixel.y;\\n#else\\n  float pixels = aLife.y;\\n#endif\\n  float shown = max(pixels, uMinPixels);\\n  float dim = (pixels * pixels) / max(shown * shown, 1e-8);\\n  clip.xy += position.xy * reach * shown * uPixel * clip.w;\\n  gl_Position = clip;\\n  float wave = 0.5 + 0.5 * sin(6.2831853 * t / aLife.x + aMote.w);\\n  float alpha = uOpacity * mix(1.0, wave * wave, uBlink) * dim * moteFade(p);\\n  vUv = position.xy * 2.0;\\n  vColor = vec4(aColor * uIntensity, alpha);\\n  vSparkle = aLife.z;\\n}\\n\";\nexport declare const MOTE_FRAGMENT = \"\\nvarying vec2 vUv;\\nvarying vec4 vColor;\\nvarying float vSparkle;\\nvoid main() {\\n  // (A dot: a soft round sprite, nothing at the quad's edge. A sparkle: a core and four rays, on a quad 3x as wide.)\\n  float r2 = dot(vUv, vUv);\\n  float soft = max(0.0, 1.0 - r2);\\n  float dot2 = soft * soft;\\n  vec2 a = abs(vUv);\\n  float rays = max(0.0, 1.0 - a.x) * exp(-a.y * 48.0) + max(0.0, 1.0 - a.y) * exp(-a.x * 48.0);\\n  float star = exp(-r2 * 24.0) + rays * 0.7;\\n  float shape = mix(dot2, star, vSparkle);\\n  if (shape * vColor.a \u003c 0.002) discard;\\n  gl_FragColor = vec4(vColor.rgb, vColor.a * shape);\\n}\\n\";\n",
+          "src/place.d.ts": "export type Vec3 = readonly [number, number, number];\n/** How a field of motes looks and moves. Every field has a default (`DEFAULT_MOTES`). */\nexport interface MoteSettings {\n    /** How many motes, 0 to 4096. */\n    readonly count: number;\n    /** Lays the field: the same seed, the same field. */\n    readonly seed: number;\n    /** The box the motes live in: its centre and its size along x, y and z, in world units. */\n    readonly centre: Vec3;\n    readonly box: Vec3;\n    /** A mote's size in world units, and how far it may differ, as a share either way (0.5: 0.5 to 1.5 times). */\n    readonly size: number;\n    readonly sizeSpread: number;\n    /** The smallest a mote is drawn, in drawing-buffer pixels: a smaller one is drawn this big and dimmer. */\n    readonly minPixels: number;\n    /** Hex colours; each mote takes one, seeded. */\n    readonly colors: readonly string[];\n    /** Opacity at full blink, 0 to 1, and a multiplier on the colour (over 1 reaches a bloom threshold). */\n    readonly opacity: number;\n    readonly intensity: number;\n    /** World units a second the whole field drifts; the box wraps, so the field never empties. */\n    readonly drift: Vec3;\n    /** How far, in world units, each mote wanders about its drifting place. */\n    readonly turbulence: number;\n    /** The shortest and longest blink period, seconds; each mote takes one between, seeded. */\n    readonly blinkPeriod: readonly [number, number];\n    /** How deep the blink goes: 0 a steady light, 1 out to nothing at the trough. */\n    readonly blink: number;\n    /** The share of motes drawn as four-pointed sparkles, 0 to 1. */\n    readonly sparkle: number;\n    /** True: `size` is in world units and shrinks with distance. False: `size` is in drawing-buffer pixels. */\n    readonly attenuate: boolean;\n}\nexport declare const DEFAULT_MOTES: MoteSettings;\n/** Where motes are welcome, 0 (never) to 1 (always), at a point in world units; the field is thinned by it. */\nexport type MoteDensity = (x: number, y: number, z: number) =\u003e number;\n/**\n * The field laid out, one entry a mote. `mote` is four numbers a mote: x, y, z and the blink phase in radians. `life`\n * is four: the blink period in seconds, the size, 1 for a sparkle or 0 for a dot, and a seed from 0 to 1 for the\n * turbulence. `color` is each mote's index into the colours.\n */\nexport interface MoteField {\n    readonly count: number;\n    readonly mote: Float32Array;\n    readonly life: Float32Array;\n    readonly color: Uint8Array;\n}\n/** A uniform number in [0, 1) for a seed, a mote and a channel: a 32-bit integer hash, exact everywhere. */\nexport declare function moteHash(seed: number, index: number, channel: number): number;\n/** Settings with every missing or out-of-range field put right. */\nexport declare function moteSettings(partial?: Partial\u003cMoteSettings\u003e): MoteSettings;\n/**\n * Lays a field of motes from its settings: the same settings and seed give the same numbers on every engine.\n *\n * @param partial Settings; anything missing takes `DEFAULT_MOTES`.\n * @param density Optional: where motes are welcome, to make a field denser in some places than others.\n * @returns The field, ready to upload as instance attributes.\n */\nexport declare function placeMotes(partial?: Partial\u003cMoteSettings\u003e, density?: MoteDensity): MoteField;\n"
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "0x6d356d070289c81408bf454c84dbcd0b11842f33d757223eecc1d33bd9e685e8",
+          "byteLength": 10804
+        }
+      },
+      "inputs": {
+        "protocol": "keel-module-inputs@1",
+        "fields": [
+          {
+            "key": "count",
+            "label": "Motes",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 4096,
+            "step": 1,
+            "control": "slider",
+            "default": 300
+          },
+          {
+            "key": "colors",
+            "label": "Colours",
+            "required": false,
+            "help": "Each mote takes one, seeded.",
+            "type": "palette",
+            "minItems": 1,
+            "maxItems": 8,
+            "default": [
+              "#ffbe26"
+            ]
+          },
+          {
+            "key": "size",
+            "label": "Size",
+            "required": false,
+            "help": "World units, or pixels when attenuation is off.",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "step": 0.001,
+            "default": 0.07
+          },
+          {
+            "key": "opacity",
+            "label": "Opacity",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "control": "slider",
+            "default": 0.88
+          },
+          {
+            "key": "intensity",
+            "label": "Intensity",
+            "required": false,
+            "help": "Over 1 reaches a bloom threshold of 1.",
+            "placement": "advanced",
+            "type": "number",
+            "min": 0,
+            "max": 8,
+            "step": 0.05,
+            "default": 1
+          },
+          {
+            "key": "turbulence",
+            "label": "Turbulence",
+            "required": false,
+            "placement": "advanced",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "step": 0.005,
+            "unit": "world units",
+            "default": 0.03
+          },
+          {
+            "key": "blink",
+            "label": "Blink depth",
+            "required": false,
+            "placement": "advanced",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "default": 1
+          },
+          {
+            "key": "sparkle",
+            "label": "Sparkles",
+            "required": false,
+            "help": "The share of motes drawn as four-pointed sparkles.",
+            "placement": "advanced",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "default": 0
+          },
+          {
+            "key": "attenuate",
+            "label": "Size attenuation",
+            "required": false,
+            "placement": "advanced",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "key": "seed",
+            "label": "Seed",
+            "required": false,
+            "placement": "advanced",
+            "type": "number",
+            "min": 0,
+            "max": 2147483647,
+            "step": 1,
+            "default": 1
+          }
+        ]
+      },
+      "id": "motes",
+      "version": "0.1.0",
+      "license": "MIT",
+      "summary": "Dust, light motes and sparkles for keel/lit: one instanced quad, seeded placement, closed-form drift, turbulence and blink on the host's clock.",
+      "publisher": "keel-web3",
+      "category": "render",
+      "owner": {
+        "publisher": "keel-web3",
+        "kind": "org",
+        "group": "graphics",
+        "member": null
+      },
+      "sourceRepository": "https://github.com/Ravonus/keel-modules",
+      "moduleRepository": null,
+      "githubPath": "modules/keel-web3/render/motes/src/index.ts",
+      "sourceFiles": [
+        {
+          "path": "modules/keel-web3/render/motes/src/index.ts",
+          "sha256": "0x40f2725382f97453f0bc25fdf33f48f500e612069893ce0fe01edce3a772c930"
+        },
+        {
+          "path": "modules/keel-web3/render/motes/src/motes.glsl.ts",
+          "sha256": "0x674d73d8d523936efb765135794779ad20fdd8dae4c54ce7ec1757662352ef6b"
+        },
+        {
+          "path": "modules/keel-web3/render/motes/src/place.ts",
+          "sha256": "0x03c5be43fa3f5e1f6579157c036d2f0eecb7738bae285f2f9b8d1c71062dba34"
+        }
+      ],
+      "outputDigest": "0xbd39919831f10eb69ea2d522644adf9f0c39f142fea4e75cc1cc9f5d2af8d14e",
+      "receiptDigest": "0x68cb57d529939ec12ee8a77621bbe1bd03f320e2ea25a81e2b17af57e35ac1b8",
+      "disposition": "reproducible-build",
+      "verified": true,
+      "deployments": [],
+      "deployed": false,
+      "provenance": "vendored",
+      "origin": null,
+      "runtime": {
+        "encoding": "base64",
+        "data": "dmFyIHg9YAp1bmlmb3JtIHZlYzMgdURyaWZ0LCB1Qm94TWluLCB1Qm94Owp1bmlmb3JtIGZsb2F0IHVUdXJidWxlbmNlOwp2ZWMzIG1vdGVQYXRoKHZlYzQgbW90ZSwgdmVjNCBsaWZlLCBmbG9hdCB0KSB7CiAgdmVjMyBwID0gbW90ZS54eXogKyB1RHJpZnQgKiB0IC0gdUJveE1pbjsKICBwID0gdUJveE1pbiArIHAgLSB1Qm94ICogZmxvb3IocCAvIHVCb3gpOwogIGZsb2F0IHMgPSBsaWZlLncgKiA2MS4wICsgbW90ZS53OwogIHZlYzMgYSA9IHZlYzMoMC4zNywgMC4yOSwgMC4yMykgKiB0ICsgdmVjMyhzLCBzICogMS43LCBzICogMi45KTsKICB2ZWMzIGIgPSB2ZWMzKDAuODMsIDAuNzEsIDAuNTkpICogdCArIHZlYzMocyAqIDIuMywgcyAqIDMuMSwgcyAqIDEuMyk7CiAgcmV0dXJuIHAgKyB1VHVyYnVsZW5jZSAqIChzaW4oYSkgKyAwLjUgKiBzaW4oYikpIC8gMS41Owp9CmZsb2F0IG1vdGVGYWRlKHZlYzMgcCkgewogIHZlYzMgZiA9IGZyYWN0KChwIC0gdUJveE1pbikgLyB1Qm94KTsKICB2ZWMzIGVkZ2UgPSBjbGFtcChtaW4oZiwgMS4wIC0gZikgKiAxNi4wLCAwLjAsIDEuMCk7CiAgdmVjMyBtb3ZpbmcgPSBzdGVwKDFlLTYsIGFicyh1RHJpZnQpKTsKICB2ZWMzIGZhZGUgPSBtaXgodmVjMygxLjApLCBlZGdlLCBtb3ZpbmcpOwogIHJldHVybiBmYWRlLnggKiBmYWRlLnkgKiBmYWRlLno7Cn0KYCxiPWAKYXR0cmlidXRlIHZlYzQgYU1vdGU7CmF0dHJpYnV0ZSB2ZWM0IGFMaWZlOwphdHRyaWJ1dGUgdmVjMyBhQ29sb3I7CnVuaWZvcm0gZmxvYXQgdVRpbWUsIHVCbGluaywgdU9wYWNpdHksIHVJbnRlbnNpdHksIHVNaW5QaXhlbHM7CnVuaWZvcm0gdmVjMiB1UGl4ZWw7CnZhcnlpbmcgdmVjMiB2VXY7CnZhcnlpbmcgdmVjNCB2Q29sb3I7CnZhcnlpbmcgZmxvYXQgdlNwYXJrbGU7CiR7eH0Kdm9pZCBtYWluKCkgewogIGZsb2F0IHQgPSB1VGltZTsKICB2ZWMzIHAgPSBtb3RlUGF0aChhTW90ZSwgYUxpZmUsIHQpOwogIHZlYzQgdmlldyA9IG1vZGVsVmlld01hdHJpeCAqIHZlYzQocCwgMS4wKTsKICB2ZWM0IGNsaXAgPSBwcm9qZWN0aW9uTWF0cml4ICogdmlldzsKICAvLyAoQSBzcGFya2xlJ3MgcmF5cyByZWFjaCBwYXN0IGl0cyBjb3JlLCBzbyBpdHMgcXVhZCBpcyB0aHJlZSB0aW1lcyBhcyB3aWRlLikKICBmbG9hdCByZWFjaCA9IG1peCgxLjAsIDMuMCwgYUxpZmUueik7CiNpZmRlZiBBVFRFTlVBVEUKICBmbG9hdCBwaXhlbHMgPSBhTGlmZS55ICogcHJvamVjdGlvbk1hdHJpeFsxXVsxXSAvIG1heChjbGlwLncsIDFlLTQpIC8gdVBpeGVsLnk7CiNlbHNlCiAgZmxvYXQgcGl4ZWxzID0gYUxpZmUueTsKI2VuZGlmCiAgZmxvYXQgc2hvd24gPSBtYXgocGl4ZWxzLCB1TWluUGl4ZWxzKTsKICBmbG9hdCBkaW0gPSAocGl4ZWxzICogcGl4ZWxzKSAvIG1heChzaG93biAqIHNob3duLCAxZS04KTsKICBjbGlwLnh5ICs9IHBvc2l0aW9uLnh5ICogcmVhY2ggKiBzaG93biAqIHVQaXhlbCAqIGNsaXAudzsKICBnbF9Qb3NpdGlvbiA9IGNsaXA7CiAgZmxvYXQgd2F2ZSA9IDAuNSArIDAuNSAqIHNpbig2LjI4MzE4NTMgKiB0IC8gYUxpZmUueCArIGFNb3RlLncpOwogIGZsb2F0IGFscGhhID0gdU9wYWNpdHkgKiBtaXgoMS4wLCB3YXZlICogd2F2ZSwgdUJsaW5rKSAqIGRpbSAqIG1vdGVGYWRlKHApOwogIHZVdiA9IHBvc2l0aW9uLnh5ICogMi4wOwogIHZDb2xvciA9IHZlYzQoYUNvbG9yICogdUludGVuc2l0eSwgYWxwaGEpOwogIHZTcGFya2xlID0gYUxpZmUuejsKfQpgLGY9YAp2YXJ5aW5nIHZlYzIgdlV2Owp2YXJ5aW5nIHZlYzQgdkNvbG9yOwp2YXJ5aW5nIGZsb2F0IHZTcGFya2xlOwp2b2lkIG1haW4oKSB7CiAgLy8gKEEgZG90OiBhIHNvZnQgcm91bmQgc3ByaXRlLCBub3RoaW5nIGF0IHRoZSBxdWFkJ3MgZWRnZS4gQSBzcGFya2xlOiBhIGNvcmUgYW5kIGZvdXIgcmF5cywgb24gYSBxdWFkIDN4IGFzIHdpZGUuKQogIGZsb2F0IHIyID0gZG90KHZVdiwgdlV2KTsKICBmbG9hdCBzb2Z0ID0gbWF4KDAuMCwgMS4wIC0gcjIpOwogIGZsb2F0IGRvdDIgPSBzb2Z0ICogc29mdDsKICB2ZWMyIGEgPSBhYnModlV2KTsKICBmbG9hdCByYXlzID0gbWF4KDAuMCwgMS4wIC0gYS54KSAqIGV4cCgtYS55ICogNDguMCkgKyBtYXgoMC4wLCAxLjAgLSBhLnkpICogZXhwKC1hLnggKiA0OC4wKTsKICBmbG9hdCBzdGFyID0gZXhwKC1yMiAqIDI0LjApICsgcmF5cyAqIDAuNzsKICBmbG9hdCBzaGFwZSA9IG1peChkb3QyLCBzdGFyLCB2U3BhcmtsZSk7CiAgaWYgKHNoYXBlICogdkNvbG9yLmEgPCAwLjAwMikgZGlzY2FyZDsKICBnbF9GcmFnQ29sb3IgPSB2ZWM0KHZDb2xvci5yZ2IsIHZDb2xvci5hICogc2hhcGUpOwp9CmA7dmFyIHA9e2NvdW50OjMwMCxzZWVkOjEsY2VudHJlOlswLDAsMF0sYm94OlszLDMsNF0sc2l6ZTouMDcsc2l6ZVNwcmVhZDouNSxtaW5QaXhlbHM6MS41LGNvbG9yczpbIiNmZmJlMjYiXSxvcGFjaXR5Oi44OCxpbnRlbnNpdHk6MSxkcmlmdDpbLjAxNCwuMDE0LDBdLHR1cmJ1bGVuY2U6LjAzLGJsaW5rUGVyaW9kOlsyLDVdLGJsaW5rOjEsc3BhcmtsZTowLGF0dGVudWF0ZTohMH0sZz02LjI4MzE4NTMwNzE3OTU4Nix3PTQwOTYsTD04LG09KG4sZSxvKT0+TWF0aC5taW4obyxNYXRoLm1heChlLG4pKTtmdW5jdGlvbiB1KG4sZSxvKXtsZXQgdD1NYXRoLmltdWwobnwwLDI2NTQ0MzU3NjEpXk1hdGguaW11bChlKzEsMjI0NjgyMjUxOSleTWF0aC5pbXVsKG8rMSwzMjY2NDg5OTE3KTtyZXR1cm4gdD1NYXRoLmltdWwodF50Pj4+MTYsMjE0NjEyMTAwNSksdD1NYXRoLmltdWwodF50Pj4+MTUsMjIyMTcxMzAzNSksdF49dD4+PjE2LCh0Pj4+MCkvNDI5NDk2NzI5Nn1mdW5jdGlvbiBkKG49e30pe2xldCBlPXsuLi5wLC4uLm59LG89TWF0aC5tYXgoLjA1LE1hdGgubWluKGUuYmxpbmtQZXJpb2RbMF0sZS5ibGlua1BlcmlvZFsxXSkpO3JldHVybnsuLi5lLGNvdW50Om0oTWF0aC5mbG9vcihlLmNvdW50KSwwLHcpLHNlZWQ6ZS5zZWVkfDAsYm94OltNYXRoLm1heCguMDAxLGUuYm94WzBdKSxNYXRoLm1heCguMDAxLGUuYm94WzFdKSxNYXRoLm1heCguMDAxLGUuYm94WzJdKV0sc2l6ZTpNYXRoLm1heCgwLGUuc2l6ZSksc2l6ZVNwcmVhZDptKGUuc2l6ZVNwcmVhZCwwLDEpLG1pblBpeGVsczpNYXRoLm1heCgwLGUubWluUGl4ZWxzKSxjb2xvcnM6ZS5jb2xvcnMubGVuZ3RoPjA/ZS5jb2xvcnMuc2xpY2UoMCwyNTUpOnAuY29sb3JzLG9wYWNpdHk6bShlLm9wYWNpdHksMCwxKSxpbnRlbnNpdHk6TWF0aC5tYXgoMCxlLmludGVuc2l0eSksdHVyYnVsZW5jZTpNYXRoLm1heCgwLGUudHVyYnVsZW5jZSksYmxpbmtQZXJpb2Q6W28sTWF0aC5tYXgobyxlLmJsaW5rUGVyaW9kWzBdLGUuYmxpbmtQZXJpb2RbMV0pXSxibGluazptKGUuYmxpbmssMCwxKSxzcGFya2xlOm0oZS5zcGFya2xlLDAsMSl9fWZ1bmN0aW9uIHYobixlLG8pe2xldCB0PW8qMztyZXR1cm5bbi5jZW50cmVbMF0rKHUobi5zZWVkLGUsdCktLjUpKm4uYm94WzBdLG4uY2VudHJlWzFdKyh1KG4uc2VlZCxlLHQrMSktLjUpKm4uYm94WzFdLG4uY2VudHJlWzJdKyh1KG4uc2VlZCxlLHQrMiktLjUpKm4uYm94WzJdXX1mdW5jdGlvbiBUKG4sZSxvKXtsZXQgdD12KG4sZSwwKTtpZighbylyZXR1cm4gdDtmb3IobGV0IGE9MDthPEw7YSs9MSlpZih0PXYobixlLGEpLHUobi5zZWVkLGUsMTAwK2EpPG8odFswXSx0WzFdLHRbMl0pKXJldHVybiB0O3JldHVybiB0fWZ1bmN0aW9uIHkobj17fSxlKXtsZXQgbz1kKG4pLHQ9bmV3IEZsb2F0MzJBcnJheShvLmNvdW50KjQpLGE9bmV3IEZsb2F0MzJBcnJheShvLmNvdW50KjQpLGw9bmV3IFVpbnQ4QXJyYXkoby5jb3VudCksW2ksc109by5ibGlua1BlcmlvZDtmb3IobGV0IHI9MDtyPG8uY291bnQ7cis9MSl7bGV0IGM9VChvLHIsZSk7dC5zZXQoW2NbMF0sY1sxXSxjWzJdLHUoby5zZWVkLHIsNDApKmddLHIqNCk7bGV0IE09by5zaXplKigxKyh1KG8uc2VlZCxyLDQyKSoyLTEpKm8uc2l6ZVNwcmVhZCksaD11KG8uc2VlZCxyLDQzKTxvLnNwYXJrbGU/MTowLGs9aSt1KG8uc2VlZCxyLDQxKSoocy1pKTthLnNldChbayxNLGgsdShvLnNlZWQsciw0NCldLHIqNCksbFtyXT1NYXRoLmZsb29yKHUoby5zZWVkLHIsNDUpKm8uY29sb3JzLmxlbmd0aCl9cmV0dXJue2NvdW50Om8uY291bnQsbW90ZTp0LGxpZmU6YSxjb2xvcjpsfX1mdW5jdGlvbiBBKG4sZSxvKXtsZXQgdD15KGUsbyksYT1lLmNvbG9ycy5tYXAoaT0+bmV3IG4uQ29sb3IoaSkpLGw9bmV3IEZsb2F0MzJBcnJheSh0LmNvdW50KjMpO2ZvcihsZXQgaT0wO2k8dC5jb3VudDtpKz0xKXtsZXQgcz1hW3QuY29sb3JbaV0/PzBdPz97cjoxLGc6MSxiOjF9O2wuc2V0KFtzLnIscy5nLHMuYl0saSozKX1yZXR1cm57YU1vdGU6bmV3IG4uSW5zdGFuY2VBdHRyaWJ1dGUodC5tb3RlLDQpLGFMaWZlOm5ldyBuLkluc3RhbmNlQXR0cmlidXRlKHQubGlmZSw0KSxhQ29sb3I6bmV3IG4uSW5zdGFuY2VBdHRyaWJ1dGUobCwzKX19ZnVuY3Rpb24gUChuLGUpe2xldCBvPWUuY2VudHJlLm1hcCgodCxhKT0+dC0oZS5ib3hbYV0/PzEpLzIpO3JldHVybnt1VGltZTp7dmFsdWU6MH0sdUJsaW5rOnt2YWx1ZTplLmJsaW5rfSx1T3BhY2l0eTp7dmFsdWU6ZS5vcGFjaXR5fSx1SW50ZW5zaXR5Ont2YWx1ZTplLmludGVuc2l0eX0sdU1pblBpeGVsczp7dmFsdWU6ZS5taW5QaXhlbHN9LHVQaXhlbDp7dmFsdWU6bmV3IG4uVmVjdG9yMigyLzEwMjQsMi8xMDI0KX0sdURyaWZ0Ont2YWx1ZTpuZXcgbi5WZWN0b3IzKGUuZHJpZnRbMF0sZS5kcmlmdFsxXSxlLmRyaWZ0WzJdKX0sdUJveE1pbjp7dmFsdWU6bmV3IG4uVmVjdG9yMyhvWzBdLG9bMV0sb1syXSl9LHVCb3g6e3ZhbHVlOm5ldyBuLlZlY3RvcjMoZS5ib3hbMF0sZS5ib3hbMV0sZS5ib3hbMl0pfSx1VHVyYnVsZW5jZTp7dmFsdWU6ZS50dXJidWxlbmNlfX19ZnVuY3Rpb24gTyhuLGU9e30sbyl7bGV0IHQ9ZChlKSxhPW4ucGxhbmUoMSwxKTtmb3IobGV0W3IsY11vZiBPYmplY3QuZW50cmllcyhBKG4sdCxvKSkpYS5zZXRBdHRyaWJ1dGUocixjKTtsZXQgbD1QKG4sdCksaT1uZXcgbi5DdXN0b21NYXRlcmlhbCh7dW5pZm9ybXM6bCx2ZXJ0ZXhTaGFkZXI6YixmcmFnbWVudFNoYWRlcjpmLGRlZmluZXM6dC5hdHRlbnVhdGU/e0FUVEVOVUFURToiIn06e30sdHJhbnNwYXJlbnQ6ITAsZGVwdGhXcml0ZTohMSxibGVuZGluZzoiYWRkIn0pLHM9bmV3IG4uSW5zdGFuY2VzKGEsaSx0LmNvdW50KTtyZXR1cm4gcy5mcnVzdHVtQ3VsbGVkPSExLHttZXNoOnMsZ2V0IHNob3duKCl7cmV0dXJuIHMuY291bnR9LHNldCBzaG93bihyKXtzLmNvdW50PU1hdGgubWF4KDAsTWF0aC5taW4odC5jb3VudCxNYXRoLmZsb29yKHIpKSl9LHJlc2l6ZShyLGMpe2wudVBpeGVsLnZhbHVlLnNldCgyL01hdGgubWF4KDEsciksMi9NYXRoLm1heCgxLGMpKX0sdXBkYXRlKHIpe2xldCBjPXIuc3RpbGw9PT0hMDtsLnVUaW1lLnZhbHVlPWM/MDpyLnRpbWUsbC51QmxpbmsudmFsdWU9Yz8wOnQuYmxpbmssbC51T3BhY2l0eS52YWx1ZT10Lm9wYWNpdHkqTWF0aC5tYXgoMCxNYXRoLm1pbigxLHIub3BhY2l0eT8/MSkpfSxkaXNwb3NlKCl7YS5kaXNwb3NlKCksaS5kaXNwb3NlKCl9fX1leHBvcnR7cCBhcyBERUZBVUxUX01PVEVTLGYgYXMgTU9URV9GUkFHTUVOVCx4IGFzIE1PVEVfUEFUSF9HTFNMLGIgYXMgTU9URV9WRVJURVgsTyBhcyBjcmVhdGVNb3Rlcyx1IGFzIG1vdGVIYXNoLGQgYXMgbW90ZVNldHRpbmdzLHkgYXMgcGxhY2VNb3Rlc307Cg==",
         "format": "esm",
         "entry": "src/index.ts"
       }

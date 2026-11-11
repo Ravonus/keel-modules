@@ -4,17 +4,114 @@
   "version": "0.1.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "One full-screen pass after the finish for a scrolled section: a paper panel that sweeps in and out with a straight or torn edge and a fibre line, darkening, blur and one-pixel grain, every value a plain number fed from tracks.",
+  "summary": "One full-screen pass after the finish for a scrolled section: a paper panel that sweeps over the frame with a straight or torn edge, a thin fibre band and a soft shadow, plus darkening, blur and one-pixel grain, every value a plain number fed from tracks.",
   "category": "render",
-  "owner": { "org": "keel-web3", "group": "graphics" },
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  },
   "inputs": [
-    { "key": "seed", "label": "Noise seed", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 2147483647, "step": 1, "default": 1 },
-    { "key": "colour", "label": "Paper colour", "type": "color", "required": false, "swatches": ["#f7f7ee", "#dcdcd0", "#ffffff"], "default": "#f7f7ee" },
-    { "key": "tear", "label": "Torn edge", "type": "number", "required": false, "min": 0, "max": 1, "step": 0.01, "control": "slider", "help": "0 is a straight edge.", "default": 0 },
-    { "key": "fibre", "label": "Fibre line", "type": "number", "required": false, "min": 0, "max": 1, "step": 0.01, "control": "slider", "default": 0.5 },
-    { "key": "paper", "label": "Paper mottle", "type": "number", "required": false, "placement": "advanced", "min": 0, "max": 1, "step": 0.01, "default": 0.4 },
-    { "key": "grain", "label": "Grain", "type": "number", "required": false, "min": 0, "max": 0.2, "step": 0.005, "control": "slider", "help": "One-pixel grain over the whole frame, as a share of full luminance.", "default": 0.02 },
-    { "key": "noiseScale", "label": "Noise scale", "type": "number", "required": false, "placement": "advanced", "min": 0.25, "max": 8, "step": 0.05, "default": 1 },
-    { "key": "depth", "label": "Depth buffer", "type": "boolean", "required": false, "placement": "advanced", "help": "Needed when the frame is a plain scene, not a finish.", "default": false }
+    {
+      "key": "seed",
+      "label": "Noise seed",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 2147483647,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "key": "colour",
+      "label": "Paper colour",
+      "type": "color",
+      "required": false,
+      "swatches": [
+        "#f7f7ee",
+        "#dcdcd0",
+        "#ffffff"
+      ],
+      "default": "#f7f7ee"
+    },
+    {
+      "key": "tear",
+      "label": "Torn edge",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "control": "slider",
+      "help": "0 is one clean straight edge; 1 is finely jagged paper.",
+      "default": 0
+    },
+    {
+      "key": "fibre",
+      "label": "Fibre line",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "control": "slider",
+      "default": 0.8,
+      "help": "A thin band of lighter fibres just past the edge."
+    },
+    {
+      "key": "shadow",
+      "label": "Edge shadow",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "control": "slider",
+      "help": "A soft shadow the panel casts past its edge.",
+      "default": 0.35
+    },
+    {
+      "key": "paper",
+      "label": "Paper mottle",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.4
+    },
+    {
+      "key": "grain",
+      "label": "Grain",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 0.2,
+      "step": 0.005,
+      "control": "slider",
+      "help": "One-pixel grain over the whole frame, as a share of full luminance.",
+      "default": 0.02
+    },
+    {
+      "key": "noiseScale",
+      "label": "Noise scale",
+      "type": "number",
+      "required": false,
+      "placement": "advanced",
+      "min": 0.25,
+      "max": 8,
+      "step": 0.05,
+      "default": 1
+    },
+    {
+      "key": "depth",
+      "label": "Depth buffer",
+      "type": "boolean",
+      "required": false,
+      "placement": "advanced",
+      "help": "Needed when the frame is a plain scene, not a finish.",
+      "default": false
+    }
   ]
 }

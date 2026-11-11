@@ -48,7 +48,7 @@ export default [
       postSettings({ seed: -1, colour: "cream", tear: 3, fibre: -1, paper: "x", grain: 1, noiseScale: 99, depth: "yes" }),
       postSettings() === DEFAULT_POST_SETTINGS,
     ],
-    expect: [{ seed: 0, colour: "#f7f7ee", tear: 1, fibre: 0, paper: 0.4, grain: 0.2, noiseScale: 8, depth: false }, true],
+    expect: [{ seed: 0, colour: "#f7f7ee", tear: 1, fibre: 0, paper: 0.4, shadow: 0.35, grain: 0.2, noiseScale: 8, depth: false }, true],
   },
   {
     name: "a frame's values are bounded, and the settings stand in for the ones left out",
@@ -57,21 +57,31 @@ export default [
       return [frameOf({}, settings), frameOf({ progress: 3, position: -4, colour: [0, 0.5, 1], tear: 1, darken: 0.4, blur: -1 }, settings)];
     },
     expect: [
-      { progress: 0, position: 0, colour: [1, 0, 0], tear: 0.5, fibre: 0.5, grain: 0.01, darken: 0, blur: 0 },
-      { progress: 2, position: -1, colour: [0, 0.5, 1], tear: 1, fibre: 0.5, grain: 0.01, darken: 0.4, blur: 0 },
+      { progress: 0, position: 0, colour: [1, 0, 0], tear: 0.5, fibre: 0.8, shadow: 0.35, grain: 0.01, darken: 0, blur: 0 },
+      { progress: 2, position: -1, colour: [0, 0.5, 1], tear: 1, fibre: 0.8, shadow: 0.35, grain: 0.01, darken: 0.4, blur: 0 },
     ],
   },
   {
-    name: "the panel shows while present and on screen, a torn edge reaching past a straight one",
+    name: "the panel sweeps up: its top edge rises to cover the frame at 1, then its bottom edge follows it out",
+    run: ({ frameOf, panelEdges, postSettings }) => {
+      const s = postSettings();
+      return [[0.25, 0], [1, 0], [1.5, 0], [0.5, 0.1], [1.5, -0.2]].map(([progress, position]) =>
+        panelEdges(frameOf({ progress, position }, s)).map((v) => Math.round(v * 1e9) / 1e9));
+    },
+    expect: [[-4, 0.25], [-4, 1], [0.5, 4], [-4, 0.6], [0.3, 4]],
+  },
+  {
+    name: "the panel shows while it is on the frame, its shadow and torn fibres reaching a little past",
     run: ({ frameOf, panelShows, postSettings }) => {
       const s = postSettings();
       const shows = (values) => panelShows(frameOf(values, s));
       return [
-        shows({ progress: 0, position: 0 }), shows({ progress: 0.5, position: 0 }), shows({ progress: 2, position: 0 }),
-        shows({ progress: 1, position: -1 }), shows({ progress: 1, position: -1, tear: 1 }), shows({ progress: 1, position: 0.99 }),
+        shows({ progress: 0 }), shows({ progress: 0.5 }), shows({ progress: 2 }), shows({ progress: 1.99 }),
+        shows({ progress: 0.2, position: -0.21 }), shows({ progress: 0.2, position: -0.25 }),
+        shows({ progress: 0.2, position: -0.236, tear: 1 }), shows({ progress: 0.2, position: -0.236, tear: 0 }),
       ];
     },
-    expect: [false, true, false, false, true, true],
+    expect: [false, true, false, true, true, false, true, false],
   },
   {
     name: "the blur's step scales with the frame's height, so its reach is a share of the frame",
@@ -92,7 +102,7 @@ export default [
       post.setSize(720, 450, 2);
       const draw = (label) => () => log.push(label);
       post.render(draw("idle"), { progress: 0 });
-      post.render(draw("panel"), { progress: 1, position: 0.5 });
+      post.render(draw("panel"), { progress: 1.5 });
       post.render(draw("blurred"), { blur: 0.08 });
       const sizes = lit.targets.map((t) => t.size);
       const step = lit.materials[1].uniforms.uDir.value;
@@ -114,15 +124,15 @@ export default [
       const log = [];
       const lit = fakeLit(log);
       const post = createSectionPost(lit, fakeRenderer(log), shaders, { paper: 0.7, depth: true });
-      post.render(() => {}, { progress: 0.4, position: -0.5, tear: 1, fibre: 0.2, darken: 0.3 });
+      post.render(() => {}, { progress: 0.4, position: -0.1, tear: 1, fibre: 0.2, shadow: 0.5, darken: 0.3 });
       const u = lit.materials[0].uniforms;
       const names = Object.keys(u);
       return [
-        ["uProgress", "uPosition", "uColour", "uTear", "uFibre", "uGrain", "uDarken", "uBlur", "uPaper"].map((k) => u[k].value),
+        ["uBottom", "uTop", "uColour", "uTear", "uFibre", "uShadow", "uGrain", "uDarken", "uBlur", "uPaper"].map((k) => u[k].value),
         names.filter((n) => !new RegExp(`uniform \\w+ ${n};`, "u").test(POST_GLSL)),
         lit.targets[0].options.depthBuffer,
       ];
     },
-    expect: [[0.4, -0.5, [247 / 255, 247 / 255, 238 / 255], 1, 0.2, 0.02, 0.3, 0, 0.7], [], true],
+    expect: [[-4, 0.30000000000000004, [247 / 255, 247 / 255, 238 / 255], 1, 0.2, 0.5, 0.02, 0.3, 0, 0.7], [], true],
   },
 ];

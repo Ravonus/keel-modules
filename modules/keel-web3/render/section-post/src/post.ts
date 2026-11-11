@@ -5,7 +5,7 @@
 import type { DisposableLike, LitLike, RendererLike, RenderTargetLike, ShaderMaterialLike, TextureLike, Uniform } from "./lit.js";
 import { NOISE_SIZE, noiseTexels } from "./noise.js";
 import { POST_GLSL, POST_VERTEX_GLSL } from "./post.glsl.js";
-import { TEAR_REACH, blurStep, frameOf, idle, postSettings } from "./settings.js";
+import { TEAR_REACH, blurStep, frameOf, idle, panelEdges, postSettings } from "./settings.js";
 import type { Frame, PostSettings, PostValues } from "./settings.js";
 
 /** lit-finish's shaders this pass reuses: pass the lit-finish namespace itself. */
@@ -77,9 +77,9 @@ function createParts(lit: LitLike, shaders: FinishShaders, settings: PostSetting
   const value = (v: unknown): Uniform => ({ value: v });
   const post = createPass(lit, geometry, {
     tColor: value(frame.texture), tBlurred: value(blurred[1].texture), tNoise: value(noiseTexture(lit, settings.seed)),
-    uSize: value([1, 1]), uNoiseScale: value(1), uProgress: value(0), uPosition: value(0), uColour: value([1, 1, 1]),
-    uTear: value(0), uTearReach: value(TEAR_REACH), uFibre: value(0), uPaper: value(0), uGrain: value(0),
-    uDarken: value(0), uBlur: value(0),
+    uSize: value([1, 1]), uNoiseScale: value(1), uBottom: value(-4), uTop: value(-4), uColour: value([1, 1, 1]),
+    uTear: value(0), uTearReach: value(TEAR_REACH), uFibre: value(0), uShadow: value(0), uPaper: value(0),
+    uGrain: value(0), uDarken: value(0), uBlur: value(0),
   }, POST_GLSL);
   const blurUniforms = { tBlur: value(null), uBloomSize: value([1, 1]), uDir: value([1, 0]) };
   const blur = createPass(lit, geometry, blurUniforms, shaders.BLUR_GLSL);
@@ -88,9 +88,10 @@ function createParts(lit: LitLike, shaders: FinishShaders, settings: PostSetting
 
 /** This frame's values and the settings into the pass. */
 function writeFrame(uniforms: Record<string, Uniform>, frame: Frame, settings: PostSettings): void {
+  const [bottom, top] = panelEdges(frame);
   const values: readonly (readonly [string, unknown])[] = [
-    ["uProgress", frame.progress], ["uPosition", frame.position], ["uColour", frame.colour], ["uTear", frame.tear],
-    ["uFibre", frame.fibre], ["uGrain", frame.grain], ["uDarken", frame.darken], ["uBlur", frame.blur],
+    ["uBottom", bottom], ["uTop", top], ["uColour", frame.colour], ["uTear", frame.tear], ["uFibre", frame.fibre],
+    ["uShadow", frame.shadow], ["uGrain", frame.grain], ["uDarken", frame.darken], ["uBlur", frame.blur],
     ["uPaper", settings.paper], ["uNoiseScale", settings.noiseScale],
   ];
   for (const [name, value] of values) set(uniforms, name, value);

@@ -1,9 +1,10 @@
 # section-post
 
 One full-screen pass after the finish, for what a scrolled section lays over
-its scene: a paper panel that sweeps in and out with a straight or torn edge and
-a line of fibres along it, darkening and blur of the frame under the panel, and
-a one-pixel grain over everything. Every value is a plain number a host feeds
+its scene: a paper panel that sweeps up over the frame and off its top with a
+straight or torn edge, a thin band of fibres just past the edge and a soft
+shadow under it, darkening and blur of the frame under the panel, and a
+one-pixel grain over everything. Every value is a plain number a host feeds
 from its tracks each frame.
 
 ## Injected dependencies
@@ -40,16 +41,17 @@ host's target, at no cost.
 
 | value | range | |
 |---|---|---|
-| `progress` | 0..2 | the panel's presence: 0 none; 0 → 1 it fills in through the seeded noise; 1 whole; 1 → 2 it dissolves out; 2 gone |
-| `position` | -1..1 | where the panel sits, in frame heights: -1 below the frame, 0 covering it, 1 above it (a mobile track is just another track) |
+| `progress` | 0..2 | the sweep: 0 → 1 the panel's top edge rises from the frame's bottom to its top, covering it; 1 → 2 its bottom edge follows, uncovering it; 0 and 2 nothing |
+| `position` | -1..1 | moves both edges, in frame heights (y up), for a host whose track places the panel rather than sweeping it |
 | `colour` | [r, g, b] | the paper, display values 0..1; the `colour` setting by default |
-| `tear` | 0..1 | 0 a straight edge; 1 strays up to 5 % of the frame's height |
-| `fibre` | 0..1 | a band of lighter fibres inside each edge, wider where torn |
+| `tear` | 0..1 | 0 a straight edge, one clean line; 1 a continuous, finely jagged edge straying up to 1.6 % of the frame's height, with a few loose hairs |
+| `fibre` | 0..1 | a thin band of lighter fibres just past the edge, 1.5 px straight to 4 px fully torn |
+| `shadow` | 0..1 | a soft shadow the panel casts onto the frame past its edge |
 | `grain` | 0..0.2 | one-pixel grain over the whole frame, a share of full luminance |
 | `darken` | 0..1 | darkens the frame under the panel |
 | `blur` | 0..1 | blurs the frame under the panel: the outer taps reach `blur` × 16 % of the frame's height (0.08 reaches 1.3 %) |
 
-`tear`, `fibre` and `grain` default to the settings; the rest to 0.
+`tear`, `fibre`, `shadow` and `grain` default to the settings; the rest to 0.
 
 ## Settings
 
@@ -58,7 +60,8 @@ host's target, at no cost.
 | `seed` | 1 | the noise texture's seed |
 | `colour` | `#f7f7ee` | the paper |
 | `tear` | 0 | |
-| `fibre` | 0.5 | |
+| `fibre` | 0.8 | |
+| `shadow` | 0.35 | |
 | `paper` | 0.4 | the paper's own mottle |
 | `grain` | 0.02 | |
 | `noiseScale` | 1 | noise repeats down the frame's height |

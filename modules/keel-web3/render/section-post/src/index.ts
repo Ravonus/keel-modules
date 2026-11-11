@@ -7,16 +7,16 @@
  *   // each frame, the values from the host's tracks:
  *   post.render(() => finish.render(scene, camera), { progress, position, darken, blur });
  *
- * A paper panel sweeps in (`progress` 0 → 1, dissolving in through seeded noise) and out (1 → 2), placed by
- * `position` (-1 below the frame, 0 covering it, 1 above it), with a straight or torn edge and a line of lighter
- * fibres along it. Under the panel the frame can be darkened and blurred (lit-finish's own blur, passed in); a
- * one-pixel grain lies over everything. A frame that needs none of it is drawn straight to the host's target.
+ * A paper panel sweeps up over the frame (`progress` 0 → 1) and on up out of it (1 → 2), its edges moved by
+ * `position`, straight or torn, with a thin line of lighter fibres and a soft shadow past them. Under the panel the
+ * frame can be darkened and blurred (lit-finish's own blur, passed in); a one-pixel grain lies over everything. A
+ * frame that needs none of it is drawn straight to the host's target.
  *
  * keel/lit and lit-finish are injected: the module never imports them and never touches globals.
  */
 
 export {
-  DEFAULT_POST_SETTINGS, TEAR_REACH, postSettings, frameOf, panelShows, idle, blurStep, displayColour,
+  DEFAULT_POST_SETTINGS, TEAR_REACH, postSettings, frameOf, panelEdges, panelShows, idle, blurStep, displayColour,
 } from "./settings.js";
 export type { Frame, PostSettings, PostValues } from "./settings.js";
 export { NOISE_SIZE, latticeHash, noiseTexels } from "./noise.js";

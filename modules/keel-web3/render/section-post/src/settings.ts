@@ -12,6 +12,8 @@ export interface PostSettings {
   readonly fibre: number;
   /** The paper's own mottle, 0 to 1. */
   readonly paper: number;
+  /** A soft shadow the panel casts past its edges onto the frame, 0 to 1. */
+  readonly shadow: number;
   /** One-pixel grain over the whole frame, as a share of full luminance, 0 to 0.2. */
   readonly grain: number;
   /** How many times the noise repeats down the frame's height, 0.25 to 8. */
@@ -24,8 +26,9 @@ export const DEFAULT_POST_SETTINGS: PostSettings = {
   seed: 1,
   colour: "#f7f7ee",
   tear: 0,
-  fibre: 0.5,
+  fibre: 0.8,
   paper: 0.4,
+  shadow: 0.35,
   grain: 0.02,
   noiseScale: 1,
   depth: false,
@@ -33,14 +36,18 @@ export const DEFAULT_POST_SETTINGS: PostSettings = {
 
 /** What a host feeds each frame, from its tracks. Every field is optional; the settings fill the rest. */
 export interface PostValues {
-  /** The panel's presence: 0 none, 0..1 it fills in through the noise, 1 whole, 1..2 it dissolves out, 2 gone. */
+  /**
+   * The panel's sweep: 0 none; 0 → 1 its top edge rises from the frame's bottom to its top; 1 it covers the frame;
+   * 1 → 2 its bottom edge rises after it, so it leaves through the top; 2 gone.
+   */
   readonly progress?: number;
-  /** Where the panel sits in frame heights: -1 below the frame, 0 covering it, 1 above it. */
+  /** Moves the panel's edges up (positive) or down, in frame heights, -1..1: a second track, a mobile one, say. */
   readonly position?: number;
   /** The paper's colour, [r, g, b] each 0..1 (display values). */
   readonly colour?: readonly [number, number, number];
   readonly tear?: number;
   readonly fibre?: number;
+  readonly shadow?: number;
   readonly grain?: number;
   /** Darkens the frame under the panel, 0..1. */
   readonly darken?: number;
@@ -55,6 +62,7 @@ export interface Frame {
   readonly colour: readonly [number, number, number];
   readonly tear: number;
   readonly fibre: number;
+  readonly shadow: number;
   readonly grain: number;
   readonly darken: number;
   readonly blur: number;
@@ -81,6 +89,7 @@ export function postSettings(input?: unknown): PostSettings {
     tear: bounded(v.tear, d.tear, 0, 1),
     fibre: bounded(v.fibre, d.fibre, 0, 1),
     paper: bounded(v.paper, d.paper, 0, 1),
+    shadow: bounded(v.shadow, d.shadow, 0, 1),
     grain: bounded(v.grain, d.grain, 0, 0.2),
     noiseScale: bounded(v.noiseScale, d.noiseScale, 0.25, 8),
     depth: typeof v.depth === "boolean" ? v.depth : d.depth,
@@ -109,6 +118,7 @@ export function frameOf(values: PostValues, settings: PostSettings): Frame {
     colour,
     tear: bounded(values.tear, settings.tear, 0, 1),
     fibre: bounded(values.fibre, settings.fibre, 0, 1),
+    shadow: bounded(values.shadow, settings.shadow, 0, 1),
     grain: bounded(values.grain, settings.grain, 0, 0.2),
     darken: bounded(values.darken, 0, 0, 1),
     blur: bounded(values.blur, 0, 0, 1),
@@ -116,12 +126,28 @@ export function frameOf(values: PostValues, settings: PostSettings): Frame {
 }
 
 /** How far a torn edge can stray from its line, in frame heights, at `tear` 1. */
-export const TEAR_REACH = 0.05;
+export const TEAR_REACH = 0.016;
+/** How far past its edges the panel's shadow and fibres reach, in frame heights. */
+const EDGE_REACH = 0.03;
+/** An edge beyond the frame, for a panel open at that end. */
+const OPEN = 4;
 
-/** Whether the panel shows any of itself: present, and not wholly below or above the frame (a torn edge included). */
+/**
+ * Where the panel's edges are this frame, in frame heights from the bottom (y up). Before progress 1 the panel is open
+ * below and its top edge is the sweep; after it the panel is open above and its bottom edge is the sweep.
+ *
+ * @returns `[bottom, top]`.
+ */
+export function panelEdges(frame: Frame): [number, number] {
+  if (frame.progress <= 1) return [-OPEN, frame.progress + frame.position];
+  return [frame.progress - 1 + frame.position, OPEN];
+}
+
+/** Whether the panel, its shadow or its fibres show any of themselves in the frame. */
 export function panelShows(frame: Frame): boolean {
-  const reach = frame.tear * TEAR_REACH;
-  return frame.progress > 0 && frame.progress < 2 && Math.abs(frame.position) < 1 + reach;
+  const [bottom, top] = panelEdges(frame);
+  const reach = frame.tear * TEAR_REACH + EDGE_REACH;
+  return frame.progress > 0 && frame.progress < 2 && top > -reach && bottom < 1 + reach;
 }
 
 /** Whether a frame needs the pass at all: no panel, no darkening, no blur and no grain draw straight to the host. */

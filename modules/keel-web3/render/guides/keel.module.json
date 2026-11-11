@@ -1,0 +1,10 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "guides",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A lit keel/lit stage at a camera rendered into guide passes for painters and image conditioning: depth (16-bit), view normal, part ID from any mesh tag or material slot, key light with its cast shadow, line work (outlines and part borders, creases, depth steps) and flat block-in colour, each read back as RGBA8 with an ID table that is the same bytes on every engine.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" }
+}

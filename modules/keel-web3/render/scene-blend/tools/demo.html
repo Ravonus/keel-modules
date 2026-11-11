@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hand-over demo</title>
+    <link rel="icon" href="data:,">
+    <!-- Local tool, never published. ?t=0.25 holds the blend, ?overlay=1 holds the panel (0..2), ?mode=radial|fade,
+         ?tear=1, ?bench=300 times frames. Without them the page scrolls through both. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "keel://module/lit.js": "/lit.mjs",
+          "keel://module/lit-finish.js": "/modules/render/lit-finish/index.js",
+          "keel://module/scene-blend.js": "/modules/render/scene-blend/index.js",
+          "keel://module/section-post.js": "/modules/render/section-post/index.js"
+        }
+      }
+    </script>
+    <style>
+      html, body { margin: 0; background: #000; color: #f7f7ee; font: 18px/1.5 ui-serif, Georgia, serif; }
+      canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+      main { position: relative; }
+      section { height: 100vh; display: flex; align-items: flex-end; padding: 0 8vw 12vh; box-sizing: border-box; }
+      section p { max-width: 30ch; margin: 0; text-shadow: 0 1px 8px #000a; }
+      body.still main { display: none; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section><p>A field of lit spheres, drawn through the finish.</p></section>
+      <section><p>Scroll on and a second scene arrives as line work, then fills in.</p></section>
+      <section><p>The knot is current from the halfway point.</p></section>
+      <section><p>Now a paper panel sweeps up over it.</p></section>
+      <section><p>It covers the frame, then leaves.</p></section>
+      <section><p>The end.</p></section>
+    </main>
+    <script type="module" src="/demo.js"></script>
+  </body>
+</html>

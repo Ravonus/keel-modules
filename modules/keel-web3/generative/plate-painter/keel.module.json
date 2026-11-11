@@ -1,0 +1,16 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "plate-painter",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A painted landscape plate from a seeded recipe, generated on the GPU at load: planes of sky, ranges, shore, water and leaves with haze by depth and brush strokes, drawn as a screen-locked backdrop or read back as a still.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" },
+  "inputs": [
+    { "key": "seed", "label": "Seed", "type": "number", "required": false, "min": 0, "max": 999999, "step": 1, "help": "Decides every peak, tree, cloud and leaf inside the recipe's bounds.", "default": 0 },
+    { "key": "haze", "label": "Haze", "type": "number", "required": false, "min": 0, "max": 2, "step": 0.05, "control": "slider", "help": "How thick the air is: 1 is the recipe's.", "default": 1 },
+    { "key": "clouds", "label": "Clouds", "type": "number", "required": false, "min": -0.5, "max": 0.5, "step": 0.05, "control": "slider", "placement": "advanced", "help": "Below 0 clears the sky, above 0 fills it.", "default": 0 },
+    { "key": "foliage", "label": "Near leaves", "type": "boolean", "required": false, "placement": "advanced", "help": "Leave the near branch and leaves out when something else fills the foreground.", "default": true }
+  ]
+}

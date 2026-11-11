@@ -1,10 +1,10 @@
 {
   "schema": "keel.jsmodule@2",
   "id": "quality",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "One setting for how good a scene looks: levels from low to ultra picked from the device, spent by where the camera is, and a governor that lowers render scale to hold the frame rate. Pure and renderer-free.",
+  "summary": "One setting for how good a scene looks: levels from low to ultra picked from the device, spent by where the camera is, and a governor that lowers render scale to hold the frame rate, and page levers (bloom, motes, hand-over scale, TAA, density) for scrolled scenes. Pure and renderer-free.",
   "category": "render",
   "owner": { "org": "keel-web3", "group": "graphics" },
   "inputs": [

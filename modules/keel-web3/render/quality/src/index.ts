@@ -6,6 +6,7 @@
  *   const quality = createQuality({ level: "auto", tier: device.tier });
  *   quality.at({ under, depth, height, clearance })  -> what to draw this frame
  *   quality.frame(milliseconds)                      -> tell it how the last one went
+ *   quality.levers                                   -> what a scrolled page's scenes may spend
  *
  * Pure: nothing here reads a clock or a GPU, so the caller hands it frame times
  * and any run can be replayed from them.
@@ -47,6 +48,39 @@ const LEVELS: Readonly<Record<Level, Settings>> = {
 };
 
 const TIER_LEVELS: Readonly<Record<Tier, Level>> = { low: "low", mid: "medium", high: "high" };
+
+/** What a scrolled page's scenes may spend: the levers a scene's `setQuality` takes, beside the settings above. */
+export interface Levers {
+  /** Pixels drawn, as a share of the screen's width and height: the governed scale. */
+  readonly renderScale: number;
+  /** Bloom, as a share of a scene's own: 0 turns it off. */
+  readonly bloom: number;
+  /** The share of a scene's motes and other particles drawn, 0 to 1. */
+  readonly motes: number;
+  /** The outgoing scene's scale during a hand-over between two scenes, as a share of `renderScale`. */
+  readonly blendScale: number;
+  /** Temporal antialiasing. */
+  readonly taa: boolean;
+  /** The share of a scene's detail (crowds, foliage, level of detail) drawn, 0 to 1. */
+  readonly density: number;
+}
+
+const PAGE_LEVERS: Readonly<Record<Level, Omit<Levers, "renderScale">>> = {
+  low: { bloom: 0, motes: 0.25, blendScale: 0.5, taa: false, density: 0.5 },
+  medium: { bloom: 1, motes: 0.5, blendScale: 0.5, taa: true, density: 0.75 },
+  high: { bloom: 1, motes: 0.8, blendScale: 0.75, taa: true, density: 1 },
+  ultra: { bloom: 1, motes: 1, blendScale: 1, taa: true, density: 1 },
+};
+
+/**
+ * A level's page levers at a render scale.
+ *
+ * @param level The level in use.
+ * @param scale The render scale, as the governor holds it.
+ */
+export function leversFor(level: Level, scale: number): Levers {
+  return { renderScale: scale, ...PAGE_LEVERS[level] };
+}
 
 /** Where the camera is. */
 export interface Place {
@@ -129,6 +163,8 @@ export interface Quality {
   readonly spray: boolean;
   /** Turns tracing, upscaling or spray on or off, or changes level, at once. */
   set(switches: Switches): void;
+  /** The page levers for the level in use, at the governed render scale. */
+  readonly levers: Levers;
 }
 
 /** Everything a ray would cost, gone. */
@@ -172,6 +208,7 @@ export function createQuality(input: QualityInput = {}): Quality {
     get tracing() { return tracing; },
     get upscale() { return upscale; },
     get spray() { return spray; },
+    get levers() { return leversFor(level, scale); },
     set(switches) {
       tracing = switches.tracing ?? tracing;
       upscale = switches.upscale ?? upscale;

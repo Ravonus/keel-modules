@@ -105,4 +105,35 @@ export default [
     },
     expect: 0.8,
   },
+  {
+    name: "the settings a level gives are what they were before the page levers came",
+    run: ({ createQuality }) => ["low", "medium", "high", "ultra"].map((level) => createQuality({ level }).at({ under: false, depth: 0, height: 0, clearance: 3 })),
+    expect: [
+      { level: "low", renderScale: 0.85, upscale: false, reflectSteps: 0, shadowSteps: 0, traceFar: 0, traceNear: 0, casters: 0, shafts: 0, snow: 0, spray: 0.25 },
+      { level: "medium", renderScale: 0.75, upscale: true, reflectSteps: 14, shadowSteps: 10, traceFar: 70, traceNear: 60, casters: 8, shafts: 0, snow: 0, spray: 0.5 },
+      { level: "high", renderScale: 0.8, upscale: true, reflectSteps: 28, shadowSteps: 20, traceFar: 140, traceNear: 140, casters: 16, shafts: 0, snow: 0, spray: 0.8 },
+      { level: "ultra", renderScale: 1, upscale: true, reflectSteps: 48, shadowSteps: 32, traceFar: 260, traceNear: 260, casters: 32, shafts: 0, snow: 0, spray: 1 },
+    ],
+  },
+  {
+    name: "each level has page levers: low drops bloom and TAA and halves the outgoing scene",
+    run: ({ createQuality }) => ["low", "medium", "high", "ultra"].map((level) => createQuality({ level }).levers),
+    expect: [
+      { renderScale: 0.7, bloom: 0, motes: 0.25, blendScale: 0.5, taa: false, density: 0.5 },
+      { renderScale: 0.75, bloom: 1, motes: 0.5, blendScale: 0.5, taa: true, density: 0.75 },
+      { renderScale: 0.8, bloom: 1, motes: 0.8, blendScale: 0.75, taa: true, density: 1 },
+      { renderScale: 1, bloom: 1, motes: 1, blendScale: 1, taa: true, density: 1 },
+    ],
+  },
+  {
+    name: "the levers' render scale follows the governor and the level",
+    run: ({ createQuality, leversFor }) => {
+      const quality = createQuality({ level: "high", floor: 0.6 });
+      for (let i = 0; i < 2000; i += 1) quality.frame(60);
+      const slow = Math.round(quality.levers.renderScale * 100) / 100;
+      quality.set({ level: "low" });
+      return [slow, quality.levers.renderScale, quality.levers.taa, leversFor("ultra", 0.9).renderScale];
+    },
+    expect: [0.6, 0.7, false, 0.9],
+  },
 ];

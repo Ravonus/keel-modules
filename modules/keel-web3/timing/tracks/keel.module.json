@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "tracks",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Keyed tracks sampled at a position: cubic-bezier handles per key, numbers, vectors and colours, holds at both ends.",
+  "category": "timing",
+  "owner": {
+    "org": "keel-web3",
+    "group": "runtime"
+  },
+  "repository": "https://github.com/keel-web3/tracks"
+}

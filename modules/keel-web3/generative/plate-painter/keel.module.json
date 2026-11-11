@@ -1,7 +1,7 @@
 {
   "schema": "keel.jsmodule@2",
   "id": "plate-painter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "entry": "src/index.ts",
   "license": "MIT",
   "summary": "A painted landscape plate from a seeded recipe, generated on the GPU at load: planes of sky, ranges, shore, water and leaves with haze by depth and brush strokes, drawn as a screen-locked backdrop or read back as a still.",

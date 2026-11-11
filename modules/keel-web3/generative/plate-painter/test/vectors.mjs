@@ -11,6 +11,29 @@ function leafReach(plan) {
   return round(reach / plan.aspect);
 }
 
+/**
+ * A WebGL2 context that only records: every constant is its own name, every object a fresh one, and each draw notes
+ * the framebuffer bound at the time. The host has `HOST` bound.
+ */
+function recordingGl() {
+  const HOST = { host: true };
+  const log = { draws: [], created: 0, deleted: 0, bound: HOST };
+  const calls = {
+    getParameter: (name) => (name === "FRAMEBUFFER_BINDING" ? HOST : name === "VIEWPORT" ? [0, 0, 8, 8] : null),
+    getProgramParameter: () => true,
+    isEnabled: () => false,
+    bindFramebuffer: (_, framebuffer) => { log.bound = framebuffer; },
+    drawArrays: () => log.draws.push(log.bound),
+    drawArraysInstanced: () => log.draws.push(log.bound),
+    createTexture: () => { log.created += 1; return {}; },
+    deleteTexture: () => { log.deleted += 1; },
+  };
+  const gl = new Proxy({}, {
+    get: (_, key) => (typeof key === "string" && /^[A-Z0-9_]+$/u.test(key) ? key : calls[key] ?? (() => ({}))),
+  });
+  return { gl, log, HOST };
+}
+
 const throws = (fn) => {
   try {
     fn();
@@ -105,5 +128,18 @@ export default [
       coverCrop(1.6, 1.6, { zoom: 1.25, shift: [0.05, -1] }),
     ].map((crop) => crop.map(round)),
     expect: [[0.155598, 0, 0.288803, 1], [0, 0.1, 1, 0.8], [0.14, 0, 0.8, 0.8]],
+  },
+  {
+    name: "paintBound: the last pass lands in the host's framebuffer, nothing is kept, the host's binding comes back",
+    run: ({ createPlatePainter, planPlate, LAKE_VALLEY }) => {
+      const { gl, log, HOST } = recordingGl();
+      const painter = createPlatePainter(gl);
+      painter.paintBound(planPlate(LAKE_VALLEY, { seed: 0 }), { width: 64, height: 40 });
+      const bound = { draws: log.draws.length, last: log.draws.at(-1) === HOST, earlier: log.draws.slice(0, -1).some((f) => f === HOST) };
+      const kept = log.created - log.deleted;
+      painter.paint(planPlate(LAKE_VALLEY, { seed: 0 }), { width: 64, height: 40 });
+      return [bound, kept, log.bound === HOST, log.draws.at(-1) === HOST, log.created - log.deleted];
+    },
+    expect: [{ draws: 5, last: true, earlier: false }, 0, true, false, 1],
   },
 ];

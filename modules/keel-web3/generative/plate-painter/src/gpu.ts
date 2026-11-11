@@ -48,6 +48,12 @@ export interface PlateStill {
 export interface PlatePainter {
   /** Paints a plan, or returns the plate already painted for the same digest, size and view. */
   paint(plan: PlatePlan, size: PlateSize): Plate;
+  /**
+   * Paints a plan straight into the framebuffer the host has bound, from (0, 0) at the given size, row 0 the plate's
+   * top: a keel/lit RenderTarget after `renderer.setRenderTarget(target)`. The host's texture is the plate; the
+   * painter keeps nothing and reads nothing back.
+   */
+  paintBound(plan: PlatePlan, size: PlateSize): void;
   /** Draws a plate over the bound framebuffer as a screen-locked backdrop. */
   draw(plate: Plate, view: BackdropView): void;
   /** Reads a plate back, for a still. */
@@ -211,10 +217,11 @@ function pass(
   else gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
-/** The five passes. The result is in `out`; `work` is scratch. */
+/** The five passes: `out` and `work` hold the passes before the last, which paints into `into`. */
 interface Targets {
   readonly out: Target;
   readonly work: Target;
+  readonly into: WebGLFramebuffer | null;
   readonly uniforms: readonly PlanUniform[];
 }
 
@@ -230,7 +237,7 @@ function paintInto(gl: WebGL2RenderingContext, programs: Programs, plan: PlatePl
   gl.bindTexture(gl.TEXTURE_2D, at.out.texture);
   pass(gl, programs.stroke, at.uniforms);
   pass(gl, programs.dab, at.uniforms, plan.foliage);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, at.out.framebuffer);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, at.into);
   gl.bindTexture(gl.TEXTURE_2D, at.work.texture);
   pass(gl, programs.finish, at.uniforms);
   gl.bindTexture(gl.TEXTURE_2D, null);
@@ -238,6 +245,31 @@ function paintInto(gl: WebGL2RenderingContext, programs: Programs, plan: PlatePl
   gl.bindTexture(gl.TEXTURE_2D, null);
   gl.activeTexture(gl.TEXTURE0);
   gl.deleteTexture(ridges);
+}
+
+function free(gl: WebGL2RenderingContext, t: Target): void {
+  gl.deleteFramebuffer(t.framebuffer);
+  gl.deleteTexture(t.texture);
+}
+
+/**
+ * The five passes at a size, the host's state put back after. The last paints into the target this returns, or, with
+ * `toBound`, into the framebuffer the host has bound, and the target returned is scratch.
+ */
+function paintPlan(
+  gl: WebGL2RenderingContext, programs: Programs, plan: PlatePlan, size: PlateSize & { readonly toBound: boolean },
+): Target {
+  const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  const restore = saved(gl);
+  const out = target(gl, size);
+  const work = target(gl, size);
+  const uniforms: PlanUniform[] = [...plan.uniforms, ["uView", 4, new Float32Array(size.view ?? [0, 0, 1, 1])],
+    ["uSize", 2, new Float32Array([size.width, size.height])]];
+  gl.viewport(0, 0, size.width, size.height);
+  paintInto(gl, programs, plan, { out, work, into: size.toBound ? bound : out.framebuffer, uniforms });
+  free(gl, work);
+  restore();
+  return out;
 }
 
 function drawBackdrop(gl: WebGL2RenderingContext, program: WebGLProgram, plate: Plate, view: BackdropView): void {
@@ -273,21 +305,14 @@ export function createPlatePainter(gl: WebGL2RenderingContext): PlatePainter {
       const key = keyOf(plan.digest, size);
       const known = plates.get(key);
       if (known) return known;
-      const restore = saved(gl);
-      const out = target(gl, size);
-      const work = target(gl, size);
-      const view = size.view ?? [0, 0, 1, 1];
-      const uniforms: PlanUniform[] = [...plan.uniforms, ["uView", 4, new Float32Array(view)],
-        ["uSize", 2, new Float32Array([size.width, size.height])]];
-      gl.viewport(0, 0, size.width, size.height);
-      paintInto(gl, programs, plan, { out, work, uniforms });
-      gl.deleteFramebuffer(work.framebuffer);
-      gl.deleteTexture(work.texture);
-      restore();
+      const out = paintPlan(gl, programs, plan, { ...size, toBound: false });
       const plate = { texture: out.texture, framebuffer: out.framebuffer, width: size.width, height: size.height,
-        digest: plan.digest, view };
+        digest: plan.digest, view: size.view ?? [0, 0, 1, 1] };
       plates.set(key, plate);
       return plate;
+    },
+    paintBound(plan, size) {
+      free(gl, paintPlan(gl, programs, plan, { ...size, toBound: true }));
     },
     draw(plate, view) {
       const restore = saved(gl);

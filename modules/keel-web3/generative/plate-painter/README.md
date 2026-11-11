@@ -77,6 +77,24 @@ canvas.getContext("2d").putImageData(new ImageData(still.data, still.width, stil
 const png = await canvas.convertToBlob({ type: "image/png" });
 ```
 
+## In a keel/lit stage
+
+A keel/lit host binds the plate as its own texture. On each resize it paints
+straight into a `RenderTarget` of the new size: no read-back, no copy.
+
+```ts
+const target = new lit.RenderTarget(w, h, { depthBuffer: false });
+renderer.setRenderTarget(target);
+painter.paintBound(plan, { width: w, height: h, view: coverCrop(plan.aspect, w / h) });
+renderer.setRenderTarget(null);
+material.uniforms.uPlate.value = target.texture; // row 0 is the plate's top
+```
+
+Draw it as a full-frame quad with `depthTest` and `depthWrite` off, first in
+the stage. The far plane then holds it, and `render/lit-finish` with
+`backdrop: true` leaves it alone: the plate keeps the aerial perspective
+painted into it, while the finish's haze falls on everything in front.
+
 ## Settings
 
 `planPlate(recipe, settings)` takes the module's inputs: `seed` (a whole number,
@@ -86,9 +104,10 @@ default 0), `haze` (0..2, scales every depth step), `clouds` (-0.5..0.5) and
 ## Cache
 
 `paint` returns the plate it already painted for the same digest, size and
-view. The digest covers every number in the plan and `PAINTER_VERSION`, which
-moves whenever the passes would paint the same plan differently, so a host can
-also key a stored still by it. `release(plate)` frees one plate; `dispose()`
+view. `paintBound` keeps nothing: the host's target holds the plate, and the
+host can key it by the digest. The digest covers every number in the plan and
+`PAINTER_VERSION`, which moves whenever the passes would paint the same plan
+differently, so a host can also key a stored still by it. `release(plate)` frees one plate; `dispose()`
 frees them all and the programs.
 
 ## Determinism

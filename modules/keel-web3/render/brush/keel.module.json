@@ -1,0 +1,14 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "brush",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "A GPU brush engine: strokes along quadratic paths laid as instanced dabs by the vertex shader, with round, flat, filbert and rake tips, seeded bristles and a noise grain; oil that picks up wet paint in snapshot sub-batches and leaves relief, glaze in linear light, and scumble broken over the grain; a finish that lights the relief and shows canvas where paint is thin. Strokes pack in exact arithmetic with a digest.",
+  "category": "render",
+  "owner": { "org": "keel-web3", "group": "graphics" },
+  "inputs": [
+    { "key": "seed", "label": "Seed", "type": "number", "required": false, "min": 0, "max": 999999, "step": 1, "help": "Which grain and canvas weave.", "default": 1 },
+    { "key": "subBatches", "label": "Wet steps", "type": "number", "required": false, "min": 1, "max": 16, "step": 1, "placement": "advanced", "help": "How many snapshot steps a batch paints in: wet paint picks up what earlier steps laid.", "default": 4 }
+  ]
+}

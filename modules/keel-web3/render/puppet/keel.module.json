@@ -1,0 +1,13 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "puppet",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Painted layers as relief meshes in a keel/lit stage, moved by a rig: shape keys, 2D bones, a gaze slide, a two-state dissolve and anchors, driven by tracks and the clock.",
+  "category": "render",
+  "owner": {
+    "org": "keel-web3",
+    "group": "graphics"
+  }
+}

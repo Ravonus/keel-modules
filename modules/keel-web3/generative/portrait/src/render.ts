@@ -4,7 +4,7 @@
 import { FRAGMENT_GLSL, SHADOW_FRAGMENT_GLSL, SHADOW_VERTEX_GLSL, VERTEX_GLSL } from "./portrait.glsl.js";
 import { deg, sine, cosine } from "./exact.js";
 import { ARMS } from "./body.js";
-import { EYE } from "./head.js";
+import { CANTHUS, EYE } from "./head.js";
 import type { Bust, Part } from "./bust.js";
 import type { V3 } from "./sdf.js";
 
@@ -80,8 +80,8 @@ export interface Palette {
 }
 
 export const PALETTE: Palette = {
-  skin: "#dbb294", lip: "#c4766e", blush: "#e3a491", brow: "#8a5638", iris: "#7b8c87", sclera: "#efe9e0",
-  cap: "#ff2f78", hair: "#b0562a", dress: "#626658", chemise: "#e8e4d8", gown: "#171b19", gold: "#c9a24a",
+  skin: "#e8cbb0", lip: "#c47e74", blush: "#e88a7e", brow: "#8a5638", iris: "#7b8c87", sclera: "#efe9e0",
+  cap: "#ff2f78", hair: "#b5683a", dress: "#626658", chemise: "#e8e4d8", gown: "#171b19", gold: "#c9a24a",
   card: "#ff2a62",
 };
 
@@ -161,7 +161,7 @@ function sharedUniforms(lit: PortraitLit, bust: Bust, palette: Palette): Record<
     uShadowBox: { value: new lit.Vector2(1, 1) }, uShadowFar: { value: 1 },
     uTime: { value: 0 },
     uEyeL: { value: new lit.Vector4(l[0], l[1], l[2], EYE) }, uEyeR: { value: new lit.Vector4(r[0], r[1], r[2], EYE) },
-    uLid: { value: new lit.Vector4(0, sine(deg(4)), cosine(deg(4)), 0) },
+    uLid: { value: new lit.Vector4(0, sine(CANTHUS), cosine(CANTHUS), 0) },
     uLookL: { value: new lit.Vector3(0, 0, 1) }, uLookR: { value: new lit.Vector3(0, 0, 1) },
     uHeadTurn: { value: m3 },
     uSkinTone: c(palette.skin), uLipTone: c(palette.lip), uBlushTone: c(palette.blush), uBrowTone: c(palette.brow),
@@ -181,7 +181,7 @@ function partUniforms(lit: PortraitLit, bust: Bust, palette: Palette): Record<st
   return {
     uCapAxis: { value: v4(n, edge) }, uCapCentre: { value: v4(centre, cuff) },
     uCapTones: { value: [tone(palette.cap, 1), tone(palette.cap, 0.62), tone("#ff9bbd", 1)] },
-    uHairTones: { value: [tone(palette.hair, 0.4), tone(palette.hair, 0.95), tone("#c8783c", 1)] },
+    uHairTones: { value: [tone(palette.hair, 0.5), tone(palette.hair, 1), tone("#d99a5e", 1)] },
     uWrist: { value: new lit.Vector3(...ARMS.wrist) }, uElbow: { value: new lit.Vector3(...ARMS.elbow) },
     uTips: { value: bust.nails.map((t) => v4(t.from, t.radius)) },
     uTipEnds: { value: bust.nails.map((t) => v4(t.to, 0)) },

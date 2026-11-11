@@ -22,10 +22,10 @@ export const ARMS: Arms = {
 /** The neck and the shoulders' slope, which the skin and cloth share. */
 export function neckShape(): Node {
   return blend(0.02,
-    cone([0, -0.02, -0.05], [0, 0.085, -0.053], 0.046, 0.041),
-    ...[1, -1].map((s) => capsule([s * 0.05, 0.125, -0.07], [s * 0.012, 0.0, -0.012], 0.011)),
+    cone([0, -0.02, -0.052], [0, 0.1, -0.05], 0.042, 0.036),
+    ...[1, -1].map((s) => capsule([s * 0.048, 0.14, -0.072], [s * 0.011, 0.0, -0.014], 0.0095)),
     ...[1, -1].map((s) => capsule([s * 0.018, -0.004, -0.014], [s * 0.15, 0.014, -0.05], 0.0085)),
-    ...[1, -1].map((s) => cone([s * 0.03, 0.055, -0.072], [s * 0.16, -0.005, -0.06], 0.027, 0.028)),
+    ...[1, -1].map((s) => cone([s * 0.034, 0.045, -0.08], [s * 0.16, -0.008, -0.062], 0.021, 0.026)),
   );
 }
 
@@ -108,7 +108,7 @@ export function chainPath(n: number): V3[] {
   for (let i = 0; i <= n; i += 1) {
     const a = ((i / n) * 2 - 1) * 2.6;
     const c = cosine(a);
-    out.push([0.075 * sine(a), -0.048 * c * c - 0.012 * c + 0.03, 0.09 * c - 0.05]);
+    out.push([0.075 * sine(a), -0.036 * c * c - 0.012 * c + 0.014, 0.09 * c - 0.05]);
   }
   return out;
 }

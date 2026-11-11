@@ -93,11 +93,11 @@ function locks(recipe: HairRecipe, cap: CapFrame, body: Field, place: HairPlace)
   for (let i = 0; i < n; i += 1) {
     const side = i % 2 === 0 ? 1 : -1;
     const layer = unit(seed, i, 1);
-    const around = side * (0.95 + 2.2 * unit(seed, i, 2));
+    const around = side * (1.12 + 2.03 * unit(seed, i, 2));
     const length = recipe.length * (0.75 + 0.35 * unit(seed, i, 3)) * (1 - 0.25 * layer);
     const guide = fall({ body, gap: 0.003 + 0.016 * layer, centre }, root(cap, around, place), length);
     out.push({
-      guide, length, centre, width: 0.011 + 0.01 * unit(seed, i, 4), thick: 0.004 + 0.002 * unit(seed, i, 5),
+      guide, length, centre, width: 0.008 + 0.014 * unit(seed, i, 4) ** 2, thick: 0.003 + 0.002 * unit(seed, i, 5),
       curl: 0.004 + 0.005 * unit(seed, i, 6), wave: 0.045 + 0.03 * unit(seed, i, 7), phase: TAU * unit(seed, i, 8),
       tone: unit(seed, i, 9) * 0.6 + layer * 0.4,
     });

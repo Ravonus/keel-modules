@@ -13,8 +13,10 @@ It imports nothing at run time. keel/lit is handed to `createPortrait`, so the m
 Every solid part is a tree of signed distances (`src/sdf.ts`): ellipsoids, round cones, capsules and boxes, melted
 together with a smooth minimum, carved, cut by planes, framed, and given small added fields for folds and gathers.
 The head is sculpted in its own frame, masses first (an oval whose width and depth change with height, the cranium,
-cheekbones, brows), then the nose, then the sockets carved and the lids laid in as shells, then the lips, the mouth's
-line, the nostrils and the philtrum.
+cheekbones, brows, chin), cut along a plane under the jaw from the chin back to the angle under each ear; then the
+nose; then the sockets carved and the lids laid in as shells with the eye's almond opening cut through them; then the
+lips, the mouth's line (a thin disc round the teeth's curve, so it dies out at the corners), the nostrils, the
+philtrum and the fold over the chin.
 
 The trees are meshed when the bust is generated, by surface nets over a sparse grid (`src/mesh.ts`). Space is cut
 into blocks of 8³ cells and each block gets its own distance function holding only the shapes near it
@@ -43,10 +45,13 @@ sitter.shadows(renderer);                     // before a frame, when the bust o
 renderer.render(stage, camera);
 ```
 
-- `face: "A"` looks to camera, frontal. `"B"` turns the head 24° away and pitches it 20° down, and the cap sits 1 cm
-  lower so its cuff shades the eyes. Both share the cap's crown, the hair behind and the bounding box.
-- `hand: "pinch"` pinches the card between the index finger's pad and the thumb (the thumb reaches by two-bone
-  reach, so the pinch always closes); `"point"` floats it over a raised index finger.
+- `face: "A"` turns the head 14° to her right, tilts it 10° toward that shoulder and pitches it 6° down, so it sits in
+  three-quarter view with its eyes free to look back at `face({ at })`. `"B"` turns the head 24° away and pitches it
+  20° down, and the cap sits 1 cm lower so its cuff shades the eyes. Both share the cap's crown, the hair behind and
+  the bounding box.
+- `hand: "pinch"` shows the card by its lower edge: the card square to the palm, the thumb's pad pressing it to the
+  index and middle fingers behind it (the thumb reaches by two-bone reach, so the pinch always closes); `"point"`
+  floats it over a raised index finger.
 - `DETAIL.hero`, `.mid`, `.far` set the cell sizes, the eye's rings and the hair's locks, segments and sides.
 - Busts are cached by `digestOf(recipe)`: the same recipe is built once.
 - `portraitSettings(KEEL_INPUTS.portrait)` normalises the settings in `keel.module.json` and `sitterOf(settings)`
@@ -61,12 +66,15 @@ One program with a `PART` define for each material, all sharing one set of unifo
 
 - Light: one soft warm key from the upper left (azimuth −40°, elevation 35°, `#fff1dc`) with its own shadow map
   (12-tap soft lookups), and a cool fill (`#c9d6d9`) at about half the key from sky and ground. `light()` changes
-  both.
+  both. Flesh takes the key's shadow with an edge six times as wide as everything else, so no hard shadow crosses
+  the face.
 - Skin: wrapped diffuse, a reddened band where light crosses under the skin at the terminator, half-tones running
-  cool and lights warm. Lips, blush, brows and lash lines are painted from where each point lies on the head at
-  rest, so they stay put when the head turns.
-- Eyes: iris, pupil and fibres per pixel, turned toward `face({ at })`, with the upper lid's shade and a glint;
-  `face({ lid })` closes the lids from 0 to 1.
+  cool and lights warm, a faint mottle. A warm flush on the cheeks, the nose, the chin and the ears; lips, brows,
+  the lash lines and the fold of the upper lid are painted from where each point lies on the head at rest, so they
+  stay put when the head turns.
+- Eyes: iris, pupil and fibres per pixel, turned toward `face({ at })`. The almond opening is painted to the same
+  two arcs the lids are cut by: outside it the lid's skin is drawn, under the upper lid the eye lies in its shadow
+  and the lashes' line. `face({ lid })` closes the lids from 0 to 1.
 - Knit ribs, the cuff's fold and its two labels; hair by its grain (two highlights along each lock); velvet sheen;
   the dress's band, sleeve cuff and lace; gold; the card's chip, grain and lettering. Fine relief is bump-mapped from
   screen derivatives, with no textures.

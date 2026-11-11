@@ -2,6 +2,8 @@
 // terminator and a warm subsurface tint in flesh, cool half-tones, and each part's own surface painted per pixel.
 // Every part draws with this one program, `PART` chosen by a define. Output is linear light.
 
+import { ALMOND, MOUTH } from "./head.js";
+
 export const VERTEX_GLSL = /* glsl */ `
 attribute float aOpen;
 attribute vec3 aRest;
@@ -66,18 +68,18 @@ float noise(vec2 p) {
 }
 float fbm(vec2 p) { return 0.5 * noise(p) + 0.3 * noise(p * 2.03 + 7.1) + 0.2 * noise(p * 4.1 + 3.3); }
 
-// The key's soft shadow: a ring of samples in the light's depth map.
-float keyShadow(vec3 n) {
+// The key's soft shadow: a ring of samples in the light's depth map, spread times the usual width.
+float keyShadow(vec3 n, float spread) {
   if (uShadow.w < 0.5) return 1.0;
   vec2 uv = vShadowAt.xy / uShadowBox.x * 0.5 + 0.5;
   if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 1.0;
   float depth = -vShadowAt.z / uShadowBox.y;
-  float bias = uShadow.z * (1.0 + 3.0 * (1.0 - clamp(dot(n, uKey), 0.0, 1.0)));
+  float bias = uShadow.z * (1.0 + 3.0 * (1.0 - clamp(dot(n, uKey), 0.0, 1.0))) * (0.6 + 0.4 * spread);
   float lit = 0.0;
   float spin = hash(gl_FragCoord.xy) * 6.2832;
   for (int i = 0; i < 12; i++) {
     float a = spin + float(i) * 2.39996;
-    float r = sqrt((float(i) + 0.5) / 12.0) * uShadow.y;
+    float r = sqrt((float(i) + 0.5) / 12.0) * uShadow.y * spread;
     vec2 o = vec2(cos(a), sin(a)) * r * uShadow.x;
     lit += texture2D(uShadowMap, uv + o).r + bias < depth ? 0.0 : 1.0;
   }
@@ -96,8 +98,11 @@ uniform vec3 uLipTone;
 uniform vec3 uBlushTone;
 uniform vec3 uBrowTone;
 
-// How far below the eye's centre the open upper lid's edge sits (head.ts, LID_DROP).
-const float LID_DROP = 0.0018;
+// The eye's almond opening (head.ts, ALMOND).
+const vec4 ALMOND = vec4(${ALMOND.up}, ${ALMOND.upR}, ${ALMOND.down}, ${ALMOND.downR});
+const float ALMOND_SHIFT = ${ALMOND.shift};
+// The mouth's line (head.ts, MOUTH).
+const float MOUTH = ${MOUTH};
 
 float ellipse(vec2 p, vec2 c, vec2 r) { vec2 q = (p - c) / r; return dot(q, q); }
 
@@ -108,6 +113,14 @@ vec3 eyeFrame(vec3 p, vec4 eye, float side) {
   return vec3(uLid.z * q.x + s * q.y, -s * q.x + uLid.z * q.y, q.z);
 }
 
+// How far inside the upper lid's arc (x) and the lower's (y) a point of the eye's frame lies; the upper arc falls
+// to the lower as the lid shuts.
+vec2 almond(vec3 f, float side) {
+  vec2 up = vec2(-side * ALMOND_SHIFT, ALMOND.x - ALMOND.y - uLid.x * (ALMOND.x - ALMOND.z + 0.0004));
+  vec2 lo = vec2(side * ALMOND_SHIFT, ALMOND.z + ALMOND.w);
+  return vec2(ALMOND.y - length(f.xy - up), ALMOND.w - length(f.xy - lo));
+}
+
 // Lips, blush, brows, the line of the lashes: painted from where the skin lies on the head at rest.
 vec3 skinAlbedo(vec3 r, out float gloss) {
   vec3 base = uSkinTone;
@@ -115,21 +128,26 @@ vec3 skinAlbedo(vec3 r, out float gloss) {
   float front = smoothstep(0.005, 0.02, r.z);
   float ax = abs(r.x);
   // Blush on the cheeks, the nose's tip, the ears and the chin.
-  float blush = exp(-ellipse(vec2(ax, r.y), vec2(0.036, -0.026), vec2(0.022, 0.018)));
-  blush += 0.45 * exp(-ellipse(r.xy, vec2(0.0, -0.041), vec2(0.009, 0.008)));
-  blush += 0.25 * exp(-ellipse(r.xy, vec2(0.0, -0.098), vec2(0.012, 0.01)));
-  blush += 0.6 * smoothstep(0.06, 0.075, ax) * (1.0 - smoothstep(-0.045, -0.06, r.z));
-  base = mix(base, uBlushTone, clamp(blush * 0.5, 0.0, 0.6));
+  float blush = exp(-ellipse(vec2(ax, r.y), vec2(0.046, -0.034), vec2(0.026, 0.024)));
+  blush += 0.55 * exp(-ellipse(r.xy, vec2(0.0, -0.033), vec2(0.009, 0.008)));
+  blush += 0.3 * exp(-ellipse(r.xy, vec2(0.0, -0.095), vec2(0.012, 0.01)));
+  blush += 0.25 * exp(-ellipse(vec2(ax, r.y), vec2(0.025, 0.014), vec2(0.02, 0.008)));
+  blush += 0.7 * smoothstep(0.06, 0.075, ax) * (1.0 - smoothstep(-0.045, -0.06, r.z)) * step(-0.05, r.y);
+  // A faint mottle, so the flesh is never one flat colour.
+  float mottle = noise(r.xy * 900.0) * 0.6 + noise(r.xy * 260.0 + 3.0) * 0.4;
+  base *= 0.97 + 0.06 * mottle;
+  base = mix(base, uBlushTone, clamp(blush * 0.7, 0.0, 0.75));
   // Lips.
-  float upper = min(ellipse(vec2(ax, r.y), vec2(0.009, -0.0643), vec2(0.0138, 0.0033)),
-                    ellipse(r.xy, vec2(0.0, -0.0655), vec2(0.005, 0.0032)));
-  float lower = ellipse(r.xy, vec2(0.0, -0.0718), vec2(0.0172, 0.0056));
-  float lip = (1.0 - smoothstep(0.55, 1.15, min(upper, lower))) * front;
-  base = mix(base, uLipTone, lip);
+  float upper = min(ellipse(vec2(ax, r.y), vec2(0.0085, MOUTH + 0.0031), vec2(0.0118, 0.0025)),
+                    ellipse(r.xy, vec2(0.0, MOUTH + 0.0021), vec2(0.0045, 0.0025)));
+  float lower = ellipse(r.xy, vec2(0.0, MOUTH - 0.0032), vec2(0.0138, 0.004));
+  float lip = (1.0 - smoothstep(0.45, 1.1, min(upper, lower))) * front;
+  // The lips' colour runs out softly toward the corners.
+  base = mix(base, uLipTone, lip * (0.85 - 0.35 * smoothstep(0.006, 0.016, ax)));
   gloss = mix(gloss, 0.55, lip);
   // Brows: a soft arch of fine hairs above each eye, thinning to the tail.
   float bx = (ax - 0.029) / 0.021;
-  float arch = 0.0195 + 0.0032 * (1.0 - bx * bx) - 0.0015 * max(bx, 0.0);
+  float arch = 0.0155 + 0.003 * (1.0 - bx * bx) - 0.0018 * max(bx, 0.0);
   float thick = 0.0024 * (1.0 - 0.55 * smoothstep(-0.6, 1.0, bx));
   float slant = mix(1.2, 0.25, smoothstep(-1.0, 0.0, bx));
   vec2 hp = vec2(ax * 2600.0 + (r.y - arch) * 2600.0 * slant, (r.y - arch) * 700.0);
@@ -139,28 +157,28 @@ vec3 skinAlbedo(vec3 r, out float gloss) {
   return base;
 }
 
-// The line of the lashes along each upper lid, a lighter one along the lower.
-float lashes(vec3 r) {
+// The line of the lashes along each upper lid, a lighter one along the lower, and the fold of the upper lid.
+vec2 lashes(vec3 r) {
   float side = r.x > 0.0 ? 1.0 : -1.0;
   vec4 eye = side > 0.0 ? uEyeL : uEyeR;
   vec3 q = eyeFrame(r, eye, side);
-  float len2 = length(q);
-  if (len2 > eye.w * 1.25 || q.z < -0.002) return 0.0;
-  float up = 0.9 * q.y - 0.436 * q.z + LID_DROP;
-  float low = -(0.93 * q.y + 0.37 * q.z);
+  if (length(q) > eye.w * 1.6 || q.z < -0.004) return vec2(0.0);
+  vec2 a = almond(q, side);
   float outer = smoothstep(-0.2, 0.9, side * q.x / eye.w);
-  float top = (1.0 - smoothstep(0.0, 0.0011 + 0.0007 * outer, up)) * step(0.0, up + 0.0004);
-  float bottom = (1.0 - smoothstep(0.0, 0.0006, low)) * step(0.0, low + 0.0003) * 0.45;
-  return max(top, bottom) * smoothstep(eye.w * 1.25, eye.w * 1.05, len2);
+  float span = 1.0 - smoothstep(0.85, 1.0, abs(q.x) / eye.w);
+  float top = (1.0 - smoothstep(0.0, 0.0009 + 0.0009 * outer, -a.x)) * step(-0.0003, -a.x);
+  float bottom = (1.0 - smoothstep(0.0, 0.0012, -a.y)) * 0.12;
+  float fold = exp(-pow((-a.x - 0.0042 + 0.0008 * outer) / 0.0016, 2.0)) * (1.0 - smoothstep(0.75, 1.05, abs(q.x) / eye.w));
+  return vec2(max(top, bottom) * span, fold * step(0.0, q.z + 0.002));
 }
 
 vec3 shadeSkin(vec3 albedo, float gloss, vec3 n, vec3 v, float shadow, float open) {
   float nl = dot(n, uKey);
-  float wrap = clamp((nl + 0.38) / 1.38, 0.0, 1.0);
+  float wrap = clamp((nl + 0.5) / 1.5, 0.0, 1.0);
   float lit = wrap * mix(0.35, 1.0, shadow);
   // Light crossing under the skin reddens the terminator and the shadow's edge.
   float under = smoothstep(-0.35, 0.15, nl) * (1.0 - smoothstep(0.15, 0.6, nl * shadow));
-  vec3 scatter = vec3(0.9, 0.28, 0.16) * under * 0.22;
+  vec3 scatter = vec3(0.9, 0.3, 0.18) * under * 0.3;
   // Half-tones run cool, lights warm.
   float halftone = smoothstep(0.0, 0.35, nl) * (1.0 - smoothstep(0.35, 0.8, nl * shadow));
   vec3 tone = mix(vec3(1.0), vec3(0.9, 0.97, 1.02), halftone * 0.6);
@@ -197,21 +215,26 @@ vec3 shadeEye(vec3 n, vec3 v, float shadow) {
   vec3 sclera = uSclera * mix(1.0, 0.82, smoothstep(0.55, 0.95, r));
   vec3 col = mix(sclera, irisCol, iris);
   col = mix(col, vec3(0.012), pupil);
-  // The upper lid and its lashes shade the top of the eye.
+  // The almond: outside it the lid's skin is drawn; under the upper lid the eye lies in its shadow and lashes.
   vec3 f = eyeFrame(vRest, eye, side);
-  float up = 0.9 * f.y - 0.436 * f.z + LID_DROP;
-  float lidShade = smoothstep(-0.0045, -0.0003, up);
-  // Open, the lid's edge is its geometry's (a plane LID_DROP below the eye's centre); shut, it closes to the
-  // lower lid.
-  float covered = step(0.0, mix(up, f.y + 0.4 * f.z, uLid.x));
+  vec2 a = almond(f, side);
+  float open = min(a.x, a.y);
+  float aa = max(fwidth(open), 1e-5);
+  float covered = 1.0 - smoothstep(-aa, aa, open);
+  float lidShade = 1.0 - smoothstep(0.0, 0.004, a.x);
+  col *= mix(0.62, 1.0, smoothstep(0.0, 0.0028, open));
+  col = mix(col, uBrowTone * 0.12, (1.0 - smoothstep(0.0, 0.00075, a.x)) * 0.85);
   vec3 wn = n;
   float nl = clamp(dot(wn, uKey), 0.0, 1.0);
-  vec3 lit = uKeyColor * (0.25 + 0.75 * nl) * shadow * (1.0 - 0.75 * lidShade) + fill(wn) * 0.55 * (1.0 - 0.5 * lidShade);
+  vec3 lit = uKeyColor * (0.25 + 0.75 * nl) * shadow * (1.0 - 0.8 * lidShade) + fill(wn) * 0.55 * (1.0 - 0.5 * lidShade);
   vec3 h = normalize(uKey + v);
   float glint = pow(max(dot(wn, h), 0.0), 900.0) * 9.0 * shadow * (1.0 - lidShade);
   vec3 eyeOut = col * lit + uKeyColor * glint;
   float g;
-  vec3 lidOut = shadeSkin(skinAlbedo(vRest, g), 0.3, n, v, shadow, 0.8);
+  vec3 albedo = skinAlbedo(vRest, g);
+  vec2 lash = lashes(vRest);
+  albedo = mix(albedo, uBrowTone * 0.3, lash.x) * (1.0 - 0.3 * lash.y * vec3(0.8, 1.0, 1.0));
+  vec3 lidOut = shadeSkin(albedo, 0.3, n, v, shadow, 0.8);
   return mix(eyeOut, lidOut, covered);
 }
 `;
@@ -283,10 +306,16 @@ vec3 shadeCap(vec3 n, vec3 v, float shadow) {
 }
 
 vec3 shadeHair(vec3 n, vec3 v, float shadow) {
-  if (dot(vFlow.xyz, vFlow.xyz) < 0.5) return diffuse(uHairTones[0] * 0.55, n, shadow, vOpen * 0.7, 0.3);
+  if (dot(vFlow.xyz, vFlow.xyz) < 0.5) {
+    // The mass under the locks: hair too, streaked down its fall, a little darker than the locks over it.
+    float fall = noise(vec2((vWorld.x + vWorld.z) * 260.0, vWorld.y * 22.0)) * 0.6 + noise(vec2((vWorld.x - vWorld.z) * 90.0, vWorld.y * 9.0)) * 0.4;
+    vec3 under = mix(uHairTones[0] * 0.8, uHairTones[1], 0.1 + 0.35 * fall);
+    return diffuse(under, n, shadow, 0.45 + 0.3 * fall, 0.4);
+  }
   vec3 t = normalize(vFlow.xyz);
   float tone = vRest.z;
-  float strands = 0.72 + 0.4 * noise(vec2(vRest.x * 24.0 + tone * 97.0, vRest.y * 6.0 + tone * 13.0));
+  float strands = 0.7 + 0.28 * noise(vec2(vRest.x * 40.0 + tone * 97.0, vRest.y * 6.0 + tone * 13.0))
+    + 0.16 * noise(vec2(vRest.x * 110.0 + tone * 31.0, vRest.y * 14.0));
   vec3 base = mix(uHairTones[0], uHairTones[1], tone) * strands;
   base = mix(base, uHairTones[2], smoothstep(0.6, 1.0, vRest.y) * 0.2);
   float tl = dot(t, uKey);
@@ -397,17 +426,19 @@ void main() {
   vec3 n = normalize(vNormal);
   vec3 v = normalize(cameraPosition - vWorld);
   if (!gl_FrontFacing) n = -n;
-  float shadow = keyShadow(n);
+  // Flesh takes the key's shadow with a wide, soft edge, as light spreads under skin; all else a crisp one.
+  float shadow = keyShadow(n, PART <= 1 ? 6.0 : 1.0);
   vec3 col;
 #if PART == 0
   float gloss;
   vec3 albedo = skinAlbedo(vRest, gloss);
-  albedo = mix(albedo, uBrowTone * 0.35, lashes(vRest));
+  vec2 lash = lashes(vRest);
+  albedo = mix(albedo, uBrowTone * 0.3, lash.x) * (1.0 - 0.3 * lash.y * vec3(0.8, 1.0, 1.0));
   col = shadeSkin(albedo, gloss, n, v, shadow, vOpen);
 #elif PART == 1
   float nail = nails(vRest);
-  vec3 albedo = mix(uSkinTone * vec3(1.0, 0.97, 0.95), vec3(0.85, 0.62, 0.56), nail);
-  col = shadeSkin(albedo, 0.25 + nail * 0.6, n, v, shadow, vOpen);
+  vec3 albedo = mix(uSkinTone * vec3(1.0, 0.97, 0.95), uSkinTone * vec3(1.0, 0.84, 0.82), nail);
+  col = shadeSkin(albedo, 0.25 + nail * 0.45, n, v, shadow, vOpen);
 #elif PART == 2
   col = shadeEye(n, v, shadow);
 #elif PART == 3

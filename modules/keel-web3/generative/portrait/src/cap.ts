@@ -18,7 +18,7 @@ export function capFrame(face: "A" | "B"): CapFrame {
   const l = Math.sqrt(1 + 0.36 * 0.36);
   const normal: V3 = [0, 1 / l, -0.36 / l];
   const low = face === "B" ? 0.01 : 0;
-  return { normal, edge: (0.043 - low - 0.36 * 0.03) / l, cuff: 0.046, centre: [0, 0.06, -0.06] };
+  return { normal, edge: (0.054 - low - 0.36 * 0.03) / l, cuff: 0.046, centre: [0, 0.07, -0.06] };
 }
 
 /** The volume the cap is pulled over: the skull with a thick head of hair. */

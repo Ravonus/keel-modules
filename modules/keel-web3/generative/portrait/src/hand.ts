@@ -19,9 +19,9 @@ export const POINT: HandPose = {
   bend: [[4, 6, 4], [62, 88, 55], [74, 92, 55], [82, 92, 50]], spread: [4, 0, -4, -9], thumbTo: [1, 0.85],
 };
 
-/** Index and thumb pads together, as holding a card's edge; the others curled behind. */
+/** A card shown by its edge: pressed by the thumb's pad to the index and middle behind it; the others curled. */
 export const PINCH: HandPose = {
-  bend: [[38, 46, 18], [52, 70, 40], [64, 80, 45], [74, 86, 45]], spread: [2, 0, -5, -10], thumbTo: [0, 0.7],
+  bend: [[12, 16, 8], [10, 14, 6], [60, 80, 45], [70, 86, 45]], spread: [2, -2, -5, -10], thumbTo: [0, 0.7],
 };
 
 const KNUCKLES: readonly V3[] = [
@@ -75,8 +75,8 @@ export function thumb(pose: HandPose, fingers: readonly Finger[]): Finger {
     const b = f?.joints[3] ?? knuckle;
     const t = pose.thumbTo[1];
     const pad: V3 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-    const back = f?.back ?? [0, 0, -1];
-    target = add(pad, back, -((f?.radius ?? 0.008) + 0.0088));
+    // The thumb's pad meets the finger's from in front of the palm, a card's thickness apart.
+    target = add(pad, [0, 0, 1], (f?.radius ?? 0.008) * 0.78 + 0.0098);
   }
   const d: V3 = [target[0] - knuckle[0], target[1] - knuckle[1], target[2] - knuckle[2]];
   const dist = Math.min(la + lb - 1e-4, Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]));
@@ -97,14 +97,11 @@ export function thumb(pose: HandPose, fingers: readonly Finger[]): Finger {
 function fingerShape(f: Finger, thumbish: boolean): Node {
   const [a, b, c, d] = f.joints as [V3, V3, V3, V3];
   const r = f.radius;
-  const taper = thumbish ? [1.15, 1.0, 0.9, 0.78] : [1.0, 0.92, 0.86, 0.78];
+  const taper = thumbish ? [1.15, 1.0, 0.88, 0.76] : [1.0, 0.88, 0.78, 0.68];
   const [ra, rb, rc, rd] = taper.map((t) => t * r) as [number, number, number, number];
   // The pad: a little more flesh on the palm's side of the last bone.
   const pad = add([(c[0] + d[0]) / 2, (c[1] + d[1]) / 2, (c[2] + d[2]) / 2], f.back, -rd * 0.35);
-  return blend(0.003,
-    cone(a, b, ra, rb), cone(b, c, rb * 0.97, rc), cone(c, d, rc * 0.97, rd),
-    sphere(pad, rd * 0.9), sphere(b, rb * 0.97), sphere(c, rc * 0.94),
-  );
+  return blend(0.004, cone(a, b, ra, rb), cone(b, c, rb, rc), cone(c, d, rc, rd), sphere(pad, rd * 0.9));
 }
 
 /** The palm and the heel of the hand, and the wrist going back into the sleeve. */

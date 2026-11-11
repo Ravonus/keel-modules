@@ -25,6 +25,10 @@ renderer.setAnimationLoop(() => {
 - **Aerial haze.** The air between the eye and each point, from `hazeStart`
   out at `hazeDensity` per metre, brighter toward the sun (Henyey-Greenstein).
   The sky is all air, so the horizon and the far trees meet in one colour.
+  With `backdrop: true` the far plane holds a backdrop the camera carries
+  instead, such as a painted plate drawn without depth: it keeps the air
+  painted into it, takes none of the haze, and TAA holds it where it is on
+  screen. The haze still falls on everything in front of it.
 - **Leaves and colour.** A post sees only pixels, so these live in the stage's
   own materials. Every 30 frames the finish chains a hook onto each
   material's own `onCompile` (flora's and tree-render's keep their wind and

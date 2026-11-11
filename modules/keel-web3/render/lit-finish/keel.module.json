@@ -1,7 +1,7 @@
 {
   "schema": "keel.jsmodule@2",
   "id": "lit-finish",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "entry": "src/index.ts",
   "license": "MIT",
   "summary": "The finish a lit full-colour keel/lit stage needs to read as real: ambient occlusion from depth, aerial haze lit toward the sun, sunlight through leaves, colour muted and varied across the world, TAA, bloom, a filmic tone map (AgX, PBR Neutral, ACES) and a light grade. The realism look's counterpart to voxel-dither.",
@@ -88,6 +88,15 @@
       "max": 2,
       "step": 0.05,
       "default": 0.9
+    },
+    {
+      "key": "backdrop",
+      "label": "Backdrop at the far plane",
+      "type": "boolean",
+      "required": false,
+      "placement": "advanced",
+      "help": "On when the far plane holds a painted backdrop the camera carries: it keeps its own air and TAA holds it in place.",
+      "default": false
     },
     {
       "key": "saturation",

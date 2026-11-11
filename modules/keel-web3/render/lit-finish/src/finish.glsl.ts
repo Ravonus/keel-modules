@@ -111,6 +111,7 @@ uniform vec3 uHaze;
 uniform float uHazeDensity;
 uniform float uHazeStart;
 uniform float uHazeGlow;
+uniform float uBackdrop;
 uniform vec3 uSunDir;
 uniform vec3 uSunColour;
 uniform float uView;
@@ -138,9 +139,9 @@ void main() {
   if (uView > 0.5) { gl_FragColor = vec4(vec3(occlusion), 1.0); return; }
   c *= mix(1.0, occlusion, uAo);
   // Aerial haze: the air between the eye and the point, lit brighter toward the sun (Henyey-Greenstein, g 0.6,
-  // 4pi-normalized: 10 toward the sun).
+  // 4pi-normalized: 10 toward the sun). A backdrop at the far plane has its own air and takes none.
   float dist = sky ? 1e5 : length(p);
-  float through = exp(-max(dist - uHazeStart, 0.0) * uHazeDensity);
+  float through = sky && uBackdrop > 0.5 ? 1.0 : exp(-max(dist - uHazeStart, 0.0) * uHazeDensity);
   float mu = dot(normalize(p), uSunDir);
   float lobe = 0.64 / pow(1.36 - 1.2 * mu, 1.5);
   vec3 air = uHaze * (1.0 + uSunColour * uHazeGlow * lobe * 0.15);
@@ -151,7 +152,8 @@ void main() {
 
 /**
  * Pass 4: TAA. This frame (jittered) against the last, found where it was through the depth and last frame's
- * camera, held inside this frame's 3x3 neighbourhood so nothing that moved trails.
+ * camera, held inside this frame's 3x3 neighbourhood so nothing that moved trails. A backdrop moves with the camera,
+ * so its last frame is at the same place on screen.
  */
 export const TAA_GLSL = /* glsl */ `
 precision highp float;
@@ -163,6 +165,7 @@ uniform mat4 uInvView;
 uniform mat4 uPrevViewProj;
 uniform float uBlend;
 uniform float uReset;
+uniform float uBackdrop;
 // Weighted by 1/(1+luma), so one bright pixel does not ring over its neighbours.
 vec3 tame(vec3 c) { return c / (1.0 + dot(c, vec3(0.2126, 0.7152, 0.0722))); }
 vec3 untame(vec3 c) { return c / max(1.0 - dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-4); }
@@ -179,7 +182,8 @@ void main() {
     }
   }
   vec4 before = uPrevViewProj * (uInvView * vec4(viewAt(uv), 1.0));
-  vec2 then = before.xy / before.w * 0.5 + 0.5;
+  bool held = uBackdrop > 0.5 && texture2D(tDepth, uv).x >= 0.99999;
+  vec2 then = held ? uv : before.xy / before.w * 0.5 + 0.5;
   bool lost = uReset > 0.5 || then.x < 0.0 || then.y < 0.0 || then.x > 1.0 || then.y > 1.0;
   vec3 history = clamp(tame(texture2D(tHistory, then).rgb), low, high);
   gl_FragColor = vec4(untame(lost ? current : mix(history, current, uBlend)), 1.0);

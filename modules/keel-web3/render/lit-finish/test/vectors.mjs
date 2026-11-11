@@ -13,6 +13,14 @@ export default [
     expect: [0, "agx", 1, 0.05, 0.012, 2, 0, true, 2, 0, 0.12, true, 0.02],
   },
   {
+    name: "the far plane is sky unless the host says it holds a backdrop; the light and TAA passes both honour it",
+    run: ({ finishSettings, LIGHT_GLSL, TAA_GLSL }) => [
+      finishSettings().backdrop, finishSettings({ backdrop: true }).backdrop, finishSettings({ backdrop: "yes" }).backdrop,
+      LIGHT_GLSL.includes("sky && uBackdrop > 0.5 ? 1.0"), TAA_GLSL.includes("vec2 then = held ? uv"),
+    ],
+    expect: [false, true, false, true, true],
+  },
+  {
     name: "a setting given overrides only itself",
     run: ({ finishSettings, DEFAULT_FINISH_SETTINGS }) => {
       const tuned = finishSettings({ tonemap: "neutral", ao: 0.4 });

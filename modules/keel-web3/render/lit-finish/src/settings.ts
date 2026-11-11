@@ -17,6 +17,11 @@ export interface FinishSettings {
   readonly hazeStart: number;
   /** How bright the air glows toward the sun, 0 to 2. */
   readonly hazeGlow: number;
+  /**
+   * What the far plane holds. false: sky, all air. true: a backdrop the camera carries (a painted plate drawn without
+   * depth), which keeps its own air: no haze over it, and TAA holds it where it is on screen.
+   */
+  readonly backdrop: boolean;
   /** After the tone map: saturation 0 to 2, contrast 0.5 to 2. */
   readonly saturation: number;
   readonly contrast: number;
@@ -46,6 +51,7 @@ export const DEFAULT_FINISH_SETTINGS: FinishSettings = {
   hazeDensity: 0.012,
   hazeStart: 4,
   hazeGlow: 0.9,
+  backdrop: false,
   saturation: 1.05,
   contrast: 1.18,
   warmth: 0.25,
@@ -87,6 +93,7 @@ export function finishSettings(input?: unknown): FinishSettings {
     hazeDensity: bounded(v.hazeDensity, 0, 0.5, d.hazeDensity),
     hazeStart: bounded(v.hazeStart, 0, 10000, d.hazeStart),
     hazeGlow: bounded(v.hazeGlow, 0, 2, d.hazeGlow),
+    backdrop: typeof v.backdrop === "boolean" ? v.backdrop : d.backdrop,
     saturation: bounded(v.saturation, 0, 2, d.saturation),
     contrast: bounded(v.contrast, 0.5, 2, d.contrast),
     warmth: bounded(v.warmth, 0, 1, d.warmth),

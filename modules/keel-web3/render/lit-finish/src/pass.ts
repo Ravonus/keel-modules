@@ -78,6 +78,7 @@ function createUniforms(): Record<string, Uniform> {
     uRadius: number(0.6), uKernel: { value: aoKernel() },
     uAo: number(0.8), uExposure: number(1), uTone: number(0),
     uHaze: vec3(0.6, 0.7, 0.85), uHazeDensity: number(0), uHazeStart: number(0), uHazeGlow: number(0),
+    uBackdrop: number(0),
     uSunDir: vec3(0, 0, -1), uSunColour: vec3(1, 0.95, 0.85),
     uInvView: identity(), uPrevViewProj: identity(), uBlend: number(1), uReset: number(1),
     uThreshold: number(1), uBloom: number(0), uDir: vec2(1, 0),
@@ -95,7 +96,8 @@ function writeSettings(u: Record<string, Uniform>, d: Record<string, Uniform>, s
   const values: readonly (readonly [string, unknown])[] = [
     ["uAo", s.ao], ["uRadius", s.aoRadius], ["uExposure", s.exposure], ["uTone", TONEMAPS.indexOf(s.tonemap)],
     ["uHazeDensity", haze.density ?? s.hazeDensity], ["uHazeStart", haze.start ?? s.hazeStart],
-    ["uHazeGlow", s.hazeGlow], ["uSaturation", s.saturation], ["uContrast", s.contrast], ["uWarmth", s.warmth],
+    ["uHazeGlow", s.hazeGlow], ["uBackdrop", s.backdrop ? 1 : 0],
+    ["uSaturation", s.saturation], ["uContrast", s.contrast], ["uWarmth", s.warmth],
     ["uVignette", s.vignette], ["uBloom", s.bloom], ["uThreshold", s.bloomThreshold], ["uBlend", s.taa ? s.taaBlend : 1],
   ];
   for (const [name, value] of values) set(u, name, value);

@@ -4,6 +4,7 @@
 import { packDabs, rgb, type Rgb } from "./dab.js";
 import { digestOf, draws, hash, noise1 } from "./exact.js";
 import { foliageDabs } from "./foliage.js";
+import { MAX_GLAZES, PLATE_REGIONS, checkGlaze, withParams, type PlateBasis, type PlateGlaze } from "./basis.js";
 import type { PlateRecipe, RangeRecipe, StrokeRecipe } from "./recipe.js";
 import { sceneDabs } from "./scene.js";
 
@@ -42,6 +43,8 @@ export interface PlatePlan {
   readonly scene: Float32Array;
   /** The near leaves, drawn over the brush strokes. */
   readonly foliage: Float32Array;
+  /** Glazes from a basis, laid last; none without one. */
+  readonly glazes: readonly PlateGlaze[];
 }
 
 /** A crest's elevation (plate heights) at `u` from its peaks: the highest peak's slope, then a broken edge. */
@@ -132,6 +135,17 @@ function uniformsOf(recipe: PlateRecipe, settings: Required<PlateSettings>): Pla
   ];
 }
 
+/** Each glaze's gain, and its regions as a bit set over PLATE_REGIONS (0 for a slot with no glaze). */
+export function glazeUniforms(glazes: readonly PlateGlaze[]): PlanUniform[] {
+  const gain = new Float32Array(MAX_GLAZES);
+  const mask = new Float32Array(MAX_GLAZES);
+  glazes.forEach((g, i) => {
+    gain[i] = g.gain;
+    mask[i] = g.regions.reduce((bits, r) => bits | (1 << PLATE_REGIONS.indexOf(r)), 0);
+  });
+  return [["uGlazeGain", 4, gain], ["uGlazeMask", 4, mask]];
+}
+
 /** Throws on a recipe the painter cannot draw. */
 function check(recipe: PlateRecipe, settings: Required<PlateSettings>): void {
   const fail = (why: string): never => {
@@ -148,16 +162,21 @@ function check(recipe: PlateRecipe, settings: Required<PlateSettings>): void {
 /**
  * The plan for a recipe and settings: uniforms, crests and dabs, with their digest.
  *
- * @param recipe What the plate holds (LAKE_VALLEY, or one of your own).
+ * @param base What the plate holds (LAKE_VALLEY, or one of your own).
  * @param settings The seed and the host's settings.
+ * @param basis Fitted values for the recipe's fields and glazes, from `readPlateBasis` or built by hand.
  * @returns The plan; `paint` it with a painter from `createPlatePainter`.
- * @throws RangeError on a recipe or setting out of range.
+ * @throws RangeError on a recipe, setting or glaze out of range.
  */
-export function planPlate(recipe: PlateRecipe, settings: PlateSettings = {}): PlatePlan {
+export function planPlate(base: PlateRecipe, settings: PlateSettings = {}, basis: PlateBasis = {}): PlatePlan {
   const full: Required<PlateSettings> = {
     seed: settings.seed ?? 0, haze: settings.haze ?? 1, clouds: settings.clouds ?? 0, foliage: settings.foliage ?? true,
   };
+  const recipe = basis.params === undefined ? base : withParams(base, basis.params);
   check(recipe, full);
+  const glazes = basis.glazes ?? [];
+  if (glazes.length > MAX_GLAZES) throw new RangeError(`plate-painter: at most ${MAX_GLAZES} glazes.`);
+  glazes.forEach(checkGlaze);
   const ridges = new Float32Array(RIDGE_SAMPLES * MAX_RANGES).fill(1);
   recipe.ranges.forEach((range, i) => {
     ridges.set(crestOf(range, full.seed, i), i * RIDGE_SAMPLES);
@@ -166,6 +185,10 @@ export function planPlate(recipe: PlateRecipe, settings: PlateSettings = {}): Pl
   const scene = packDabs(sceneDabs(recipe, full.seed));
   const foliage = packDabs(full.foliage ? foliageDabs(recipe, full.seed) : []);
   const names = new Float32Array(uniforms.map(([name]) => name.length));
-  const digest = digestOf([flat(PAINTER_VERSION), names, ...uniforms.map(([, , v]) => v), ridges, scene, foliage]);
-  return { digest, aspect: recipe.aspect, uniforms, ridges, scene, foliage };
+  // A plan with no glaze keeps the digest it had before glazes existed.
+  const layers = glazes.length === 0 ? [] : [...glazeUniforms(glazes).map(([, , v]) => v),
+    ...glazes.map((g) => Float32Array.from(g.values))];
+  const digest = digestOf([flat(PAINTER_VERSION), names, ...uniforms.map(([, , v]) => v), ridges, scene, foliage,
+    ...layers]);
+  return { digest, aspect: recipe.aspect, uniforms, ridges, scene, foliage, glazes };
 }

@@ -230,13 +230,32 @@ void main() {
   outColor = vec4(col, b.a);
 }`;
 
-/** Glaze, canvas weave in the lights, vignette and varnish over the finished painting. */
+/**
+ * Glaze, canvas weave in the lights, vignette and varnish over the finished painting; then a basis's glazes, each a
+ * signed colour added in linear light over its regions. Alpha is 1, or the region code when `uRegions` asks for it.
+ */
 export const FINISH_FRAG = `${HEAD}
 uniform sampler2D uPaint;
-uniform vec4 uFinish;
+uniform sampler2D uGlaze0, uGlaze1, uGlaze2, uGlaze3;
+uniform vec4 uFinish, uGlazeGain, uGlazeMask;
+uniform float uRegions;
 out vec4 outColor;
+vec3 toLinear(vec3 c) { return mix(c / 12.92, pow((c + .055) / 1.055, vec3(2.4)), step(.04045, c)); }
+vec3 toSrgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(.0031308, c)); }
+vec3 glaze(sampler2D g, vec2 uv, float gain, float mask, int bit) {
+  return (int(mask) & bit) == 0 ? vec3(0) : (texture(g, uv).rgb * 255. - 128.) / 127. * gain;
+}
+vec3 glazed(vec3 c, vec2 uv, int region) {
+  if (dot(uGlazeGain, vec4(1)) <= 0.) return c;
+  int bit = 1 << region;
+  vec3 lin = toLinear(clamp(c, 0., 1.)) + glaze(uGlaze0, uv, uGlazeGain.x, uGlazeMask.x, bit)
+    + glaze(uGlaze1, uv, uGlazeGain.y, uGlazeMask.y, bit) + glaze(uGlaze2, uv, uGlazeGain.z, uGlazeMask.z, bit)
+    + glaze(uGlaze3, uv, uGlazeGain.w, uGlazeMask.w, bit);
+  return toSrgb(clamp(lin, 0., 1.));
+}
 void main() {
-  vec3 c = texture(uPaint, gl_FragCoord.xy / uSize).rgb;
+  vec4 p = texture(uPaint, gl_FragCoord.xy / uSize);
+  vec3 c = p.rgb;
   vec2 uv = plateUv();
   vec2 q = vec2(uv.x * uAspect, uv.y);
   float g = fbm(q * 2.5 + uSeedOff * .3, 3) - .5;
@@ -255,7 +274,8 @@ void main() {
   c *= 1. - uFinish.y * smoothstep(.12, .5, dot(v, v));
   c = vec3(.043, .055, .051) + c * (1. - vec3(.043, .055, .051));
   c = mix(c, c * vec3(1.025, 1., .965), smoothstep(.45, .9, lum));
-  outColor = vec4(c, 1.);
+  int region = min((int(p.a * 255. + .5) + 8) / 16, 5);
+  outColor = vec4(glazed(c, uv, region), uRegions > .5 ? p.a : 1.);
 }`;
 
 /** A dab's quad: four corners of a strip, placed by the instance. */

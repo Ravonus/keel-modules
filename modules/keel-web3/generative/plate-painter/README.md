@@ -97,9 +97,37 @@ painted into it, while the finish's haze falls on everything in front.
 
 ## Settings
 
-`planPlate(recipe, settings)` takes the module's inputs: `seed` (a whole number,
+`planPlate(recipe, settings, basis?)` takes the module's inputs: `seed` (a whole number,
 default 0), `haze` (0..2, scales every depth step), `clouds` (-0.5..0.5) and
 `foliage` (false leaves the near leaves out). Out-of-range values throw.
+
+## A basis
+
+`planPlate(recipe, settings, basis)` takes a third argument, a basis fitted to
+a target picture at build time. `params` sets recipe fields by path (`sky.top`,
+`ranges.1.lit`, `hazeStep`); a path must exist and keep its type. `glazes`
+(up to four) are low-resolution signed colour, each laid over named regions
+(`sky`, `ranges`, `shore`, `water`, `ground`, `leaves`) at the very end, read
+bilinearly between cell centres and added in linear light: what the fitted
+recipe still cannot reach. A glaze is `width` x `height` cells of RGB bytes,
+128 for none, a byte b meaning (b - 128) / 127 x `gain`.
+
+```ts
+const basis = readPlateBasis(new Uint8Array(await (await fetch(url)).arrayBuffer()));
+const plan = planPlate(LAKE_VALLEY, { seed: 6 }, basis);
+```
+
+`readPlateBasis` reads a `keel-basis@1` file (the KMX2 container: "KMX2", the
+header's length as a big-endian u32, the header JSON, then each layer's
+bytes): the header's `params.values`, and a glaze for each 3-channel `signed`
+layer that `meta.regions` places (`{ "residual.sky": ["sky"] }`). Other layers
+are skipped. A plan without a basis keeps the digest it always had; glazes and
+fitted values are in the digest.
+
+`paint(plan, { width, height, regions: true })` keeps each pixel's region code
+in alpha instead of 1, for masks and guides, not for display: 0 sky, 16 and 17
+ranges (lit and shaded faces), 32 shore, 48 water, 64 ground, and 80 where the
+near leaves cover (mixed at a leaf's soft edge).
 
 ## Cache
 

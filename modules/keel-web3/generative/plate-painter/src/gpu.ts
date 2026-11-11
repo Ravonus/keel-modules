@@ -2,7 +2,8 @@
 // dabs, brush strokes, near leaves, finish), a texture onto the screen as a backdrop, and a texture back to pixels.
 import { STRIDE } from "./dab.js";
 import { BACKDROP_FRAG, DAB_FRAG, DAB_VERT, FINISH_FRAG, FULL_VERT, SCENE_FRAG, STROKE_FRAG } from "./paint.glsl.js";
-import { MAX_RANGES, RIDGE_SAMPLES, type PlanUniform, type PlatePlan } from "./plan.js";
+import { LEAF_CODE } from "./basis.js";
+import { MAX_RANGES, RIDGE_SAMPLES, glazeUniforms, type PlanUniform, type PlatePlan } from "./plan.js";
 
 /** A rectangle of the plate in plate fractions: left, top, width, height. */
 export type PlateView = readonly [number, number, number, number];
@@ -12,6 +13,11 @@ export interface PlateSize {
   readonly width: number;
   readonly height: number;
   readonly view?: PlateView;
+  /**
+   * Keeps each pixel's region code in alpha instead of 1, a guide for masks and not for display: 0 sky, 16 and 17
+   * ranges (lit, shaded), 32 shore, 48 water, 64 ground, 80 leaves (mixed where a leaf's edge is soft).
+   */
+  readonly regions?: boolean;
 }
 
 /** A painted plate: a texture whose row 0 is the plate's top. */
@@ -180,8 +186,14 @@ interface Programs {
   readonly backdrop: WebGLProgram;
 }
 
-/** One instanced draw of dabs, blended over the colour, the target's alpha kept. */
-function drawDabs(gl: WebGL2RenderingContext, dabs: Float32Array): void {
+/** Dabs for one draw, and the region code their coverage writes into alpha (none: the target's alpha is kept). */
+interface Dabs {
+  readonly data: Float32Array;
+  readonly code?: number;
+}
+
+/** One instanced draw of dabs, blended over the colour. */
+function drawDabs(gl: WebGL2RenderingContext, { data: dabs, code }: Dabs): void {
   const count = dabs.length / STRIDE;
   if (count === 0) return;
   const vao = gl.createVertexArray();
@@ -195,7 +207,11 @@ function drawDabs(gl: WebGL2RenderingContext, dabs: Float32Array): void {
     gl.vertexAttribDivisor(i, 1);
   }
   gl.enable(gl.BLEND);
-  gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+  if (code === undefined) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+  else {
+    gl.blendColor(0, 0, 0, code / 255);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.CONSTANT_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  }
   gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
   gl.disable(gl.BLEND);
   gl.bindVertexArray(null);
@@ -205,7 +221,7 @@ function drawDabs(gl: WebGL2RenderingContext, dabs: Float32Array): void {
 
 /** Runs one pass of a program into a target: a full-screen triangle, or the given dabs. */
 function pass(
-  gl: WebGL2RenderingContext, program: WebGLProgram, uniforms: readonly PlanUniform[], dabs?: Float32Array,
+  gl: WebGL2RenderingContext, program: WebGLProgram, uniforms: readonly PlanUniform[], dabs?: Dabs,
 ): void {
   gl.useProgram(program);
   setUniforms(gl, program, uniforms);
@@ -213,6 +229,10 @@ function pass(
   if (sampler) gl.uniform1i(sampler, 0);
   const ridge = gl.getUniformLocation(program, "uRidge");
   if (ridge) gl.uniform1i(ridge, 1);
+  for (let i = 0; i < 4; i += 1) {
+    const glaze = gl.getUniformLocation(program, `uGlaze${String(i)}`);
+    if (glaze) gl.uniform1i(glaze, GLAZE_UNIT + i);
+  }
   if (dabs) drawDabs(gl, dabs);
   else gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
@@ -225,26 +245,50 @@ interface Targets {
   readonly uniforms: readonly PlanUniform[];
 }
 
+/** The texture unit of the first glaze; the ridges are on 1 and the pass's input on 0. */
+const GLAZE_UNIT = 2;
+
+/** A glaze's signed RGB as a bilinear RGB8 texture, row 0 the plate's top. */
+function glazeTexture(gl: WebGL2RenderingContext, glaze: PlatePlan["glazes"][number]): WebGLTexture {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  const settings = [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+    [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]] as const;
+  for (const [k, v] of settings) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, glaze.width, glaze.height, 0, gl.RGB, gl.UNSIGNED_BYTE, glaze.values);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  return t;
+}
+
+/** Binds textures to units from `first` on (null unbinds), and leaves unit 0 active. */
+function bindUnits(gl: WebGL2RenderingContext, first: number, textures: readonly (WebGLTexture | null)[]): void {
+  textures.forEach((t, i) => {
+    gl.activeTexture(gl.TEXTURE0 + first + i);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+  });
+  gl.activeTexture(gl.TEXTURE0);
+}
+
 function paintInto(gl: WebGL2RenderingContext, programs: Programs, plan: PlatePlan, at: Targets): void {
   const ridges = texture(gl, { width: RIDGE_SAMPLES, height: MAX_RANGES }, plan.ridges);
-  gl.activeTexture(gl.TEXTURE1);
-  gl.bindTexture(gl.TEXTURE_2D, ridges);
-  gl.activeTexture(gl.TEXTURE0);
+  const glazes = plan.glazes.map((g) => glazeTexture(gl, g));
+  bindUnits(gl, 1, [ridges]);
+  bindUnits(gl, GLAZE_UNIT, glazes);
   gl.bindFramebuffer(gl.FRAMEBUFFER, at.out.framebuffer);
   pass(gl, programs.scene, at.uniforms);
-  pass(gl, programs.dab, at.uniforms, plan.scene);
+  pass(gl, programs.dab, at.uniforms, { data: plan.scene });
   gl.bindFramebuffer(gl.FRAMEBUFFER, at.work.framebuffer);
   gl.bindTexture(gl.TEXTURE_2D, at.out.texture);
   pass(gl, programs.stroke, at.uniforms);
-  pass(gl, programs.dab, at.uniforms, plan.foliage);
+  pass(gl, programs.dab, at.uniforms, { data: plan.foliage, code: LEAF_CODE });
   gl.bindFramebuffer(gl.FRAMEBUFFER, at.into);
   gl.bindTexture(gl.TEXTURE_2D, at.work.texture);
   pass(gl, programs.finish, at.uniforms);
   gl.bindTexture(gl.TEXTURE_2D, null);
-  gl.activeTexture(gl.TEXTURE1);
-  gl.bindTexture(gl.TEXTURE_2D, null);
-  gl.activeTexture(gl.TEXTURE0);
+  bindUnits(gl, 1, [null, ...glazes.map(() => null)]);
   gl.deleteTexture(ridges);
+  for (const t of glazes) gl.deleteTexture(t);
 }
 
 function free(gl: WebGL2RenderingContext, t: Target): void {
@@ -263,8 +307,10 @@ function paintPlan(
   const restore = saved(gl);
   const out = target(gl, size);
   const work = target(gl, size);
-  const uniforms: PlanUniform[] = [...plan.uniforms, ["uView", 4, new Float32Array(size.view ?? [0, 0, 1, 1])],
-    ["uSize", 2, new Float32Array([size.width, size.height])]];
+  // Glaze uniforms are set on every paint, so a plate with none never reads another plan's.
+  const uniforms: PlanUniform[] = [...plan.uniforms, ...glazeUniforms(plan.glazes),
+    ["uView", 4, new Float32Array(size.view ?? [0, 0, 1, 1])], ["uSize", 2, new Float32Array([size.width, size.height])],
+    ["uRegions", 1, new Float32Array([size.regions === true ? 1 : 0])]];
   gl.viewport(0, 0, size.width, size.height);
   paintInto(gl, programs, plan, { out, work, into: size.toBound ? bound : out.framebuffer, uniforms });
   free(gl, work);
@@ -299,7 +345,7 @@ export function createPlatePainter(gl: WebGL2RenderingContext): PlatePainter {
   };
   const plates = new Map<string, Plate & { framebuffer: WebGLFramebuffer }>();
   const keyOf = (digest: string, size: PlateSize): string =>
-    [digest, size.width, size.height, ...(size.view ?? [0, 0, 1, 1])].join(",");
+    [digest, size.width, size.height, ...(size.view ?? [0, 0, 1, 1]), size.regions === true].join(",");
   return {
     paint(plan, size) {
       const key = keyOf(plan.digest, size);

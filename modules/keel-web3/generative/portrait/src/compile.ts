@@ -42,7 +42,10 @@ function melted(fields: Field[], k: number): Field | null {
   if (!c) return (x, y, z) => smin(a(x, y, z), b(x, y, z), k);
   return (x, y, z) => {
     let d = a(x, y, z);
-    for (const f of fields.slice(1)) d = smin(d, f(x, y, z), k);
+    for (let i = 1; i < fields.length; i += 1) {
+      const f = fields[i];
+      if (f) d = smin(d, f(x, y, z), k);
+    }
     return d;
   };
 }
@@ -82,9 +85,10 @@ function fanned(node: Op, ball: Ball, slack: number): Field | null {
   return (x, y, z) => {
     const p = base(x, y, z);
     let d = p;
-    kids.forEach((f, i) => {
-      d = Math.min(d, smin(p, f(x, y, z), ks[i] ?? 0));
-    });
+    for (let i = 0; i < kids.length; i += 1) {
+      const f = kids[i];
+      if (f) d = Math.min(d, smin(p, f(x, y, z), ks[i] ?? 0));
+    }
     return d;
   };
 }

@@ -103,7 +103,7 @@ function fingerShape(f: Finger, thumbish: boolean): Node {
   const pad = add([(c[0] + d[0]) / 2, (c[1] + d[1]) / 2, (c[2] + d[2]) / 2], f.back, -rd * 0.35);
   return blend(0.003,
     cone(a, b, ra, rb), cone(b, c, rb * 0.97, rc), cone(c, d, rc * 0.97, rd),
-    sphere(pad, rd * 0.9), sphere(b, rb * 1.02), sphere(c, rc * 1.0),
+    sphere(pad, rd * 0.9), sphere(b, rb * 0.97), sphere(c, rc * 0.94),
   );
 }
 

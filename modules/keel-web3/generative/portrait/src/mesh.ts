@@ -66,9 +66,13 @@ interface Sampling {
 
 /** Sample the 3³ corners of the two-cell cube `c` (its index among the block's 4³), those not sampled yet. */
 function cube(s: Sampling, c: number): void {
-  const [a, b, d] = [(c & 3) * 2, ((c >> 2) & 3) * 2, (c >> 4) * 2];
+  const a = (c & 3) * 2;
+  const b = ((c >> 2) & 3) * 2;
+  const d = (c >> 4) * 2;
   for (let n = 0; n < 27; n += 1) {
-    const [i, j, k] = [a + (n % 3), b + (Math.floor(n / 3) % 3), d + Math.floor(n / 9)];
+    const i = a + (n % 3);
+    const j = b + (Math.floor(n / 3) % 3);
+    const k = d + Math.floor(n / 9);
     const v = (k * C + j) * C + i;
     if (Number.isNaN(s.values[v] ?? 0)) s.values[v] = s.field(s.o[0] + i * s.h, s.o[1] + j * s.h, s.o[2] + k * s.h);
   }
@@ -110,20 +114,23 @@ function sampled(build: Build, at: V3): Block | undefined {
   return { field, ball, o, at, values, verts: new Int32Array(B * B * B).fill(-1) };
 }
 
-const EDGES = [
-  [0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7],
-] as const;
+/** A cell's twelve edges, as the corners at their two ends. */
+const EDGE_A = [0, 2, 4, 6, 0, 1, 4, 5, 0, 1, 2, 3] as const;
+const EDGE_B = [1, 3, 5, 7, 2, 3, 6, 7, 4, 5, 6, 7] as const;
+/** Where a cell's eight corners lie in a block's corner values, from the cell's low corner. */
+const CORNER_AT = [0, 1, C, C + 1, C * C, C * C + 1, C * C + C, C * C + C + 1] as const;
 
 /** The corners of the cell whose low corner is `o` (an index into `values`) into `v`: low x first, then y, z. */
 function corners(values: Float64Array, o: number, v: Float64Array): void {
-  const at = [0, 1, C, C + 1, C * C, C * C + 1, C * C + C, C * C + C + 1];
-  for (let n = 0; n < 8; n += 1) v[n] = values[o + (at[n] ?? 0)] ?? 0;
+  for (let n = 0; n < 8; n += 1) v[n] = values[o + (CORNER_AT[n] ?? 0)] ?? 0;
 }
 
 /** Where the surface crosses a cell, as a share of the cell from its low corner, into `out`; false if it does not. */
 function crossing(v: Float64Array, out: Float64Array): boolean {
   let [x, y, z, n] = [0, 0, 0, 0];
-  for (const [a, b] of EDGES) {
+  for (let e = 0; e < 12; e += 1) {
+    const a = EDGE_A[e] ?? 0;
+    const b = EDGE_B[e] ?? 0;
     const va = v[a] ?? 0;
     const vb = v[b] ?? 0;
     if (va < 0 === vb < 0) continue;
@@ -134,17 +141,24 @@ function crossing(v: Float64Array, out: Float64Array): boolean {
     n += 1;
   }
   if (n === 0) return false;
-  out.set([x / n, y / n, z / n]);
+  out[0] = x / n;
+  out[1] = y / n;
+  out[2] = z / n;
   return true;
 }
 
 /** The distance at shares `t` across a cell whose corners are `v`, read between them. */
 function between(v: Float64Array, t: Float64Array): number {
-  const [u, w, s] = [t[0] ?? 0, t[1] ?? 0, t[2] ?? 0];
-  const lerp = (a: number, b: number, k: number): number => a + (b - a) * k;
+  const u = t[0] ?? 0;
+  const w = t[1] ?? 0;
+  const s = t[2] ?? 0;
   const at = (i: number): number => v[i] ?? 0;
-  const near = lerp(lerp(at(0), at(1), u), lerp(at(2), at(3), u), w);
-  return lerp(near, lerp(lerp(at(4), at(5), u), lerp(at(6), at(7), u), w), s);
+  const a = at(0) + (at(1) - at(0)) * u;
+  const b = at(2) + (at(3) - at(2)) * u;
+  const c = at(4) + (at(5) - at(4)) * u;
+  const d = at(6) + (at(7) - at(6)) * u;
+  const near = a + (b - a) * w;
+  return near + (c + (d - c) * w - near) * s;
 }
 
 /** The field's gradient at `p`, by four samples on a tetrahedron `e` across, normalised. */
@@ -170,7 +184,9 @@ const AT = new Float64Array(3);
 function vertices(build: Build, block: Block, index: number): void {
   const { cell: h } = build.grid;
   for (let c = 0; c < B * B * B; c += 1) {
-    const [i, j, k] = [c & 7, (c >> 3) & 7, c >> 6];
+    const i = c & 7;
+    const j = (c >> 3) & 7;
+    const k = c >> 6;
     corners(block.values, (k * C + j) * C + i, CORNERS);
     if (!crossing(CORNERS, AT)) continue;
     const p: [number, number, number] = [

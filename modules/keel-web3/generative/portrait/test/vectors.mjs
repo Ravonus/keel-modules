@@ -11,7 +11,7 @@ const hashOf = (...arrays) => {
 const far = (exports, seed, face = 'A', hand = 'pinch') => exports.buildBust({ seed, face, hand, detail: exports.DETAIL.far });
 
 /** What the far busts of three seeds, both faces, hash to: every vertex, normal and index to its last bit. It moves with any change to a shape, and must then come out the same on every Node: a hash that differs between two is a Math.sin or a Math.pow back in the geometry. */
-const MESH_HASH = 3308963208;
+const MESH_HASH = 24630056;
 
 export default [
   {

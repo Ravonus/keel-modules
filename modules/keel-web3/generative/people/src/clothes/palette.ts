@@ -1,5 +1,6 @@
 // The palette: skin, hair, eyes and clothes in colours that go together.
 
+import { raised } from "../exact.js";
 import { clamp, mix } from "../vec.js";
 import { HAIR_TONES, LOUD_HAIR, blend, hashed, hsl, pick, weighted } from "../roll.js";
 import type { Weighted } from "../roll.js";
@@ -49,7 +50,7 @@ const SHADES: Readonly<Record<Genre, (rand: () => number) => Readonly<Record<str
 /** How much light a colour gives back, as the eye weighs it, 0 to 1. */
 export const glowOf = (hex: string): number => [[1, 0.2126], [3, 0.7152], [5, 0.0722]].reduce((sum, [i = 1, k = 0]) => {
   const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-  return sum + k * (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return sum + k * (c <= 0.04045 ? c / 12.92 : raised((c + 0.055) / 1.055, 2, 2));
 }, 0);
 
 /**

@@ -7,6 +7,12 @@ capsules for `sdf-body`, or for anything else that can draw capsules.
 There is no avatar to store: the seed is the person, in 3D, from every side.
 It imports nothing and knows no renderer, like `fauna`.
 
+A seed is the same person on every engine, to the last bit of every number
+`personOf` gives back. What a seed decides uses only arithmetic that JavaScript
+rounds one way everywhere (`src/exact.ts`), never `Math.pow` or `Math.sin`,
+which may differ in their last bit between browsers and versions. Drawing a
+person still uses them: a mesh may differ there by less than anyone can see.
+
 Front is +z, right is +x, up is +y, in metres, feet on y = 0.
 
 ## Mesh

@@ -1,5 +1,6 @@
 // The face: its features, the bone under them and the look painted on.
 
+import { raised } from "../exact.js";
 import { clamp, mix } from "../vec.js";
 import { DARK_IRIS, IRIS_TONES, bell, pick, streamOf, weighted } from "../roll.js";
 import type { Age, Bone, Build, Face, FaceHair, Look, Sex } from "../body/person.js";
@@ -80,9 +81,9 @@ function traitsOf(worn: readonly Signature[]): (t: Trait) => number {
 
 /** Round, square or sharp, as shares: one usually leads, whatever the sex, and the young lean round. */
 function faceForm(r: () => number, youth: number): readonly [round: number, square: number, sharp: number] {
-  const round = r() ** 2.2 + youth * 0.5;
-  const square = r() ** 2.2;
-  const sharp = r() ** 2.2;
+  const round = raised(r(), 2, 1) + youth * 0.5;
+  const square = raised(r(), 2, 1);
+  const sharp = raised(r(), 2, 1);
   const all = round + square + sharp;
   return [round / all, square / all, sharp / all];
 }

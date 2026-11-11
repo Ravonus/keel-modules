@@ -1,7 +1,10 @@
 const finite = (body) => body.capsules.every((c) => [...c.a, ...c.b, c.r].every(Number.isFinite));
 
-/** What 400 seeds' builds, clothes, gaits and skins hash to: pinned so nothing about a face can shift them; moved once, on purpose, when bare heads got the wider rack of hats and everyone their gear. */
-const STREAM_HASH = -1213391656;
+/** What 400 seeds' builds, clothes, gaits and skins hash to: pinned so nothing about a face can shift them; moved on purpose, when bare heads got the wider rack of hats and everyone their gear, and when a gait's flare left Math.pow for arithmetic every engine agrees on. */
+const STREAM_HASH = 1872683972;
+
+/** What 300 whole people hash to, every number to its last bit. It moves with any change to a person, and must then come out the same on every Node there is to try: a hash that differs between two is a Math.pow or a Math.sin back in what a seed decides. */
+const WHOLE_HASH = 1025970680;
 
 export default [
   {
@@ -179,6 +182,17 @@ export default [
       return hash;
     },
     expect: STREAM_HASH,
+  },
+  {
+    name: 'a seed is the same person on every engine: nothing it decides goes through Math.pow or Math.sin',
+    run: ({ personOf }) => {
+      let hash = 7;
+      for (let seed = 0; seed < 300; seed += 1) {
+        for (const c of JSON.stringify(personOf(seed))) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) | 0;
+      }
+      return hash;
+    },
+    expect: WHOLE_HASH,
   },
   {
     name: 'a child has the same face as a boy or a girl, with neutral lips, and a teen nothing fuller than that',

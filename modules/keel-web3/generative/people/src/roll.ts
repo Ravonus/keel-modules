@@ -1,5 +1,6 @@
 // The roll: a seed's stream of numbers, and the colours it picks from.
 
+import { sine } from "./exact.js";
 import { clamp, mix } from "./vec.js";
 
 // ---------------------------------------------------------------- the roll
@@ -65,7 +66,8 @@ export function blend(a: string, b: string, k: number): string {
   return `#${part(0)}${part(1)}${part(2)}`;
 }
 
+/** A number from 0 to 1 for a seed and a salt, off no stream. Its sine is `sine`, so it too is the same everywhere. */
 export const hashed = (a: number, b: number): number => {
-  const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  const v = sine(a * 12.9898 + b * 78.233) * 43758.5453;
   return v - Math.floor(v);
 };

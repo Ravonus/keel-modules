@@ -1,5 +1,6 @@
 // The build: age, sex, height and shape, and the gait that build carries itself with.
 
+import { raised } from "../exact.js";
 import { TAU, clamp, mix } from "../vec.js";
 import { bell, weighted } from "../roll.js";
 import type { Weighted } from "../roll.js";
@@ -146,12 +147,12 @@ export function gaitOf(rand: () => number, build: Build): Gait {
     walking: [easy, easy + mix(-0.14, 0.14, rand())],
     pump: [elbow + odd, elbow - odd],
     carry: mix(-0.22, 0.25, rand()),
-    across: mix(0, 0.62, rand()) ** 2 * 2.2,
+    across: raised(mix(0, 0.62, rand()), 2, 0) * 2.2,
     wide: mix(0.72, 1.32, rand()) * (1 + heavy * 0.2),
     offset: rand() * TAU,
     dance: Math.floor(rand() * 4),
     idle: Math.floor(rand() * 3),
-    flare: mix(0, 0.15, rand()) ** 1.4 * 2.2 + age.flare,
+    flare: raised(mix(0, 0.15, rand()), 1, 2) * 2.2 + age.flare,
     lazy,
     lazyBy: mix(0.5, 0.85, rand()),
     lean: mix(-0.06, 0.14, rand()) + age.lean,

@@ -1,0 +1,15 @@
+{
+  "schema": "keel.jsmodule@2",
+  "id": "surfaces",
+  "version": "0.1.0",
+  "entry": "src/index.ts",
+  "license": "MIT",
+  "summary": "Seeded painters of 2D surfaces on the GPU or the CPU: tileable paper grain and rib knit, and soft painted grounds in a palette, each an albedo and a relief (normal and height) at any size, returned as { digest, buffers } so a host caches them by recipe; and prints, a host's own 2D drawing as a lit texture with roughness and metalness.",
+  "category": "generative",
+  "owner": { "org": "keel-web3", "group": "generative" },
+  "inputs": [
+    { "key": "surface", "label": "Surface", "type": "select", "required": false, "options": [{ "value": "paper", "label": "Paper" }, { "value": "knit", "label": "Rib knit" }, { "value": "floral", "label": "Painted flowers" }, { "value": "cloth", "label": "Painted cloth" }], "help": "Which of the module's recipes to paint.", "default": "paper" },
+    { "key": "seed", "label": "Seed", "type": "number", "required": false, "min": 0, "max": 999999, "step": 1, "help": "Decides every fibre, stitch and stroke inside the recipe's bounds.", "default": 0 },
+    { "key": "size", "label": "Size", "type": "number", "required": false, "min": 16, "max": 4096, "step": 16, "placement": "advanced", "help": "Pixels across; a tile is square.", "default": 1024 }
+  ]
+}

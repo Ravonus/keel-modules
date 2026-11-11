@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Surfaces demo</title>
+    <link rel="icon" href="data:,">
+    <!-- Local tool, never published. ?view=card (default) | knit | paper | floral | cloth | sphere, &seed=0.
+         A driver calls window.demo.paint / .sphere / .card for stills and timings. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "keel://module/lit.js": "/lit.mjs",
+          "keel://module/surfaces.js": "/modules/generative/surfaces/index.js"
+        }
+      }
+    </script>
+    <style>
+      html, body { margin: 0; background: #16181c; color: #f7f7ee; font: 14px/1.4 ui-sans-serif, system-ui, sans-serif; }
+      canvas { display: block; max-width: 100vw; height: auto; }
+    </style>
+  </head>
+  <body>
+    <script type="module" src="/demo.js"></script>
+  </body>
+</html>

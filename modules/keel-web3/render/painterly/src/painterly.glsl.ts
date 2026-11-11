@@ -146,7 +146,7 @@ void main() {
     // (Fine where the surface turns away steeply, a silhouette or the side of an arm; where it is curved small, a
     // hand or a nose; and where it is flesh, which a painter keeps smooth.)
     fine = max(fine, max(trf / (trf + 0.012), curve / (curve + 0.012)));
-    fine = max(fine, 0.5 * skin(colourAt(uv)));
+    fine = max(fine, 0.8 * skin(colourAt(uv)));
   }
   gl_FragColor = vec4(J, fine);
 }
@@ -233,6 +233,58 @@ void main() {
 `;
 
 /** Each stroke of a layer, once: a cell's stroke centre, the flow there, and the paint's colour there. */
+// The glaze: the rough base blended along the flow, so the Kuwahara's facets melt into soft turns of value, as paint
+// glazed and blended does. Each tap counts for how close its value is to the pixel's own (an edge between close
+// values is lost, one between far values is found) and only on the same surface. The blend reaches a brush or two
+// where the picture is plain and hardly at all where it is fine, and there the local contrast is brought back a
+// little, so a face stays as crisp as it was drawn.
+export const GLAZE_GLSL = /* glsl */ `
+precision highp float;
+${FLOW_GLSL}
+uniform sampler2D tRough;
+uniform sampler2D tTensor;
+uniform sampler2D tPrep;
+uniform vec2 uPaintSize;
+uniform vec2 uTexel;
+uniform float uRadius;
+#define TAPS 6
+void main() {
+  vec2 uv = gl_FragCoord.xy / uPaintSize;
+  float A;
+  vec4 J = texture2D(tTensor, uv);
+  vec2 t = flowOf(J, A);
+  vec4 drawn = texture2D(tPrep, uv);
+  float fine = J.w;
+  // (Where the picture is fine, a face or hair, the rough base's facets give way to the picture as drawn, which a
+  // painter keeps smooth and whole; the blend then only softens it along its form.)
+  float kept = smoothstep(0.35, 0.8, fine);
+  vec3 here = mix(texture2D(tRough, uv).rgb, drawn.rgb, kept);
+  vec2 stride = t * uTexel * (uRadius * mix(2.0, 0.3, fine) / float(TAPS));
+  vec3 sum = here;
+  float total = 1.0;
+  for (int i = 1; i <= TAPS; i++) {
+    float k = float(i) / float(TAPS);
+    float along = exp(-k * k * 2.0);
+    for (int side = 0; side < 2; side++) {
+      vec2 at = uv + stride * float(i) * (side == 0 ? 1.0 : -1.0);
+      vec4 tap = texture2D(tPrep, at);
+      vec3 c = mix(texture2D(tRough, at).rgb, tap.rgb, kept);
+      vec3 dc = c - here;
+      float same = 1.0 - smoothstep(0.02, 0.05, abs(tap.a - drawn.a));
+      float w = along * exp(-dot(dc, dc) * 60.0) * same;
+      sum += c * w;
+      total += w;
+    }
+  }
+  vec3 blended = sum / total;
+  // (And there the local contrast comes back a little, so the features stay at least as crisp as drawn.)
+  vec3 near = texture2D(tPrep, uv + vec2(uTexel.x, 0.0)).rgb + texture2D(tPrep, uv - vec2(uTexel.x, 0.0)).rgb
+    + texture2D(tPrep, uv + vec2(0.0, uTexel.y)).rgb + texture2D(tPrep, uv - vec2(0.0, uTexel.y)).rgb;
+  vec3 crisp = blended + (drawn.rgb - near * 0.25) * 0.5;
+  gl_FragColor = vec4(mix(blended, crisp, smoothstep(0.5, 0.9, fine)), 0.0);
+}
+`;
+
 export const TABLE_GLSL = /* glsl */ `
 precision highp float;
 ${FLOW_GLSL}
@@ -355,13 +407,16 @@ uniform sampler2D tPainted;
 uniform sampler2D tPrep;
 uniform sampler2D tTensor;
 uniform sampler2D tGrain;
+uniform sampler2D tCrack;
 uniform sampler2D tTile;
 uniform float uTileCells;
 uniform vec2 uSize;
 uniform vec2 uPaintSize;
 uniform float uGrainSize;
+uniform float uCrackSize;
 uniform float uGrain;
 uniform float uGrade;
+uniform float uCrackle;
 uniform float uView;
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
@@ -404,24 +459,32 @@ void main() {
   // staying at their own depth. Impasto: the strokes' height lit from the upper left, faintly.
   float relief = (l.a - r.a) * 0.7 + (u.a - d.a) * 0.7;
   c *= 1.0 + relief * 0.04;
-  // Canvas: the weave's relief, lit the same way, and its threads showing only where the paint is thin: under no
-  // stroke, away from the fine passages the painter worked over, and in the thin patches of the picture.
-  // (A thread and a half of canvas to the frame pixel.)
+  // Canvas: the weave's relief, lit the same way, and its threads showing only where the paint is thin and dark:
+  // under no stroke, away from the fine passages the painter worked over, in the thin patches of the picture, and
+  // in its dark passages, where a painter's ground is thinnest. (A thread and a half of canvas to the frame pixel.)
+  float lum = luma(c);
   vec2 g = gl_FragCoord.xy / (uGrainSize * 1.5);
   vec2 gpx = vec2(1.0 / uGrainSize);
   float h = texture2D(tGrain, g).x;
   float weave = (texture2D(tGrain, g - vec2(gpx.x, 0.0)).x - texture2D(tGrain, g + vec2(gpx.x, 0.0)).x)
     + (texture2D(tGrain, g + vec2(0.0, gpx.y)).x - texture2D(tGrain, g - vec2(0.0, gpx.y)).x);
-  float thin = (1.0 - min(here.a * 2.0, 1.0)) * (1.0 - texture2D(tTensor, uv).w) * smoothstep(0.35, 0.75, patches(gl_FragCoord.xy));
-  c *= 1.0 + uGrain * thin * (weave * 0.2 + (h - 0.5) * 0.05);
+  float thin = (1.0 - min(here.a * 2.0, 1.0)) * (1.0 - texture2D(tTensor, uv).w)
+    * smoothstep(0.35, 0.75, patches(gl_FragCoord.xy)) * smoothstep(0.5, 0.12, lum);
+  c *= 1.0 + uGrain * thin * weave * 0.5;
+  c += uGrain * thin * (h - 0.5) * 0.2;
   // Varnish: a warm glaze, blacks lifted toward umber, a little contrast, a vignette.
-  float lum = luma(c);
   vec3 varnished = c * vec3(1.05, 0.985, 0.88);
   varnished = mix(varnished, vec3(0.12, 0.085, 0.05), (1.0 - lum) * (1.0 - lum) * 0.25);
   varnished = mix(varnished, varnished * varnished * (3.0 - 2.0 * varnished), 0.4);
   vec2 q = uv - 0.5;
   varnished *= 1.0 - 0.45 * dot(q, q) * 1.6;
   c = mix(c, varnished, uGrade);
+  // Craquelure: the varnish's net of fine cracks, each a dark thread with its upper-left lip catching the light.
+  vec2 k = gl_FragCoord.xy / uCrackSize;
+  float crack = texture2D(tCrack, k).x;
+  float lip = texture2D(tCrack, k + vec2(-1.0, 1.0) / uCrackSize).x - crack;
+  c *= 1.0 - uCrackle * crack * 0.3;
+  c += uCrackle * max(lip, 0.0) * 0.06;
   gl_FragColor = vec4(clamp(c, 0.0, 1.0) + (ign(gl_FragCoord.xy) - 0.5) / 255.0, 1.0);
 }
 `;

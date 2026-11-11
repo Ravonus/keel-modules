@@ -11,20 +11,21 @@ export default [
   {
     name: "unsafe settings fall back to the defaults and stay bounded, and the seed is made whole",
     run: ({ painterlySettings, DEFAULT_PAINTERLY_SETTINGS }) => {
-      const wild = painterlySettings({ stroke: 40, direction: -1, strokes: "all", grain: 3, edge: null, grade: 2, exposure: -4, resolution: 0, seed: 7.9 });
-      return [wild.stroke, wild.direction, wild.strokes, wild.grain, wild.edge, wild.grade, wild.exposure, wild.resolution, wild.seed,
+      const wild = painterlySettings({ stroke: 40, direction: -1, strokes: "all", grain: 3, edge: null, grade: 2, crackle: -3, exposure: -4, resolution: 0, seed: 7.9 });
+      return [wild.stroke, wild.direction, wild.strokes, wild.grain, wild.edge, wild.grade, wild.crackle, wild.exposure, wild.resolution, wild.seed,
         painterlySettings() === DEFAULT_PAINTERLY_SETTINGS, painterlySettings("loud") === DEFAULT_PAINTERLY_SETTINGS];
     },
-    expect: [12, 0, 1, 1, 0.5, 1, 0, 0.25, 7, true, true],
+    expect: [12, 0, 0, 1, 0.5, 1, 0, 0, 0.25, 7, true, true],
   },
   {
-    name: "a setting given overrides only itself; the two variants differ by strokes and direction alone",
-    run: ({ painterlySettings, DEFAULT_PAINTERLY_SETTINGS, SMOOTH_SETTINGS, STROKED_SETTINGS }) => {
+    name: "a setting given overrides only itself; the glaze is the default and the stroked variant differs by strokes alone",
+    run: ({ painterlySettings, DEFAULT_PAINTERLY_SETTINGS, GLAZE_SETTINGS, STROKED_SETTINGS }) => {
       const tuned = painterlySettings({ stroke: 8, grain: 0 });
-      const differ = Object.keys(STROKED_SETTINGS).filter((key) => STROKED_SETTINGS[key] !== SMOOTH_SETTINGS[key]).sort();
-      return [tuned.stroke, tuned.grain, tuned.grade === DEFAULT_PAINTERLY_SETTINGS.grade, differ, SMOOTH_SETTINGS.strokes, SMOOTH_SETTINGS.direction];
+      const differ = Object.keys(STROKED_SETTINGS).filter((key) => STROKED_SETTINGS[key] !== GLAZE_SETTINGS[key]).sort();
+      return [tuned.stroke, tuned.grain, tuned.grade === DEFAULT_PAINTERLY_SETTINGS.grade, differ, GLAZE_SETTINGS === DEFAULT_PAINTERLY_SETTINGS,
+        GLAZE_SETTINGS.strokes, STROKED_SETTINGS.strokes > 0 && STROKED_SETTINGS.strokes <= 0.5];
     },
-    expect: [8, 0, true, ["direction", "strokes"], 0, 0],
+    expect: [8, 0, true, ["strokes"], true, 0, true],
   },
   {
     name: "the hash mixes every input, stays unsigned 32-bit and is the same every run",
@@ -78,14 +79,43 @@ export default [
     expect: [65536, 4, true, true, true, true, true, 1994373922, 374776876, 1068603219],
   },
   {
-    name: "the shaders carry what the pass sets: the tile and grain samplers, the brush, the form's share, the view",
-    run: ({ TENSOR_GLSL, KUWAHARA_GLSL, STROKE_GLSL, GRADE_GLSL, PREP_GLSL }) => [
+    name: "the shaders carry what the pass sets: the tile, grain and crack samplers, the brush, the form's share, the view",
+    run: ({ TENSOR_GLSL, KUWAHARA_GLSL, GLAZE_GLSL, STROKE_GLSL, GRADE_GLSL, PREP_GLSL }) => [
       TENSOR_GLSL.includes("uniform float uDirection") && TENSOR_GLSL.includes("formTensor") && TENSOR_GLSL.includes("curve"),
       KUWAHARA_GLSL.includes("uniform float uRadius") && KUWAHARA_GLSL.includes("float eighth("),
+      ["sampler2D tRough", "sampler2D tTensor", "sampler2D tPrep", "float uRadius"].every((u) => GLAZE_GLSL.includes(`uniform ${u}`)) && GLAZE_GLSL.includes("flowOf("),
       ["sampler2D tTile", "sampler2D tPrep", "vec4 uCoarse", "vec4 uFine", "float uStrokes", "float uEdge"].every((u) => STROKE_GLSL.includes(`uniform ${u}`)),
-      GRADE_GLSL.includes("uniform sampler2D tGrain") && ["uGrain", "uGrade", "uView"].every((u) => GRADE_GLSL.includes(`uniform float ${u}`)),
+      ["sampler2D tGrain", "sampler2D tCrack"].every((u) => GRADE_GLSL.includes(`uniform ${u}`)) && ["uGrain", "uGrade", "uCrackle", "uView"].every((u) => GRADE_GLSL.includes(`uniform float ${u}`)),
       PREP_GLSL.includes("uniform float uExposure"),
     ],
-    expect: [true, true, true, true, true],
+    expect: [true, true, true, true, true, true],
+  },
+  {
+    name: "the craquelure is a sparse net of fine cracks, the same for a seed and another for another, and it tiles",
+    run: ({ crackTile, CRACK_SIZE }) => {
+      const tile = crackTile(1);
+      const other = crackTile(2);
+      const small = crackTile(3, 64);
+      let cracked = 0;
+      let differ = 0;
+      let high = 0;
+      for (let i = 0; i < tile.length; i += 1) {
+        if (tile[i] > 64) cracked += 1;
+        if (tile[i] !== other[i]) differ += 1;
+        high = Math.max(high, tile[i]);
+      }
+      // (The tile's first and last columns meet across its edge: a crack crossing the first goes on in the last.)
+      const at = (x, y) => tile[((y + CRACK_SIZE) % CRACK_SIZE) * CRACK_SIZE + x];
+      let meets = 0;
+      let reaches = 0;
+      for (let y = 0; y < CRACK_SIZE; y += 1) {
+        if (at(0, y) <= 128) continue;
+        reaches += 1;
+        if ([-1, 0, 1].some((dy) => at(CRACK_SIZE - 1, y + dy) > 0 || at(CRACK_SIZE - 2, y + dy) > 0)) meets += 1;
+      }
+      return [tile.length, cracked / tile.length > 0.02 && cracked / tile.length < 0.2, differ > tile.length / 20, high > 230,
+        reaches > 4 && meets / reaches > 0.8, crackTile(1).every((v, i) => v === tile[i]), small.length, digest(tile), digest(other), digest(small)];
+    },
+    expect: [1048576, true, true, true, true, true, 4096, 955314173, 929187343, 3682445679],
   },
 ];

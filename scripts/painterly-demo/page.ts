@@ -5,7 +5,8 @@ import { createSkinBodies } from "../../modules/keel-web3/render/skin-body/src/i
 import { meshTop } from "../../modules/keel-web3/render/lit-portrait/src/index.ts";
 import { faceAt, meshOf, personOf, poseMesh, skeletonOf } from "../../modules/keel-web3/generative/people/src/index.ts";
 import type { Person, PersonMesh } from "../../modules/keel-web3/generative/people/src/index.ts";
-import { SMOOTH_SETTINGS, STROKED_SETTINGS, createPainterly, hash32, unit } from "../../modules/keel-web3/render/painterly/src/index.ts";
+import { GLAZE_SETTINGS, STROKED_SETTINGS, createPainterly, hash32, unit } from "../../modules/keel-web3/render/painterly/src/index.ts";
+import { DETAIL, buildBust, createPortrait } from "../../modules/keel-web3/generative/portrait/src/index.ts";
 import { LAKE_VALLEY, createPlatePainter, planPlate } from "../../modules/keel-web3/generative/plate-painter/src/index.ts";
 import type { Painterly, PainterlySettings } from "../../modules/keel-web3/render/painterly/src/index.ts";
 
@@ -13,16 +14,16 @@ type Vec = readonly [number, number, number];
 // (keel-lit is untyped here, as in people-sheet: a node or a matrix is whatever lit hands back.)
 type Node3 = any;
 type Matrix = any;
-type Variant = "raw" | "smooth" | "stroked" | "flow" | "detail" | "depth";
-interface Shot { width: number; height: number; dpr: number; seed: number; backdrop?: string }
+type Variant = "raw" | "glaze" | "strokes" | "flow" | "detail" | "depth";
+interface Shot { width: number; height: number; dpr: number; seed: number; backdrop?: string; figure?: string }
 interface Timing { gpu: number[]; sync: number[]; raf: number[] }
 
 const ACTION = "wave";
 const YAW = 0.22;
 const HEAD_BONE = 4;
 const SETTINGS: Readonly<Record<Variant, PainterlySettings>> = {
-  raw: STROKED_SETTINGS, smooth: SMOOTH_SETTINGS, stroked: STROKED_SETTINGS, flow: STROKED_SETTINGS, detail: STROKED_SETTINGS,
-  depth: STROKED_SETTINGS,
+  raw: GLAZE_SETTINGS, glaze: GLAZE_SETTINGS, strokes: STROKED_SETTINGS, flow: GLAZE_SETTINGS, detail: GLAZE_SETTINGS,
+  depth: GLAZE_SETTINGS,
 };
 
 const unitOf = (v: Vec): Vec => {
@@ -167,7 +168,7 @@ function card(p: Person): Node3 {
   return group;
 }
 
-interface Scene { renderer: Node3; stage: Node3; camera: Node3; paint: Painterly; info: Record<string, unknown>; backdrop?: () => void }
+interface Scene { renderer: Node3; stage: Node3; camera: Node3; paint: Painterly; info: Record<string, unknown>; backdrop?: () => void; before?: () => void }
 
 /** A plate-painter plate at seed 0, covering the frame: the painted backdrop the painter will usually run over. */
 function plate(renderer: Node3, shot: Shot): () => void {
@@ -175,6 +176,40 @@ function plate(renderer: Node3, shot: Shot): () => void {
   const size = { width: Math.round(shot.width * shot.dpr), height: Math.round(shot.height * shot.dpr) };
   const painted = painter.paint(planPlate(LAKE_VALLEY, { seed: 0 }), size);
   return () => { painter.draw(painted, size); };
+}
+
+/** Aims the camera from `eye` at `at`, then shifts the aim so `at` lands at `screen` (shares of the frame, from the top left). */
+function frameOn(camera: Node3, fov: number, eye: Vec, at: Vec, screen: readonly [number, number]): void {
+  camera.position.set(eye[0], eye[1], eye[2]);
+  camera.lookAt(at[0], at[1], at[2]);
+  camera.updateMatrixWorld(true);
+  const v = new lit.Vector3(at[0], at[1], at[2]).project(camera);
+  const dx = (screen[0] * 2 - 1) - v.x;
+  const dy = (1 - screen[1] * 2) - v.y;
+  const dist = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
+  const h = Math.tan((fov * Math.PI) / 360) * dist;
+  const right = new lit.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  const up = new lit.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+  const aim = new lit.Vector3(at[0], at[1], at[2]).addScaledVector(right, -dx * h * camera.aspect).addScaledVector(up, -dy * h);
+  camera.lookAt(aim.x, aim.y, aim.z);
+  camera.updateMatrixWorld(true);
+}
+
+/** The portrait bust (face A, the card pinched, hero detail) framed as its own demo frames it, with its own light. */
+function portrait(renderer: Node3, stage: Node3, camera: Node3): { before: () => void; info: Record<string, unknown> } {
+  const bust = buildBust({ seed: 7, face: "A", hand: "pinch", detail: DETAIL.hero });
+  const sitter = createPortrait(lit, bust);
+  const group: Node3 = sitter.group;
+  const UNIT = 0.23;
+  group.scale.set(1 / UNIT, 1 / UNIT, 1 / UNIT);
+  group.rotation.y = (-25 * Math.PI) / 180;
+  stage.add(group);
+  group.updateMatrixWorld(true);
+  const faceAt = new lit.Vector3(0, 0.13, 0.07).applyMatrix4(group.matrixWorld);
+  frameOn(camera, 36, [-0.55, 0.78, 3.44], [faceAt.x, faceAt.y, faceAt.z], [0.575, 0.45]);
+  sitter.face({ lid: 0, at: [camera.position.x, camera.position.y, camera.position.z] });
+  const vertices = bust.parts.reduce((n, part) => n + part.position.length / 3, 0);
+  return { before: () => { sitter.shadows(renderer); }, info: { figure: "portrait", face: "A", vertices } };
 }
 
 function build(shot: Shot): Scene {
@@ -188,7 +223,16 @@ function build(shot: Shot): Scene {
   renderer.toneMapping = "none";
   const stage = new lit.Stage();
   const onPlate = shot.backdrop === "plate";
+  const onBust = shot.figure === "portrait";
   if (!onPlate) stage.fog = new lit.Fog("#b7b9b6", 12, 110);
+  if (onBust) {
+    const camera = new lit.PerspectiveCamera(36, shot.width / shot.height, 0.05, 50);
+    const sitter = portrait(renderer, stage, camera);
+    const paint = createPainterly(lit, renderer, GLAZE_SETTINGS);
+    paint.setSize(shot.width, shot.height, shot.dpr);
+    const info = { seed: shot.seed, backdrop: shot.backdrop ?? "scene", ...sitter.info };
+    return { renderer, stage, camera, paint, info, before: sitter.before, ...(onPlate ? { backdrop: plate(renderer, shot) } : {}) };
+  }
   const camera = new lit.PerspectiveCamera(30, shot.width / shot.height, 0.3, 90);
   camera.position.set(0.3, 1.5, 2.7);
   camera.lookAt(-0.1, 1.35, 0);
@@ -217,13 +261,13 @@ function build(shot: Shot): Scene {
     sky: [0.58, 0.66, 0.78], ground: [0.3, 0.25, 0.2], rim: [-0.3, 0.4, -0.85], rimColor: [1.1, 1.2, 1.5], front: [0.12, 0.12, 0.12],
   });
   stage.add(cap(mesh, bones), card(p));
-  const paint = createPainterly(lit, renderer, STROKED_SETTINGS);
+  const paint = createPainterly(lit, renderer, GLAZE_SETTINGS);
   paint.setSize(shot.width, shot.height, shot.dpr);
-  const info = { seed: shot.seed, backdrop: shot.backdrop ?? "scene", vertices: mesh.position.length / 3, top: meshTop(mesh.position), head: mesh.face.head, eyes: mesh.face.eyes, outfit: p.outfit };
+  const info = { seed: shot.seed, backdrop: shot.backdrop ?? "scene", figure: "person", vertices: mesh.position.length / 3, top: meshTop(mesh.position), head: mesh.face.head, eyes: mesh.face.eyes, outfit: p.outfit };
   return { renderer, stage, camera, paint, info, ...(onPlate ? { backdrop: plate(renderer, shot) } : {}) };
 }
 
-/** A variant by name, or "set:key=value,key=value" for any settings over the stroked ones. */
+/** A variant by name, or "set:key=value,key=value" for any settings over the glaze. */
 function settingsOf(variant: string): PainterlySettings {
   if (!variant.startsWith("set:")) return SETTINGS[variant as Variant];
   const over: Record<string, number> = {};
@@ -231,16 +275,17 @@ function settingsOf(variant: string): PainterlySettings {
     const [key, value] = pair.split("=");
     if (key && value) over[key] = Number(value);
   }
-  return { ...STROKED_SETTINGS, ...over };
+  return { ...GLAZE_SETTINGS, ...over };
 }
 
 function show(scene: Scene, variant: string): void {
   const { paint } = scene;
-  // (The checking views show the stroked variant's flow and fineness.)
+  // (The checking views show the glaze's flow and fineness.)
   const views = ["raw", "flow", "detail", "depth"] as const;
   const view = views.find((v) => v === variant);
   paint.setView(view ?? "painted");
   paint.setSettings(settingsOf(variant));
+  scene.before?.();
   paint.render(scene.stage, scene.camera, scene.backdrop);
 }
 
@@ -303,6 +348,31 @@ async function sheet(stills: readonly string[], compare: string | null, w: numbe
   return out.toDataURL("image/png");
 }
 
+/**
+ * How crisp a still is within a box (CSS pixels): the mean absolute gradient of its luminance there. The glaze over a
+ * face is held to at least the raw render's.
+ */
+async function crispness(still: string, box: readonly [number, number, number, number], dpr: number): Promise<number> {
+  const img = new Image();
+  await new Promise<void>((done) => { img.onload = () => { done(); }; img.src = still; });
+  const [bx, by, bw, bh] = box.map((v) => Math.round(v * dpr)) as [number, number, number, number];
+  const work = document.createElement("canvas");
+  work.width = bw;
+  work.height = bh;
+  const ctx = work.getContext("2d")!;
+  ctx.drawImage(img, bx, by, bw, bh, 0, 0, bw, bh);
+  const { data } = ctx.getImageData(0, 0, bw, bh);
+  const lum = (i: number): number => (data[i * 4]! * 0.2126 + data[i * 4 + 1]! * 0.7152 + data[i * 4 + 2]! * 0.0722) / 255;
+  let sum = 0;
+  for (let y = 1; y < bh - 1; y += 1) {
+    for (let x = 1; x < bw - 1; x += 1) {
+      const i = y * bw + x;
+      sum += Math.abs(lum(i + 1) - lum(i - 1)) + Math.abs(lum(i + bw) - lum(i - bw));
+    }
+  }
+  return sum / ((bw - 2) * (bh - 2));
+}
+
 const api = {
   ready: false,
   scene: null as Scene | null,
@@ -310,5 +380,6 @@ const api = {
   still(variant: string): string { show(api.scene!, variant); return api.scene!.renderer.domElement.toDataURL("image/png"); },
   time(variant: string, frames: number): Promise<Timing> { return time(api.scene!, variant, frames); },
   sheet,
+  crispness,
 };
 (globalThis as unknown as { painterly: typeof api }).painterly = api;

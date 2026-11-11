@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The painterly module's demo, rendered in real Chrome on the GPU: a seeded person in a knit cap holding a card before
-// a lake and mountains, drawn raw, smoothed (the base alone) and stroked along the form. Writes a still of each, the
-// frame times, and a sheet of the three beside any image given to compare.
+// a lake and mountains, or (--figure portrait) the portrait bust, before the scene or (--backdrop plate) a plate-painter
+// plate; drawn raw, glazed and with a few strokes. Writes a still of each, the frame times, and a sheet of the three
+// beside any image given to compare.
 //
 //   node scripts/painterly-demo/demo.mjs --out trial/ --width 1440 --height 900 --dpr 2 --frames 300
 //   node scripts/painterly-demo/demo.mjs --out trial/ --compare some-painting.jpg     (a fourth tile on the sheet)
@@ -18,8 +19,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const { values } = parseArgs({ options: {
   out: { type: "string", default: "painterly-demo" }, width: { type: "string", default: "1440" }, height: { type: "string", default: "900" },
   dpr: { type: "string", default: "2" }, frames: { type: "string", default: "300" }, seed: { type: "string", default: "52" },
-  compare: { type: "string" }, variants: { type: "string", default: "raw,smooth,stroked,flow" },
-  interleave: { type: "string", default: "0" }, backdrop: { type: "string", default: "scene" },
+  compare: { type: "string" }, variants: { type: "string", default: "raw,glaze,strokes,flow" },
+  interleave: { type: "string", default: "0" }, backdrop: { type: "string", default: "scene" }, figure: { type: "string", default: "person" },
+  face: { type: "string" },
 } });
 const dirs = (dir) => (existsSync(dir) ? readdirSync(dir).map((name) => join(dir, name)) : []);
 
@@ -43,7 +45,7 @@ const stats = (samples) => {
   return { frames: sorted.length, median: quantile(sorted, 0.5), p95: quantile(sorted, 0.95), min: sorted[0], max: sorted.at(-1) };
 };
 
-const shot = { width: Number(values.width), height: Number(values.height), dpr: Number(values.dpr), seed: Number(values.seed), backdrop: values.backdrop };
+const shot = { width: Number(values.width), height: Number(values.height), dpr: Number(values.dpr), seed: Number(values.seed), backdrop: values.backdrop, figure: values.figure };
 const frames = Number(values.frames);
 const variants = values.variants.split(",");
 const out = resolve(values.out);
@@ -118,6 +120,18 @@ try {
     if (values.compare) {
       const type = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" }[extname(values.compare).toLowerCase()] ?? "image/png";
       compare = `data:${type};base64,${readFileSync(values.compare).toString("base64")}`;
+    }
+    if (values.face) {
+      // (--face x,y,w,h in CSS pixels: how crisp each still is there, as a share of the raw render's.)
+      const box = values.face.split(",").map(Number);
+      /** @type {Record<string, number>} */
+      const crisp = {};
+      for (const [i, variant] of variants.entries()) {
+        crisp[variant] = await page.evaluate(([s, b, d]) => globalThis.painterly.crispness(s, b, d), [stills[i], box, shot.dpr]);
+      }
+      const raw = crisp.raw ?? 1;
+      result.crispness = Object.fromEntries(Object.entries(crisp).map(([variant, value]) => [variant, Number((value / raw).toFixed(3))]));
+      console.log(`crispness in the face box, as a share of raw: ${Object.entries(result.crispness).map(([v, r]) => `${v} ${r}`).join(", ")}`);
     }
     const sheet = await page.evaluate(([s, c, w, h]) => globalThis.painterly.sheet(s, c, w, h), [stills.slice(0, 3), compare, shot.width, shot.height]);
     writeFileSync(join(out, "sheet.png"), png(sheet));

@@ -1,20 +1,21 @@
 // The painter bound to a renderer. Each frame: the scene into a linear target with depth; tone mapped at the paint's
-// size; the structure tensor of the colour and the form at the paint's size, blurred; an anisotropic
-// Kuwahara smoothing along it; strokes stamped along it (when asked); and the finish onto the host's target.
+// size; the structure tensor of the colour and the form at the paint's size, blurred; an anisotropic Kuwahara
+// smoothing along it, then blended along it (the glaze); strokes stamped along it (when asked); and the finish
+// onto the host's target.
 
 import {
-  BLUR_GLSL, GRADE_GLSL, KUWAHARA_GLSL, PREP_GLSL, STROKE_GLSL, TABLE_GLSL, TENSOR_GLSL, VERTEX_GLSL,
+  BLUR_GLSL, GLAZE_GLSL, GRADE_GLSL, KUWAHARA_GLSL, PREP_GLSL, STROKE_GLSL, TABLE_GLSL, TENSOR_GLSL, VERTEX_GLSL,
 } from "./painterly.glsl.js";
 import type {
   CameraLike, DataTextureLike, DisposableLike, LitLike, RendererLike, RenderTargetLike, SceneLike, ShaderMaterialLike,
   Uniform,
 } from "./lit.js";
-import { GRAIN_SIZE, STROKE_CELLS, grainTile, painterlySettings, strokeTile } from "./settings.js";
+import { CRACK_SIZE, GRAIN_SIZE, STROKE_CELLS, crackTile, grainTile, painterlySettings, strokeTile } from "./settings.js";
 import type { PainterlySettings } from "./settings.js";
 
 export interface Painterly {
   readonly settings: PainterlySettings;
-  /** New settings, normalized through `painterlySettings`; a new seed lays the strokes and weaves the canvas again. */
+  /** New settings, normalized through `painterlySettings`; a new seed lays the strokes, canvas and cracks again. */
   setSettings(input?: unknown): PainterlySettings;
   /** The canvas's CSS size and pixel ratio (the renderer's). */
   setSize(cssWidth: number, cssHeight: number, devicePixelRatio: number): void;
@@ -39,8 +40,8 @@ interface Pass {
 }
 
 const PASSES = {
-  prep: PREP_GLSL, tensor: TENSOR_GLSL, blur: BLUR_GLSL, kuwahara: KUWAHARA_GLSL, table: TABLE_GLSL,
-  stroke: STROKE_GLSL, grade: GRADE_GLSL,
+  prep: PREP_GLSL, tensor: TENSOR_GLSL, blur: BLUR_GLSL, kuwahara: KUWAHARA_GLSL, glaze: GLAZE_GLSL,
+  table: TABLE_GLSL, stroke: STROKE_GLSL, grade: GRADE_GLSL,
 };
 
 /** The broad layer's cell, in brushes; the fine layer's is one brush. */
@@ -75,12 +76,14 @@ function createUniforms(): Record<string, Uniform> {
   const number = (value: number): Uniform => ({ value });
   return {
     tColor: number(0), tDepth: number(0), tPrep: number(0), tTensor: number(0), tBlur: number(0), tPaint: number(0),
-    tPainted: number(0), tTile: number(0), tGrain: number(0), tCoarse: number(0), tFine: number(0),
+    tRough: number(0), tPainted: number(0), tTile: number(0), tGrain: number(0), tCrack: number(0), tCoarse: number(0),
+    tFine: number(0),
     uNear: number(0.1), uFar: number(100), uOrtho: number(0), uProj: vec2(),
     uSize: vec2(), uPaintSize: vec2(), uTexel: vec2(), uDir: vec2(1, 0),
-    uExposure: number(1), uDirection: number(1), uRadius: number(5), uLayer: vec4(), uCoarse: vec4(), uFine: vec4(),
-    uTileCells: number(STROKE_CELLS), uStrokes: number(1), uGrainSize: number(GRAIN_SIZE),
-    uGrain: number(0.05), uEdge: number(0.5), uGrade: number(0.6), uView: number(0),
+    uExposure: number(1), uDirection: number(1), uRadius: number(4), uLayer: vec4(), uCoarse: vec4(), uFine: vec4(),
+    uTileCells: number(STROKE_CELLS), uStrokes: number(0), uGrainSize: number(GRAIN_SIZE),
+    uCrackSize: number(CRACK_SIZE),
+    uGrain: number(0.2), uEdge: number(0.5), uGrade: number(0.6), uCrackle: number(0.25), uView: number(0),
   };
 }
 
@@ -93,7 +96,7 @@ function set(uniforms: Record<string, Uniform>, name: string, value: unknown): v
 function writeSettings(u: Record<string, Uniform>, s: PainterlySettings): void {
   const values: readonly (readonly [string, unknown])[] = [
     ["uExposure", s.exposure], ["uDirection", s.direction], ["uRadius", s.stroke],
-    ["uStrokes", s.strokes], ["uGrain", s.grain], ["uEdge", s.edge], ["uGrade", s.grade],
+    ["uStrokes", s.strokes], ["uGrain", s.grain], ["uEdge", s.edge], ["uGrade", s.grade], ["uCrackle", s.crackle],
   ];
   for (const [name, value] of values) set(u, name, value);
 }
@@ -102,6 +105,7 @@ interface Targets {
   readonly world: RenderTargetLike;
   readonly prep: RenderTargetLike;
   readonly tensor: readonly [RenderTargetLike, RenderTargetLike];
+  /** The glazed base; and, before the glaze, the Kuwahara's rough base in `strokes`, which the strokes then take. */
   readonly paint: RenderTargetLike;
   /** The broad and the fine layers' strokes, one each a cell: flow on the left half, colour on the right. */
   readonly tables: readonly [RenderTargetLike, RenderTargetLike];
@@ -125,23 +129,30 @@ function createTargets(lit: LitLike): Targets {
   };
 }
 
-/** The seed's tiles as textures: where the strokes lie (nearest, a cell each) and the canvas's weave (smooth). */
+/**
+ * The seed's tiles as textures: where the strokes lie (nearest, a cell each), the canvas's weave and the varnish's
+ * cracks (both smooth).
+ */
 interface Tiles {
   readonly strokes: DataTextureLike;
   readonly grain: DataTextureLike;
+  readonly crack: DataTextureLike;
 }
 
 function createTiles(lit: LitLike, seed: number): Tiles {
   const strokes = new lit.DataTexture(strokeTile(seed), STROKE_CELLS, STROKE_CELLS, "rgba", "u8");
   const grain = new lit.DataTexture(grainTile(seed), GRAIN_SIZE, GRAIN_SIZE, "red", "u8");
-  for (const tile of [strokes, grain]) {
+  const crack = new lit.DataTexture(crackTile(seed), CRACK_SIZE, CRACK_SIZE, "red", "u8");
+  for (const tile of [strokes, grain, crack]) {
     tile.wrapS = "repeat";
     tile.wrapT = "repeat";
     tile.needsUpdate = true;
   }
-  grain.magFilter = "linear";
-  grain.minFilter = "linear";
-  return { strokes, grain };
+  for (const tile of [grain, crack]) {
+    tile.magFilter = "linear";
+    tile.minFilter = "linear";
+  }
+  return { strokes, grain, crack };
 }
 
 type Size = readonly [number, number];
@@ -203,13 +214,15 @@ function drawTensor(chain: Chain): void {
   pass(chain, "blur", targets.tensor[0]);
 }
 
-/** Everything after the scene: the tone map, the tensor, the smoothing, the strokes, the finish onto `out`. */
+/** Everything after the scene: the tone map, the tensor, the base and glaze, the strokes, the finish onto `out`. */
 function drawChain(chain: Chain, settings: PainterlySettings, raw: boolean, out: RenderTargetLike | null): void {
   const { targets, uniforms } = chain;
   if (!raw) {
     pass(chain, "prep", targets.prep);
     drawTensor(chain);
-    pass(chain, "kuwahara", targets.paint);
+    // (The rough base goes through the strokes' target, which is free until the strokes are drawn.)
+    pass(chain, "kuwahara", targets.strokes);
+    pass(chain, "glaze", targets.paint);
     let painted = targets.paint;
     if (settings.strokes > 0) {
       for (const [name, i] of [["uCoarse", 0], ["uFine", 1]] as const) {
@@ -229,7 +242,7 @@ function disposeChain(chain: Chain, tiles: Tiles): void {
   t.world.depthTexture?.dispose();
   for (const target of [t.world, t.prep, ...t.tensor, t.paint, ...t.tables, t.strokes]) target.dispose();
   for (const p of Object.values(chain.passes)) p.material.dispose();
-  for (const tile of [tiles.strokes, tiles.grain]) tile.dispose();
+  for (const tile of [tiles.strokes, tiles.grain, tiles.crack]) tile.dispose();
   chain.geometry.dispose();
 }
 
@@ -240,6 +253,7 @@ function createChain(lit: LitLike, renderer: RendererLike, uniforms: Record<stri
   set(uniforms, "tPrep", targets.prep.texture);
   set(uniforms, "tTensor", targets.tensor[0].texture);
   set(uniforms, "tPaint", targets.paint.texture);
+  set(uniforms, "tRough", targets.strokes.texture);
   set(uniforms, "tCoarse", targets.tables[0].texture);
   set(uniforms, "tFine", targets.tables[1].texture);
   const geometry = lit.plane(2, 2);
@@ -250,9 +264,9 @@ function createChain(lit: LitLike, renderer: RendererLike, uniforms: Record<stri
 }
 
 /**
- * Binds a painter to a renderer: a keel/lit stage drawn, tone mapped, smoothed along its structure, stroked along
- * its form and finished as an oil painting on canvas. The renderer's own tone mapping is not used: the painter does
- * its own (ACES) before it paints.
+ * Binds a painter to a renderer: a keel/lit stage drawn, tone mapped, smoothed and blended along its structure,
+ * stroked along its form if asked, and finished as an oil painting under an old varnish on canvas. The renderer's
+ * own tone mapping is not used: the painter does its own (ACES) before it paints.
  *
  * @param lit The keel/lit namespace (WebGL2).
  * @param renderer The renderer that owns the canvas.
@@ -268,6 +282,7 @@ export function createPainterly(lit: LitLike, renderer: RendererLike, input?: un
   const writeTiles = (): void => {
     set(uniforms, "tTile", tiles.strokes);
     set(uniforms, "tGrain", tiles.grain);
+    set(uniforms, "tCrack", tiles.crack);
   };
   writeSettings(uniforms, settings);
   writeTiles();
@@ -278,7 +293,7 @@ export function createPainterly(lit: LitLike, renderer: RendererLike, input?: un
       settings = painterlySettings(next);
       writeSettings(uniforms, settings);
       if (settings.seed !== was.seed) {
-        for (const tile of [tiles.strokes, tiles.grain]) tile.dispose();
+        for (const tile of [tiles.strokes, tiles.grain, tiles.crack]) tile.dispose();
         tiles = createTiles(lit, settings.seed);
         writeTiles();
       }

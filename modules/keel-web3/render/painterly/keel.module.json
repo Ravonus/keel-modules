@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "entry": "src/index.ts",
   "license": "MIT",
-  "summary": "A lit keel/lit stage painted as an oil painting: smoothed along its structure (an anisotropic Kuwahara filter on the structure tensor), strokes stamped along the form from the mesh's own normals and depth, canvas grain and a varnish grade. The stroke placement and the canvas weave come from a seed.",
+  "summary": "A lit keel/lit stage painted as an oil painting: smoothed along its structure (an anisotropic Kuwahara filter on the structure tensor) and blended along it as a glaze, with a face's features kept crisp; soft strokes along the form from the mesh's own depth if asked for; a warm varnish with a fine craquelure; canvas showing in the thin, dark passages. The strokes, the canvas weave and the cracks come from a seed.",
   "category": "render",
   "owner": {
     "org": "keel-web3",
@@ -22,7 +22,7 @@
       "unit": "px",
       "control": "slider",
       "help": "The brush's radius in painted pixels.",
-      "default": 5
+      "default": 4
     },
     {
       "key": "direction",
@@ -38,7 +38,7 @@
     },
     {
       "key": "strokes",
-      "label": "Strokes",
+      "label": "Strokes over the glaze",
       "type": "number",
       "required": false,
       "min": 0,
@@ -46,7 +46,7 @@
       "step": 0.05,
       "control": "slider",
       "help": "How much of the picture is stamped strokes; 0 is the smoothed base alone.",
-      "default": 1
+      "default": 0
     },
     {
       "key": "grain",
@@ -57,7 +57,7 @@
       "max": 1,
       "step": 0.05,
       "control": "slider",
-      "default": 0.05
+      "default": 0.2
     },
     {
       "key": "edge",
@@ -80,6 +80,17 @@
       "step": 0.05,
       "control": "slider",
       "default": 0.6
+    },
+    {
+      "key": "crackle",
+      "label": "Craquelure",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "control": "slider",
+      "default": 0.25
     },
     {
       "key": "exposure",

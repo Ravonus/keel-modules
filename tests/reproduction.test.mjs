@@ -36,7 +36,7 @@ const cli = path.join(sdkRoot, "packages/builder/dist/cli.js");
 const catalogRepository = "https://github.com/Ravonus/keel-modules";
 
 const EXPECTED_MODULES = 50;
-const EXPECTED_VECTORS = 526;
+const EXPECTED_VECTORS = 530;
 
 async function directoryExists(target) {
   try {
